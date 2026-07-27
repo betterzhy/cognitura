@@ -58,6 +58,7 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = YES
 
 - `docs/engineering/cognitura-repository-baseline-review.md`
 - `docs/engineering/cognitura-naming-migration.md`
+- `docs/engineering/cognitura-technology-baseline.md`
 - `docs/engineering/cognitura-wave-0-plan.md`
 - `docs/engineering/cognitura-wave-0-entry-decision.md`
 

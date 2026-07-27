@@ -6,7 +6,10 @@
 
 **Architecture:** Wave 0 不实现业务功能。它先固定原始输入与设计来源，再封口专项契约覆盖和 JSON Schema，随后建立 Golden Case 回归、页面/Renderer 契约验证、技术栈工程骨架和 CI。所有产物围绕模块化单体与 Desktop Web 边界组织。
 
-**Tech Stack:** 总体设计推荐 Java 21、Spring Boot、PostgreSQL、JSONB、对象存储、React、TypeScript、LLM Provider Adapter、JSON Schema；这只是技术方向，不是已批准的工程基线。构建工具、框架形态、包管理器及精确版本由 `W0-03` 正式封口。
+**Tech Stack:** 后端已正式选择 Java 21、Maven 3.9.16、Spring Boot 4.1.0、
+Spring Modulith 2.1.0、PostgreSQL 18、MyBatis Spring Boot Starter 4.0.0、
+Flyway、Spring AI 2.0.0 和 JSON Schema。前端版本、包管理器、对象存储及
+可运行骨架仍由 `W0-03` 后续步骤封口。
 
 ## Global Constraints
 
@@ -125,7 +128,8 @@ W0-G2 SpecialtyContractCoverage = PASS
 
 **Produces:** 只有构建、模块边界和健康检查的最小骨架，不含业务功能。
 
-- [ ] **Step 1:** 在技术基线中固定 Java 21、Spring Boot、PostgreSQL、React、TypeScript、包管理器、构建工具及精确版本。
+- [x] **Step 1a:** 在技术基线中固定 Java 21、Maven 3.9.16、Spring Boot 4.1.0、PostgreSQL 18、MyBatis 4.0.0、迁移、模块治理、AI Adapter 和后端测试工具链。
+- [ ] **Step 1b:** 固定 React、TypeScript、Node、前端构建工具、包管理器及精确版本。
 - [ ] **Step 2:** 记录 server 的 `source`、`cognition`、`generation`、`reading`、`llm` 模块边界。
 - [ ] **Step 3:** 记录 web 的 `workspace`、`document-ingestion`、`structure-review`、`landscape`、`theme`、`module-reading`、`source-evidence`、`generation-status`、`revision-history` 边界。
 - [ ] **Step 4:** 先写最小构建与健康检查失败验证，再创建只包含启动/健康检查的骨架。
@@ -134,6 +138,15 @@ W0-G2 SpecialtyContractCoverage = PASS
 
 ```text
 W0-G2A BuildBaseline = PASS
+```
+
+当前中间状态：
+
+```text
+W0-03 BackendTechnologySelection = PASS
+W0-03 FrontendTechnologySelection = NOT_STARTED
+W0-03 BuildSkeleton = NOT_STARTED
+W0-G2A BuildBaseline = IN_PROGRESS
 ```
 
 ## Task W0-04：建立 JSON Schema Source

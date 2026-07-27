@@ -35,6 +35,10 @@ Wave 0 只允许建立 Repository、设计索引、专项契约覆盖、JSON Sch
 3. `raw/` 下三份 Golden Case 原始 DOCX。
 4. `docs/engineering/` 下的工程索引、计划和准入记录；这些文件解释落地状态，不覆盖正式设计。
 
+后端工程选择以
+`docs/engineering/cognitura-technology-baseline.md` 为唯一技术基线；不得在
+子模块中另行选择 Java、Spring Boot、数据库或数据访问框架版本。
+
 专项正文缺失时，使用总体设计中已经回迁的正式契约继续 Wave 0 非 Schema 工作；字段级 JSON Schema 不得猜测。缺口必须记录为 `DocumentationGap`，直到权威来源落地或形成明确的工程裁决。
 
 ## 4. 不可修改的产品裁决
@@ -82,6 +86,8 @@ V1Architecture = MODULAR_MONOLITH
 - Theme 必须形成 `ThemeClosure`，Landscape 必须形成 `LandscapeClosure`。
 - 关键认知必须可回溯到来源；不得静默补齐来源缺口。
 - Renderer 只能投影正式认知产物，不得创造第二套事实。
+- 后端固定使用 JDK 21、Maven 3.9.16、Spring Boot 4.1.0、PostgreSQL 18
+  和 MyBatis Starter 4.0.0；不引入 JPA、MyBatis-Plus 或默认 WebFlux。
 
 ## 7. 工作方式
 

@@ -33,7 +33,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G0 RepositoryBaseline` | `PASS` | `main`、原件哈希匹配、Repository 基线内容提交 `2047a80` |
 | `W0-G1 DesignSourceRegistry` | `PARTIAL` | 机器可读 manifest 与哈希验证 |
 | `W0-G2 SpecialtyContractCoverage` | `PARTIAL` | 回迁覆盖矩阵与字段级缺口唯一处置 |
-| `W0-G2A BuildBaseline` | `NOT_STARTED` | Java/React 最小构建骨架与版本锁 |
+| `W0-G2A BuildBaseline` | `IN_PROGRESS` | 后端技术已封口；仍需前端版本、Java/React 最小构建骨架与版本锁 |
 | `W0-G3 JsonSchemaValidation` | `BLOCKED_BY_DOC_GAP_001` | 权威字段来源和 Schema 正反例 |
 | `W0-G4 GoldenCaseRegression` | `PARTIAL` | 机器可执行断言与离线回归 |
 | `W0-G4A UiContractValidation` | `PARTIAL` | 页面/Renderer 契约验证 |
@@ -50,13 +50,21 @@ Cognitura 可以进入 Wave 0 执行。
 
 ```text
 ArchitectureAndPlatformDecision = FINAL
-TechnologyStackDirection = DESIGN_RECOMMENDATION
-TechnologyBaselineDecision = PENDING_W0_03
+TechnologyStackDirection = APPROVED
+TechnologyBaselineDecision = PARTIALLY_FORMALIZED
+BackendTechnologyBaseline = FORMAL
+FrontendTechnologyBaseline = PENDING_W0_03
 ```
 
-已经封口的是模块化单体、Desktop Web、Java 21 方向、Spring Boot、PostgreSQL/JSONB、对象存储、React + TypeScript、LLM Provider Adapter 和 JSON Schema。
+已经封口的是模块化单体、Desktop Web，以及
+`docs/engineering/cognitura-technology-baseline.md` 记录的 JDK 21、
+Maven 3.9.16、Spring Boot 4.1.0、Spring Modulith 2.1.0、PostgreSQL 18、
+MyBatis Starter 4.0.0、Flyway、Spring AI 2.0.0 和后端测试策略。
 
-尚未封口的是 Spring Boot 精确版本、Maven 或 Gradle、前端应用框架与构建工具、Node/包管理器版本、PostgreSQL 主版本、数据库迁移工具、对象存储实现、测试工具链、CI Provider 和本地开发/容器策略。不得在 `W0-G2A BuildBaseline` 通过前把这些选择描述为正式技术基线。
+尚未封口的是 React/TypeScript/Node 精确版本、前端构建工具与包管理器、
+对象存储实现、CI Provider、部署策略和精确容器 digest。后端构建骨架与依赖
+解析尚未验证，因此 `W0-G2A BuildBaseline` 仍为 `IN_PROGRESS`，不得描述为
+已经通过。
 
 ## 6. 下一动作
 
