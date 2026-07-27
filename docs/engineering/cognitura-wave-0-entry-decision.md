@@ -1,11 +1,12 @@
 # Cognitura Wave 0 开发准入裁决
 
 ```text
-DecisionDate = 2026-07-27
+DecisionDate = 2026-07-28
 CurrentStage =
-  EXISTING_REPOSITORY_BASELINE_REVIEW_AND_WAVE0_PLANNING
+  WAVE0_EXECUTION
 
 Wave0ExecutionEntry = GO_WITH_GATES
+Wave0ExecutionStatus = IN_PROGRESS
 Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```
@@ -29,7 +30,7 @@ Cognitura 可以进入 Wave 0 执行。
 
 | Gate | 当前状态 | Wave 0 退出要求 |
 |---|---|---|
-| `W0-G0 RepositoryBaseline` | `NOT_STARTED` | Git、main、干净工作树、固定 HEAD |
+| `W0-G0 RepositoryBaseline` | `PASS` | `main`、原件哈希匹配、Repository 基线内容提交 `2047a80` |
 | `W0-G1 DesignSourceRegistry` | `PARTIAL` | 机器可读 manifest 与哈希验证 |
 | `W0-G2 SpecialtyContractCoverage` | `PARTIAL` | 回迁覆盖矩阵与字段级缺口唯一处置 |
 | `W0-G2A BuildBaseline` | `NOT_STARTED` | Java/React 最小构建骨架与版本锁 |
@@ -45,11 +46,23 @@ Cognitura 可以进入 Wave 0 执行。
 
 不得把总体设计中的字段摘要扩写成声称来自历史专项的完整 Schema。
 
-## 5. 下一动作
+## 5. 技术选择状态
 
 ```text
-NextAction = W0-00 RepositoryBaseline
+ArchitectureAndPlatformDecision = FINAL
+TechnologyStackDirection = DESIGN_RECOMMENDATION
+TechnologyBaselineDecision = PENDING_W0_03
+```
+
+已经封口的是模块化单体、Desktop Web、Java 21 方向、Spring Boot、PostgreSQL/JSONB、对象存储、React + TypeScript、LLM Provider Adapter 和 JSON Schema。
+
+尚未封口的是 Spring Boot 精确版本、Maven 或 Gradle、前端应用框架与构建工具、Node/包管理器版本、PostgreSQL 主版本、数据库迁移工具、对象存储实现、测试工具链、CI Provider 和本地开发/容器策略。不得在 `W0-G2A BuildBaseline` 通过前把这些选择描述为正式技术基线。
+
+## 6. 下一动作
+
+```text
+NextAction = W0-01 DesignSourceRegistry
 StopAfterThisRound = YES
 ```
 
-本轮停在“基线复验、命名落地、工程索引、Wave 0 计划和准入裁决均已形成”的干净文档检查点；不在本轮初始化 Git，不创建 server/web/test-data 业务骨架，不执行 Wave 1。
+本轮已完成 `W0-00 RepositoryBaseline`，并停在状态记录后的干净提交检查点；不创建 server/web/test-data 业务骨架，不执行 Wave 1。

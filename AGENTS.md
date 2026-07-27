@@ -14,9 +14,10 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  EXISTING_REPOSITORY_BASELINE_REVIEW_AND_WAVE0_PLANNING
+  WAVE0_EXECUTION
 
 Wave0ExecutionEntry = GO_WITH_GATES
+Wave0ExecutionStatus = IN_PROGRESS
 Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```

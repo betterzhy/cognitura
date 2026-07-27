@@ -6,7 +6,7 @@
 
 **Architecture:** Wave 0 不实现业务功能。它先固定原始输入与设计来源，再封口专项契约覆盖和 JSON Schema，随后建立 Golden Case 回归、页面/Renderer 契约验证、技术栈工程骨架和 CI。所有产物围绕模块化单体与 Desktop Web 边界组织。
 
-**Tech Stack:** Java 21、Spring Boot、PostgreSQL、JSONB、对象存储、React、TypeScript、LLM Provider Adapter、JSON Schema；具体依赖版本在 `W0-03` 由可复现的版本锁定文件封口。
+**Tech Stack:** 总体设计推荐 Java 21、Spring Boot、PostgreSQL、JSONB、对象存储、React、TypeScript、LLM Provider Adapter、JSON Schema；这只是技术方向，不是已批准的工程基线。构建工具、框架形态、包管理器及精确版本由 `W0-03` 正式封口。
 
 ## Global Constraints
 
@@ -60,13 +60,16 @@ DirectFullImplementationStart = NO
 
 **Produces:** 可提交、可审查且不包含 `.DS_Store` 的 Git 基线。
 
-- [ ] **Step 1:** 再次执行 `pwd`、目录清单和 SHA-256 校验，确认四个正式输入与本复验记录一致。
-- [ ] **Step 2:** 确认当前目录仍无 `.git`；只在 Wave 0 执行获得授权后初始化 Repository，默认分支使用 `main`。
-- [ ] **Step 3:** 将 `.DS_Store` 保留在磁盘但排除出版本控制；不得删除或移动任何原始输入。
-- [ ] **Step 4:** 首次提交只包含四个正式输入、`.gitignore` 和本轮工程基线文件。
-- [ ] **Step 5:** 验证 `git status --short` 为空，记录 HEAD，并将 Gate 标记为：
+- [x] **Step 1:** 再次执行 `pwd`、目录清单和 SHA-256 校验，确认四个正式输入与本复验记录一致。
+- [x] **Step 2:** 确认当前目录仍无 `.git`；获得用户授权后初始化 Repository，默认分支使用 `main`。
+- [x] **Step 3:** 将 `.DS_Store` 保留在磁盘但排除出版本控制；未删除或移动任何原始输入。
+- [x] **Step 4:** 首次提交只包含四个正式输入、`.gitignore` 和本轮工程基线文件。
+- [x] **Step 5:** 验证 `git status --short` 为空，记录 Repository 基线内容提交并标记：
 
 ```text
+RepositoryBranch = main
+RepositoryBaselineContentCommit =
+  2047a80dde53e1a9b8b460f2ef9230df7f2bca22
 W0-G0 RepositoryBaseline = PASS
 ```
 

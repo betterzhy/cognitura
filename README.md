@@ -15,10 +15,12 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  EXISTING_REPOSITORY_BASELINE_REVIEW_AND_WAVE0_PLANNING
+  WAVE0_EXECUTION
+
+Wave0ExecutionStatus = IN_PROGRESS
 ```
 
-当前目录已落地总体设计 1.2 和 MySQL、Redis、英语学习三份 Golden Case 原始文档；尚无业务源码、构建系统、测试或 CI。
+当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、英语学习三份 Golden Case 原始文档；尚无业务源码、构建系统、测试或 CI。
 
 ## 正式输入
 
@@ -39,8 +41,9 @@ CurrentStage =
 
 ```text
 Wave0ExecutionEntry = GO_WITH_GATES
+Wave0ExecutionStatus = IN_PROGRESS
 Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```
 
-下一步只能执行 Wave 0 工程基线任务；在 Git、专项契约覆盖、JSON Schema、Golden Case 回归、测试和 CI 门禁全部通过前，不进入业务功能开发。
+`W0-G0 RepositoryBaseline = PASS`。下一步执行 `W0-01 DesignSourceRegistry`；在其余 Wave 0 门禁全部通过前，不进入 Wave 1 业务功能开发。
