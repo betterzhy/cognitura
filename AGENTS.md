@@ -1,0 +1,117 @@
+# Cognitura Repository Instructions
+
+## 1. 项目身份
+
+```text
+CanonicalProjectName = Cognitura
+RepositoryName = cognitura
+PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
+```
+
+所有新增工程产物、模块名、Schema 标题、测试说明和用户可见产品名称统一使用 `Cognitura`。`Cognitive Knowledge Atlas` 和 `Cognitive Knowledge Structure System` 仅作为历史设计名称保留，不重命名历史文件，不改写历史版本号，不制造总体设计副本。
+
+## 2. 当前阶段与允许范围
+
+```text
+CurrentStage =
+  EXISTING_REPOSITORY_BASELINE_REVIEW_AND_WAVE0_PLANNING
+
+Wave0ExecutionEntry = GO_WITH_GATES
+Wave1FeatureDevelopmentEntry = NO_GO
+DirectFullImplementationStart = NO
+```
+
+Wave 0 只允许建立 Repository、设计索引、专项契约覆盖、JSON Schema、Golden Case 回归资产、测试和 CI 基线以及页面/Renderer 契约。不得提前实现完整业务功能。
+
+## 3. 正式事实来源
+
+按以下优先级读取，不得凭对话记忆补写：
+
+1. `cognitive-knowledge-atlas-overall-design-1.2.md`：当前总体正式基线；工程引用名 `Cognitura-Overall-Design-1.2`。
+2. 后续实际落地且通过来源校验的专项设计正文：
+   - `Cognitive-Knowledge-System-Construction-Design-1.0`
+   - `Cognitive-Knowledge-Atlas-UIUX-Design-1.0`
+3. `raw/` 下三份 Golden Case 原始 DOCX。
+4. `docs/engineering/` 下的工程索引、计划和准入记录；这些文件解释落地状态，不覆盖正式设计。
+
+专项正文缺失时，使用总体设计中已经回迁的正式契约继续 Wave 0 非 Schema 工作；字段级 JSON Schema 不得猜测。缺口必须记录为 `DocumentationGap`，直到权威来源落地或形成明确的工程裁决。
+
+## 4. 不可修改的产品裁决
+
+```text
+PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
+
+CanonicalHierarchy =
+  KnowledgeLandscape
+  → KnowledgeTheme
+  → CognitiveModule
+  → KnowledgeElement
+
+PrimaryReadingUnit = COGNITIVE_MODULE
+KnowledgeCardIsCoreObject = NO
+CanonicalKnowledgeStructureIsUserIndependent = YES
+UserLevelModel = NOT_REQUIRED
+PrimaryNavigation = HIERARCHY
+KnowledgeBaseManagement = OUT_OF_SCOPE
+ComplexFreeKnowledgeGraph = OUT_OF_SCOPE
+DeliveryPlatform = WEB_BROWSER
+PrimaryExperience = DESKTOP_WEB
+NativeApp = DEFERRED
+V1Architecture = MODULAR_MONOLITH
+```
+
+不得把系统退化为“文档切块 + 向量检索 + 普通 RAG + AI 摘要”，也不得引入第二棵个性化知识树。
+
+## 5. 原始输入保护
+
+- `raw/11-MySQL数据库.docx`
+- `raw/12-Redis中间件.docx`
+- `raw/40-英语学习.docx`
+
+以上文件是只读 Golden Case 原件。不得改写、转换后覆盖、删除或静默替换。派生物必须放在独立路径，并通过 SHA-256 将结果追溯到原件。
+
+解析必须保留标题层级、段落顺序、表格行列与单元格文本、图片引用、页码或原始顺序。不得访问 Redis 文档中的遗留本地文件链接，也不得把链接目标当成输入内容。
+
+## 6. 工程边界
+
+- V1 使用模块化单体；禁止擅自拆成微服务。
+- 正式交付是 Desktop Web；基础响应式只保证安全可读，不承诺移动端功能等价。
+- 先生成并确认 KnowledgeSkeleton，再生成 Module 深度内容；禁止整份文档一次性生成全部深度内容。
+- 每个 CognitiveModule 必须有唯一主归属和唯一 `PrimaryCognitiveSpine`。
+- Theme 必须形成 `ThemeClosure`，Landscape 必须形成 `LandscapeClosure`。
+- 关键认知必须可回溯到来源；不得静默补齐来源缺口。
+- Renderer 只能投影正式认知产物，不得创造第二套事实。
+
+## 7. 工作方式
+
+开始任何任务前：
+
+1. 读取本文件、`README.md`、设计索引和相关正式设计章节。
+2. 检查真实目录、Git 状态、当前分支、最近提交和未提交修改。
+3. 保留用户修改；不得 reset、覆盖、amend 或把无关修改混入当前提交。
+4. 先写失败的验证或契约测试，再实现最小变更。
+5. 每项 Wave 0 资产必须有可复现的验证命令和明确 Gate 结果。
+
+## 8. Agent 路由
+
+- 主 Agent 负责共享写集、实现决策、最终整合与用户授权边界。
+- 只读代码搜索、大文件扫描、日志与测试输出归纳使用 `fast_explorer`。
+- 固定提交的一般深度审查使用 `deep_reviewer`。
+- 只有固定候选最终 GO/NO-GO、正式数据库写入前复核或同等级高风险门禁使用 `ultra_gatekeeper`。
+- 没有独立、边界清晰的子任务时保持 Solo。
+
+## 9. 准入门禁
+
+```text
+W0-G0 RepositoryBaseline
+W0-G1 DesignSourceRegistry
+W0-G2 SpecialtyContractCoverage
+W0-G2A BuildBaseline
+W0-G3 JsonSchemaValidation
+W0-G4 GoldenCaseRegression
+W0-G4A UiContractValidation
+W0-G5 TestAndCI
+W0-G6 FixedCommitReview
+```
+
+只有以上 Gate 全部为 `PASS`，且固定候选提交通过 `ultra_gatekeeper` 最终准入复核，才允许把 `Wave1FeatureDevelopmentEntry` 改为 `GO`。

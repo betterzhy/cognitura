@@ -1,0 +1,46 @@
+# Cognitura
+
+Cognitura 是一个面向个人阅读与知识学习的 AI 认知结构生成系统。它从一份或多份文档生成稳定的四层认知结构：
+
+```text
+KnowledgeLandscape
+→ KnowledgeTheme
+→ CognitiveModule
+→ KnowledgeElement
+```
+
+项目不以个人知识库、文档管理、普通 RAG 问答、自由知识图谱或学习计划为产品目标。
+
+## 当前阶段
+
+```text
+CurrentStage =
+  EXISTING_REPOSITORY_BASELINE_REVIEW_AND_WAVE0_PLANNING
+```
+
+当前目录已落地总体设计 1.2 和 MySQL、Redis、英语学习三份 Golden Case 原始文档；尚无业务源码、构建系统、测试或 CI。
+
+## 正式输入
+
+- [总体设计 1.2](cognitive-knowledge-atlas-overall-design-1.2.md)：历史文件名保留，工程引用名为 `Cognitura-Overall-Design-1.2`。
+- [MySQL Golden Case](raw/11-MySQL数据库.docx)
+- [Redis Golden Case](raw/12-Redis中间件.docx)
+- [英语学习 Golden Case](raw/40-英语学习.docx)
+
+## 工程文档
+
+- [Repository 基线复验](docs/engineering/cognitura-repository-baseline-review.md)
+- [设计与输入索引](docs/engineering/cognitura-design-index.md)
+- [命名迁移记录](docs/engineering/cognitura-naming-migration.md)
+- [Wave 0 实施计划](docs/engineering/cognitura-wave-0-plan.md)
+- [Wave 0 开发准入裁决](docs/engineering/cognitura-wave-0-entry-decision.md)
+
+## 当前准入
+
+```text
+Wave0ExecutionEntry = GO_WITH_GATES
+Wave1FeatureDevelopmentEntry = NO_GO
+DirectFullImplementationStart = NO
+```
+
+下一步只能执行 Wave 0 工程基线任务；在 Git、专项契约覆盖、JSON Schema、Golden Case 回归、测试和 CI 门禁全部通过前，不进入业务功能开发。
