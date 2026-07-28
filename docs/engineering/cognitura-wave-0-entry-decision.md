@@ -34,7 +34,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G1 DesignSourceRegistry` | `PASS` | manifest 的 4 项正例与 5 项反例通过，正式输入保持不变 |
 | `W0-G2 SpecialtyContractCoverage` | `PASS` | 26 项迁移、19 项契约、2 个开放缺口和 1 个证据限制通过验证 |
 | `W0-G2A BuildBaseline` | `PASS` | 精确全栈版本、单部署 server、空 web 入口、模块边界与在线/离线构建验证通过 |
-| `W0-G3 JsonSchemaValidation` | `PASS` | 14 份 Schema、13 个正例、18 个结构反例、12 个语义反例和 439 条证据映射通过 |
+| `W0-G3 JsonSchemaValidation` | `IN_REVIEW` | 修复候选的 14 份 Schema、2 个合法空值上下文、32 个语义反例、617 条精确证据映射和 3 个映射篡改反例通过；等待固定提交深审 |
 | `W0-G4 GoldenCaseRegression` | `PARTIAL` | 机器可执行断言与离线回归 |
 | `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 9 个负例通过 |
 | `W0-G5 TestAndCI` | `NOT_STARTED` | 本地和 CI 全绿 |
@@ -44,8 +44,9 @@ Cognitura 可以进入 Wave 0 执行。
 
 `DOC-GAP-001` 的历史专项正文缺失事实继续登记，但经用户明确批准的
 `Cognitura-Schema-Baseline-2.0` 已作为正式字段级工程来源落地，W0-04 的执行
-阻断已经解除。Schema、证据映射和正反例已经全部完成，
-`W0-G3 JsonSchemaValidation = PASS`，W0-05 已解除依赖阻断。
+阻断已经解除。Schema、证据映射和正反例的修复候选已通过本地验证，但固定提交
+深审尚未封口；当前 `W0-G3 JsonSchemaValidation = IN_REVIEW`，W0-05 继续
+受 W0-04 依赖阻断。
 
 不得把该重基线声称为历史专项正文，也不得在 W0-04 实施中继续补写未裁决语义。
 
@@ -74,18 +75,18 @@ PostgreSQL 18.4 容器 tag/digest、Spring Boot BOM 实际解析版本、后端�
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-05
+ActiveTaskCard = W0-04
 ActiveTaskCardStatus = READY
 TaskCardIndex = docs/task-cards/README.md
 ```
 
-每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。W0-04 已
-完成，W0-05 是唯一 `READY` 卡；W0-07 及其后继仍受依赖阻断。
+每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。W0-04 是
+唯一 `READY` 卡并处于固定提交审查前；W0-05 及其后继仍受依赖阻断。
 
 ## 7. 下一动作
 
 ```text
-NextAction = EXECUTE_W0_05_GOLDEN_CASE_REGRESSION
+NextAction = REVIEW_W0_04_SCHEMA_REMEDIATION_FIXED_COMMIT
 W0-01 ExecutionStatus = DONE
 W0-G1 DesignSourceRegistry = PASS
 W0-02 ExecutionStatus = DONE
@@ -94,13 +95,14 @@ W0-03 ExecutionStatus = DONE
 W0-G2A BuildBaseline = PASS
 SchemaRebaseline = Cognitura-Schema-Baseline-2.0
 SchemaRebaselineStatus = FORMAL_SCHEMA_REBASELINE
-W0-04 ExecutionStatus = DONE
-W0-G3 JsonSchemaValidation = PASS
-W0-05 ExecutionStatus = READY
+W0-04 ExecutionStatus = READY
+W0-G3 JsonSchemaValidation = IN_REVIEW
+W0-05 ExecutionStatus = BLOCKED_BY_DEPENDENCY
 W0-06 ExecutionStatus = DONE
 W0-G4A UiContractValidation = PASS
 ```
 
-下一轮只允许处理 W0-05 写集，并保护三份只读 Golden Case 原件。
+下一轮只允许完成 W0-04 修复、验证与固定提交审查，不得开始 W0-05 写集；
+三份只读 Golden Case 原件继续保持不变。
 `DOC-GAP-002` 继续保持开放，但不回滚已经验证的非 Schema UI 契约；
 Wave 1 仍为 `NO_GO`。

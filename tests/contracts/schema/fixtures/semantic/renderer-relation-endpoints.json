@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "RENDERER_RELATION_ENDPOINT_CHANGED",
+  "mutation": "RENDERER_RELATION_ENDPOINTS"
+}

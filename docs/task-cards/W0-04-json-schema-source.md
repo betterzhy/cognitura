@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-04
-Status = DONE
+Status = READY
 Gate = W0-G3 JsonSchemaValidation
 Risk = HIGH
 DependsOn = W0-02,W0-03
@@ -51,6 +51,8 @@ DependencyState = SATISFIED
 - Modify: `docs/engineering/cognitura-wave-0-plan.md`
 - Modify: `docs/engineering/cognitura-wave-0-entry-decision.md`
 - Modify（用户补充授权）: `tests/task-cards/verify-task-cards.sh`
+- Modify（用户补充授权）: `AGENTS.md`
+- Modify（用户补充授权）: `README.md`
 
 不得伪造历史专项文档，不得从常识推断 required、枚举、类型或关系约束。
 
@@ -65,7 +67,7 @@ DependencyState = SATISFIED
 - [x] 实现生成阶段 Schema，覆盖输入哈希、Prompt、模型、来源块、验证与重试状态。
 - [x] 实现统一 Renderer 输入 Schema 和页面状态枚举。
 - [x] 运行正例与反例，确认缺少 thesis、spine、boundary 或 sourceRefs 的 Module 被拒绝。
-- [x] 更新设计索引、缺口状态和任务卡，并形成独立提交。
+- [ ] 更新设计索引、缺口状态和任务卡，形成不改写历史的修复提交并通过固定提交深审。
 
 ## 5. 验证命令
 
@@ -95,8 +97,11 @@ InstantiableSchemaCount = 13
 ValidFixtureCount = 13
 InvalidFixtureCount = 18
 StrictObjectNegativeCaseCount = 12
-SemanticNegativeCaseCount = 12
-EvidenceMapEntryCount = 439
+SemanticValidContextCount = 2
+NonPublishedModuleNullability = PASS
+SemanticNegativeCaseCount = 32
+EvidenceMapEntryCount = 617
+EvidenceMapNegativeCaseCount = 3
 Validator = Ajv-8.20.0
 NetworkResolution = FORBIDDEN
 ObservedRedBoundary =
@@ -108,14 +113,14 @@ ObservedRedBoundary =
 ```
 
 ```text
-W0-G3 JsonSchemaValidation = PASS
+W0-G3 JsonSchemaValidation = IN_REVIEW
 ```
 
 ## 7. 提交与审查
 
 ```text
-CommitMessage = feat: add Cognitura canonical JSON schemas
-CommitReview = MAIN_AGENT_GATE
+CommitMessage = fix: harden Cognitura schema semantic validation
+CommitReview = DEEP_REVIEWER_FIXED_COMMIT
 NextTaskCardOnPass = W0-05
 ```
 

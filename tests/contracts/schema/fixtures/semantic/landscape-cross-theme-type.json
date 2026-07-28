@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "LANDSCAPE_THEME_OUT_OF_SCOPE",
+  "mutation": "LANDSCAPE_CROSS_THEME_TYPE"
+}

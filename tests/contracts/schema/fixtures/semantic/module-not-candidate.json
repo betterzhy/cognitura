@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "MODULE_NOT_CONFIRMED_CANDIDATE",
+  "mutation": "MODULE_NOT_CANDIDATE"
+}

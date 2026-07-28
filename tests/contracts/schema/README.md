@@ -41,7 +41,9 @@
 | `tests/contracts/schema/fixtures/semantic/*.json` | Valid and invalid cross-object revision contexts |
 | `scripts/verify-json-schemas` | Stable repository command that enforces Node 24.18.0 and invokes the pinned verifier |
 
-The task card requires one independent W0-04 commit. Intermediate red/green checkpoints stay uncommitted; only the fully passing card is committed.
+The original W0-04 implementation is fixed at `eb55ca5`. Deep review found
+semantic false positives, so this remediation must be a separate follow-up
+commit; it must not amend or rewrite the original commit.
 
 ### Task 1: Establish the red contract harness and pinned validator
 
@@ -62,7 +64,11 @@ SchemaDocumentCount = 14
 InstantiableSchemaCount = 13
 ValidFixtureCount = 13
 InvalidFixtureCount = 18
-SemanticNegativeCaseCount = 12
+SemanticValidContextCount = 2
+NonPublishedModuleNullability = PASS
+SemanticNegativeCaseCount = 32
+EvidenceMapEntryCount = 617
+EvidenceMapNegativeCaseCount = 3
 EvidenceMapValidation = PASS
 NetworkResolution = FORBIDDEN
 W0-G3 JsonSchemaValidation = PASS
@@ -225,6 +231,13 @@ The verifier must walk `properties`, `required`, `enum`, `const`,
 `minItems`, `maxItems`, `minLength`, `pattern`, `if`, `then`, `else`,
 `allOf`, `anyOf`, `oneOf` and `not`. Every encountered constraint pointer
 must have a matching evidence-map entry for that Schema ID.
+
+The expected map is generated from the same exact-pointer policy used by the
+validator. To render the deterministic document for review or regeneration:
+
+```bash
+node tests/contracts/schema/verify-json-schemas.mjs --render-evidence-map
+```
 
 - [x] **Step 5: Run and verify red**
 
@@ -549,10 +562,10 @@ still match.
 Set:
 
 ```text
-W0-04 Status = DONE
-W0-G3 JsonSchemaValidation = PASS
-W0-05 Status = READY
-ActiveTaskCard = W0-05
+W0-04 Status = READY
+W0-G3 JsonSchemaValidation = IN_REVIEW
+W0-05 Status = BLOCKED_BY_DEPENDENCY
+ActiveTaskCard = W0-04
 TaskCardSetStatus = READY_FOR_EXECUTION
 Wave1FeatureDevelopmentEntry = NO_GO
 ```
@@ -568,13 +581,14 @@ Expected:
 TaskCardValidation = PASS
 TaskCardCount = 9
 TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W0-05
+ActiveTaskCard = W0-04
 ```
 
-- [x] **Step 6: Commit the completed card**
+- [ ] **Step 6: Commit the fixed-review candidate**
 
 ```bash
-git add schemas tests/contracts/schema scripts/verify-json-schemas \
+git add AGENTS.md README.md schemas tests/contracts/schema \
+  scripts/verify-json-schemas \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-specialty-contract-coverage.md \
   docs/task-cards/README.md \
@@ -582,8 +596,9 @@ git add schemas tests/contracts/schema scripts/verify-json-schemas \
   docs/task-cards/W0-05-golden-case-regression.md \
   docs/engineering/cognitura-wave-0-plan.md \
   docs/engineering/cognitura-wave-0-entry-decision.md
-git commit -m "feat: add Cognitura canonical JSON schemas"
+git commit -m "fix: harden Cognitura schema semantic validation"
 ```
 
-Expected: one independent W0-04 commit; no `raw/`, server business source,
-web product code, W0-05 regression asset or CI implementation change.
+Expected: one follow-up W0-04 remediation commit; no amend, `raw/`, server
+business source, web product code, W0-05 regression asset or CI implementation
+change. Fixed-commit deep review must be GO before W0-G3 is closed.

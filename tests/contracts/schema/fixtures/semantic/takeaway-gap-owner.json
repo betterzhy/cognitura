@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "STATEMENT_GAP_OUT_OF_SCOPE",
+  "mutation": "TAKEAWAY_GAP_OWNER"
+}

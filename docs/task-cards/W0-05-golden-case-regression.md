@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-05
-Status = READY
+Status = BLOCKED_BY_DEPENDENCY
 Gate = W0-G4 GoldenCaseRegression
 Risk = HIGH
 DependsOn = W0-01,W0-04

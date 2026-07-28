@@ -19,18 +19,21 @@ CurrentStage =
 
 Wave0ExecutionStatus = IN_PROGRESS
 ActiveTaskCard = W0-04
+ActiveTaskCardStatus = READY
+W0G3ReviewStatus = IN_REVIEW
 ```
 
 当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、
-英语学习三份 Golden Case 原始文档；已有 Wave 0 来源、契约校验测试和不含业务
-功能的模块化单体构建骨架，尚无业务源码或 CI。
+英语学习三份 Golden Case 原始文档；已有 Wave 0 来源、契约校验测试、不含业务
+功能的模块化单体构建骨架，以及 W0-04 Schema 修复候选，尚无业务源码或 CI。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
 
 `W0-G2 SpecialtyContractCoverage = PASS`：总体设计中的非 Schema 构造与 UI
 契约已建立机器可验证的覆盖矩阵。`DOC-GAP-001` 已取得正式 Schema 重基线
-处置，等待 W0-04 实施封口；`DOC-GAP-002` 继续保持开放。
+处置；W0-04 修复候选的本地验证已经通过，正在等待固定提交深审封口。
+`DOC-GAP-002` 继续保持开放。
 
 `W0-G2A BuildBaseline = PASS`：后端固定为 JDK 21、Maven 3.9.16、
 Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
@@ -77,6 +80,8 @@ DirectFullImplementationStart = NO
 `W0-G0 RepositoryBaseline = PASS`，`W0-G1 DesignSourceRegistry = PASS`，
 `W0-G2 SpecialtyContractCoverage = PASS`，`W0-G2A BuildBaseline = PASS`，
 `W0-G4A UiContractValidation = PASS`。`Cognitura-Schema-Baseline-2.0`
-已经获得批准并落地，`W0-04` 现为唯一 `READY` 卡；`W0-G3` 仍须等待 Schema、
-证据映射和正反例全部实现后才能标记 `PASS`。在其余 Wave 0 门禁全部通过前，
-不进入 Wave 1 业务功能开发。
+已经获得批准并落地，`W0-04` 现为唯一 `READY` 卡；14 份 Schema、32 个语义
+反例、617 个精确证据节点及其篡改反例已经在修复候选中通过，本轮
+`W0-G3 JsonSchemaValidation = IN_REVIEW`。只有固定提交深审为 GO 后才允许
+标记 `PASS` 并释放 W0-05；在其余 Wave 0 门禁全部通过前，不进入 Wave 1
+业务功能开发。

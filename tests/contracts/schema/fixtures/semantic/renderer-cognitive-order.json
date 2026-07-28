@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "RENDERER_COGNITIVE_ORDER_CHANGED",
+  "mutation": "RENDERER_COGNITIVE_ORDER"
+}

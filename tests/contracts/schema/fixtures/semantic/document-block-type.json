@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "REFERENCE_TARGET_TYPE_MISMATCH",
+  "mutation": "DOCUMENT_BLOCK_TYPE"
+}

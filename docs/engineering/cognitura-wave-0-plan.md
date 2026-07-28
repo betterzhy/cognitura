@@ -43,7 +43,7 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-05
+ActiveTaskCard = W0-04
 ActiveTaskCardStatus = READY
 ```
 
@@ -183,10 +183,10 @@ W0-G2A BuildBaseline = PASS
 - [x] **Step 4:** 实现生成阶段记录 Schema，覆盖 `inputHash`、`promptVersion`、`model`、`sourceBlockRefs`、`structuredOutput`、`validationResult`、`generationStatus`、`retryCount`。
 - [x] **Step 5:** 实现统一 Renderer 输入 Schema 和页面状态枚举。
 - [x] **Step 6:** 运行正例与反例验证，确认缺少 thesis、spine、boundary 或 sourceRefs 的 Module 被拒绝。
-- [x] **Step 7:** 提交并标记：
+- [ ] **Step 7:** 形成不改写历史的修复提交，通过固定提交深审后标记：
 
 ```text
-W0-G3 JsonSchemaValidation = PASS
+W0-G3 JsonSchemaValidation = IN_REVIEW
 ```
 
 ## Task W0-05：建立 Golden Case 回归资产
@@ -283,11 +283,12 @@ Wave1FeatureDevelopmentEntry = NO_GO
 
 ```text
 W0-00 → W0-01 → W0-02 → W0-03
-                       ├→ W0-04 [DONE] → W0-05 [READY] ────────┐
+                       ├→ W0-04 [READY/IN_REVIEW] → W0-05 [BLOCKED] ┐
                        └→ W0-06 [DONE] ─────────────────────────┤
                                                                └→ W0-07 → W0-08
 ```
 
 `W0-06` 已在等待字段级来源期间完成。`Cognitura-Schema-Baseline-2.0`
-已经投影为通过验证的机器 Schema，`W0-04` 为 `DONE`，`W0-05` 是唯一
-`READY` 卡；`W0-07/W0-08` 继续受其依赖链阻断。`W0-08` 必须最后执行。
+已经投影为机器 Schema，W0-04 修复候选的本地验证已通过，但固定提交深审尚未
+封口；`W0-04` 是唯一 `READY` 卡，`W0-05` 及其后继继续受依赖阻断。
+`W0-08` 必须最后执行。

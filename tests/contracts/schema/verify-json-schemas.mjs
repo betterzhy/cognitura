@@ -144,9 +144,10 @@ function resolveJsonPointer(document, pointer) {
 
 function validateSemanticContext(context) {
   const artifacts = new Map();
-  const artifactRevisions = new Map();
+  const referenceRegistry = new Map();
   const candidateIds = new Set();
-  const externalRefs = new Set(context.externalRefs ?? []);
+  const candidateThemeById = new Map();
+  const externalArtifacts = new Map();
 
   function registerArtifact(type, artifact) {
     semanticAssert(
@@ -154,14 +155,44 @@ function validateSemanticContext(context) {
       "ARTIFACT_ID_MISSING",
       `${type} has no artifactId`
     );
-    const existingRevision = artifactRevisions.get(artifact.artifactId);
     semanticAssert(
-      existingRevision === undefined,
+      !referenceRegistry.has(artifact.artifactId),
       "DUPLICATE_ARTIFACT_REVISION",
       `${artifact.artifactId} appears more than once in one revision context`
     );
-    artifactRevisions.set(artifact.artifactId, artifact.revisionId);
-    artifacts.set(artifact.artifactId, {type, artifact});
+    const record = {
+      type,
+      value: artifact,
+      ownerId: artifact.artifactId,
+      ownerKey: `${type}:${artifact.artifactId}`
+    };
+    artifacts.set(artifact.artifactId, record);
+    referenceRegistry.set(artifact.artifactId, record);
+  }
+
+  function registerOwnedReference(type, id, ownerId, ownerKey, value, duplicateCode) {
+    semanticAssert(
+      typeof id === "string" && !referenceRegistry.has(id),
+      duplicateCode,
+      `${id} is not unique in the revision context`
+    );
+    referenceRegistry.set(id, {type, value, ownerId, ownerKey});
+  }
+
+  for (const external of context.externalArtifacts ?? []) {
+    semanticAssert(
+      external &&
+      typeof external.artifactId === "string" &&
+      ["SourceDocument", "DocumentBlock"].includes(external.artifactType),
+      "REFERENCE_TARGET_TYPE_MISMATCH",
+      "external artifact metadata is invalid"
+    );
+    semanticAssert(
+      !externalArtifacts.has(external.artifactId),
+      "DUPLICATE_ARTIFACT_REVISION",
+      external.artifactId
+    );
+    externalArtifacts.set(external.artifactId, external);
   }
 
   registerArtifact("KnowledgeSkeleton", context.skeleton);
@@ -174,6 +205,7 @@ function validateSemanticContext(context) {
         candidate.moduleId
       );
       candidateIds.add(candidate.moduleId);
+      candidateThemeById.set(candidate.moduleId, theme.artifactId);
     }
   }
   for (const module of context.modules) {
@@ -204,8 +236,12 @@ function validateSemanticContext(context) {
     registerArtifact("EvidenceReference", evidence);
   }
 
-  const getArtifact = (artifactId, expectedTypes, code = "DANGLING_REFERENCE") => {
-    const record = artifacts.get(artifactId);
+  const resolveReference = (
+    artifactId,
+    expectedTypes,
+    code = "DANGLING_REFERENCE"
+  ) => {
+    const record = referenceRegistry.get(artifactId);
     semanticAssert(record, code, artifactId);
     if (expectedTypes) {
       semanticAssert(
@@ -214,7 +250,23 @@ function validateSemanticContext(context) {
         `${artifactId} is ${record.type}, expected ${expectedTypes.join("/")}`
       );
     }
-    return record.artifact;
+    return record;
+  };
+
+  const getArtifact = (artifactId, expectedTypes, code = "DANGLING_REFERENCE") => {
+    const record = resolveReference(artifactId, expectedTypes, code);
+    return record.value;
+  };
+
+  const resolveExternal = (artifactId, expectedType) => {
+    const record = externalArtifacts.get(artifactId);
+    semanticAssert(record, "SOURCE_BLOCK_OUT_OF_CONTEXT", artifactId);
+    semanticAssert(
+      record.artifactType === expectedType,
+      "REFERENCE_TARGET_TYPE_MISMATCH",
+      `${artifactId} is ${record.artifactType}, expected ${expectedType}`
+    );
+    return record;
   };
 
   const skeleton = context.skeleton;
@@ -248,12 +300,27 @@ function validateSemanticContext(context) {
   }
 
   const modulesById = new Map(context.modules.map((module) => [module.artifactId, module]));
+  const modulesByTheme = new Map(skeleton.themes.map((theme) => [theme.artifactId, new Set()]));
   for (const module of context.modules) {
+    getArtifact(module.primaryParent, ["KnowledgeTheme"], "DANGLING_PARENT");
     semanticAssert(
-      themeIds.has(module.primaryParent),
+      candidateThemeById.get(module.artifactId) === module.primaryParent,
+      "MODULE_NOT_CONFIRMED_CANDIDATE",
+      `${module.artifactId} is not a candidate of ${module.primaryParent}`
+    );
+    semanticAssert(
+      modulesByTheme.has(module.primaryParent),
       "DANGLING_PARENT",
       `${module.artifactId} -> ${module.primaryParent}`
     );
+    modulesByTheme.get(module.primaryParent).add(module.artifactId);
+    if (module.primaryCognitiveSpine !== null) {
+      semanticAssert(
+        module.primaryCognitiveSpine.moduleRef === module.artifactId,
+        "SPINE_MODULE_MISMATCH",
+        `${module.primaryCognitiveSpine.artifactId} -> ${module.primaryCognitiveSpine.moduleRef}`
+      );
+    }
   }
 
   const allSpines = [
@@ -264,8 +331,9 @@ function validateSemanticContext(context) {
   ];
   for (const module of context.modules) {
     const moduleSpines = allSpines.filter((spine) => spine.moduleRef === module.artifactId);
+    const expectedSpineCount = module.primaryCognitiveSpine === null ? 0 : 1;
     semanticAssert(
-      moduleSpines.length === 1,
+      moduleSpines.length === expectedSpineCount,
       "MULTIPLE_PRIMARY_SPINES",
       `${module.artifactId} has ${moduleSpines.length} spines`
     );
@@ -285,47 +353,172 @@ function validateSemanticContext(context) {
     );
   }
 
-  const evidenceById = new Map(
-    context.evidenceReferences.map((evidence) => [evidence.artifactId, evidence])
-  );
+  const evidenceById = new Map(context.evidenceReferences.map((evidence) => (
+    [evidence.artifactId, evidence]
+  )));
   const gapOwners = new Map();
-  const globalGapIds = new Set();
 
-  function registerGaps(ownerId, gaps) {
+  function registerGaps(ownerId, ownerKey, gaps) {
     const ids = gaps.map((gap) => gap.gapId);
     semanticAssert(uniqueValues(ids), "DUPLICATE_GAP_ID", ownerId);
-    for (const gapId of ids) {
-      globalGapIds.add(gapId);
+    for (const gap of gaps) {
+      registerOwnedReference(
+        "Gap",
+        gap.gapId,
+        ownerId,
+        ownerKey,
+        gap,
+        "DUPLICATE_GAP_ID"
+      );
     }
-    gapOwners.set(ownerId, new Set(ids));
+    gapOwners.set(ownerKey, new Set(ids));
+  }
+
+  function registerRelations(ownerId, ownerKey, relations) {
+    assertUniqueField(relations, "relationId", "DUPLICATE_RELATION_ID", ownerId);
+    for (const relation of relations) {
+      registerOwnedReference(
+        "Relation",
+        relation.relationId,
+        ownerId,
+        ownerKey,
+        relation,
+        "DUPLICATE_RELATION_ID"
+      );
+    }
+  }
+
+  registerGaps(
+    skeleton.artifactId,
+    `KnowledgeSkeleton:${skeleton.artifactId}`,
+    skeleton.gaps
+  );
+  registerRelations(
+    skeleton.artifactId,
+    `KnowledgeSkeleton:${skeleton.artifactId}`,
+    skeleton.relations
+  );
+  for (const theme of skeleton.themes) {
+    registerGaps(
+      theme.artifactId,
+      `KnowledgeTheme:${theme.artifactId}`,
+      theme.gaps
+    );
+    registerRelations(
+      theme.artifactId,
+      `KnowledgeTheme:${theme.artifactId}`,
+      theme.relations
+    );
+    for (const candidate of theme.moduleCandidates) {
+      registerGaps(
+        candidate.moduleId,
+        `ModuleCandidate:${candidate.moduleId}`,
+        candidate.gaps
+      );
+    }
+  }
+  for (const module of context.modules) {
+    registerGaps(
+      module.artifactId,
+      `CognitiveModule:${module.artifactId}`,
+      module.gaps
+    );
+    registerRelations(
+      module.artifactId,
+      `CognitiveModule:${module.artifactId}`,
+      module.relations
+    );
+  }
+  for (const closure of context.themeClosures) {
+    registerGaps(
+      closure.artifactId,
+      `ThemeClosure:${closure.artifactId}`,
+      closure.gaps
+    );
+    registerRelations(
+      closure.artifactId,
+      `ThemeClosure:${closure.artifactId}`,
+      closure.relatedThemes
+    );
+  }
+  for (const closure of context.landscapeClosures) {
+    registerGaps(
+      closure.artifactId,
+      `LandscapeClosure:${closure.artifactId}`,
+      closure.gaps
+    );
+    registerRelations(
+      closure.artifactId,
+      `LandscapeClosure:${closure.artifactId}`,
+      closure.keyDependencies
+    );
   }
 
   function checkEvidenceRefs(sourceRefs, ownerId) {
     semanticAssert(uniqueValues(sourceRefs), "DUPLICATE_EVIDENCE_REF", ownerId);
     for (const sourceRef of sourceRefs) {
-      semanticAssert(evidenceById.has(sourceRef), "DANGLING_EVIDENCE_REF", sourceRef);
+      const evidence = resolveReference(
+        sourceRef,
+        ["EvidenceReference"],
+        "DANGLING_EVIDENCE_REF"
+      ).value;
+      semanticAssert(
+        evidence.supports.includes(ownerId),
+        "EVIDENCE_DOES_NOT_SUPPORT_OWNER",
+        `${sourceRef} does not support ${ownerId}`
+      );
     }
   }
 
-  function checkSourceCoverage(ownerId, sourceCoverage, gaps) {
-    registerGaps(ownerId, gaps);
+  function checkGapRefs(gapRefs, ownerKey, code) {
+    semanticAssert(uniqueValues(gapRefs), code, ownerKey);
+    for (const gapRef of gapRefs) {
+      const record = referenceRegistry.get(gapRef);
+      semanticAssert(
+        record && record.type === "Gap" && record.ownerKey === ownerKey,
+        code,
+        `${gapRef} is not owned by ${ownerKey}`
+      );
+    }
+  }
+
+  function checkGapSources(gaps, ownerId) {
+    for (const gap of gaps) {
+      checkEvidenceRefs(gap.sourceRefs, ownerId);
+    }
+  }
+
+  function checkSourceCoverage(ownerId, ownerKey, sourceCoverage, gaps) {
     semanticAssert(
       equalSets(sourceCoverage.gapRefs, gaps.map((gap) => gap.gapId)),
       "SOURCE_COVERAGE_GAP_MISMATCH",
       ownerId
     );
+    checkGapRefs(
+      sourceCoverage.gapRefs,
+      ownerKey,
+      "SOURCE_COVERAGE_GAP_MISMATCH"
+    );
     checkEvidenceRefs(sourceCoverage.evidenceRefs, ownerId);
-    for (const evidenceRef of sourceCoverage.evidenceRefs) {
-      semanticAssert(
-        evidenceById.get(evidenceRef).supports.includes(ownerId),
-        "EVIDENCE_DOES_NOT_SUPPORT_OWNER",
-        `${evidenceRef} does not support ${ownerId}`
-      );
+    checkGapSources(gaps, ownerId);
+  }
+
+  function checkEvidenceStatements(items, ownerId, ownerKey) {
+    for (const item of items) {
+      checkEvidenceRefs(item.sourceRefs, ownerId);
+      checkGapRefs(item.gapRefs, ownerKey, "STATEMENT_GAP_OUT_OF_SCOPE");
+    }
+  }
+
+  for (const spine of allSpines) {
+    for (const step of spine.steps) {
+      checkEvidenceRefs(step.sourceRefs, spine.artifactId);
     }
   }
 
   for (const module of context.modules) {
     const relations = new Map();
+    const moduleOwnerKey = `CognitiveModule:${module.artifactId}`;
     assertUniqueField(module.facets, "facetId", "DUPLICATE_FACET_ID", module.artifactId);
     assertUniqueField(
       module.keyTakeaways,
@@ -351,9 +544,20 @@ function validateSemanticContext(context) {
         relation.relationId
       );
       relations.set(relation.relationId, relation);
-      getArtifact(relation.sourceRef, ["KnowledgeElement"]);
-      getArtifact(relation.targetRef, ["KnowledgeElement"]);
+      const elementIds = new Set(
+        module.knowledgeElements.map((element) => element.artifactId)
+      );
+      semanticAssert(
+        elementIds.has(relation.sourceRef) && elementIds.has(relation.targetRef),
+        "RELATION_TARGET_OUT_OF_SCOPE",
+        relation.relationId
+      );
       checkEvidenceRefs(relation.sourceRefs, module.artifactId);
+      checkGapRefs(
+        relation.gapRefs,
+        moduleOwnerKey,
+        "RELATION_GAP_OUT_OF_SCOPE"
+      );
     }
     const elementIds = new Set(module.knowledgeElements.map((element) => element.artifactId));
     for (const facet of module.facets) {
@@ -375,26 +579,90 @@ function validateSemanticContext(context) {
           "ELEMENT_RELATION_OUT_OF_SCOPE",
           `${element.artifactId} -> ${relationRef}`
         );
+        const relationRecord = resolveReference(
+          relationRef,
+          ["Relation"],
+          "ELEMENT_RELATION_OUT_OF_SCOPE"
+        );
+        semanticAssert(
+          relationRecord.ownerKey === moduleOwnerKey,
+          "ELEMENT_RELATION_OUT_OF_SCOPE",
+          `${element.artifactId} -> ${relationRef}`
+        );
       }
     }
-    checkEvidenceRefs(module.sourceRefs, module.artifactId);
-    registerGaps(module.artifactId, module.gaps);
-    semanticAssert(
-      module.qualityAssessment.subjectRef === module.artifactId,
-      "QUALITY_SUBJECT_MISMATCH",
-      module.artifactId
+    checkEvidenceStatements(
+      module.keyTakeaways,
+      module.artifactId,
+      moduleOwnerKey
     );
-  }
-
-  checkSourceCoverage(skeleton.artifactId, skeleton.sourceCoverage, skeleton.gaps);
-  for (const theme of skeleton.themes) {
-    checkSourceCoverage(theme.artifactId, theme.sourceCoverage, theme.gaps);
-    for (const candidate of theme.moduleCandidates) {
-      checkSourceCoverage(candidate.moduleId, candidate.sourceCoverage, candidate.gaps);
+    for (const boundary of module.criticalBoundaries) {
+      checkEvidenceRefs(boundary.sourceRefs, module.artifactId);
+    }
+    checkEvidenceRefs(module.sourceRefs, module.artifactId);
+    checkGapSources(module.gaps, module.artifactId);
+    if (module.qualityAssessment !== null) {
+      semanticAssert(
+        module.qualityAssessment.subjectRef === module.artifactId,
+        "QUALITY_SUBJECT_MISMATCH",
+        module.artifactId
+      );
+      getArtifact(
+        module.qualityAssessment.subjectRef,
+        [
+          "KnowledgeSkeleton",
+          "KnowledgeTheme",
+          "CognitiveModule",
+          "ThemeClosure",
+          "LandscapeClosure"
+        ]
+      );
+      for (const dimensionName of [
+        "hierarchyCorrectness",
+        "granularityFitness",
+        "cognitiveClosure",
+        "spineCoherence",
+        "importanceAccuracy",
+        "sourceFaithfulness",
+        "compressionEfficiency"
+      ]) {
+        for (const finding of module.qualityAssessment[dimensionName].findings) {
+          for (const artifactRef of finding.artifactRefs) {
+            resolveReference(artifactRef);
+          }
+          checkEvidenceRefs(finding.sourceRefs, module.artifactId);
+        }
+      }
     }
   }
 
-  function checkScopedRelations(ownerId, relations, allowedRefs) {
+  checkSourceCoverage(
+    skeleton.artifactId,
+    `KnowledgeSkeleton:${skeleton.artifactId}`,
+    skeleton.sourceCoverage,
+    skeleton.gaps
+  );
+  for (const ambiguityRef of skeleton.structureAmbiguityRefs) {
+    getArtifact(ambiguityRef, ["StructureAmbiguity"]);
+  }
+  for (const theme of skeleton.themes) {
+    checkSourceCoverage(
+      theme.artifactId,
+      `KnowledgeTheme:${theme.artifactId}`,
+      theme.sourceCoverage,
+      theme.gaps
+    );
+    for (const candidate of theme.moduleCandidates) {
+      checkSourceCoverage(
+        candidate.moduleId,
+        `ModuleCandidate:${candidate.moduleId}`,
+        candidate.sourceCoverage,
+        candidate.gaps
+      );
+    }
+  }
+
+  function checkScopedRelations(ownerId, ownerKey, relations, allowedRefs) {
     assertUniqueField(relations, "relationId", "DUPLICATE_RELATION_ID", ownerId);
     for (const relation of relations) {
       semanticAssert(
@@ -405,15 +673,21 @@ function validateSemanticContext(context) {
         relation.relationId
       );
       checkEvidenceRefs(relation.sourceRefs, ownerId);
-      semanticAssert(
-        relation.gapRefs.every((gapRef) => globalGapIds.has(gapRef)),
+      checkGapRefs(
+        relation.gapRefs,
+        ownerKey,
         "RELATION_GAP_OUT_OF_SCOPE",
         relation.relationId
       );
     }
   }
 
-  checkScopedRelations(skeleton.artifactId, skeleton.relations, themeIds);
+  checkScopedRelations(
+    skeleton.artifactId,
+    `KnowledgeSkeleton:${skeleton.artifactId}`,
+    skeleton.relations,
+    themeIds
+  );
   semanticAssert(
     skeleton.understandingRoute.every((artifactRef) => (
       themeIds.has(artifactRef) || modulesById.has(artifactRef)
@@ -424,6 +698,7 @@ function validateSemanticContext(context) {
   for (const theme of skeleton.themes) {
     checkScopedRelations(
       theme.artifactId,
+      `KnowledgeTheme:${theme.artifactId}`,
       theme.relations,
       new Set(theme.moduleCandidates.map((candidate) => candidate.moduleId))
     );
@@ -431,14 +706,48 @@ function validateSemanticContext(context) {
 
   for (const closure of context.themeClosures) {
     getArtifact(closure.themeRef, ["KnowledgeTheme"]);
-    checkSourceCoverage(closure.artifactId, closure.sourceCoverage, closure.gaps);
+    const closureOwnerKey = `ThemeClosure:${closure.artifactId}`;
+    const allowedModules = modulesByTheme.get(closure.themeRef) ?? new Set();
+    checkSourceCoverage(
+      closure.artifactId,
+      closureOwnerKey,
+      closure.sourceCoverage,
+      closure.gaps
+    );
     assertUniqueField(
       closure.moduleCooperation,
       "moduleRef",
       "DUPLICATE_MODULE_COOPERATION",
       closure.artifactId
     );
+    for (const cooperation of closure.moduleCooperation) {
+      const record = referenceRegistry.get(cooperation.moduleRef);
+      semanticAssert(
+        record &&
+        record.type === "CognitiveModule" &&
+        allowedModules.has(cooperation.moduleRef),
+        "THEME_CLOSURE_MODULE_OUT_OF_SCOPE",
+        cooperation.moduleRef
+      );
+      checkEvidenceRefs(cooperation.sourceRefs, closure.artifactId);
+    }
     assertUniqueField(closure.themeSpine, "stepId", "DUPLICATE_SPINE_STEP_ID", closure.artifactId);
+    semanticAssert(
+      closure.themeSpine.every((step, index) => step.order === index + 1),
+      "SPINE_ORDER_NOT_CONTIGUOUS",
+      closure.artifactId
+    );
+    for (const step of closure.themeSpine) {
+      const record = referenceRegistry.get(step.artifactRef);
+      semanticAssert(
+        record &&
+        record.type === "CognitiveModule" &&
+        allowedModules.has(step.artifactRef),
+        "THEME_CLOSURE_MODULE_OUT_OF_SCOPE",
+        step.artifactRef
+      );
+      checkEvidenceRefs(step.sourceRefs, closure.artifactId);
+    }
     assertUniqueField(
       closure.criticalDistinctions,
       "statementId",
@@ -446,7 +755,22 @@ function validateSemanticContext(context) {
       closure.artifactId
     );
     assertUniqueField(closure.boundaries, "statementId", "DUPLICATE_STATEMENT_ID", closure.artifactId);
-    checkScopedRelations(closure.artifactId, closure.relatedThemes, themeIds);
+    checkEvidenceStatements(
+      closure.criticalDistinctions,
+      closure.artifactId,
+      closureOwnerKey
+    );
+    checkEvidenceStatements(
+      closure.boundaries,
+      closure.artifactId,
+      closureOwnerKey
+    );
+    checkScopedRelations(
+      closure.artifactId,
+      closureOwnerKey,
+      closure.relatedThemes,
+      themeIds
+    );
     const carriedEvidence = [
       ...sourceRefsFrom(closure.moduleCooperation),
       ...sourceRefsFrom(closure.themeSpine),
@@ -462,12 +786,23 @@ function validateSemanticContext(context) {
   }
 
   for (const closure of context.landscapeClosures) {
-    checkSourceCoverage(closure.artifactId, closure.sourceCoverage, closure.gaps);
+    const closureOwnerKey = `LandscapeClosure:${closure.artifactId}`;
+    checkSourceCoverage(
+      closure.artifactId,
+      closureOwnerKey,
+      closure.sourceCoverage,
+      closure.gaps
+    );
     assertUniqueField(closure.coreThemes, "themeRef", "DUPLICATE_CORE_THEME", closure.artifactId);
     assertUniqueField(
       closure.crossThemeSpine,
       "stepId",
       "DUPLICATE_SPINE_STEP_ID",
+      closure.artifactId
+    );
+    semanticAssert(
+      closure.crossThemeSpine.every((step, index) => step.order === index + 1),
+      "SPINE_ORDER_NOT_CONTIGUOUS",
       closure.artifactId
     );
     assertUniqueField(
@@ -476,10 +811,52 @@ function validateSemanticContext(context) {
       "DUPLICATE_STATEMENT_ID",
       closure.artifactId
     );
-    checkScopedRelations(closure.artifactId, closure.keyDependencies, themeIds);
+    checkScopedRelations(
+      closure.artifactId,
+      closureOwnerKey,
+      closure.keyDependencies,
+      themeIds
+    );
     for (const coreTheme of closure.coreThemes) {
+      semanticAssert(
+        themeIds.has(coreTheme.themeRef),
+        "LANDSCAPE_THEME_OUT_OF_SCOPE",
+        coreTheme.themeRef
+      );
       getArtifact(coreTheme.themeRef, ["KnowledgeTheme"]);
+      checkEvidenceRefs(coreTheme.sourceRefs, closure.artifactId);
     }
+    for (const step of closure.crossThemeSpine) {
+      const record = referenceRegistry.get(step.artifactRef);
+      semanticAssert(
+        record &&
+        record.type === "KnowledgeTheme" &&
+        themeIds.has(step.artifactRef),
+        "LANDSCAPE_THEME_OUT_OF_SCOPE",
+        step.artifactRef
+      );
+      checkEvidenceRefs(step.sourceRefs, closure.artifactId);
+    }
+    for (const routeRef of closure.understandingRoute) {
+      const record = referenceRegistry.get(routeRef);
+      semanticAssert(
+        record &&
+        (
+          (record.type === "KnowledgeTheme" && themeIds.has(routeRef)) ||
+          (
+            record.type === "CognitiveModule" &&
+            themeIds.has(record.value.primaryParent)
+          )
+        ),
+        "LANDSCAPE_ROUTE_OUT_OF_SCOPE",
+        routeRef
+      );
+    }
+    checkEvidenceStatements(
+      closure.globalBoundaries,
+      closure.artifactId,
+      closureOwnerKey
+    );
     const carriedEvidence = [
       ...sourceRefsFrom(closure.coreThemes),
       ...sourceRefsFrom(closure.crossThemeSpine),
@@ -495,14 +872,30 @@ function validateSemanticContext(context) {
 
   const supportedTargets = new Set([...artifacts.keys(), ...candidateIds]);
   for (const evidence of context.evidenceReferences) {
-    semanticAssert(
-      externalRefs.has(evidence.sourceDocumentRef) && externalRefs.has(evidence.documentBlockRef),
-      "SOURCE_BLOCK_OUT_OF_CONTEXT",
-      evidence.artifactId
-    );
+    resolveExternal(evidence.sourceDocumentRef, "SourceDocument");
+    resolveExternal(evidence.documentBlockRef, "DocumentBlock");
     for (const supportedRef of evidence.supports) {
       semanticAssert(supportedTargets.has(supportedRef), "EVIDENCE_SUPPORT_TARGET_MISSING", supportedRef);
     }
+  }
+
+  const expectedConflictGroups = new Map();
+  for (const membership of context.conflictMembership ?? []) {
+    semanticAssert(
+      membership &&
+      typeof membership.groupId === "string" &&
+      Array.isArray(membership.memberRefs) &&
+      membership.memberRefs.length >= 2 &&
+      uniqueValues(membership.memberRefs),
+      "CONFLICT_MEMBERSHIP_INVALID",
+      String(membership?.groupId)
+    );
+    semanticAssert(
+      !expectedConflictGroups.has(membership.groupId),
+      "CONFLICT_MEMBERSHIP_INVALID",
+      membership.groupId
+    );
+    expectedConflictGroups.set(membership.groupId, new Set(membership.memberRefs));
   }
 
   const conflictGroups = new Map();
@@ -523,6 +916,13 @@ function validateSemanticContext(context) {
   }
   for (const [groupId, members] of conflictGroups) {
     semanticAssert(members.length >= 2, "CONFLICT_GROUP_SINGLETON", groupId);
+    const actualMemberIds = members.map((member) => member.artifactId);
+    const expectedMemberIds = expectedConflictGroups.get(groupId);
+    semanticAssert(
+      expectedMemberIds && equalSets(actualMemberIds, [...expectedMemberIds]),
+      "CONFLICT_SOURCE_HIDDEN",
+      groupId
+    );
     const decisions = members
       .map((member) => member.resolutionDecision)
       .filter((decision) => decision !== null);
@@ -542,9 +942,32 @@ function validateSemanticContext(context) {
       );
     }
   }
+  for (const groupId of expectedConflictGroups.keys()) {
+    semanticAssert(
+      conflictGroups.has(groupId),
+      "CONFLICT_SOURCE_HIDDEN",
+      groupId
+    );
+  }
 
   for (const ambiguity of context.structureAmbiguities) {
     getArtifact(ambiguity.locationRef, ["KnowledgeTheme", "CognitiveModule", "KnowledgeElement"]);
+    for (const affectedRef of ambiguity.recommendedStructure.affectedRefs) {
+      semanticAssert(
+        supportedTargets.has(affectedRef),
+        "DANGLING_REFERENCE",
+        affectedRef
+      );
+    }
+    for (const alternative of ambiguity.alternatives) {
+      for (const affectedRef of alternative.affectedRefs) {
+        semanticAssert(
+          supportedTargets.has(affectedRef),
+          "DANGLING_REFERENCE",
+          affectedRef
+        );
+      }
+    }
     for (const impact of ambiguity.closureImpacts) {
       getArtifact(
         impact.scopeRef,
@@ -558,10 +981,83 @@ function validateSemanticContext(context) {
       ambiguity.artifactId
     );
     checkEvidenceRefs(ambiguity.sourceRefs, ambiguity.artifactId);
+    for (const gapRef of ambiguity.gapRefs) {
+      resolveReference(gapRef, ["Gap"], "AMBIGUITY_GAP_OUT_OF_SCOPE");
+    }
+  }
+
+  function resolveRendererProjection(module, node) {
+    const resolved = resolveJsonPointer(module, node.contentPath);
     semanticAssert(
-      ambiguity.gapRefs.every((gapRef) => globalGapIds.has(gapRef)),
-      "AMBIGUITY_GAP_OUT_OF_SCOPE",
-      ambiguity.artifactId
+      resolved.found,
+      "RENDERER_CONTENT_PATH_UNRESOLVED",
+      node.contentPath
+    );
+
+    const directModuleFields = new Set(["/title", "/thesis", "/role"]);
+    if (directModuleFields.has(node.contentPath)) {
+      return {
+        entityRef: module.artifactId,
+        orderGroup: null,
+        orderIndex: null
+      };
+    }
+
+    const patterns = [
+      {
+        pattern: /^\/coreQuestions\/(\d+)$/,
+        collection: "coreQuestions",
+        entity: () => module.artifactId
+      },
+      {
+        pattern: /^\/primaryCognitiveSpine\/steps\/(\d+)\/statement$/,
+        collection: "primaryCognitiveSpine.steps",
+        entity: (index) => module.primaryCognitiveSpine?.steps[index]?.stepId
+      },
+      {
+        pattern: /^\/facets\/(\d+)\/(?:title|summary)$/,
+        collection: "facets",
+        entity: (index) => module.facets[index]?.facetId
+      },
+      {
+        pattern: /^\/knowledgeElements\/(\d+)\/(?:title|content)$/,
+        collection: "knowledgeElements",
+        entity: (index) => module.knowledgeElements[index]?.artifactId
+      },
+      {
+        pattern: /^\/keyTakeaways\/(\d+)\/statement$/,
+        collection: "keyTakeaways",
+        entity: (index) => module.keyTakeaways[index]?.statementId
+      },
+      {
+        pattern: /^\/criticalBoundaries\/(\d+)\/statement$/,
+        collection: "criticalBoundaries",
+        entity: (index) => module.criticalBoundaries[index]?.boundaryId
+      }
+    ];
+
+    for (const descriptor of patterns) {
+      const match = descriptor.pattern.exec(node.contentPath);
+      if (match) {
+        const orderIndex = Number(match[1]);
+        const entityRef = descriptor.entity(orderIndex);
+        semanticAssert(
+          typeof entityRef === "string",
+          "RENDERER_CONTENT_PATH_UNRESOLVED",
+          node.contentPath
+        );
+        return {
+          entityRef,
+          orderGroup: descriptor.collection,
+          orderIndex
+        };
+      }
+    }
+
+    semanticAssert(
+      false,
+      "RENDERER_CONTENT_PATH_NOT_COGNITIVE",
+      node.contentPath
     );
   }
 
@@ -571,17 +1067,28 @@ function validateSemanticContext(context) {
     const groupIds = new Set(renderer.groups.map((group) => group.groupId));
     semanticAssert(nodeIds.size === renderer.nodes.length, "DUPLICATE_RENDERER_NODE", renderer.moduleRef);
     semanticAssert(groupIds.size === renderer.groups.length, "DUPLICATE_RENDERER_GROUP", renderer.moduleRef);
+    const nodeProjections = new Map();
+    const lastOrderByCollection = new Map();
     for (const node of renderer.nodes) {
       semanticAssert(
         node.artifactRef === renderer.moduleRef,
         "RENDERER_CROSS_MODULE",
         node.nodeId
       );
-      semanticAssert(
-        resolveJsonPointer(module, node.contentPath).found,
-        "RENDERER_CONTENT_PATH_UNRESOLVED",
-        node.contentPath
-      );
+      const projection = resolveRendererProjection(module, node);
+      nodeProjections.set(node.nodeId, projection);
+      if (projection.orderGroup !== null) {
+        const lastOrder = lastOrderByCollection.get(projection.orderGroup);
+        semanticAssert(
+          lastOrder === undefined || projection.orderIndex >= lastOrder,
+          "RENDERER_COGNITIVE_ORDER_CHANGED",
+          projection.orderGroup
+        );
+        lastOrderByCollection.set(
+          projection.orderGroup,
+          projection.orderIndex
+        );
+      }
       semanticAssert(
         node.groupRef === null || groupIds.has(node.groupRef),
         "RENDERER_GROUP_REF_MISSING",
@@ -601,6 +1108,13 @@ function validateSemanticContext(context) {
       );
     }
     const moduleRelations = new Map(module.relations.map((relation) => [relation.relationId, relation]));
+    assertUniqueField(
+      renderer.relations,
+      "relationId",
+      "DUPLICATE_RENDERER_RELATION",
+      renderer.moduleRef
+    );
+    let previousFormalRelationIndex = -1;
     for (const relation of renderer.relations) {
       semanticAssert(
         nodeIds.has(relation.sourceNodeRef) && nodeIds.has(relation.targetNodeRef),
@@ -612,11 +1126,35 @@ function validateSemanticContext(context) {
         "RENDERER_RELATION_OUT_OF_SCOPE",
         relation.artifactRelationRef
       );
+      const formalRelation = moduleRelations.get(relation.artifactRelationRef);
       semanticAssert(
-        moduleRelations.get(relation.artifactRelationRef).type === relation.type,
+        formalRelation.type === relation.type,
         "RENDERER_RELATION_TYPE_CHANGED",
         relation.relationId
       );
+      const sourceProjection = nodeProjections.get(relation.sourceNodeRef);
+      const targetProjection = nodeProjections.get(relation.targetNodeRef);
+      semanticAssert(
+        relation.sourceNodeRef !== relation.targetNodeRef &&
+        sourceProjection.entityRef === formalRelation.sourceRef &&
+        targetProjection.entityRef === formalRelation.targetRef,
+        "RENDERER_RELATION_ENDPOINT_CHANGED",
+        relation.relationId
+      );
+      semanticAssert(
+        equalSets(relation.sourceRefs, formalRelation.sourceRefs),
+        "RENDERER_RELATION_SOURCE_CHANGED",
+        relation.relationId
+      );
+      const formalRelationIndex = module.relations.findIndex(
+        (candidate) => candidate.relationId === relation.artifactRelationRef
+      );
+      semanticAssert(
+        formalRelationIndex > previousFormalRelationIndex,
+        "RENDERER_COGNITIVE_ORDER_CHANGED",
+        relation.relationId
+      );
+      previousFormalRelationIndex = formalRelationIndex;
       checkEvidenceRefs(relation.sourceRefs, renderer.moduleRef);
     }
     checkEvidenceRefs(renderer.sourceRefs, renderer.moduleRef);
@@ -627,7 +1165,10 @@ function validateSemanticContext(context) {
     );
     semanticAssert(
       renderer.incompleteState.gapRefs.every((gapRef) => (
-        (gapOwners.get(module.artifactId) ?? new Set()).has(gapRef)
+        (
+          gapOwners.get(`CognitiveModule:${module.artifactId}`) ??
+          new Set()
+        ).has(gapRef)
       )),
       "RENDERER_GAP_OUT_OF_SCOPE",
       renderer.moduleRef
@@ -650,7 +1191,21 @@ function validateSemanticContext(context) {
   const successfulRunKeys = new Set();
   for (const record of context.generationRecords) {
     for (const sourceBlockRef of record.sourceBlockRefs) {
-      semanticAssert(externalRefs.has(sourceBlockRef), "SOURCE_BLOCK_OUT_OF_CONTEXT", sourceBlockRef);
+      resolveExternal(sourceBlockRef, "DocumentBlock");
+    }
+    for (const retryScopeRef of record.retryScopeRefs) {
+      semanticAssert(
+        supportedTargets.has(retryScopeRef),
+        "DANGLING_REFERENCE",
+        retryScopeRef
+      );
+    }
+    for (const failedScopeRef of record.failure?.failedScopeRefs ?? []) {
+      semanticAssert(
+        supportedTargets.has(failedScopeRef),
+        "DANGLING_REFERENCE",
+        failedScopeRef
+      );
     }
     if (record.outputKind === "COGNITIVE_ARTIFACT") {
       const catalogEntry = catalog.schemas.find((entry) => entry.id === record.outputSchemaId);
@@ -767,6 +1322,153 @@ function applySemanticMutation(context, mutation) {
       context.generationRecords.push(duplicate);
       break;
     }
+    case "DANGLING_SPINE_EVIDENCE":
+      context.modules[0].primaryCognitiveSpine.steps[0].sourceRefs = ["evidence.missing"];
+      break;
+    case "BOUNDARY_EVIDENCE_OWNER":
+      context.modules[0].criticalBoundaries[0].sourceRefs = ["evidence.locks"];
+      break;
+    case "TAKEAWAY_GAP_OWNER":
+      context.modules[0].keyTakeaways[0].gapRefs = ["gap.theme.consistency"];
+      break;
+    case "RELATION_GAP_OWNER":
+      context.modules[0].relations[0].gapRefs = ["gap.theme.consistency"];
+      break;
+    case "SOURCE_DOCUMENT_TYPE":
+      context.evidenceReferences[0].sourceDocumentRef = "block.mysql.mvcc.1";
+      break;
+    case "DOCUMENT_BLOCK_TYPE":
+      context.evidenceReferences[0].documentBlockRef = "source.mysql";
+      break;
+    case "GENERATION_SOURCE_BLOCK_TYPE":
+      context.generationRecords[0].sourceBlockRefs = ["source.mysql"];
+      break;
+    case "MODULE_NOT_CANDIDATE": {
+      const module = context.modules[1];
+      module.artifactId = "module.locking.unregistered";
+      module.revisionId = "rev.module.locking.unregistered.1";
+      module.knowledgeElements[0].moduleRef = module.artifactId;
+      break;
+    }
+    case "MODULE_RELATION_CROSS_MODULE":
+      context.modules[0].relations[0].targetRef = "element.lock.wait";
+      break;
+    case "SPINE_MODULE_MISMATCH":
+      context.modules[0].primaryCognitiveSpine.moduleRef = "module.locking";
+      break;
+    case "THEME_CLOSURE_MODULE_SCOPE":
+      context.themeClosures[0].moduleCooperation[0].moduleRef = "module.missing";
+      break;
+    case "THEME_CLOSURE_SPINE_SCOPE":
+      context.themeClosures[0].themeSpine[0].artifactRef = "theme.storage";
+      break;
+    case "THEME_CLOSURE_SPINE_ORDER":
+      context.themeClosures[0].themeSpine[0].order = 2;
+      break;
+    case "LANDSCAPE_CROSS_THEME_TYPE":
+      context.landscapeClosures[0].crossThemeSpine[0].artifactRef = "module.mvcc";
+      break;
+    case "LANDSCAPE_ROUTE_SCOPE":
+      context.landscapeClosures[0].understandingRoute[0] = "module.missing";
+      break;
+    case "RENDERER_METADATA_CONTENT_PATH":
+      context.rendererInputs[0].nodes[0].contentPath = "/revisionId";
+      break;
+    case "RENDERER_RELATION_ENDPOINTS": {
+      const renderer = context.rendererInputs[0];
+      renderer.nodes = [
+        {
+          nodeId: "renderer-node.mvcc.visibility",
+          artifactRef: "module.mvcc",
+          contentPath: "/knowledgeElements/0/content",
+          label: "Visibility judgment",
+          summary: "",
+          groupRef: null,
+          sourceRefs: ["evidence.mvcc"]
+        },
+        {
+          nodeId: "renderer-node.mvcc.version",
+          artifactRef: "module.mvcc",
+          contentPath: "/knowledgeElements/1/content",
+          label: "Record version",
+          summary: "",
+          groupRef: null,
+          sourceRefs: ["evidence.mvcc"]
+        }
+      ];
+      renderer.relations = [
+        {
+          relationId: "renderer-relation.visibility.depends-version",
+          type: "DEPENDS_ON",
+          sourceNodeRef: "renderer-node.mvcc.version",
+          targetNodeRef: "renderer-node.mvcc.visibility",
+          artifactRelationRef: "relation.visibility.depends-version",
+          sourceRefs: ["evidence.mvcc"]
+        }
+      ];
+      break;
+    }
+    case "RENDERER_RELATION_SOURCE": {
+      const renderer = context.rendererInputs[0];
+      renderer.nodes = [
+        {
+          nodeId: "renderer-node.mvcc.visibility",
+          artifactRef: "module.mvcc",
+          contentPath: "/knowledgeElements/0/content",
+          label: "Visibility judgment",
+          summary: "",
+          groupRef: null,
+          sourceRefs: ["evidence.mvcc"]
+        },
+        {
+          nodeId: "renderer-node.mvcc.version",
+          artifactRef: "module.mvcc",
+          contentPath: "/knowledgeElements/1/content",
+          label: "Record version",
+          summary: "",
+          groupRef: null,
+          sourceRefs: ["evidence.mvcc"]
+        }
+      ];
+      renderer.relations = [
+        {
+          relationId: "renderer-relation.visibility.depends-version",
+          type: "DEPENDS_ON",
+          sourceNodeRef: "renderer-node.mvcc.visibility",
+          targetNodeRef: "renderer-node.mvcc.version",
+          artifactRelationRef: "relation.visibility.depends-version",
+          sourceRefs: ["evidence.conflict.mvcc.1"]
+        }
+      ];
+      break;
+    }
+    case "RENDERER_COGNITIVE_ORDER":
+      context.rendererInputs[0].nodes = [
+        {
+          nodeId: "renderer-node.mvcc.spine.2",
+          artifactRef: "module.mvcc",
+          contentPath: "/primaryCognitiveSpine/steps/1/statement",
+          label: "Visibility boundary",
+          summary: "",
+          groupRef: null,
+          sourceRefs: ["evidence.mvcc"]
+        },
+        {
+          nodeId: "renderer-node.mvcc.spine.1",
+          artifactRef: "module.mvcc",
+          contentPath: "/primaryCognitiveSpine/steps/0/statement",
+          label: "Version creation",
+          summary: "",
+          groupRef: null,
+          sourceRefs: ["evidence.mvcc"]
+        }
+      ];
+      break;
+    case "CONFLICT_SOURCE_HIDDEN":
+      context.evidenceReferences = context.evidenceReferences.filter(
+        (evidence) => evidence.artifactId !== "evidence.conflict.mvcc.3"
+      );
+      break;
     default:
       fail("SCHEMA_PARSE_ERROR", `unknown semantic mutation ${mutation}`);
   }
@@ -982,19 +1684,9 @@ if (invalidFixtureCount !== 18) {
   fail("STAGE_EXECUTION_FAILED", `expected 18 invalid fixtures, found ${invalidFixtureCount}`);
 }
 
-const evidenceMap = readJson("schemas/evidence-map.json");
 const actualBaselineSha256 = createHash("sha256")
   .update(fs.readFileSync(path.join(repositoryRoot, "docs/design/cognitura-schema-baseline-2.0.md")))
   .digest("hex");
-if (
-  evidenceMap.baseline !== "Cognitura-Schema-Baseline-2.0" ||
-  evidenceMap.baselineSha256 !== actualBaselineSha256
-) {
-  fail("EVIDENCE_MAPPING_MISSING", "evidence map baseline identity is invalid");
-}
-if (!Array.isArray(evidenceMap.entries) || evidenceMap.entries.length === 0) {
-  fail("EVIDENCE_MAPPING_MISSING", "schemas/evidence-map.json has no entries");
-}
 
 const constraintKeywords = new Map([
   ["type", "TYPE"],
@@ -1021,88 +1713,313 @@ const constraintKeywords = new Map([
   ["properties", "FIELD_SET"]
 ]);
 
-const evidenceIndex = new Map();
-const evidenceBySchema = new Map();
-for (const entry of evidenceMap.entries) {
-  if (
-    typeof entry.schemaId !== "string" ||
-    typeof entry.schemaPointer !== "string" ||
-    !Array.isArray(entry.constraintKinds) ||
-    !["OVERALL_DESIGN_EVIDENCE", "REBASELINE_DECISION"].includes(entry.evidenceKind) ||
-    typeof entry.source !== "string" ||
-    entry.source.length === 0 ||
-    typeof entry.reason !== "string" ||
-    entry.reason.length === 0
-  ) {
-    fail("EVIDENCE_MAPPING_MISSING", "evidence map contains a malformed entry");
+const schemaEvidenceSources = new Map([
+  [
+    "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+    "OD1.2§5-7,§19;RB-003,RB-004,RB-007,RB-008,RB-016,RB-017"
+  ],
+  [
+    "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+    "OD1.2§5-7,§19;RB-003,RB-004,RB-007,RB-008,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+    "OD1.2§5-12,§19,§21;RB-003,RB-004,RB-005,RB-007,RB-008,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+    "OD1.2§8,§19;RB-003,RB-004,RB-007,RB-008,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+    "OD1.2§5-12,§19;RB-003,RB-004,RB-007,RB-008,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+    "OD1.2§15,§19;RB-003,RB-004,RB-007,RB-008,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+    "OD1.2§16,§19;RB-003,RB-004,RB-007,RB-008,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+    "OD1.2§12-14,§19-20;RB-003,RB-004,RB-007,RB-008,RB-015,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+    "OD1.2§5-7,§19;RB-003,RB-004,RB-007,RB-008,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+    "OD1.2§19,§21;RB-003,RB-004,RB-005,RB-007,RB-008,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+    "OD1.2§17-19;RB-003,RB-004,RB-007,RB-009,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:ui:renderer-input:2.0.0",
+    "OD1.2§20.8;RB-003,RB-004,RB-007,RB-010,RB-016"
+  ],
+  [
+    "urn:cognitura:schema:ui:page-state:2.0.0",
+    "OD1.2§20.10;RB-007,RB-011"
+  ]
+]);
+
+const commonDefinitionSources = new Map([
+  ["schemaVersion", "RB-004"],
+  ["artifactId", "RB-004"],
+  ["revisionId", "OD1.2§18;RB-004"],
+  ["artifactRef", "RB-008,RB-016"],
+  ["artifactRefArray", "RB-008,RB-016"],
+  ["nonBlankText", "RB-003"],
+  ["sha256", "OD1.2§17;RB-009"],
+  ["publicationState", "OD1.2§5-7,§12,§18"],
+  ["knowledgeRole", "OD1.2§5-7,§12,§18"],
+  ["relationType", "OD1.2§5-7,§12,§18"],
+  ["knowledgeElementType", "OD1.2§5-7,§12,§18"],
+  ["sourceKind", "OD1.2§20.9"],
+  ["assessmentStatus", "OD1.2§21;RB-005"],
+  ["conflictState", "OD1.2§14;RB-015"],
+  ["riskLevel", "RB-005,RB-008"],
+  ["relation", "OD1.2§12;RB-008,RB-016"],
+  ["sourceCoverage", "OD1.2§13-14,§19;RB-008,RB-016"],
+  ["gap", "OD1.2§13-14,§19;RB-003,RB-008,RB-016"],
+  ["criticalBoundary", "OD1.2§9-10,§19;RB-003,RB-008,RB-016"],
+  ["evidenceStatement", "OD1.2§9-14,§19;RB-003,RB-008,RB-016"],
+  ["conflictResolutionDecision", "OD1.2§14;RB-015,RB-016"],
+  ["orderedArtifactStep", "OD1.2§8,§15-16;RB-008,RB-016"],
+  ["assessmentFinding", "OD1.2§21;RB-005,RB-008,RB-016"],
+  ["assessmentDimension", "OD1.2§21;RB-005"]
+]);
+
+class EvidenceMapViolation extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "EvidenceMapViolation";
   }
-  const mappedSchema = schemaDocuments.get(entry.schemaId);
-  if (!mappedSchema) {
-    fail("EVIDENCE_MAPPING_MISSING", `unknown Schema ID ${entry.schemaId}`);
-  }
-  if (!resolveJsonPointer(mappedSchema, entry.schemaPointer).found) {
-    fail(
-      "EVIDENCE_MAPPING_MISSING",
-      `${entry.schemaId}${entry.schemaPointer} does not resolve`
-    );
-  }
-  const key = `${entry.schemaId}\n${entry.schemaPointer}`;
-  if (evidenceIndex.has(key)) {
-    fail("EVIDENCE_MAPPING_MISSING", `duplicate evidence entry ${entry.schemaId}${entry.schemaPointer}`);
-  }
-  const indexedEntry = {
-    pointer: entry.schemaPointer,
-    kinds: new Set(entry.constraintKinds)
-  };
-  evidenceIndex.set(key, indexedEntry.kinds);
-  const schemaEntries = evidenceBySchema.get(entry.schemaId) ?? [];
-  schemaEntries.push(indexedEntry);
-  evidenceBySchema.set(entry.schemaId, schemaEntries);
 }
 
-for (const [schemaId, schema] of schemaDocuments) {
-  walk(schema, (value, pointer) => {
-    if (!value || Array.isArray(value) || typeof value !== "object") {
-      return;
-    }
-    const requiredKinds = new Set();
-    for (const keyword of Object.keys(value)) {
-      const kind = constraintKeywords.get(keyword);
-      if (kind) {
-        requiredKinds.add(kind);
-      }
-    }
-    if (requiredKinds.size === 0) {
-      return;
-    }
-    const candidates = (evidenceBySchema.get(schemaId) ?? [])
-      .filter((entry) => (
-        entry.pointer === pointer ||
-        entry.pointer === "" ||
-        pointer.startsWith(`${entry.pointer}/`)
-      ))
-      .sort((left, right) => right.pointer.length - left.pointer.length);
-    const mappedKinds = candidates.find((entry) => (
-      [...requiredKinds].every((kind) => entry.kinds.has(kind))
-    ))?.kinds;
-    if (!mappedKinds) {
-      fail("EVIDENCE_MAPPING_MISSING", `${schemaId}${pointer}`);
-    }
-  });
+function evidenceAssert(condition, message) {
+  if (!condition) {
+    throw new EvidenceMapViolation(message);
+  }
+}
 
-  walk(schema, (value, pointer) => {
-    if (!value || Array.isArray(value) || typeof value !== "object") {
-      return;
+function evidenceSourceFor(schemaId, pointer) {
+  if (schemaId === "urn:cognitura:schema:cognition:common:2.0.0") {
+    const definitionMatch = /^\/\$defs\/([^/]+)/.exec(pointer);
+    if (definitionMatch) {
+      return commonDefinitionSources.get(definitionMatch[1]) ??
+        "RB-003,RB-004,RB-007,RB-008,RB-015,RB-016";
     }
-    if (
-      /\/properties\/[^/]+$/.test(pointer) ||
-      /^\/\$defs\/[^/]+$/.test(pointer)
-    ) {
-      if (!evidenceIndex.has(`${schemaId}\n${pointer}`)) {
-        fail("EVIDENCE_MAPPING_MISSING", `${schemaId}${pointer} has no field-level entry`);
+    return "RB-003,RB-004,RB-007,RB-008,RB-015,RB-016";
+  }
+  return schemaEvidenceSources.get(schemaId);
+}
+
+function evidencePolicy(schemaId, pointer, constraintKinds) {
+  const source = evidenceSourceFor(schemaId, pointer);
+  evidenceAssert(source, `no evidence policy for ${schemaId}${pointer}`);
+  const schemaName = schemaId
+    .replace("urn:cognitura:schema:", "")
+    .replace(":2.0.0", "");
+  const pointerLabel = pointer === "" ? "/" : pointer;
+  const constraintSummary = constraintKinds.length === 0
+    ? "FIELD_DECLARATION"
+    : constraintKinds.join(",");
+  return {
+    evidenceKind: source.includes("OD1.2§")
+      ? "OVERALL_DESIGN_EVIDENCE"
+      : "REBASELINE_DECISION",
+    source,
+    reason: `${schemaName}${pointerLabel} enforces ${constraintSummary} from ${source}.`
+  };
+}
+
+function collectExpectedEvidenceEntries() {
+  const expectedEntries = new Map();
+  for (const [schemaId, schema] of schemaDocuments) {
+    walk(schema, (value, pointer) => {
+      if (!value || Array.isArray(value) || typeof value !== "object") {
+        return;
       }
+      const constraintKinds = [];
+      for (const keyword of Object.keys(value)) {
+        const kind = constraintKeywords.get(keyword);
+        if (kind && !constraintKinds.includes(kind)) {
+          constraintKinds.push(kind);
+        }
+      }
+      const isFieldNode = (
+        /\/properties\/[^/]+$/.test(pointer) ||
+        /^\/\$defs\/[^/]+$/.test(pointer)
+      );
+      if (constraintKinds.length === 0 && !isFieldNode) {
+        return;
+      }
+      constraintKinds.sort();
+      const key = `${schemaId}\n${pointer}`;
+      const policy = evidencePolicy(schemaId, pointer, constraintKinds);
+      expectedEntries.set(key, {
+        schemaId,
+        schemaPointer: pointer,
+        constraintKinds,
+        ...policy
+      });
+    });
+  }
+  return expectedEntries;
+}
+
+function buildExpectedEvidenceMapDocument() {
+  return {
+    baseline: "Cognitura-Schema-Baseline-2.0",
+    baselineSha256: actualBaselineSha256,
+    entries: [...collectExpectedEvidenceEntries().values()]
+  };
+}
+
+const expectedEvidenceMap = buildExpectedEvidenceMapDocument();
+if (process.argv.includes("--render-evidence-map")) {
+  process.stdout.write(`${JSON.stringify(expectedEvidenceMap, null, 2)}\n`);
+  process.exit(0);
+}
+const evidenceMapPageArgument = process.argv.find((argument) => (
+  argument.startsWith("--render-evidence-map-page=")
+));
+if (evidenceMapPageArgument) {
+  const page = Number(evidenceMapPageArgument.split("=")[1]);
+  const pageSize = 40;
+  process.stdout.write(`${JSON.stringify({
+    baseline: expectedEvidenceMap.baseline,
+    baselineSha256: expectedEvidenceMap.baselineSha256,
+    entries: expectedEvidenceMap.entries.slice(page * pageSize, (page + 1) * pageSize)
+  })}\n`);
+  process.exit(0);
+}
+
+function validateEvidenceMapDocument(document) {
+  evidenceAssert(
+    document.baseline === "Cognitura-Schema-Baseline-2.0" &&
+    document.baselineSha256 === actualBaselineSha256,
+    "evidence map baseline identity is invalid"
+  );
+  evidenceAssert(
+    Array.isArray(document.entries) && document.entries.length > 0,
+    "evidence map has no entries"
+  );
+
+  const expectedEntries = collectExpectedEvidenceEntries();
+  const actualEntries = new Map();
+  for (const entry of document.entries) {
+    evidenceAssert(
+      typeof entry.schemaId === "string" &&
+      typeof entry.schemaPointer === "string" &&
+      Array.isArray(entry.constraintKinds) &&
+      ["OVERALL_DESIGN_EVIDENCE", "REBASELINE_DECISION"].includes(entry.evidenceKind) &&
+      typeof entry.source === "string" &&
+      entry.source.length > 0 &&
+      typeof entry.reason === "string" &&
+      entry.reason.length > 0,
+      "evidence map contains a malformed entry"
+    );
+    const mappedSchema = schemaDocuments.get(entry.schemaId);
+    evidenceAssert(mappedSchema, `unknown Schema ID ${entry.schemaId}`);
+    evidenceAssert(
+      resolveJsonPointer(mappedSchema, entry.schemaPointer).found,
+      `${entry.schemaId}${entry.schemaPointer} does not resolve`
+    );
+    const key = `${entry.schemaId}\n${entry.schemaPointer}`;
+    evidenceAssert(
+      !actualEntries.has(key),
+      `duplicate evidence entry ${entry.schemaId}${entry.schemaPointer}`
+    );
+    const expected = expectedEntries.get(key);
+    evidenceAssert(
+      expected,
+      `unexpected evidence entry ${entry.schemaId}${entry.schemaPointer}`
+    );
+    evidenceAssert(
+      equalSets(entry.constraintKinds, expected.constraintKinds),
+      `constraint kinds differ at ${entry.schemaId}${entry.schemaPointer}`
+    );
+    evidenceAssert(
+      entry.evidenceKind === expected.evidenceKind &&
+      entry.source === expected.source &&
+      entry.reason === expected.reason,
+      `evidence policy differs at ${entry.schemaId}${entry.schemaPointer}`
+    );
+    actualEntries.set(key, entry);
+  }
+
+  evidenceAssert(
+    actualEntries.size === expectedEntries.size,
+    `expected ${expectedEntries.size} exact evidence entries, found ${actualEntries.size}`
+  );
+  for (const key of expectedEntries.keys()) {
+    evidenceAssert(actualEntries.has(key), `missing exact evidence entry ${key}`);
+  }
+  return actualEntries.size;
+}
+
+const evidenceMap = readJson("schemas/evidence-map.json");
+let evidenceMapEntryCount;
+try {
+  evidenceMapEntryCount = validateEvidenceMapDocument(evidenceMap);
+} catch (error) {
+  if (error instanceof EvidenceMapViolation) {
+    fail("EVIDENCE_MAPPING_MISSING", error.message);
+  }
+  throw error;
+}
+
+const evidenceMapNegativeCases = [
+  {
+    name: "wrong-common-source-kind-policy",
+    mutate(document) {
+      const entry = document.entries.find((candidate) => (
+        candidate.schemaId === "urn:cognitura:schema:cognition:common:2.0.0" &&
+        candidate.schemaPointer === "/$defs/sourceKind"
+      ));
+      entry.evidenceKind = "REBASELINE_DECISION";
+      entry.source = "RB-003";
     }
-  });
+  },
+  {
+    name: "generic-reason",
+    mutate(document) {
+      document.entries[0].reason = "Approved baseline node.";
+    }
+  },
+  {
+    name: "ancestor-fallback",
+    mutate(document) {
+      const index = document.entries.findIndex((entry) => (
+        entry.schemaPointer.includes("/then/properties/")
+      ));
+      document.entries.splice(index, 1);
+    }
+  }
+];
+
+for (const testCase of evidenceMapNegativeCases) {
+  const mutated = structuredClone(evidenceMap);
+  testCase.mutate(mutated);
+  let rejected = false;
+  try {
+    validateEvidenceMapDocument(mutated);
+  } catch (error) {
+    if (!(error instanceof EvidenceMapViolation)) {
+      throw error;
+    }
+    rejected = true;
+  }
+  if (!rejected) {
+    fail("EVIDENCE_MAPPING_MISSING", `${testCase.name} unexpectedly passed`);
+  }
 }
 
 const validSemanticContext = readJson(
@@ -1124,13 +2041,46 @@ for (const [schemaId, instances] of [
   ));
 }
 
-try {
-  validateSemanticContext(validSemanticContext);
-} catch (error) {
-  if (error instanceof SemanticViolation) {
-    fail("SEMANTIC_REFERENCE_VIOLATION", `${error.code}: ${error.message}`);
+const draftNullModule = validSemanticContext.modules.find((module) => (
+  module.publicationState === "DRAFT" &&
+  module.primaryCognitiveSpine === null &&
+  module.qualityAssessment === null
+));
+if (!draftNullModule) {
+  fail("STAGE_EXECUTION_FAILED", "valid context has no legal Draft null Module");
+}
+
+const confirmedSemanticContext = structuredClone(validSemanticContext);
+const confirmedNullModule = confirmedSemanticContext.modules.find((module) => (
+  module.artifactId === draftNullModule.artifactId
+));
+confirmedNullModule.publicationState = "CONFIRMED";
+for (const element of confirmedNullModule.knowledgeElements) {
+  element.publicationState = "CONFIRMED";
+}
+validateInstance(
+  moduleId,
+  confirmedNullModule,
+  "valid-context:confirmed-null-module",
+  true
+);
+
+const semanticValidContexts = [
+  {label: "draft-null-module", context: validSemanticContext},
+  {label: "confirmed-null-module", context: confirmedSemanticContext}
+];
+for (const semanticContext of semanticValidContexts) {
+  try {
+    validateSemanticContext(semanticContext.context);
+  } catch (error) {
+    if (error instanceof SemanticViolation) {
+      fail(
+        "SEMANTIC_REFERENCE_VIOLATION",
+        `${semanticContext.label}: ${error.code}: ${error.message}`
+      );
+    }
+    throw error;
   }
-  throw error;
 }
 
 const semanticDirectory = path.join(testDirectory, "fixtures/semantic");
@@ -1161,8 +2111,8 @@ for (const caseName of semanticCaseNames) {
   }
 }
 
-if (semanticCaseNames.length !== 12) {
-  fail("STAGE_EXECUTION_FAILED", `expected 12 semantic negative cases, found ${semanticCaseNames.length}`);
+if (semanticCaseNames.length !== 32) {
+  fail("STAGE_EXECUTION_FAILED", `expected 32 semantic negative cases, found ${semanticCaseNames.length}`);
 }
 
 process.stdout.write([
@@ -1172,8 +2122,11 @@ process.stdout.write([
   `ValidFixtureCount = ${validFixtures.size}`,
   `InvalidFixtureCount = ${invalidFixtureCount}`,
   `StrictObjectNegativeCaseCount = ${strictObjectCases.length}`,
+  `SemanticValidContextCount = ${semanticValidContexts.length}`,
+  "NonPublishedModuleNullability = PASS",
   `SemanticNegativeCaseCount = ${semanticCaseNames.length}`,
-  `EvidenceMapEntryCount = ${evidenceMap.entries.length}`,
+  `EvidenceMapEntryCount = ${evidenceMapEntryCount}`,
+  `EvidenceMapNegativeCaseCount = ${evidenceMapNegativeCases.length}`,
   "EvidenceMapValidation = PASS",
   "NetworkResolution = FORBIDDEN",
   "W0-G3 JsonSchemaValidation = PASS"

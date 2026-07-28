@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "SPINE_MODULE_MISMATCH",
+  "mutation": "SPINE_MODULE_MISMATCH"
+}

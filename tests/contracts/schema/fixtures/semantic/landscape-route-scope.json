@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "LANDSCAPE_ROUTE_OUT_OF_SCOPE",
+  "mutation": "LANDSCAPE_ROUTE_SCOPE"
+}

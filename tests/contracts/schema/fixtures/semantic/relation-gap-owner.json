@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "RELATION_GAP_OUT_OF_SCOPE",
+  "mutation": "RELATION_GAP_OWNER"
+}

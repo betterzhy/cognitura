@@ -20,7 +20,7 @@ SchemaDesignBaseline =
 SchemaDesignBaselineStatus = FORMAL_SCHEMA_REBASELINE
 SchemaCatalog = schemas/catalog.json
 SchemaEvidenceMap = schemas/evidence-map.json
-W0-G3 JsonSchemaValidation = PASS
+W0-G3 JsonSchemaValidation = IN_REVIEW
 ```
 
 本索引登记实际落地文件，不复制总体设计正文，也不改变历史设计名称。
@@ -58,11 +58,12 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 | `Cognitura-Schema-Baseline-2.0` | `docs/design/cognitura-schema-baseline-2.0.md` | `FORMAL_SCHEMA_REBASELINE` | 从属于总体设计；按固定审查结果升级并补足字段级工程裁决；不冒充历史专项正文 |
 
 该重基线是 `DOC-GAP-001` 的批准处置证据。W0-04 已将其投影为 14 份 Draft
-2020-12 Schema 文档、13 个可实例化契约、Catalog 和逐字段 Evidence Map；
-13 个正例、18 个结构反例、12 个严格对象未知字段反例与 12 个跨对象语义反例
-全部通过，因此
-`W0-G3 JsonSchemaValidation = PASS`。历史专项正文缺失事实仍登记为开放缺口，
-但不再阻断 W0-G3。
+2020-12 Schema 文档、13 个可实例化契约、Catalog 和逐约束节点 Evidence Map；
+13 个正例、18 个结构反例、12 个严格对象未知字段反例、2 个合法非 Published
+空值上下文、32 个跨对象语义反例、617 个精确证据节点与 3 个证据映射篡改
+反例已在修复候选中通过。固定提交深审尚未封口，因此
+`W0-G3 JsonSchemaValidation = IN_REVIEW`。历史专项正文缺失事实仍登记为开放
+缺口，但批准的重基线已解除其执行阻断。
 
 ## 4. Golden Case 原始输入
 

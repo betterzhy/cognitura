@@ -1,11 +1,38 @@
 {
   "contextId": "context.database.valid.1",
-  "externalRefs": [
-    "source.mysql",
-    "block.mysql.mvcc.1",
-    "block.mysql.locks.1",
-    "block.mysql.landscape.1",
-    "block.mysql.theme.1"
+  "externalArtifacts": [
+    {
+      "artifactId": "source.mysql",
+      "artifactType": "SourceDocument"
+    },
+    {
+      "artifactId": "block.mysql.mvcc.1",
+      "artifactType": "DocumentBlock"
+    },
+    {
+      "artifactId": "block.mysql.locks.1",
+      "artifactType": "DocumentBlock"
+    },
+    {
+      "artifactId": "block.mysql.landscape.1",
+      "artifactType": "DocumentBlock"
+    },
+    {
+      "artifactId": "block.mysql.theme.1",
+      "artifactType": "DocumentBlock"
+    },
+    {
+      "artifactId": "block.mysql.conflict.1",
+      "artifactType": "DocumentBlock"
+    },
+    {
+      "artifactId": "block.mysql.conflict.2",
+      "artifactType": "DocumentBlock"
+    },
+    {
+      "artifactId": "block.mysql.conflict.3",
+      "artifactType": "DocumentBlock"
+    }
   ],
   "skeleton": {
     "schemaVersion": "2.0.0",
@@ -410,6 +437,45 @@
         },
         "hardFailures": []
       }
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "module.locking",
+      "revisionId": "rev.module.locking.1",
+      "publicationState": "DRAFT",
+      "primaryParent": "theme.storage",
+      "title": "Locking",
+      "thesis": "",
+      "role": "FOUNDATION",
+      "coreQuestions": [
+        "How do locks serialize conflicting work?"
+      ],
+      "primaryCognitiveSpine": null,
+      "facets": [],
+      "knowledgeElements": [
+        {
+          "schemaVersion": "2.0.0",
+          "artifactId": "element.lock.wait",
+          "revisionId": "rev.element.lock.wait.1",
+          "publicationState": "DRAFT",
+          "moduleRef": "module.locking",
+          "elementType": "MECHANISM",
+          "title": "Lock wait",
+          "content": "",
+          "sourceRefs": [
+            "evidence.locks"
+          ],
+          "relations": []
+        }
+      ],
+      "keyTakeaways": [],
+      "criticalBoundaries": [],
+      "relations": [],
+      "sourceRefs": [
+        "evidence.locks"
+      ],
+      "gaps": [],
+      "qualityAssessment": null
     }
   ],
   "themeClosures": [
@@ -620,6 +686,7 @@
       "sourceKind": "SOURCE_EXPLICIT",
       "supports": [
         "module.mvcc",
+        "spine.mvcc",
         "element.visibility",
         "element.version",
         "closure.theme.storage",
@@ -647,7 +714,8 @@
       "contentSummary": "Evidence for evidence.locks.",
       "sourceKind": "SOURCE_EXPLICIT",
       "supports": [
-        "module.locking"
+        "module.locking",
+        "element.lock.wait"
       ],
       "inferenceDisclosure": "",
       "conflictState": "NONE",
@@ -702,6 +770,109 @@
       "conflictState": "NONE",
       "conflictGroupId": null,
       "resolutionDecision": null
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "evidence.conflict.mvcc.1",
+      "revisionId": "rev.evidence.conflict.mvcc.1",
+      "publicationState": "CONFIRMED",
+      "sourceDocumentRef": "source.mysql",
+      "documentBlockRef": "block.mysql.conflict.1",
+      "sectionPath": [
+        "InnoDB",
+        "MVCC",
+        "Conflicting descriptions"
+      ],
+      "pageNumber": 13,
+      "sourceOrder": 49,
+      "blockType": "PARAGRAPH",
+      "contentSummary": "The first source describes visibility from the transaction snapshot.",
+      "sourceKind": "SOURCE_EXPLICIT",
+      "supports": [
+        "module.mvcc"
+      ],
+      "inferenceDisclosure": "",
+      "conflictState": "RESOLVED_BY_USER",
+      "conflictGroupId": "conflict.mvcc.visibility",
+      "resolutionDecision": {
+        "decisionId": "decision.mvcc.visibility",
+        "decidedBy": "USER",
+        "outcome": "PREFER_EVIDENCE",
+        "preferredEvidenceRef": "evidence.conflict.mvcc.1",
+        "rationale": "The preferred wording preserves the precise visibility boundary."
+      }
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "evidence.conflict.mvcc.2",
+      "revisionId": "rev.evidence.conflict.mvcc.2",
+      "publicationState": "CONFIRMED",
+      "sourceDocumentRef": "source.mysql",
+      "documentBlockRef": "block.mysql.conflict.2",
+      "sectionPath": [
+        "InnoDB",
+        "MVCC",
+        "Conflicting descriptions"
+      ],
+      "pageNumber": 13,
+      "sourceOrder": 50,
+      "blockType": "PARAGRAPH",
+      "contentSummary": "The second source describes visibility from committed versions.",
+      "sourceKind": "SOURCE_EXPLICIT",
+      "supports": [
+        "module.mvcc"
+      ],
+      "inferenceDisclosure": "",
+      "conflictState": "RESOLVED_BY_USER",
+      "conflictGroupId": "conflict.mvcc.visibility",
+      "resolutionDecision": {
+        "decisionId": "decision.mvcc.visibility",
+        "decidedBy": "USER",
+        "outcome": "PREFER_EVIDENCE",
+        "preferredEvidenceRef": "evidence.conflict.mvcc.1",
+        "rationale": "The preferred wording preserves the precise visibility boundary."
+      }
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "evidence.conflict.mvcc.3",
+      "revisionId": "rev.evidence.conflict.mvcc.3",
+      "publicationState": "CONFIRMED",
+      "sourceDocumentRef": "source.mysql",
+      "documentBlockRef": "block.mysql.conflict.3",
+      "sectionPath": [
+        "InnoDB",
+        "MVCC",
+        "Conflicting descriptions"
+      ],
+      "pageNumber": 13,
+      "sourceOrder": 51,
+      "blockType": "PARAGRAPH",
+      "contentSummary": "The third source describes visibility from undo history.",
+      "sourceKind": "SOURCE_EXPLICIT",
+      "supports": [
+        "module.mvcc"
+      ],
+      "inferenceDisclosure": "",
+      "conflictState": "RESOLVED_BY_USER",
+      "conflictGroupId": "conflict.mvcc.visibility",
+      "resolutionDecision": {
+        "decisionId": "decision.mvcc.visibility",
+        "decidedBy": "USER",
+        "outcome": "PREFER_EVIDENCE",
+        "preferredEvidenceRef": "evidence.conflict.mvcc.1",
+        "rationale": "The preferred wording preserves the precise visibility boundary."
+      }
+    }
+  ],
+  "conflictMembership": [
+    {
+      "groupId": "conflict.mvcc.visibility",
+      "memberRefs": [
+        "evidence.conflict.mvcc.1",
+        "evidence.conflict.mvcc.2",
+        "evidence.conflict.mvcc.3"
+      ]
     }
   ],
   "additionalSpines": [],
