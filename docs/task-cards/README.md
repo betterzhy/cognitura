@@ -31,7 +31,9 @@ Wave1FeatureDevelopmentEntry = NO_GO
 `W0-03`、`W0-04`、`W0-05` 与 `W0-06` 已完成，`W0-G2A`、`W0-G3`、
 `W0-G4`、`W0-G4A` 均为 `PASS`。W0-05 固定候选 `608a98c` 深审为
 `GO / P0=0 / P1=0 / P2=0`；W0-07 已解除全部依赖并成为唯一 `READY` 卡，
-W0-08 继续受依赖阻断。
+其本地七阶段统一验证和 CI 契约测试已经通过。由于 Repository 尚无 remote，
+固定提交 CI 与可追溯 URL 仍缺失，`W0-G5` 保持 `IN_PROGRESS`，W0-08 继续受
+依赖阻断。
 
 ## 2. 状态模型
 

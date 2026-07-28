@@ -37,7 +37,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G3 JsonSchemaValidation` | `PASS` | 14 份 Schema、2 个合法空值上下文、34 个语义反例、68 个运行时语义错误码、645 条精确 Schema 证据映射、16 条语义不变量证据、6 个映射篡改反例和全量渲染 round-trip 通过；固定候选 `72b5ce7` 深审 GO |
 | `W0-G4 GoldenCaseRegression` | `PASS` | 3 个原件正例、3 个结果契约正例、22 个隔离负例、24 组结果断言、结构/分页/外链目标指纹与 I/O Guard 通过；固定候选 `608a98c` 深审 GO |
 | `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 9 个负例通过 |
-| `W0-G5 TestAndCI` | `NOT_STARTED` | 本地和 CI 全绿 |
+| `W0-G5 TestAndCI` | `IN_PROGRESS` | 本地七阶段已通过；仍需固定提交 CI 全绿和可追溯 URL |
 | `W0-G6 FixedCommitReview` | `NOT_STARTED` | 固定提交深度审查无 P0/P1/P2 |
 
 ## 4. 当前阻断边界
@@ -66,7 +66,8 @@ Maven 3.9.16、Spring Boot 4.1.0、Spring Modulith 2.1.0、PostgreSQL 18、
 MyBatis Starter 4.0.0、Flyway、Spring AI 2.0.0、Node 24.18.0、
 pnpm 11.17.0、React 19.2.8、TypeScript 7.0.2 和 Vite 8.1.5。
 
-对象存储实现、CI Provider 和部署策略尚未封口；它们不属于 `W0-03`。
+对象存储实现和部署策略尚未封口；它们不属于 `W0-03`。W0-07 已将 CI Provider
+裁决为 GitHub Actions，此裁决只覆盖质量验证，不构成部署平台选择。
 PostgreSQL 18.4 容器 tag/digest、Spring Boot BOM 实际解析版本、后端健康检查、
 模块边界和前端冻结 lockfile 已验证，因此 `W0-G2A BuildBaseline = PASS`。
 
@@ -83,12 +84,13 @@ TaskCardIndex = docs/task-cards/README.md
 每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。W0-04
 已经关闭；W0-05 固定候选 `608a98c` 深审为
 `GO / P0=0 / P1=0 / P2=0`，`W0-G4 = PASS`。W0-07 已解除全部依赖并成为
-唯一 `READY` 卡；W0-08 仍受依赖阻断。
+唯一 `READY` 卡；其本地七阶段入口已通过，但固定提交 CI URL 缺失，
+`W0-G5 = IN_PROGRESS`，W0-08 仍受依赖阻断。
 
 ## 7. 下一动作
 
 ```text
-NextAction = EXECUTE_W0_07_TEST_AND_CI
+NextAction = COMPLETE_W0_07_FIXED_COMMIT_CI
 W0-01 ExecutionStatus = DONE
 W0-G1 DesignSourceRegistry = PASS
 W0-02 ExecutionStatus = DONE
@@ -103,9 +105,15 @@ W0-05 ExecutionStatus = DONE
 W0-G4 GoldenCaseRegression = PASS
 W0-06 ExecutionStatus = DONE
 W0-G4A UiContractValidation = PASS
+W0-07 ExecutionStatus = IN_PROGRESS
+W0-07 CIProvider = GITHUB_ACTIONS
+W0-07 LocalVerification = PASS
+W0-07 FixedCommitCI = NOT_RUN
+W0-G5 TestAndCI = IN_PROGRESS
 ```
 
-下一步只允许按 W0-07 任务卡建立测试与 CI 基线；三份只读 Golden Case 原件
-继续保持不变。
+下一步只允许完成 W0-07 的 Repository remote 关联、固定提交 CI 运行和 URL
+记录；三份只读 Golden Case 原件继续保持不变。未取得真实 CI 证据前不得关闭
+本卡或释放 W0-08。
 `DOC-GAP-002` 继续保持开放，但不回滚已经验证的非 Schema UI 契约；
 Wave 1 仍为 `NO_GO`。

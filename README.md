@@ -22,12 +22,17 @@ ActiveTaskCard = W0-07
 ActiveTaskCardStatus = READY
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
+W0G5Status = IN_PROGRESS
+W0G5LocalVerification = PASS
+W0G5FixedCommitCI = NOT_RUN
 ```
 
 当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、
 英语学习三份 Golden Case 原始文档；已有 Wave 0 来源、契约校验测试、不含业务
 功能的模块化单体构建骨架，以及已通过固定提交深审的 W0-04 Schema 基线，
-尚无业务源码或 CI。
+尚无业务源码。W0-07 已形成 GitHub Actions workflow、测试策略和本地统一入口；
+本地七阶段验证已通过，但 Repository 尚无 remote 和固定提交 CI URL，因此本卡
+仍为 `READY`，`W0-G5` 仍为 `IN_PROGRESS`。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
@@ -70,6 +75,7 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [模块边界基线](docs/engineering/cognitura-module-boundaries.md)
 - [页面契约](docs/contracts/cognitura-page-contracts.md)
 - [Renderer 契约](docs/contracts/cognitura-renderer-contract.md)
+- [测试与 CI 策略](docs/engineering/cognitura-test-strategy.md)
 - [Wave 0 实施计划](docs/engineering/cognitura-wave-0-plan.md)
 - [Wave 0 任务卡索引](docs/task-cards/README.md)
 - [Wave 0 开发准入裁决](docs/engineering/cognitura-wave-0-entry-decision.md)
@@ -90,5 +96,7 @@ DirectFullImplementationStart = NO
 反例、68 个运行时语义错误码、645 个精确 Schema 证据节点、16 个语义不变量
 证据及其篡改反例已经通过，固定候选 `72b5ce7` 深审为
 `GO / P0=0 / P1=0 / P2=0`，因此 `W0-G3 JsonSchemaValidation = PASS`。
-W0-05 已关闭且 `W0-G4 = PASS`，W0-07 释放为唯一 `READY` 卡。在其余 Wave 0 门禁全部通过前，
-不进入 Wave 1 业务功能开发。
+W0-05 已关闭且 `W0-G4 = PASS`，W0-07 仍是唯一 `READY` 卡。其本地统一入口已
+执行 source、task-card、Schema、Golden Case、UI、server、web 七阶段并通过；
+在固定提交 CI 实际成功并记录可追溯 URL 前，不把 `W0-G5` 标记为 `PASS`，也不
+进入 Wave 1 业务功能开发。

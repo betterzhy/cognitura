@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s [--repo-root <path>] [--stage <name>]\n' "$0" >&2
+  exit 2
+}
+
+runner_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+repo_root="${runner_root}"
+requested_stage=""
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --repo-root)
+      [[ "$#" -ge 2 ]] || usage
+      repo_root="$(cd "$2" && pwd -P)"
+      shift 2
+      ;;
+    --stage)
+      [[ "$#" -ge 2 ]] || usage
+      requested_stage="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+case "${requested_stage}" in
+  ""|source|task-card|schema|golden|ui|server|web)
+    ;;
+  *)
+    usage
+    ;;
+esac
+
+if [[ "${repo_root}" != "${runner_root}" && "${requested_stage}" != "source" ]]; then
+  printf '%s\n' \
+    "Wave0Verification = FAIL" \
+    "EXTERNAL_REPO_ROOT_ONLY_SUPPORTED_FOR_SOURCE_STAGE" >&2
+  exit 1
+fi
+
+run_stage() {
+  local stage="$1"
+
+  if [[ -n "${requested_stage}" && "${requested_stage}" != "${stage}" ]]; then
+    return
+  fi
+
+  printf 'Wave0Stage = START name=%s\n' "${stage}"
+  if ! "stage_${stage//-/_}"; then
+    printf '%s\n' \
+      "Wave0Stage = FAIL name=${stage}" \
+      "Wave0Verification = FAIL" >&2
+    exit 1
+  fi
+  printf 'Wave0Stage = PASS name=%s\n' "${stage}"
+}
+
+stage_source() {
+  if [[ "${repo_root}" == "${runner_root}" ]]; then
+    bash "${repo_root}/tests/source-manifest/verify-source-manifest.sh"
+  else
+    "${runner_root}/scripts/verify-source-manifest" \
+      --manifest \
+      "${repo_root}/docs/engineering/cognitura-source-manifest.yaml"
+  fi
+}
+
+stage_task_card() {
+  bash "${repo_root}/tests/task-cards/verify-task-cards.sh" &&
+    bash "${repo_root}/tests/ci/verify-markdown-links.sh" &&
+    bash "${repo_root}/tests/ci/verify-ci-contract.sh"
+}
+
+stage_schema() {
+  (
+    cd "${repo_root}/tests/contracts/schema"
+    corepack pnpm install --frozen-lockfile
+  ) &&
+    "${repo_root}/scripts/verify-json-schemas"
+}
+
+stage_golden() {
+  bash "${repo_root}/tests/golden-cases/verify-golden-cases.sh"
+}
+
+stage_ui() {
+  bash "${repo_root}/tests/contracts/ui/verify-ui-contracts.sh"
+}
+
+stage_server() {
+  (
+    cd "${repo_root}"
+    ./mvnw -q verify
+  )
+}
+
+stage_web() {
+  "${repo_root}/scripts/verify-build-baseline"
+}
+
+run_stage source
+run_stage task-card
+run_stage schema
+run_stage golden
+run_stage ui
+run_stage server
+run_stage web
+
+printf '%s\n' \
+  "Wave0Verification = PASS" \
+  "ExecutedStageCount = $([[ -n "${requested_stage}" ]] && printf '1' || printf '7')"

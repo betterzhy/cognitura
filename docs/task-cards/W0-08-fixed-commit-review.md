@@ -7,6 +7,7 @@ Gate = W0-G6 FixedCommitReview
 Risk = HIGH
 DependsOn = W0-07
 ReviewRoute = DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER
+CurrentBlocker = W0_G5_FIXED_COMMIT_CI_URL_MISSING
 ```
 
 ## 1. 目标
@@ -23,6 +24,10 @@ ReviewRoute = DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER
 - 原件哈希、设计来源、Schema 来源和 Golden Case 证据完整
 
 任一前置 Gate 未通过时，本卡不得开始。
+
+当前 `W0-G5` 只有本地七阶段 PASS；Repository 尚无 remote，固定提交 CI 与
+可访问 URL 尚不存在。因此本卡继续保持 `BLOCKED_BY_DEPENDENCY`，不得提前进入
+固定候选审查。
 
 ## 3. 写集
 
