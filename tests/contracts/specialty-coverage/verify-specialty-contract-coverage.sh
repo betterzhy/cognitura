@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-specialty-contract-coverage"
 coverage_doc="${repo_root}/docs/engineering/cognitura-specialty-contract-coverage.md"
+schema_rebaseline="${repo_root}/docs/design/cognitura-schema-baseline-1.0.md"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-specialty-coverage.XXXXXX")"
 
 cleanup() {
@@ -30,7 +31,9 @@ expect_failure() {
   local expected_message="$2"
   local output
 
-  if output="$("${verifier}" "${fixture_path}" 2>&1)"; then
+  if output="$(
+    "${verifier}" "${fixture_path}" "${schema_rebaseline}" 2>&1
+  )"; then
     fail "invalid fixture unexpectedly passed: ${fixture_path}"
   fi
 
@@ -41,10 +44,12 @@ expect_failure() {
 
 [[ -x "${verifier}" ]] || fail "specialty coverage verifier is missing or not executable"
 [[ -f "${coverage_doc}" ]] || fail "specialty coverage document is missing"
-[[ -f "${repo_root}/docs/design/cognitura-schema-baseline-1.0.md" ]] ||
+[[ -f "${schema_rebaseline}" ]] ||
   fail "approved Schema rebaseline document is missing"
 
-if ! valid_output="$("${verifier}" "${coverage_doc}" 2>&1)"; then
+if ! valid_output="$(
+  "${verifier}" "${coverage_doc}" "${schema_rebaseline}" 2>&1
+)"; then
   fail "canonical specialty coverage was rejected: ${valid_output}"
 fi
 
@@ -134,7 +139,32 @@ expect_failure \
   "${invalid_rebaseline_status}" \
   "INVALID_SCHEMA_REBASELINE_APPROVAL: DOC-GAP-001"
 
+missing_schema_rebaseline="${test_tmp_root}/missing-schema-rebaseline.md"
+if output="$(
+  "${verifier}" "${coverage_doc}" "${missing_schema_rebaseline}" 2>&1
+)"; then
+  fail "missing Schema rebaseline source unexpectedly passed"
+fi
+if [[ "${output}" != *"MISSING_SCHEMA_REBASELINE_SOURCE"* ]]; then
+  fail "missing Schema rebaseline source returned wrong error: ${output}"
+fi
+
+invalid_schema_rebaseline="${test_tmp_root}/invalid-schema-rebaseline.md"
+cp "${schema_rebaseline}" "${invalid_schema_rebaseline}"
+sed -i.bak \
+  's/^Status = FORMAL_SCHEMA_REBASELINE$/Status = DRAFT/' \
+  "${invalid_schema_rebaseline}"
+rm "${invalid_schema_rebaseline}.bak"
+if output="$(
+  "${verifier}" "${coverage_doc}" "${invalid_schema_rebaseline}" 2>&1
+)"; then
+  fail "invalid Schema rebaseline source unexpectedly passed"
+fi
+if [[ "${output}" != *"INVALID_SCHEMA_REBASELINE_SOURCE"* ]]; then
+  fail "invalid Schema rebaseline source returned wrong error: ${output}"
+fi
+
 printf '%s\n' \
   "SpecialtyContractCoverageTests = PASS" \
   "PositiveCoverageDocument = 1" \
-  "NegativeCases = 10"
+  "NegativeCases = 12"

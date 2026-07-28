@@ -6,7 +6,8 @@ CanonicalProjectName = Cognitura
 ContractScope = W0-06_NON_SCHEMA_RENDERER_CONTRACT
 AuthoritativeSource = Cognitura-Overall-Design-1.2§20.8
 RendererCreatesIndependentFacts = NO
-RendererSchemaStatus = BLOCKED_BY_DOC_GAP_001
+RendererSchemaStatus = READY_UNDER_COGNITURA_SCHEMA_BASELINE_1_0
+FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-1.0
 ```
 
 Renderer 只投影正式 CognitiveModule 内容，不创建第二套事实。本文件固定组件
@@ -43,8 +44,9 @@ RendererInputCapability = INCOMPLETE_STATE|CONCEPT_ONLY|OD1.2§20.8
 RendererInputCapability = INTERACTION_HINTS|CONCEPT_ONLY|OD1.2§20.8
 ```
 
-W0-06 不得从这些名称推断 JSON Schema。字段级 Renderer 契约继续由
-`DOC-GAP-001` 阻断。
+W0-06 不得从这些名称推断 JSON Schema。上述历史缺口已由用户批准的
+`Cognitura-Schema-Baseline-1.0` 形成字段级工程裁决；W0-04 只能按该正式
+重基线实施，不得从本文件的概念字段另行推断。
 
 ## 3. 投影不变量
 
@@ -66,9 +68,12 @@ RendererInvariant = NARROW_SCREEN_FEATURE_PARITY|NOT_REQUIRED|OD1.2§20.8
 
 ```text
 ContractCoverage = UI-RENDERER|COVERED_BY_REVERSE_MIGRATION|OD1.2§20.8
-DocumentationGapRecord = DOC-GAP-001|OPEN|RENDERER_FIELD_LEVEL_SCHEMA_SOURCE_MISSING|BLOCKS_W0-G3
+DocumentationGapRecord = DOC-GAP-001|OPEN|HISTORICAL_RENDERER_SPECIALTY_BODY_MISSING|EXECUTION_DISPOSITION_REBASELINED
 DocumentationGapRecord = DOC-GAP-002|OPEN|UIUX_SPECIALTY_BODY_MISSING|NON_SCHEMA_CONTRACTS_ONLY
+SchemaRebaselineDisposition = DOC-GAP-001|RESOLVED_FOR_W0-G3_EXECUTION|Cognitura-Schema-Baseline-1.0
 ```
 
-`DOC-GAP-001` 和 `DOC-GAP-002` 均保持开放。本文不替代缺失专项正文，也不授权
-实现 React Renderer、产品页面或业务数据转换。
+`DOC-GAP-001` 和 `DOC-GAP-002` 作为缺失历史专项正文的事实记录继续保持
+开放；其中 `DOC-GAP-001` 的 W0-G3 执行阻断已由正式重基线解除，
+`DOC-GAP-002` 未解除。本文不替代缺失专项正文，也不授权实现 React Renderer、
+产品页面或业务数据转换。

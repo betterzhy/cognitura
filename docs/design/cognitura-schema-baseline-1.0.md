@@ -68,17 +68,19 @@ MissingKnowledgeMayBeSilentlyCompleted = NO
 | `RB-001` | Schema 方言固定为 JSON Schema Draft 2020-12 |
 | `RB-002` | 每项正式产物独立成文件，通过共享定义和本地 `$ref` 组合 |
 | `RB-003` | 实例对象默认拒绝未知字段 |
-| `RB-004` | 所有正式产物携带 `schemaVersion`、`artifactId`、`revisionId` 和 `publicationState` |
+| `RB-004` | 十项正式认知产物携带 `schemaVersion`、`artifactId`、`revisionId` 和 `publicationState`；Generation Record 与 Renderer Input 携带 `schemaVersion` |
 | `RB-005` | Draft 可显式不完整；Published 必须满足发布条件 |
 | `RB-006` | Schema `$id` 使用稳定 URN，所有引用只能由本地 Catalog 解析 |
 | `RB-007` | 每个字段和关键约束必须有总体设计证据或重基线裁决映射 |
 | `RB-008` | JSON Schema 负责结构约束，语义验证器负责跨对象不变量 |
 | `RB-009` | Generation Record 保存阶段快照和验证结果，不成为第二个可编辑事实源 |
-| `RB-010` | Renderer Input 的每个节点和关系都必须投影正式认知产物 |
+| `RB-010` | Renderer Input 只能投影一个已验证 CognitiveModule 的内容；节点和关系不得跨出该 Module |
 | `RB-011` | Page State 与 Generation Status 使用不同 Schema 和枚举 |
 | `RB-012` | 破坏兼容性的变更必须升级 major，不得原地漂移 1.0 语义 |
 | `RB-013` | 所有校验必须离线运行，禁止通过网络解析 Schema 或来源 |
 | `RB-014` | Schema 验证错误与语义错误使用稳定、可断言的错误分类 |
+| `RB-015` | 来源冲突必须以状态和冲突组显式表达；仅用户可形成解决裁决，且任何裁决都不得删除或隐藏冲突来源 |
+| `RB-016` | 所有 `ArtifactRef` 必须在一个不可变 revision context 内唯一解析，并接受目标类型与作用域校验 |
 
 ## 4. Schema 包结构
 
@@ -108,13 +110,17 @@ schemas/
 正式可实例化 Schema 共 13 个；`common.schema.json` 只提供共享定义，不作为
 独立业务实例。
 
-每个文件必须声明：
+每个 Schema 文件必须声明：
 
 ```text
 $schema = https://json-schema.org/draft/2020-12/schema
 $id = urn:cognitura:schema:<domain>:<name>:1.0.0
-schemaVersion = const 1.0.0
 ```
+
+十项认知产物、Generation Record 和 Renderer Input 共 12 个对象实例 Schema
+还必须要求实例属性 `schemaVersion = const 1.0.0`。Page State 是第 13 个正式
+可实例化 Schema；它的实例是纯字符串枚举，不携带对象属性
+`schemaVersion`。`common.schema.json` 不可实例化，也不要求实例属性。
 
 `catalog.json` 维护 `$id`、版本和本地文件路径的一一映射。Catalog 中不存在的
 Schema 不得成为正式引用目标。
@@ -143,6 +149,11 @@ EvidenceKind =
 | `ArtifactRef` | 与 `ArtifactId` 相同约束 | `RB-008` |
 | `NonBlankText` | string，`minLength = 1` | `RB-003` |
 | `Sha256` | string，模式 `^[a-f0-9]{64}$` | 总体设计 §17、`RB-009` |
+
+`revision context` 是一次语义验证调用所使用的不可变对象快照：同一
+`artifactId` 在该快照内最多解析到一个 `revisionId`，所有 `ArtifactRef`
+都只能由该快照的本地对象注册表解析。下文“同一 revision context”均使用此
+定义，不允许退回存储层的任意最新版本。此语义来自 `RB-016`。
 
 ### 5.2 正式枚举
 
@@ -184,12 +195,18 @@ AssessmentStatus =
   PASS
   WARN
   FAIL
+
+ConflictState =
+  NONE
+  UNRESOLVED
+  RESOLVED_BY_USER
 ```
 
 `PublicationState`、`KnowledgeRole`、`RelationType` 和
 `KnowledgeElementType` 来自总体设计 §5–7、§12、§18；
 `SourceKind` 来自总体设计 §20.9；`AssessmentStatus` 是 `RB-005` 下的发布
-质量工程裁决。
+质量工程裁决；`ConflictState` 是为落实总体设计 §14 和 `RB-015` 的来源冲突
+显式保留要求形成的字段级裁决。
 
 ### 5.3 共享对象
 
@@ -251,6 +268,20 @@ AssessmentStatus =
 
 `sourceRefs` 为空时 `gapRefs` 必须非空。
 
+`ConflictResolutionDecision`：
+
+| 字段 | 类型 | 必填 | 约束 |
+|---|---|---|---|
+| `decisionId` | `ArtifactId` | YES | 同一冲突组内一致 |
+| `decidedBy` | string | YES | 常量 `USER` |
+| `outcome` | enum | YES | `PRESERVE_ALL/PREFER_EVIDENCE` |
+| `preferredEvidenceRef` | `ArtifactRef/null` | YES | 只能指向当前冲突组成员 |
+| `rationale` | `NonBlankText` | YES | 保存用户裁决理由 |
+
+`outcome = PRESERVE_ALL` 时 `preferredEvidenceRef` 必须为 `null`；
+`outcome = PREFER_EVIDENCE` 时必须非空。同一冲突组的全部 EvidenceReference
+必须携带值相同的决策对象；无论结果如何，全部冲突来源仍保留。
+
 `OrderedArtifactStep`：
 
 | 字段 | 类型 | 必填 | 约束 |
@@ -276,6 +307,7 @@ revisionId
 publicationState
 landscapeThesis
 themes
+coreThemeRefs
 relations
 understandingRoute
 structureAmbiguityRefs
@@ -284,6 +316,8 @@ sourceCoverage
 
 - `landscapeThesis` 为 string；`PUBLISHED` 时非空。
 - `themes` 为 `KnowledgeTheme[]`，至少一项。
+- `coreThemeRefs` 为唯一 `ArtifactRef[]`，最多 9 项；每项必须指向当前
+  `themes` 中的 Theme。Published 时必须为 3–9 项。
 - `relations` 为 `Relation[]`，顶层最多 12 项。
 - `understandingRoute` 为唯一 `ArtifactRef[]`，至少一项。
 - `structureAmbiguityRefs` 为唯一 `ArtifactRef[]`，允许为空。
@@ -304,6 +338,7 @@ coreQuestions
 role
 primaryParent
 moduleCandidates
+coreModuleRefs
 relations
 sourceCoverage
 ```
@@ -321,6 +356,8 @@ sourceCoverage
 - `candidateSpine` 为 0–9 个非空字符串；它不是已确认
   `PrimaryCognitiveSpine`。
 - 每个 Module Candidate 的 `primaryParent` 必须等于当前 Theme ID。
+- `coreModuleRefs` 为唯一 `ArtifactRef[]`，最多 7 项；每项必须指向当前
+  `moduleCandidates` 中的 Module Candidate。Published 时必须为 2–7 项。
 - `relations` 只能使用正式 `RelationType`。
 
 ### 6.3 CognitiveModule
@@ -340,6 +377,7 @@ coreQuestions
 primaryCognitiveSpine
 facets
 knowledgeElements
+keyTakeaways
 criticalBoundaries
 relations
 sourceRefs
@@ -360,6 +398,8 @@ qualityAssessment
   `summary` 为 string，`elementRefs` 和 `sourceRefs` 为唯一
   `ArtifactRef[]`。
 - `knowledgeElements` 为 `KnowledgeElement[]`。
+- `keyTakeaways` 为 `EvidenceStatement[]`，最多 7 项；Published 时必须为
+  3–7 项。
 - `criticalBoundaries` 为 `CriticalBoundary[]`；Published 时 1–5 项。
 - `relations` 为 `Relation[]`，最多 5 项；Published 时至少一项。
 - `sourceRefs` 为唯一 EvidenceReference `ArtifactRef[]`；Published 时非空。
@@ -413,6 +453,9 @@ relations
 - `title` 为 `NonBlankText`。
 - `content` 为 string；Published 时非空。
 - `sourceRefs` 为唯一 EvidenceReference 引用；Published 时非空。
+- `relations` 为 `Relation[]`，最多 5 项；关系两端只能指向当前 Module
+  或归属于当前 Module 的 KnowledgeElement。Draft 时允许为空，Published
+  时是否非空由 Module 层关系与认知内容共同决定，不另行强制。
 - KnowledgeElement 不携带主导航位置，也不能声明第二个 Module 主归属。
 
 ### 6.6 ThemeClosure
@@ -448,7 +491,10 @@ gaps
 - `criticalDistinctions`、`boundaries` 为 `EvidenceStatement[]`；
   Published 时均至少一项。
 - `relatedThemes` 为 `Relation[]`，只能连接 Theme。
-- `sourceCoverage` 和 `gaps` 必须显式存在。
+- `sourceCoverage` 为 `SourceCoverage`，适用 §5.3 的
+  `COMPLETE/PARTIAL/MISSING` 条件；Published 时同样不得违反这些条件。
+- `gaps` 为 `Gap[]`，允许为空；必须与 `sourceCoverage.gapRefs` 指向的 Gap
+  集合一致。
 
 ### 6.7 LandscapeClosure
 
@@ -473,13 +519,17 @@ gaps
 - `coreThemes` 为严格对象数组，每项包含唯一 `themeRef`、`role`、
   `contribution` 和 `sourceRefs`；`themeRef` 为 `ArtifactRef`，`role` 为
   `KnowledgeRole`，`contribution` 为 `NonBlankText`，`sourceRefs` 为唯一
-  EvidenceReference 引用；Published 时至少一项。
+  EvidenceReference 引用；最多 9 项，Published 时必须为 3–9 项。
 - `crossThemeSpine` 为 `OrderedArtifactStep[]`，其中 `artifactRef` 只能
   指向 Theme；Published 时至少一项。
 - `keyDependencies` 为 `Relation[]`，只能连接 Theme。
 - `globalBoundaries` 为 `EvidenceStatement[]`；Published 时至少一项。
 - `understandingRoute` 为唯一 Theme/Module `ArtifactRef[]`；Published 时至少
   一项。
+- `sourceCoverage` 为 `SourceCoverage`，适用 §5.3 的
+  `COMPLETE/PARTIAL/MISSING` 条件；Published 时同样不得违反这些条件。
+- `gaps` 为 `Gap[]`，允许为空；必须与 `sourceCoverage.gapRefs` 指向的 Gap
+  集合一致。
 - Route 是派生认知顺序，不得形成第二棵层级树。
 
 ### 6.8 EvidenceReference
@@ -501,6 +551,9 @@ contentSummary
 sourceKind
 supports
 inferenceDisclosure
+conflictState
+conflictGroupId
+resolutionDecision
 ```
 
 - `sourceDocumentRef` 和 `documentBlockRef` 均为 `ArtifactRef`。
@@ -515,6 +568,19 @@ inferenceDisclosure
 - `supports` 是至少一项的唯一正式产物引用。
 - `inferenceDisclosure` 为 string；
   `SOURCE_SYNTHESIZED` 时必须非空。
+- `conflictState` 为 `ConflictState`；`conflictGroupId` 为
+  `ArtifactId` 或 `null`；`resolutionDecision` 为
+  `ConflictResolutionDecision` 或 `null`。
+- `conflictState = NONE` 时，`conflictGroupId` 与
+  `resolutionDecision` 均必须为 `null`。
+- `conflictState = UNRESOLVED` 时，`conflictGroupId` 必须非空且
+  `resolutionDecision` 必须为 `null`；同一冲突组必须至少包含两项
+  EvidenceReference。
+- `conflictState = RESOLVED_BY_USER` 时 `conflictGroupId` 与
+  `resolutionDecision` 都必须非空；只有 `decidedBy = USER` 的决策对象合法，
+  自动生成、推断或模型裁决不得把冲突标记为已解决。
+- 语义验证器必须保留同一冲突组的全部 EvidenceReference；不得因已有用户
+  裁决而删除、隐藏或改写冲突来源。
 - EvidenceReference 只记录来源元数据和摘要，不复制完整原始文档。
 
 ### 6.9 StructureAmbiguity
@@ -565,6 +631,12 @@ sourceFaithfulness
 compressionEfficiency
 hardFailures
 ```
+
+`subjectRef` 为 `ArtifactRef`，只能指向同一 revision context 内的
+`KnowledgeSkeleton`、`KnowledgeTheme`、`CognitiveModule`、
+`ThemeClosure` 或 `LandscapeClosure`。不得指向 EvidenceReference、
+StructureAmbiguity、QualityAssessment、Generation Record 或 Renderer
+Input。
 
 七个质量维度均使用严格 `AssessmentDimension`：
 
@@ -705,6 +777,7 @@ STRUCTURED_PANEL
 
 ```text
 schemaVersion
+moduleRef
 rendererType
 title
 summary
@@ -716,6 +789,8 @@ incompleteState
 interactionHints
 ```
 
+- `moduleRef` 必须且只能指向一个已通过 Schema 与语义验证的
+  CognitiveModule；当前 Renderer Input 的所有内容都受该引用约束。
 - `title` 为 `NonBlankText`，`summary` 为 string。
 - `nodes` 为 1–64 个唯一 Node；超过 12 个时 `groups` 必须非空。
 - `groups` 为 0–16 个唯一 Group。
@@ -728,13 +803,17 @@ interactionHints
 ```text
 nodeId
 artifactRef
+contentPath
 label
 summary
 groupRef
 sourceRefs
 ```
 
-- `artifactRef` 必须指向已验证的正式认知产物。
+- `artifactRef` 必须等于顶层 `moduleRef`，不得指向 Theme、Closure、
+  QualityAssessment、EvidenceReference 或其他正式认知产物。
+- `contentPath` 为 RFC 6901 JSON Pointer，必须解析到该 CognitiveModule
+  revision 内的被投影内容；不得定位到另一产物或外部文档。
 - `nodeId` 为 `ArtifactId`，`label` 为 `NonBlankText`，`summary` 为
   string。
 - `groupRef` 为 Group ID 或 `null`。
@@ -751,7 +830,8 @@ Node 必须恰好属于一个 Group。
 `targetNodeRef`、`artifactRelationRef` 和 `sourceRefs`。它只能投影正式
 Relation，不得创建额外语义边。`relationId` 为 `ArtifactId`，`type` 为
 `RelationType`，Node Ref 必须在当前输入内解析，`artifactRelationRef` 必须
-指向正式 Relation，`sourceRefs` 为唯一 EvidenceReference 引用。
+指向顶层 `moduleRef` 对应 CognitiveModule 内的正式 Relation，`sourceRefs`
+为唯一 EvidenceReference 引用。
 
 `incompleteState`：
 
@@ -778,8 +858,9 @@ FOLD_GROUP
 
 Renderer 语义验证必须证明：
 
-- 每个 Node 都有正式产物引用；
-- 每条 Relation 都有正式关系引用；
+- 每个 Node 的 `artifactRef` 都等于顶层 `moduleRef`，且 `contentPath`
+  解析到该 Module revision 内的内容；
+- 每条 Relation 都引用同一 Module 内的正式关系；
 - Renderer 不改变认知顺序、关系类型或来源性质；
 - 超过密度边界时使用 Group/Fold/Stage，而不是无限扩展节点。
 
@@ -808,15 +889,16 @@ Page State 不得复用或扩写 Generation Status。
 
 ```text
 GenerationStageRecord
-→ validated Cognitive Artifact
+→ validated CognitiveModule
 → Renderer Input projection
 → Desktop Web
 ```
 
 - Generation Record 保存可审计阶段快照，不是可独立编辑的认知事实。
-- 正式认知产物通过 Schema 与语义验证后才可成为 Renderer 输入。
+- 只有通过 Schema 与语义验证的 CognitiveModule 才可成为 Renderer Input
+  的投影来源。
 - Renderer Input 是一次投影，不得被回写为认知产物。
-- SourceReference 可从认知产物和 Renderer 双向定位，但原始来源保持只读。
+- EvidenceReference 可从认知产物和 Renderer 双向定位，但原始来源保持只读。
 - Draft/Confirmed 的不完整状态必须显式表达，不能用静默补全换取验证通过。
 
 ## 11. 验证与错误模型
@@ -848,10 +930,15 @@ STAGE_EXECUTION_FAILED
 - 13 个正式 Schema 每个至少一个完整正例。
 - 覆盖缺少 required、未知字段、非法枚举和错误类型。
 - Published Module 缺少 thesis、spine、boundary、sourceRefs 或质量门禁时失败。
+- Published Skeleton 的核心 Theme 少于 3 个或多于 9 个、Published Theme 的
+  核心 Module 少于 2 个或多于 7 个、Published Module 的 KeyTakeaways 少于
+  3 个或多于 7 个时失败。
 - Spine 少于 4 步、多于 9 步、order 不连续或同一 Module 多主线时失败。
 - 非法关系、悬空 parent、source 或 artifact 引用时失败。
+- 来源冲突缺少冲突组、被自动标记解决、用户裁决引用非法或冲突来源被隐藏时失败。
 - Generation 阶段与 `structuredOutput` Schema 不匹配时失败。
-- Renderer 节点无正式产物引用或关系无正式 Relation 引用时失败。
+- Renderer 节点跨 Module、`contentPath` 无法在同一 Module revision 解析或
+  关系不是该 Module 内正式 Relation 时失败。
 - 非法 Page State、未登记 Schema、远程 `$ref` 或缺失证据映射时失败。
 - 所有验证离线运行，不读取 Golden Case 正文、不访问 Redis 遗留链接、不修改
   `raw/`。

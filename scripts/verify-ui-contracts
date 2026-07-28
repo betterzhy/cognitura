@@ -309,13 +309,29 @@ for required_record in \
 done
 
 grep -Fq \
-  'DocumentationGapRecord = DOC-GAP-001|OPEN|RENDERER_FIELD_LEVEL_SCHEMA_SOURCE_MISSING|BLOCKS_W0-G3' \
+  'DocumentationGapRecord = DOC-GAP-001|OPEN|HISTORICAL_RENDERER_SPECIALTY_BODY_MISSING|EXECUTION_DISPOSITION_REBASELINED' \
   "${renderer_contract}" ||
   fail "MISSING_DOCUMENTATION_GAP: DOC-GAP-001"
 grep -Fq \
   'DocumentationGapRecord = DOC-GAP-002|OPEN|UIUX_SPECIALTY_BODY_MISSING|NON_SCHEMA_CONTRACTS_ONLY' \
   "${page_contracts}" ||
   fail "MISSING_DOCUMENTATION_GAP: DOC-GAP-002"
+grep -Fqx \
+  'RendererSchemaStatus = READY_UNDER_COGNITURA_SCHEMA_BASELINE_1_0' \
+  "${renderer_contract}" ||
+  fail "MISSING_SCHEMA_REBASELINE_AUTHORITY: RENDERER_INPUT"
+grep -Fqx \
+  'FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-1.0' \
+  "${renderer_contract}" ||
+  fail "MISSING_SCHEMA_REBASELINE_AUTHORITY: RENDERER_INPUT"
+grep -Fqx \
+  'FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-1.0' \
+  "${page_contracts}" ||
+  fail "MISSING_SCHEMA_REBASELINE_AUTHORITY: PAGE_STATE"
+grep -Fqx \
+  'SchemaRebaselineDisposition = DOC-GAP-001|RESOLVED_FOR_W0-G3_EXECUTION|Cognitura-Schema-Baseline-1.0' \
+  "${renderer_contract}" ||
+  fail "MISSING_SCHEMA_REBASELINE_DISPOSITION: DOC-GAP-001"
 
 printf '%s\n' \
   "UiContractValidation = PASS" \

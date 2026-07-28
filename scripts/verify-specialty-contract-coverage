@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s <coverage-document>\n' "$0" >&2
+  printf 'Usage: %s <coverage-document> <schema-rebaseline>\n' "$0" >&2
   exit 2
 }
 
@@ -50,9 +50,12 @@ record_has_id() {
   ' "${records_file}"
 }
 
-[[ "$#" -eq 1 ]] || usage
+[[ "$#" -eq 2 ]] || usage
 coverage_doc="$1"
+schema_rebaseline_path="$2"
 [[ -f "${coverage_doc}" ]] || fail "MISSING_COVERAGE_DOCUMENT: ${coverage_doc}"
+[[ -f "${schema_rebaseline_path}" ]] ||
+  fail "MISSING_SCHEMA_REBASELINE_SOURCE: ${schema_rebaseline_path}"
 
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-specialty-coverage-parse.XXXXXX")"
 migration_records="${tmp_root}/migration-records"
@@ -307,28 +310,14 @@ done <"${schema_rebaseline_approval_records}"
 [[ "${schema_rebaseline_approval_count}" == "1" ]] ||
   fail "MISSING_SCHEMA_REBASELINE_APPROVAL: DOC-GAP-001"
 
-coverage_dir="$(cd "$(dirname "${coverage_doc}")" && pwd -P)"
-candidate_repo_root="$(cd "${coverage_dir}/../.." 2>/dev/null && pwd -P || true)"
-if [[ -f "${candidate_repo_root}/AGENTS.md" ]]; then
-  schema_rebaseline_source="$(
-    awk -F '|' '
-      $1 == "DOC-GAP-001" {
-        print $3
-      }
-    ' "${schema_rebaseline_approval_records}"
-  )"
-  schema_rebaseline_path="${candidate_repo_root}/${schema_rebaseline_source}"
-  [[ -f "${schema_rebaseline_path}" ]] ||
-    fail "MISSING_SCHEMA_REBASELINE_SOURCE: ${schema_rebaseline_source}"
-  for required_marker in \
-    'EngineeringReferenceName = Cognitura-Schema-Baseline-1.0' \
-    'Status = FORMAL_SCHEMA_REBASELINE' \
-    'ClaimsHistoricalSpecialtyProvenance = NO' \
-    'ImplementationGate = W0-G3 JsonSchemaValidation'; do
-    grep -Fqx "${required_marker}" "${schema_rebaseline_path}" ||
-      fail "INVALID_SCHEMA_REBASELINE_SOURCE: ${required_marker}"
-  done
-fi
+for required_marker in \
+  'EngineeringReferenceName = Cognitura-Schema-Baseline-1.0' \
+  'Status = FORMAL_SCHEMA_REBASELINE' \
+  'ClaimsHistoricalSpecialtyProvenance = NO' \
+  'ImplementationGate = W0-G3 JsonSchemaValidation'; do
+  grep -Fqx "${required_marker}" "${schema_rebaseline_path}" ||
+    fail "INVALID_SCHEMA_REBASELINE_SOURCE: ${required_marker}"
+done
 
 printf '%s\n' \
   "SpecialtyContractCoverageValidation = PASS" \

@@ -120,7 +120,16 @@ sed -i.bak \
 rm "${invented_schema_semantics}/renderer-contract.md.bak"
 expect_failure "${invented_schema_semantics}" "SCHEMA_SEMANTICS_FORBIDDEN: TITLE"
 
+missing_schema_authority="$(make_fixture "missing-schema-authority")"
+sed -i.bak \
+  's/^FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-1.0$/FieldLevelSchemaAuthority = NOT_PROVIDED/' \
+  "${missing_schema_authority}/page-contracts.md"
+rm "${missing_schema_authority}/page-contracts.md.bak"
+expect_failure \
+  "${missing_schema_authority}" \
+  "MISSING_SCHEMA_REBASELINE_AUTHORITY: PAGE_STATE"
+
 printf '%s\n' \
   "UiContractTests = PASS" \
   "PositiveContractSet = 1" \
-  "NegativeCases = 8"
+  "NegativeCases = 9"

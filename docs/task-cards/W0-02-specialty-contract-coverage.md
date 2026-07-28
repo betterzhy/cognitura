@@ -55,7 +55,8 @@ ReviewRoute = MAIN_AGENT_GATE
 ```bash
 bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 scripts/verify-specialty-contract-coverage \
-  docs/engineering/cognitura-specialty-contract-coverage.md
+  docs/engineering/cognitura-specialty-contract-coverage.md \
+  docs/design/cognitura-schema-baseline-1.0.md
 bash tests/task-cards/verify-task-cards.sh
 git diff --check
 ```
