@@ -89,7 +89,18 @@ class SemanticViolation extends Error {
   }
 }
 
+let semanticEvidenceByViolationCode;
+
 function semanticAssert(condition, code, message) {
+  if (
+    semanticEvidenceByViolationCode !== undefined &&
+    !semanticEvidenceByViolationCode.has(code)
+  ) {
+    fail(
+      "EVIDENCE_MAPPING_MISSING",
+      `runtime semantic violation code ${code} has no evidence policy`
+    );
+  }
   if (!condition) {
     throw new SemanticViolation(code, message);
   }
@@ -488,7 +499,13 @@ function validateSemanticContext(context) {
     }
   }
 
-  function checkSourceCoverage(ownerId, ownerKey, sourceCoverage, gaps) {
+  function checkSourceCoverage(
+    ownerId,
+    ownerKey,
+    sourceCoverage,
+    gaps,
+    carriedEvidenceRefs = null
+  ) {
     semanticAssert(
       equalSets(sourceCoverage.gapRefs, gaps.map((gap) => gap.gapId)),
       "SOURCE_COVERAGE_GAP_MISMATCH",
@@ -501,6 +518,16 @@ function validateSemanticContext(context) {
     );
     checkEvidenceRefs(sourceCoverage.evidenceRefs, ownerId);
     checkGapSources(gaps, ownerId);
+    if (
+      sourceCoverage.status === "COMPLETE" &&
+      carriedEvidenceRefs !== null
+    ) {
+      semanticAssert(
+        equalSets(sourceCoverage.evidenceRefs, carriedEvidenceRefs),
+        "SOURCE_COVERAGE_UNION_MISMATCH",
+        ownerId
+      );
+    }
   }
 
   function checkEvidenceStatements(items, ownerId, ownerKey) {
@@ -640,7 +667,8 @@ function validateSemanticContext(context) {
     skeleton.artifactId,
     `KnowledgeSkeleton:${skeleton.artifactId}`,
     skeleton.sourceCoverage,
-    skeleton.gaps
+    skeleton.gaps,
+    sourceRefsFrom(skeleton.relations)
   );
   for (const ambiguityRef of skeleton.structureAmbiguityRefs) {
     getArtifact(ambiguityRef, ["StructureAmbiguity"]);
@@ -650,7 +678,8 @@ function validateSemanticContext(context) {
       theme.artifactId,
       `KnowledgeTheme:${theme.artifactId}`,
       theme.sourceCoverage,
-      theme.gaps
+      theme.gaps,
+      sourceRefsFrom(theme.relations)
     );
     for (const candidate of theme.moduleCandidates) {
       checkSourceCoverage(
@@ -1469,6 +1498,48 @@ function applySemanticMutation(context, mutation) {
         (evidence) => evidence.artifactId !== "evidence.conflict.mvcc.3"
       );
       break;
+    case "SKELETON_SOURCE_COVERAGE_UNION": {
+      const evidence = structuredClone(
+        context.evidenceReferences.find((candidate) => (
+          candidate.artifactId === "evidence.landscape"
+        ))
+      );
+      evidence.artifactId = "evidence.landscape.uncovered";
+      evidence.revisionId = "rev.evidence.landscape.uncovered.1";
+      context.evidenceReferences.push(evidence);
+      context.skeleton.relations.push({
+        relationId: "relation.landscape.consistency-impacts-execution",
+        type: "IMPACTS",
+        sourceRef: "theme.consistency",
+        targetRef: "theme.execution",
+        origin: "SOURCE_EXPLICIT",
+        riskLevel: "LOW",
+        sourceRefs: [evidence.artifactId],
+        gapRefs: []
+      });
+      break;
+    }
+    case "THEME_SOURCE_COVERAGE_UNION": {
+      const evidence = structuredClone(
+        context.evidenceReferences.find((candidate) => (
+          candidate.artifactId === "evidence.theme.storage"
+        ))
+      );
+      evidence.artifactId = "evidence.theme.storage.uncovered";
+      evidence.revisionId = "rev.evidence.theme.storage.uncovered.1";
+      context.evidenceReferences.push(evidence);
+      context.skeleton.themes[0].relations.push({
+        relationId: "relation.theme.storage.locking-impacts-mvcc",
+        type: "IMPACTS",
+        sourceRef: "module.locking",
+        targetRef: "module.mvcc",
+        origin: "SOURCE_EXPLICIT",
+        riskLevel: "LOW",
+        sourceRefs: [evidence.artifactId],
+        gapRefs: []
+      });
+      break;
+    }
     default:
       fail("SCHEMA_PARSE_ERROR", `unknown semantic mutation ${mutation}`);
   }
@@ -1795,6 +1866,238 @@ const commonDefinitionSources = new Map([
   ["assessmentDimension", "OD1.2§21;RB-005"]
 ]);
 
+const semanticEvidencePolicies = [
+  {
+    semanticId: "REVISION_CONTEXT_REFERENCE_RESOLUTION",
+    schemaId: "urn:cognitura:schema:cognition:common:2.0.0",
+    schemaPointer: "/$defs/artifactRef",
+    source: "RB-008,RB-016;Cognitura-Schema-Baseline-2.0§5.1",
+    reason: "All ArtifactRef values resolve uniquely by target type and owner scope inside one immutable revision context.",
+    violationCodes: [
+      "ARTIFACT_ID_MISSING",
+      "DUPLICATE_ARTIFACT_REVISION",
+      "REFERENCE_TARGET_TYPE_MISMATCH",
+      "DANGLING_REFERENCE"
+    ]
+  },
+  {
+    semanticId: "CANONICAL_HIERARCHY_AND_CANDIDATE_SCOPE",
+    schemaId: "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+    schemaPointer: "/properties/primaryParent",
+    source: "OD1.2§5-7;RB-016;Cognitura-Schema-Baseline-2.0§6.1-6.3",
+    reason: "Themes and Modules preserve the canonical hierarchy, and every Module must resolve from its owning Theme candidate set.",
+    violationCodes: [
+      "DUPLICATE_THEME_ID",
+      "CORE_THEME_OUT_OF_SCOPE",
+      "DANGLING_PARENT",
+      "DUPLICATE_MODULE_CANDIDATE",
+      "CORE_MODULE_OUT_OF_SCOPE",
+      "MODULE_NOT_CONFIRMED_CANDIDATE",
+      "UNDERSTANDING_ROUTE_OUT_OF_SCOPE"
+    ]
+  },
+  {
+    semanticId: "PRIMARY_SPINE_UNIQUENESS_AND_ORDER",
+    schemaId: "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+    schemaPointer: "/properties/steps",
+    source: "OD1.2§8;RB-005,RB-016;Cognitura-Schema-Baseline-2.0§6.3-6.4",
+    reason: "Each eligible Module resolves its embedded PrimaryCognitiveSpine with unique contiguous cognitive steps.",
+    violationCodes: [
+      "SPINE_MODULE_MISMATCH",
+      "MULTIPLE_PRIMARY_SPINES",
+      "DANGLING_MODULE_REF",
+      "DUPLICATE_SPINE_STEP_ID",
+      "SPINE_ORDER_NOT_CONTIGUOUS"
+    ]
+  },
+  {
+    semanticId: "NON_PUBLISHED_MODULE_NULLABILITY",
+    schemaId: "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+    schemaPointer: "/properties/primaryCognitiveSpine",
+    source: "RB-005;Cognitura-Schema-Baseline-2.0§6.3,§10",
+    reason: "Draft and Confirmed Modules may keep spine and quality assessment null without semantic rejection or validator failure.",
+    violationCodes: []
+  },
+  {
+    semanticId: "SOURCE_COVERAGE_OWNER_GAP_AND_UNION",
+    schemaId: "urn:cognitura:schema:cognition:common:2.0.0",
+    schemaPointer: "/$defs/sourceCoverage",
+    source: "OD1.2§13-14,§19;RB-016;Cognitura-Schema-Baseline-2.0§5.3",
+    reason: "SourceCoverage resolves owner-scoped Evidence and Gaps and exactly preserves all carried Evidence for COMPLETE owners.",
+    violationCodes: [
+      "DUPLICATE_GAP_ID",
+      "DUPLICATE_EVIDENCE_REF",
+      "DANGLING_EVIDENCE_REF",
+      "EVIDENCE_DOES_NOT_SUPPORT_OWNER",
+      "SOURCE_COVERAGE_GAP_MISMATCH",
+      "SOURCE_COVERAGE_UNION_MISMATCH"
+    ]
+  },
+  {
+    semanticId: "RELATION_OWNER_ENDPOINT_AND_GAP_SCOPE",
+    schemaId: "urn:cognitura:schema:cognition:common:2.0.0",
+    schemaPointer: "/$defs/relation",
+    source: "OD1.2§12;RB-008,RB-016;Cognitura-Schema-Baseline-2.0§5.3,§6.3,§6.5",
+    reason: "Relations preserve non-self endpoints, owning-artifact scope, Evidence support, and owner-local Gap references.",
+    violationCodes: [
+      "DUPLICATE_RELATION_ID",
+      "RELATION_SELF_REFERENCE",
+      "RELATION_TARGET_OUT_OF_SCOPE",
+      "RELATION_GAP_OUT_OF_SCOPE"
+    ]
+  },
+  {
+    semanticId: "MODULE_INTERNAL_OWNERSHIP_AND_REFERENCE_SCOPE",
+    schemaId: "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+    schemaPointer: "",
+    source: "OD1.2§8-12;RB-008,RB-016;Cognitura-Schema-Baseline-2.0§5.3,§6.3,§6.5",
+    reason: "Module facets, statements, boundaries, elements, and relation references remain unique and owner-scoped.",
+    violationCodes: [
+      "DUPLICATE_FACET_ID",
+      "DUPLICATE_BOUNDARY_ID",
+      "DUPLICATE_STATEMENT_ID",
+      "FACET_ELEMENT_OUT_OF_SCOPE",
+      "ELEMENT_MODULE_MISMATCH",
+      "ELEMENT_RELATION_OUT_OF_SCOPE",
+      "STATEMENT_GAP_OUT_OF_SCOPE"
+    ]
+  },
+  {
+    semanticId: "THEME_CLOSURE_MODULE_SCOPE_AND_ORDER",
+    schemaId: "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+    schemaPointer: "/properties/themeSpine",
+    source: "OD1.2§15;RB-016;Cognitura-Schema-Baseline-2.0§6.6",
+    reason: "ThemeClosure cooperation and spine steps resolve only Modules owned by the current Theme and preserve contiguous order.",
+    violationCodes: [
+      "DUPLICATE_MODULE_COOPERATION",
+      "THEME_CLOSURE_MODULE_OUT_OF_SCOPE"
+    ]
+  },
+  {
+    semanticId: "LANDSCAPE_CLOSURE_THEME_ROUTE_AND_ORDER",
+    schemaId: "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+    schemaPointer: "/properties/crossThemeSpine",
+    source: "OD1.2§16;RB-016;Cognitura-Schema-Baseline-2.0§6.7",
+    reason: "LandscapeClosure resolves only local Themes and Modules in its spine and understanding route while preserving order.",
+    violationCodes: [
+      "DUPLICATE_CORE_THEME",
+      "LANDSCAPE_THEME_OUT_OF_SCOPE",
+      "LANDSCAPE_ROUTE_OUT_OF_SCOPE"
+    ]
+  },
+  {
+    semanticId: "EVIDENCE_EXTERNAL_REFERENCE_TYPES_AND_SUPPORT_SCOPE",
+    schemaId: "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+    schemaPointer: "/properties/sourceDocumentRef",
+    source: "OD1.2§13-14,§20.9;RB-016;Cognitura-Schema-Baseline-2.0§6.8,§7",
+    reason: "Evidence resolves SourceDocument and DocumentBlock references by exact external type and supports only local formal targets.",
+    violationCodes: [
+      "SOURCE_BLOCK_OUT_OF_CONTEXT",
+      "EVIDENCE_SUPPORT_TARGET_MISSING"
+    ]
+  },
+  {
+    semanticId: "CONFLICT_MEMBERSHIP_AND_USER_RESOLUTION",
+    schemaId: "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+    schemaPointer: "/properties/conflictState",
+    source: "OD1.2§14;RB-015,RB-016;Cognitura-Schema-Baseline-2.0§5.3,§6.8",
+    reason: "Conflict groups preserve the exact immutable Evidence membership and accept only consistent user resolution decisions.",
+    violationCodes: [
+      "CONFLICT_MEMBERSHIP_INVALID",
+      "CONFLICT_RESOLUTION_NOT_USER",
+      "CONFLICT_GROUP_SINGLETON",
+      "CONFLICT_SOURCE_HIDDEN",
+      "CONFLICT_DECISION_MISMATCH",
+      "PREFERRED_EVIDENCE_OUT_OF_GROUP"
+    ]
+  },
+  {
+    semanticId: "STRUCTURE_AMBIGUITY_REFERENCE_SCOPE",
+    schemaId: "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+    schemaPointer: "/properties/locationRef",
+    source: "OD1.2§5-7,§19;RB-016;Cognitura-Schema-Baseline-2.0§6.9",
+    reason: "StructureAmbiguity location, alternatives, impacts, Evidence, and Gap references resolve inside the current revision context.",
+    violationCodes: [
+      "DUPLICATE_ALTERNATIVE_ID",
+      "AMBIGUITY_GAP_OUT_OF_SCOPE"
+    ]
+  },
+  {
+    semanticId: "QUALITY_ASSESSMENT_SUBJECT_AND_FINDING_SCOPE",
+    schemaId: "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+    schemaPointer: "/properties/subjectRef",
+    source: "OD1.2§21;RB-005,RB-016;Cognitura-Schema-Baseline-2.0§6.10",
+    reason: "QualityAssessment targets an allowed formal subject and resolves every finding Artifact and Evidence reference.",
+    violationCodes: [
+      "QUALITY_SUBJECT_MISMATCH"
+    ]
+  },
+  {
+    semanticId: "RENDERER_PROJECTION_SEMANTIC_PRESERVATION",
+    schemaId: "urn:cognitura:schema:ui:renderer-input:2.0.0",
+    schemaPointer: "",
+    source: "OD1.2§20.8;RB-010,RB-016;Cognitura-Schema-Baseline-2.0§8",
+    reason: "Renderer projections remain cognitive-only and preserve Module-local endpoints, direction, relation sources, and cognitive order.",
+    violationCodes: [
+      "DUPLICATE_RENDERER_NODE",
+      "DUPLICATE_RENDERER_GROUP",
+      "DUPLICATE_RENDERER_RELATION",
+      "RENDERER_CONTENT_PATH_UNRESOLVED",
+      "RENDERER_CONTENT_PATH_NOT_COGNITIVE",
+      "RENDERER_CROSS_MODULE",
+      "RENDERER_COGNITIVE_ORDER_CHANGED",
+      "RENDERER_GROUP_REF_MISSING",
+      "RENDERER_SOURCE_OUT_OF_SCOPE",
+      "RENDERER_NODE_REF_MISSING",
+      "RENDERER_RELATION_OUT_OF_SCOPE",
+      "RENDERER_RELATION_TYPE_CHANGED",
+      "RENDERER_RELATION_ENDPOINT_CHANGED",
+      "RENDERER_RELATION_SOURCE_CHANGED",
+      "RENDERER_GAP_OUT_OF_SCOPE",
+      "RENDERER_DENSITY_GROUPING_INVALID"
+    ]
+  },
+  {
+    semanticId: "GENERATION_SOURCE_OUTPUT_RETRY_AND_DEDUPLICATION",
+    schemaId: "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+    schemaPointer: "",
+    source: "OD1.2§17-19;RB-009,RB-016;Cognitura-Schema-Baseline-2.0§7",
+    reason: "Generation records resolve typed source blocks and retry scopes, validate cognitive outputs, and reject duplicate successful runs.",
+    violationCodes: [
+      "GENERATION_OUTPUT_SCHEMA_INVALID",
+      "GENERATION_OUTPUT_CONTRACT_VIOLATION",
+      "DUPLICATE_SUCCESSFUL_RUN"
+    ]
+  },
+  {
+    semanticId: "SEMANTIC_ERROR_CLASSIFICATION_STABILITY",
+    schemaId: "urn:cognitura:schema:cognition:common:2.0.0",
+    schemaPointer: "",
+    source: "RB-014;Cognitura-Schema-Baseline-2.0§11",
+    reason: "Every semantic negative exits through a stable asserted SemanticViolation code rather than an unclassified runtime failure.",
+    violationCodes: []
+  }
+].map((policy) => ({
+  ...policy,
+  constraintKinds: ["SEMANTIC_INVARIANT"],
+  evidenceKind: policy.source.includes("OD1.2§")
+    ? "OVERALL_DESIGN_EVIDENCE"
+    : "REBASELINE_DECISION"
+}));
+
+semanticEvidenceByViolationCode = new Map();
+for (const policy of semanticEvidencePolicies) {
+  for (const code of policy.violationCodes) {
+    if (semanticEvidenceByViolationCode.has(code)) {
+      fail(
+        "EVIDENCE_MAPPING_MISSING",
+        `runtime semantic violation code ${code} has multiple evidence policies`
+      );
+    }
+    semanticEvidenceByViolationCode.set(code, policy.semanticId);
+  }
+}
+
 class EvidenceMapViolation extends Error {
   constructor(message) {
     super(message);
@@ -1809,6 +2112,12 @@ function evidenceAssert(condition, message) {
 }
 
 function evidenceSourceFor(schemaId, pointer) {
+  if (pointer === "/$schema") {
+    return "RB-001";
+  }
+  if (pointer === "/$id") {
+    return "RB-006";
+  }
   if (schemaId === "urn:cognitura:schema:cognition:common:2.0.0") {
     const definitionMatch = /^\/\$defs\/([^/]+)/.exec(pointer);
     if (definitionMatch) {
@@ -1843,6 +2152,19 @@ function collectExpectedEvidenceEntries() {
   const expectedEntries = new Map();
   for (const [schemaId, schema] of schemaDocuments) {
     walk(schema, (value, pointer) => {
+      if (pointer === "/$schema" || pointer === "/$id") {
+        const constraintKinds = [
+          pointer === "/$schema" ? "SCHEMA_DIALECT" : "SCHEMA_IDENTITY"
+        ];
+        const key = `${schemaId}\n${pointer}`;
+        expectedEntries.set(key, {
+          schemaId,
+          schemaPointer: pointer,
+          constraintKinds,
+          ...evidencePolicy(schemaId, pointer, constraintKinds)
+        });
+        return;
+      }
       if (!value || Array.isArray(value) || typeof value !== "object") {
         return;
       }
@@ -1878,7 +2200,8 @@ function buildExpectedEvidenceMapDocument() {
   return {
     baseline: "Cognitura-Schema-Baseline-2.0",
     baselineSha256: actualBaselineSha256,
-    entries: [...collectExpectedEvidenceEntries().values()]
+    entries: [...collectExpectedEvidenceEntries().values()],
+    semanticEntries: structuredClone(semanticEvidencePolicies)
   };
 }
 
@@ -1896,7 +2219,8 @@ if (evidenceMapPageArgument) {
   process.stdout.write(`${JSON.stringify({
     baseline: expectedEvidenceMap.baseline,
     baselineSha256: expectedEvidenceMap.baselineSha256,
-    entries: expectedEvidenceMap.entries.slice(page * pageSize, (page + 1) * pageSize)
+    entries: expectedEvidenceMap.entries.slice(page * pageSize, (page + 1) * pageSize),
+    semanticEntries: page === 0 ? expectedEvidenceMap.semanticEntries : []
   })}\n`);
   process.exit(0);
 }
@@ -1911,6 +2235,10 @@ function validateEvidenceMapDocument(document) {
     Array.isArray(document.entries) && document.entries.length > 0,
     "evidence map has no entries"
   );
+  evidenceAssert(
+    Array.isArray(document.semanticEntries) && document.semanticEntries.length > 0,
+    "evidence map has no semantic invariant entries"
+  );
 
   const expectedEntries = collectExpectedEvidenceEntries();
   const actualEntries = new Map();
@@ -1919,6 +2247,7 @@ function validateEvidenceMapDocument(document) {
       typeof entry.schemaId === "string" &&
       typeof entry.schemaPointer === "string" &&
       Array.isArray(entry.constraintKinds) &&
+      uniqueValues(entry.constraintKinds) &&
       ["OVERALL_DESIGN_EVIDENCE", "REBASELINE_DECISION"].includes(entry.evidenceKind) &&
       typeof entry.source === "string" &&
       entry.source.length > 0 &&
@@ -1962,13 +2291,73 @@ function validateEvidenceMapDocument(document) {
   for (const key of expectedEntries.keys()) {
     evidenceAssert(actualEntries.has(key), `missing exact evidence entry ${key}`);
   }
-  return actualEntries.size;
+
+  const expectedSemanticEntries = new Map(
+    semanticEvidencePolicies.map((entry) => [entry.semanticId, entry])
+  );
+  const actualSemanticEntries = new Map();
+  for (const entry of document.semanticEntries) {
+    evidenceAssert(
+      typeof entry.semanticId === "string" &&
+      typeof entry.schemaId === "string" &&
+      typeof entry.schemaPointer === "string" &&
+      Array.isArray(entry.constraintKinds) &&
+      uniqueValues(entry.constraintKinds) &&
+      Array.isArray(entry.violationCodes) &&
+      uniqueValues(entry.violationCodes) &&
+      ["OVERALL_DESIGN_EVIDENCE", "REBASELINE_DECISION"].includes(entry.evidenceKind) &&
+      typeof entry.source === "string" &&
+      entry.source.length > 0 &&
+      typeof entry.reason === "string" &&
+      entry.reason.length > 0,
+      "evidence map contains a malformed semantic invariant entry"
+    );
+    const mappedSchema = schemaDocuments.get(entry.schemaId);
+    evidenceAssert(mappedSchema, `unknown semantic Schema ID ${entry.schemaId}`);
+    evidenceAssert(
+      resolveJsonPointer(mappedSchema, entry.schemaPointer).found,
+      `${entry.semanticId} points to an unresolved Schema location`
+    );
+    evidenceAssert(
+      !actualSemanticEntries.has(entry.semanticId),
+      `duplicate semantic evidence entry ${entry.semanticId}`
+    );
+    const expected = expectedSemanticEntries.get(entry.semanticId);
+    evidenceAssert(expected, `unexpected semantic evidence entry ${entry.semanticId}`);
+    evidenceAssert(
+      entry.schemaId === expected.schemaId &&
+      entry.schemaPointer === expected.schemaPointer &&
+      equalSets(entry.constraintKinds, expected.constraintKinds) &&
+      equalSets(entry.violationCodes, expected.violationCodes) &&
+      entry.evidenceKind === expected.evidenceKind &&
+      entry.source === expected.source &&
+      entry.reason === expected.reason,
+      `semantic evidence policy differs at ${entry.semanticId}`
+    );
+    actualSemanticEntries.set(entry.semanticId, entry);
+  }
+  evidenceAssert(
+    actualSemanticEntries.size === expectedSemanticEntries.size,
+    `expected ${expectedSemanticEntries.size} semantic evidence entries, found ${actualSemanticEntries.size}`
+  );
+  for (const semanticId of expectedSemanticEntries.keys()) {
+    evidenceAssert(
+      actualSemanticEntries.has(semanticId),
+      `missing semantic evidence entry ${semanticId}`
+    );
+  }
+
+  return {
+    schemaEntryCount: actualEntries.size,
+    semanticEntryCount: actualSemanticEntries.size,
+    totalEntryCount: actualEntries.size + actualSemanticEntries.size
+  };
 }
 
 const evidenceMap = readJson("schemas/evidence-map.json");
-let evidenceMapEntryCount;
+let evidenceMapCounts;
 try {
-  evidenceMapEntryCount = validateEvidenceMapDocument(evidenceMap);
+  evidenceMapCounts = validateEvidenceMapDocument(evidenceMap);
 } catch (error) {
   if (error instanceof EvidenceMapViolation) {
     fail("EVIDENCE_MAPPING_MISSING", error.message);
@@ -2001,6 +2390,30 @@ const evidenceMapNegativeCases = [
         entry.schemaPointer.includes("/then/properties/")
       ));
       document.entries.splice(index, 1);
+    }
+  },
+  {
+    name: "schema-identity-missing",
+    mutate(document) {
+      const index = document.entries.findIndex((entry) => (
+        entry.schemaPointer === "/$id"
+      ));
+      document.entries.splice(index, 1);
+    }
+  },
+  {
+    name: "semantic-invariant-missing",
+    mutate(document) {
+      document.semanticEntries.splice(0, 1);
+    }
+  },
+  {
+    name: "semantic-violation-code-missing",
+    mutate(document) {
+      const entry = document.semanticEntries.find((candidate) => (
+        candidate.violationCodes.length > 0
+      ));
+      entry.violationCodes.splice(0, 1);
     }
   }
 ];
@@ -2111,8 +2524,8 @@ for (const caseName of semanticCaseNames) {
   }
 }
 
-if (semanticCaseNames.length !== 32) {
-  fail("STAGE_EXECUTION_FAILED", `expected 32 semantic negative cases, found ${semanticCaseNames.length}`);
+if (semanticCaseNames.length !== 34) {
+  fail("STAGE_EXECUTION_FAILED", `expected 34 semantic negative cases, found ${semanticCaseNames.length}`);
 }
 
 process.stdout.write([
@@ -2125,7 +2538,10 @@ process.stdout.write([
   `SemanticValidContextCount = ${semanticValidContexts.length}`,
   "NonPublishedModuleNullability = PASS",
   `SemanticNegativeCaseCount = ${semanticCaseNames.length}`,
-  `EvidenceMapEntryCount = ${evidenceMapEntryCount}`,
+  `SemanticViolationCodeCount = ${semanticEvidenceByViolationCode.size}`,
+  `EvidenceMapSchemaEntryCount = ${evidenceMapCounts.schemaEntryCount}`,
+  `EvidenceMapSemanticEntryCount = ${evidenceMapCounts.semanticEntryCount}`,
+  `EvidenceMapEntryCount = ${evidenceMapCounts.totalEntryCount}`,
   `EvidenceMapNegativeCaseCount = ${evidenceMapNegativeCases.length}`,
   "EvidenceMapValidation = PASS",
   "NetworkResolution = FORBIDDEN",

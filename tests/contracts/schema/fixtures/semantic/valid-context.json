@@ -102,7 +102,20 @@
           "module.mvcc",
           "module.locking"
         ],
-        "relations": [],
+        "relations": [
+          {
+            "relationId": "relation.theme.storage.mvcc-contrasts-locking",
+            "type": "CONTRASTS_WITH",
+            "sourceRef": "module.mvcc",
+            "targetRef": "module.locking",
+            "origin": "SOURCE_EXPLICIT",
+            "riskLevel": "LOW",
+            "sourceRefs": [
+              "evidence.theme.storage"
+            ],
+            "gapRefs": []
+          }
+        ],
         "sourceCoverage": {
           "status": "COMPLETE",
           "evidenceRefs": [
@@ -230,7 +243,20 @@
       "theme.consistency",
       "theme.execution"
     ],
-    "relations": [],
+    "relations": [
+      {
+        "relationId": "relation.landscape.storage-depends-consistency",
+        "type": "DEPENDS_ON",
+        "sourceRef": "theme.storage",
+        "targetRef": "theme.consistency",
+        "origin": "SOURCE_EXPLICIT",
+        "riskLevel": "LOW",
+        "sourceRefs": [
+          "evidence.landscape"
+        ],
+        "gapRefs": []
+      }
+    ],
     "understandingRoute": [
       "theme.storage",
       "theme.consistency",

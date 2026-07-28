@@ -60,7 +60,8 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 该重基线是 `DOC-GAP-001` 的批准处置证据。W0-04 已将其投影为 14 份 Draft
 2020-12 Schema 文档、13 个可实例化契约、Catalog 和逐约束节点 Evidence Map；
 13 个正例、18 个结构反例、12 个严格对象未知字段反例、2 个合法非 Published
-空值上下文、32 个跨对象语义反例、617 个精确证据节点与 3 个证据映射篡改
+空值上下文、34 个跨对象语义反例、68 个运行时语义错误码、645 个精确 Schema
+证据节点、16 个语义不变量证据与 6 个证据映射篡改
 反例已在修复候选中通过。固定提交深审尚未封口，因此
 `W0-G3 JsonSchemaValidation = IN_REVIEW`。历史专项正文缺失事实仍登记为开放
 缺口，但批准的重基线已解除其执行阻断。

@@ -99,9 +99,12 @@ InvalidFixtureCount = 18
 StrictObjectNegativeCaseCount = 12
 SemanticValidContextCount = 2
 NonPublishedModuleNullability = PASS
-SemanticNegativeCaseCount = 32
-EvidenceMapEntryCount = 617
-EvidenceMapNegativeCaseCount = 3
+SemanticNegativeCaseCount = 34
+SemanticViolationCodeCount = 68
+EvidenceMapSchemaEntryCount = 645
+EvidenceMapSemanticEntryCount = 16
+EvidenceMapEntryCount = 661
+EvidenceMapNegativeCaseCount = 6
 Validator = Ajv-8.20.0
 NetworkResolution = FORBIDDEN
 ObservedRedBoundary =
@@ -119,7 +122,8 @@ W0-G3 JsonSchemaValidation = IN_REVIEW
 ## 7. 提交与审查
 
 ```text
-CommitMessage = fix: harden Cognitura schema semantic validation
+PreviousRemediationReview = 8cfd056|NO_GO|P0=0|P1=2|P2=0
+CommitMessage = fix: complete Cognitura schema evidence invariants
 CommitReview = DEEP_REVIEWER_FIXED_COMMIT
 NextTaskCardOnPass = W0-05
 ```

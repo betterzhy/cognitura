@@ -43,7 +43,10 @@
 
 The original W0-04 implementation is fixed at `eb55ca5`. Deep review found
 semantic false positives, so this remediation must be a separate follow-up
-commit; it must not amend or rewrite the original commit.
+commit; it must not amend or rewrite the original commit. The first remediation
+at `8cfd056` closed those findings but its fixed-commit review found two further
+P1 gaps in COMPLETE coverage union and evidence-map completeness; this second
+follow-up closes those gaps without rewriting either predecessor.
 
 ### Task 1: Establish the red contract harness and pinned validator
 
@@ -66,9 +69,12 @@ ValidFixtureCount = 13
 InvalidFixtureCount = 18
 SemanticValidContextCount = 2
 NonPublishedModuleNullability = PASS
-SemanticNegativeCaseCount = 32
-EvidenceMapEntryCount = 617
-EvidenceMapNegativeCaseCount = 3
+SemanticNegativeCaseCount = 34
+SemanticViolationCodeCount = 68
+EvidenceMapSchemaEntryCount = 645
+EvidenceMapSemanticEntryCount = 16
+EvidenceMapEntryCount = 661
+EvidenceMapNegativeCaseCount = 6
 EvidenceMapValidation = PASS
 NetworkResolution = FORBIDDEN
 W0-G3 JsonSchemaValidation = PASS
@@ -596,7 +602,7 @@ git add AGENTS.md README.md schemas tests/contracts/schema \
   docs/task-cards/W0-05-golden-case-regression.md \
   docs/engineering/cognitura-wave-0-plan.md \
   docs/engineering/cognitura-wave-0-entry-decision.md
-git commit -m "fix: harden Cognitura schema semantic validation"
+git commit -m "fix: complete Cognitura schema evidence invariants"
 ```
 
 Expected: one follow-up W0-04 remediation commit; no amend, `raw/`, server

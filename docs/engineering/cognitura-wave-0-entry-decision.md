@@ -34,7 +34,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G1 DesignSourceRegistry` | `PASS` | manifest 的 4 项正例与 5 项反例通过，正式输入保持不变 |
 | `W0-G2 SpecialtyContractCoverage` | `PASS` | 26 项迁移、19 项契约、2 个开放缺口和 1 个证据限制通过验证 |
 | `W0-G2A BuildBaseline` | `PASS` | 精确全栈版本、单部署 server、空 web 入口、模块边界与在线/离线构建验证通过 |
-| `W0-G3 JsonSchemaValidation` | `IN_REVIEW` | 修复候选的 14 份 Schema、2 个合法空值上下文、32 个语义反例、617 条精确证据映射和 3 个映射篡改反例通过；等待固定提交深审 |
+| `W0-G3 JsonSchemaValidation` | `IN_REVIEW` | 修复候选的 14 份 Schema、2 个合法空值上下文、34 个语义反例、68 个运行时语义错误码、645 条精确 Schema 证据映射、16 条语义不变量证据和 6 个映射篡改反例通过；等待固定提交深审 |
 | `W0-G4 GoldenCaseRegression` | `PARTIAL` | 机器可执行断言与离线回归 |
 | `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 9 个负例通过 |
 | `W0-G5 TestAndCI` | `NOT_STARTED` | 本地和 CI 全绿 |

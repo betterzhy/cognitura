@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "SOURCE_COVERAGE_UNION_MISMATCH",
+  "mutation": "THEME_SOURCE_COVERAGE_UNION"
+}

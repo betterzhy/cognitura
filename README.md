@@ -80,8 +80,9 @@ DirectFullImplementationStart = NO
 `W0-G0 RepositoryBaseline = PASS`，`W0-G1 DesignSourceRegistry = PASS`，
 `W0-G2 SpecialtyContractCoverage = PASS`，`W0-G2A BuildBaseline = PASS`，
 `W0-G4A UiContractValidation = PASS`。`Cognitura-Schema-Baseline-2.0`
-已经获得批准并落地，`W0-04` 现为唯一 `READY` 卡；14 份 Schema、32 个语义
-反例、617 个精确证据节点及其篡改反例已经在修复候选中通过，本轮
+已经获得批准并落地，`W0-04` 现为唯一 `READY` 卡；14 份 Schema、34 个语义
+反例、68 个运行时语义错误码、645 个精确 Schema 证据节点、16 个语义不变量
+证据及其篡改反例已经在修复候选中通过，本轮
 `W0-G3 JsonSchemaValidation = IN_REVIEW`。只有固定提交深审为 GO 后才允许
 标记 `PASS` 并释放 W0-05；在其余 Wave 0 门禁全部通过前，不进入 Wave 1
 业务功能开发。

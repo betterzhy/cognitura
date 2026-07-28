@@ -4,6 +4,26 @@
   "entries": [
     {
       "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:common/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:common/$id enforces SCHEMA_IDENTITY from RB-006."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
       "schemaPointer": "/$defs/schemaVersion",
       "constraintKinds": [
         "CONST",
@@ -1155,6 +1175,26 @@
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:knowledge-skeleton/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:knowledge-skeleton/$id enforces SCHEMA_IDENTITY from RB-006."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
       "schemaPointer": "/properties/schemaVersion",
       "constraintKinds": [
         "FIELD_REFERENCE"
@@ -1374,6 +1414,26 @@
       "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
       "source": "OD1.2§5-7,§19;RB-003,RB-004,RB-007,RB-008,RB-016",
       "reason": "cognition:knowledge-theme/ enforces CONDITIONAL,FIELD_SET,REQUIRED,STRICTNESS,TYPE from OD1.2§5-7,§19;RB-003,RB-004,RB-007,RB-008,RB-016."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:knowledge-theme/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:knowledge-theme/$id enforces SCHEMA_IDENTITY from RB-006."
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
@@ -1735,6 +1795,26 @@
       "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
       "source": "OD1.2§5-12,§19,§21;RB-003,RB-004,RB-005,RB-007,RB-008,RB-016",
       "reason": "cognition:cognitive-module/ enforces CONDITIONAL,FIELD_SET,REQUIRED,STRICTNESS,TYPE from OD1.2§5-12,§19,§21;RB-003,RB-004,RB-005,RB-007,RB-008,RB-016."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:cognitive-module/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:cognitive-module/$id enforces SCHEMA_IDENTITY from RB-006."
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
@@ -2458,6 +2538,26 @@
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:primary-cognitive-spine/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:primary-cognitive-spine/$id enforces SCHEMA_IDENTITY from RB-006."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
       "schemaPointer": "/properties/schemaVersion",
       "constraintKinds": [
         "FIELD_REFERENCE"
@@ -2659,6 +2759,26 @@
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:knowledge-element/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:knowledge-element/$id enforces SCHEMA_IDENTITY from RB-006."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
       "schemaPointer": "/properties/schemaVersion",
       "constraintKinds": [
         "FIELD_REFERENCE"
@@ -2822,6 +2942,26 @@
       "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
       "source": "OD1.2§15,§19;RB-003,RB-004,RB-007,RB-008,RB-016",
       "reason": "cognition:theme-closure/ enforces CONDITIONAL,FIELD_SET,REQUIRED,STRICTNESS,TYPE from OD1.2§15,§19;RB-003,RB-004,RB-007,RB-008,RB-016."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:theme-closure/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:theme-closure/$id enforces SCHEMA_IDENTITY from RB-006."
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
@@ -3182,6 +3322,26 @@
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:landscape-closure/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:landscape-closure/$id enforces SCHEMA_IDENTITY from RB-006."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
       "schemaPointer": "/properties/schemaVersion",
       "constraintKinds": [
         "FIELD_REFERENCE"
@@ -3504,6 +3664,26 @@
       "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
       "source": "OD1.2§12-14,§19-20;RB-003,RB-004,RB-007,RB-008,RB-015,RB-016",
       "reason": "cognition:evidence-reference/ enforces CONDITIONAL,FIELD_SET,REQUIRED,STRICTNESS,TYPE from OD1.2§12-14,§19-20;RB-003,RB-004,RB-007,RB-008,RB-015,RB-016."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:evidence-reference/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:evidence-reference/$id enforces SCHEMA_IDENTITY from RB-006."
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
@@ -4061,6 +4241,26 @@
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:structure-ambiguity/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:structure-ambiguity/$id enforces SCHEMA_IDENTITY from RB-006."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
       "schemaPointer": "/properties/schemaVersion",
       "constraintKinds": [
         "FIELD_REFERENCE"
@@ -4378,6 +4578,26 @@
       "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
       "source": "OD1.2§19,§21;RB-003,RB-004,RB-005,RB-007,RB-008,RB-016",
       "reason": "cognition:quality-assessment/ enforces CONDITIONAL,FIELD_SET,REQUIRED,STRICTNESS,TYPE from OD1.2§19,§21;RB-003,RB-004,RB-005,RB-007,RB-008,RB-016."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "cognition:quality-assessment/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "cognition:quality-assessment/$id enforces SCHEMA_IDENTITY from RB-006."
     },
     {
       "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
@@ -4785,6 +5005,26 @@
       "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
       "source": "OD1.2§17-19;RB-003,RB-004,RB-007,RB-009,RB-016",
       "reason": "generation:generation-stage-record/ enforces CONDITIONAL,FIELD_SET,REQUIRED,STRICTNESS,TYPE from OD1.2§17-19;RB-003,RB-004,RB-007,RB-009,RB-016."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "generation:generation-stage-record/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "generation:generation-stage-record/$id enforces SCHEMA_IDENTITY from RB-006."
     },
     {
       "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
@@ -5768,6 +6008,26 @@
     },
     {
       "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "ui:renderer-input/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "ui:renderer-input/$id enforces SCHEMA_IDENTITY from RB-006."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
       "schemaPointer": "/properties/schemaVersion",
       "constraintKinds": [
         "FIELD_REFERENCE"
@@ -6424,6 +6684,302 @@
       "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
       "source": "OD1.2§20.10;RB-007,RB-011",
       "reason": "ui:page-state/ enforces ENUM,TYPE from OD1.2§20.10;RB-007,RB-011."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:page-state:2.0.0",
+      "schemaPointer": "/$schema",
+      "constraintKinds": [
+        "SCHEMA_DIALECT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-001",
+      "reason": "ui:page-state/$schema enforces SCHEMA_DIALECT from RB-001."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:page-state:2.0.0",
+      "schemaPointer": "/$id",
+      "constraintKinds": [
+        "SCHEMA_IDENTITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-006",
+      "reason": "ui:page-state/$id enforces SCHEMA_IDENTITY from RB-006."
+    }
+  ],
+  "semanticEntries": [
+    {
+      "semanticId": "REVISION_CONTEXT_REFERENCE_RESOLUTION",
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/artifactRef",
+      "source": "RB-008,RB-016;Cognitura-Schema-Baseline-2.0§5.1",
+      "reason": "All ArtifactRef values resolve uniquely by target type and owner scope inside one immutable revision context.",
+      "violationCodes": [
+        "ARTIFACT_ID_MISSING",
+        "DUPLICATE_ARTIFACT_REVISION",
+        "REFERENCE_TARGET_TYPE_MISMATCH",
+        "DANGLING_REFERENCE"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION"
+    },
+    {
+      "semanticId": "CANONICAL_HIERARCHY_AND_CANDIDATE_SCOPE",
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/primaryParent",
+      "source": "OD1.2§5-7;RB-016;Cognitura-Schema-Baseline-2.0§6.1-6.3",
+      "reason": "Themes and Modules preserve the canonical hierarchy, and every Module must resolve from its owning Theme candidate set.",
+      "violationCodes": [
+        "DUPLICATE_THEME_ID",
+        "CORE_THEME_OUT_OF_SCOPE",
+        "DANGLING_PARENT",
+        "DUPLICATE_MODULE_CANDIDATE",
+        "CORE_MODULE_OUT_OF_SCOPE",
+        "MODULE_NOT_CONFIRMED_CANDIDATE",
+        "UNDERSTANDING_ROUTE_OUT_OF_SCOPE"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "PRIMARY_SPINE_UNIQUENESS_AND_ORDER",
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/properties/steps",
+      "source": "OD1.2§8;RB-005,RB-016;Cognitura-Schema-Baseline-2.0§6.3-6.4",
+      "reason": "Each eligible Module resolves its embedded PrimaryCognitiveSpine with unique contiguous cognitive steps.",
+      "violationCodes": [
+        "SPINE_MODULE_MISMATCH",
+        "MULTIPLE_PRIMARY_SPINES",
+        "DANGLING_MODULE_REF",
+        "DUPLICATE_SPINE_STEP_ID",
+        "SPINE_ORDER_NOT_CONTIGUOUS"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "NON_PUBLISHED_MODULE_NULLABILITY",
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/primaryCognitiveSpine",
+      "source": "RB-005;Cognitura-Schema-Baseline-2.0§6.3,§10",
+      "reason": "Draft and Confirmed Modules may keep spine and quality assessment null without semantic rejection or validator failure.",
+      "violationCodes": [],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION"
+    },
+    {
+      "semanticId": "SOURCE_COVERAGE_OWNER_GAP_AND_UNION",
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage",
+      "source": "OD1.2§13-14,§19;RB-016;Cognitura-Schema-Baseline-2.0§5.3",
+      "reason": "SourceCoverage resolves owner-scoped Evidence and Gaps and exactly preserves all carried Evidence for COMPLETE owners.",
+      "violationCodes": [
+        "DUPLICATE_GAP_ID",
+        "DUPLICATE_EVIDENCE_REF",
+        "DANGLING_EVIDENCE_REF",
+        "EVIDENCE_DOES_NOT_SUPPORT_OWNER",
+        "SOURCE_COVERAGE_GAP_MISMATCH",
+        "SOURCE_COVERAGE_UNION_MISMATCH"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "RELATION_OWNER_ENDPOINT_AND_GAP_SCOPE",
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation",
+      "source": "OD1.2§12;RB-008,RB-016;Cognitura-Schema-Baseline-2.0§5.3,§6.3,§6.5",
+      "reason": "Relations preserve non-self endpoints, owning-artifact scope, Evidence support, and owner-local Gap references.",
+      "violationCodes": [
+        "DUPLICATE_RELATION_ID",
+        "RELATION_SELF_REFERENCE",
+        "RELATION_TARGET_OUT_OF_SCOPE",
+        "RELATION_GAP_OUT_OF_SCOPE"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "MODULE_INTERNAL_OWNERSHIP_AND_REFERENCE_SCOPE",
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "",
+      "source": "OD1.2§8-12;RB-008,RB-016;Cognitura-Schema-Baseline-2.0§5.3,§6.3,§6.5",
+      "reason": "Module facets, statements, boundaries, elements, and relation references remain unique and owner-scoped.",
+      "violationCodes": [
+        "DUPLICATE_FACET_ID",
+        "DUPLICATE_BOUNDARY_ID",
+        "DUPLICATE_STATEMENT_ID",
+        "FACET_ELEMENT_OUT_OF_SCOPE",
+        "ELEMENT_MODULE_MISMATCH",
+        "ELEMENT_RELATION_OUT_OF_SCOPE",
+        "STATEMENT_GAP_OUT_OF_SCOPE"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "THEME_CLOSURE_MODULE_SCOPE_AND_ORDER",
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/themeSpine",
+      "source": "OD1.2§15;RB-016;Cognitura-Schema-Baseline-2.0§6.6",
+      "reason": "ThemeClosure cooperation and spine steps resolve only Modules owned by the current Theme and preserve contiguous order.",
+      "violationCodes": [
+        "DUPLICATE_MODULE_COOPERATION",
+        "THEME_CLOSURE_MODULE_OUT_OF_SCOPE"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "LANDSCAPE_CLOSURE_THEME_ROUTE_AND_ORDER",
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/crossThemeSpine",
+      "source": "OD1.2§16;RB-016;Cognitura-Schema-Baseline-2.0§6.7",
+      "reason": "LandscapeClosure resolves only local Themes and Modules in its spine and understanding route while preserving order.",
+      "violationCodes": [
+        "DUPLICATE_CORE_THEME",
+        "LANDSCAPE_THEME_OUT_OF_SCOPE",
+        "LANDSCAPE_ROUTE_OUT_OF_SCOPE"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "EVIDENCE_EXTERNAL_REFERENCE_TYPES_AND_SUPPORT_SCOPE",
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/sourceDocumentRef",
+      "source": "OD1.2§13-14,§20.9;RB-016;Cognitura-Schema-Baseline-2.0§6.8,§7",
+      "reason": "Evidence resolves SourceDocument and DocumentBlock references by exact external type and supports only local formal targets.",
+      "violationCodes": [
+        "SOURCE_BLOCK_OUT_OF_CONTEXT",
+        "EVIDENCE_SUPPORT_TARGET_MISSING"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "CONFLICT_MEMBERSHIP_AND_USER_RESOLUTION",
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/conflictState",
+      "source": "OD1.2§14;RB-015,RB-016;Cognitura-Schema-Baseline-2.0§5.3,§6.8",
+      "reason": "Conflict groups preserve the exact immutable Evidence membership and accept only consistent user resolution decisions.",
+      "violationCodes": [
+        "CONFLICT_MEMBERSHIP_INVALID",
+        "CONFLICT_RESOLUTION_NOT_USER",
+        "CONFLICT_GROUP_SINGLETON",
+        "CONFLICT_SOURCE_HIDDEN",
+        "CONFLICT_DECISION_MISMATCH",
+        "PREFERRED_EVIDENCE_OUT_OF_GROUP"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "STRUCTURE_AMBIGUITY_REFERENCE_SCOPE",
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/locationRef",
+      "source": "OD1.2§5-7,§19;RB-016;Cognitura-Schema-Baseline-2.0§6.9",
+      "reason": "StructureAmbiguity location, alternatives, impacts, Evidence, and Gap references resolve inside the current revision context.",
+      "violationCodes": [
+        "DUPLICATE_ALTERNATIVE_ID",
+        "AMBIGUITY_GAP_OUT_OF_SCOPE"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "QUALITY_ASSESSMENT_SUBJECT_AND_FINDING_SCOPE",
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/subjectRef",
+      "source": "OD1.2§21;RB-005,RB-016;Cognitura-Schema-Baseline-2.0§6.10",
+      "reason": "QualityAssessment targets an allowed formal subject and resolves every finding Artifact and Evidence reference.",
+      "violationCodes": [
+        "QUALITY_SUBJECT_MISMATCH"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "RENDERER_PROJECTION_SEMANTIC_PRESERVATION",
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "",
+      "source": "OD1.2§20.8;RB-010,RB-016;Cognitura-Schema-Baseline-2.0§8",
+      "reason": "Renderer projections remain cognitive-only and preserve Module-local endpoints, direction, relation sources, and cognitive order.",
+      "violationCodes": [
+        "DUPLICATE_RENDERER_NODE",
+        "DUPLICATE_RENDERER_GROUP",
+        "DUPLICATE_RENDERER_RELATION",
+        "RENDERER_CONTENT_PATH_UNRESOLVED",
+        "RENDERER_CONTENT_PATH_NOT_COGNITIVE",
+        "RENDERER_CROSS_MODULE",
+        "RENDERER_COGNITIVE_ORDER_CHANGED",
+        "RENDERER_GROUP_REF_MISSING",
+        "RENDERER_SOURCE_OUT_OF_SCOPE",
+        "RENDERER_NODE_REF_MISSING",
+        "RENDERER_RELATION_OUT_OF_SCOPE",
+        "RENDERER_RELATION_TYPE_CHANGED",
+        "RENDERER_RELATION_ENDPOINT_CHANGED",
+        "RENDERER_RELATION_SOURCE_CHANGED",
+        "RENDERER_GAP_OUT_OF_SCOPE",
+        "RENDERER_DENSITY_GROUPING_INVALID"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "GENERATION_SOURCE_OUTPUT_RETRY_AND_DEDUPLICATION",
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "",
+      "source": "OD1.2§17-19;RB-009,RB-016;Cognitura-Schema-Baseline-2.0§7",
+      "reason": "Generation records resolve typed source blocks and retry scopes, validate cognitive outputs, and reject duplicate successful runs.",
+      "violationCodes": [
+        "GENERATION_OUTPUT_SCHEMA_INVALID",
+        "GENERATION_OUTPUT_CONTRACT_VIOLATION",
+        "DUPLICATE_SUCCESSFUL_RUN"
+      ],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE"
+    },
+    {
+      "semanticId": "SEMANTIC_ERROR_CLASSIFICATION_STABILITY",
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "",
+      "source": "RB-014;Cognitura-Schema-Baseline-2.0§11",
+      "reason": "Every semantic negative exits through a stable asserted SemanticViolation code rather than an unclassified runtime failure.",
+      "violationCodes": [],
+      "constraintKinds": [
+        "SEMANTIC_INVARIANT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION"
     }
   ]
 }
