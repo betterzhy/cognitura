@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-04
-Status = READY
+Status = DONE
 Gate = W0-G3 JsonSchemaValidation
 Risk = HIGH
 DependsOn = W0-02,W0-03
@@ -67,7 +67,7 @@ DependencyState = SATISFIED
 - [x] 实现生成阶段 Schema，覆盖输入哈希、Prompt、模型、来源块、验证与重试状态。
 - [x] 实现统一 Renderer 输入 Schema 和页面状态枚举。
 - [x] 运行正例与反例，确认缺少 thesis、spine、boundary 或 sourceRefs 的 Module 被拒绝。
-- [ ] 更新设计索引、缺口状态和任务卡，形成不改写历史的修复提交并通过固定提交深审。
+- [x] 更新设计索引、缺口状态和任务卡，形成不改写历史的修复提交并通过固定提交深审。
 
 ## 5. 验证命令
 
@@ -117,7 +117,7 @@ ObservedRedBoundary =
 ```
 
 ```text
-W0-G3 JsonSchemaValidation = IN_REVIEW
+W0-G3 JsonSchemaValidation = PASS
 ```
 
 ## 7. 提交与审查
@@ -128,6 +128,7 @@ PreviousEvidenceReview = c15a005|NO_GO|P0=0|P1=0|P2=1
 PreviousRenderReview = e79e69c|NO_GO|P0=0|P1=0|P2=1
 CommitMessage = fix: keep Cognitura schema verification self-contained
 CommitReview = DEEP_REVIEWER_FIXED_COMMIT
+FixedImplementationReview = 72b5ce7ee4805c52afd48070c4bb93699e96a381|GO|P0=0|P1=0|P2=0
 NextTaskCardOnPass = W0-05
 ```
 

@@ -573,10 +573,10 @@ still match.
 Set:
 
 ```text
-W0-04 Status = READY
-W0-G3 JsonSchemaValidation = IN_REVIEW
-W0-05 Status = BLOCKED_BY_DEPENDENCY
-ActiveTaskCard = W0-04
+W0-04 Status = DONE
+W0-G3 JsonSchemaValidation = PASS
+W0-05 Status = READY
+ActiveTaskCard = W0-05
 TaskCardSetStatus = READY_FOR_EXECUTION
 Wave1FeatureDevelopmentEntry = NO_GO
 ```
@@ -592,10 +592,10 @@ Expected:
 TaskCardValidation = PASS
 TaskCardCount = 9
 TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W0-04
+ActiveTaskCard = W0-05
 ```
 
-- [ ] **Step 6: Commit the fixed-review candidate**
+- [x] **Step 6: Commit the fixed-review candidate**
 
 ```bash
 git add AGENTS.md README.md schemas tests/contracts/schema \
@@ -610,6 +610,7 @@ git add AGENTS.md README.md schemas tests/contracts/schema \
 git commit -m "fix: keep Cognitura schema verification self-contained"
 ```
 
-Expected: one follow-up W0-04 remediation commit; no amend, `raw/`, server
-business source, web product code, W0-05 regression asset or CI implementation
-change. Fixed-commit deep review must be GO before W0-G3 is closed.
+Expected: follow-up W0-04 remediation commits do not amend history or change
+`raw/`, server business source, web product code, W0-05 regression assets or CI
+implementation. Fixed candidate `72b5ce7` is `GO / P0=0 / P1=0 / P2=0`;
+W0-G3 is closed and W0-05 is only released to `READY`.

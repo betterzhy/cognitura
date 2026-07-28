@@ -84,8 +84,8 @@ W0-G2 SpecialtyContractCoverage = PASS
 
 UI 主题契约按页面、Renderer、Source Evidence、状态、MVP 范围和 Desktop Web
 边界拆成 11 个机器校验记录。Renderer 的非 Schema 投影约束已覆盖；字段级
-Renderer Schema 已由批准的 2.0 重基线投影，W0-04 修复候选本地验证已通过，
-但 W0-G3 仍等待固定提交深审；历史专项正文缺失事实仍关联 `DOC-GAP-001`。
+Renderer Schema 已由批准的 2.0 重基线投影，W0-04 已通过本地验证与固定提交
+深审，`W0-G3 = PASS`；历史专项正文缺失事实仍关联 `DOC-GAP-001`。
 
 ## 5. DocumentationGap
 
@@ -96,11 +96,11 @@ Renderer Schema 已由批准的 2.0 重基线投影，W0-04 修复候选本地�
 
 `DOC-GAP-001` 的历史正文缺失事实继续保持 `OPEN`，但其唯一合法处置已经由
 `Cognitura-Schema-Baseline-2.0` 满足；其对 W0-04 执行的来源阻断已经关闭，
-机器实现修复候选正在固定提交审查，尚未据此关闭 `W0-G3`。
+机器实现和固定提交审查已经关闭 `W0-G3`。
 `DOC-GAP-002` 继续开放。
 
 ```text
-SchemaImplementationRecord = W0-04|Draft2020-12|14|13|18|12-STRICT|2-VALID-CONTEXT|34-SEMANTIC|68-SEMANTIC-CODES|645-SCHEMA-EVIDENCE|16-SEMANTIC-EVIDENCE|6-EVIDENCE-NEGATIVE|RENDER-ROUNDTRIP|Ajv-8.20.0|IN_REVIEW
+SchemaImplementationRecord = W0-04|Draft2020-12|14|13|18|12-STRICT|2-VALID-CONTEXT|34-SEMANTIC|68-SEMANTIC-CODES|645-SCHEMA-EVIDENCE|16-SEMANTIC-EVIDENCE|6-EVIDENCE-NEGATIVE|RENDER-ROUNDTRIP|Ajv-8.20.0|PASS|72b5ce7
 ```
 
 ```text
@@ -183,10 +183,10 @@ EvidenceLimitRecord = RM_ID_TO_TOPIC_SOURCE_MISSING|OPEN|OD1.2§1.1,27.1|NO_OFFI
 
 全部非 Schema 契约具有总体设计正式证据，Schema 来源缺口及其处置已唯一化。
 `DOC-GAP-001` 的历史正文缺失事实继续登记，但批准的正式重基线已经解除 W0-04
-执行阻断；W0-04 的机器实现修复候选已通过本地验证，固定提交深审尚未封口。
+执行阻断；W0-04 的机器实现已通过本地验证，固定候选 `72b5ce7` 深审为 GO。
 `DOC-GAP-002` 和构造专项逐 RM 语义映射的证据限制继续保持开放。下列 `READY`
 是本 W0-G2 矩阵向 W0-04 交接时的历史门禁输出；当前 W0-G3 状态以设计索引和
-准入裁决中的 `IN_REVIEW` 为准。
+准入裁决中的 `PASS` 为准。
 
 ```text
 W0-G2 SpecialtyContractCoverage = PASS

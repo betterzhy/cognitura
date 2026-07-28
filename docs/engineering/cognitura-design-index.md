@@ -20,7 +20,7 @@ SchemaDesignBaseline =
 SchemaDesignBaselineStatus = FORMAL_SCHEMA_REBASELINE
 SchemaCatalog = schemas/catalog.json
 SchemaEvidenceMap = schemas/evidence-map.json
-W0-G3 JsonSchemaValidation = IN_REVIEW
+W0-G3 JsonSchemaValidation = PASS
 ```
 
 本索引登记实际落地文件，不复制总体设计正文，也不改变历史设计名称。
@@ -62,8 +62,8 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 13 个正例、18 个结构反例、12 个严格对象未知字段反例、2 个合法非 Published
 空值上下文、34 个跨对象语义反例、68 个运行时语义错误码、645 个精确 Schema
 证据节点、16 个语义不变量证据、6 个证据映射篡改与全量渲染 round-trip
-反例已在修复候选中通过。固定提交深审尚未封口，因此
-`W0-G3 JsonSchemaValidation = IN_REVIEW`。历史专项正文缺失事实仍登记为开放
+反例已通过，固定候选 `72b5ce7` 深审为 `GO / P0=0 / P1=0 / P2=0`，因此
+`W0-G3 JsonSchemaValidation = PASS`。历史专项正文缺失事实仍登记为开放
 缺口，但批准的重基线已解除其执行阻断。
 
 ## 4. Golden Case 原始输入
