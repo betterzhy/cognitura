@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-02
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W0-G2 SpecialtyContractCoverage
 Risk = HIGH
 DependsOn = W0-01

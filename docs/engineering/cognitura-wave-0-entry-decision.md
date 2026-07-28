@@ -31,7 +31,7 @@ Cognitura 可以进入 Wave 0 执行。
 | Gate | 当前状态 | Wave 0 退出要求 |
 |---|---|---|
 | `W0-G0 RepositoryBaseline` | `PASS` | `main`、原件哈希匹配、Repository 基线内容提交 `2047a80` |
-| `W0-G1 DesignSourceRegistry` | `PARTIAL` | 机器可读 manifest 与哈希验证 |
+| `W0-G1 DesignSourceRegistry` | `PASS` | manifest 的 4 项正例与 5 项反例通过，正式输入保持不变 |
 | `W0-G2 SpecialtyContractCoverage` | `PARTIAL` | 回迁覆盖矩阵与字段级缺口唯一处置 |
 | `W0-G2A BuildBaseline` | `IN_PROGRESS` | 后端技术已封口；仍需前端版本、Java/React 最小构建骨架与版本锁 |
 | `W0-G3 JsonSchemaValidation` | `BLOCKED_BY_DOC_GAP_001` | 权威字段来源和 Schema 正反例 |
@@ -71,7 +71,7 @@ MyBatis Starter 4.0.0、Flyway、Spring AI 2.0.0 和后端测试策略。
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-01
+ActiveTaskCard = W0-02
 ActiveTaskCardStatus = READY
 TaskCardIndex = docs/task-cards/README.md
 ```
@@ -82,9 +82,10 @@ TaskCardIndex = docs/task-cards/README.md
 ## 7. 下一动作
 
 ```text
-NextAction = EXECUTE_W0_01_DESIGN_SOURCE_REGISTRY
-W0-01 ExecutionStatus = NOT_STARTED
+NextAction = EXECUTE_W0_02_SPECIALTY_CONTRACT_COVERAGE
+W0-01 ExecutionStatus = DONE
+W0-G1 DesignSourceRegistry = PASS
 ```
 
-任务卡拆分不等同于执行 `W0-01`。下一轮应只处理该卡写集，不创建 server/web
-业务骨架，不执行 Wave 1。
+下一轮只允许处理 `W0-02` 写集；`DOC-GAP-001`、`DOC-GAP-002` 继续保持开放，
+不得创建伪造专项正文、server/web 业务骨架或执行 Wave 1。

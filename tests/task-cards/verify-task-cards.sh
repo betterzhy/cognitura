@@ -17,6 +17,13 @@ fail() {
   exit 1
 }
 
+field_value() {
+  local file="$1"
+  local field="$2"
+
+  sed -n "s/^${field} = //p" "${file}"
+}
+
 expect_failure() {
   local fixture_dir="$1"
   local expected_message="$2"
@@ -52,12 +59,25 @@ if [[ "${valid_output}" != *"TaskCardValidation = PASS"* ]]; then
   fail "canonical validation did not report PASS: ${valid_output}"
 fi
 
+active_task_card="$(field_value "${cards_dir}/README.md" "ActiveTaskCard")"
+inactive_card_file=""
+for card_file in "${cards_dir}"/W0-*.md; do
+  if [[ "$(field_value "${card_file}" "TaskCardID")" != "${active_task_card}" ]]; then
+    inactive_card_file="${card_file}"
+    break
+  fi
+done
+
+[[ -n "${inactive_card_file}" ]] || fail "could not find an inactive task card"
+inactive_task_card="$(field_value "${inactive_card_file}" "TaskCardID")"
+inactive_status="$(field_value "${inactive_card_file}" "Status")"
+
 queued_card_dir="${test_tmp_root}/queued-card"
 cp -R "${cards_dir}" "${queued_card_dir}"
 sed -i.bak \
-  's/^Status = BLOCKED_BY_DEPENDENCY$/Status = QUEUED/' \
-  "${queued_card_dir}/W0-06-ui-renderer-contracts.md"
-rm "${queued_card_dir}/W0-06-ui-renderer-contracts.md.bak"
+  "s/^Status = ${inactive_status}$/Status = QUEUED/" \
+  "${queued_card_dir}/$(basename "${inactive_card_file}")"
+rm "${queued_card_dir}/$(basename "${inactive_card_file}").bak"
 expect_success "${queued_card_dir}"
 
 missing_field_dir="${test_tmp_root}/missing-field"
@@ -77,9 +97,9 @@ expect_failure "${duplicate_id_dir}" "duplicate TaskCardID: W0-01"
 second_ready_dir="${test_tmp_root}/second-ready"
 cp -R "${cards_dir}" "${second_ready_dir}"
 sed -i.bak \
-  's/^Status = BLOCKED_BY_DEPENDENCY$/Status = READY/' \
-  "${second_ready_dir}/W0-02-specialty-contract-coverage.md"
-rm "${second_ready_dir}/W0-02-specialty-contract-coverage.md.bak"
+  "s/^Status = ${inactive_status}$/Status = READY/" \
+  "${second_ready_dir}/$(basename "${inactive_card_file}")"
+rm "${second_ready_dir}/$(basename "${inactive_card_file}").bak"
 expect_failure "${second_ready_dir}" "expected exactly one READY task card"
 
 unknown_dependency_dir="${test_tmp_root}/unknown-dependency"
@@ -106,10 +126,12 @@ expect_failure "${missing_card_dir}" "expected 9 task cards"
 active_mismatch_dir="${test_tmp_root}/active-mismatch"
 cp -R "${cards_dir}" "${active_mismatch_dir}"
 sed -i.bak \
-  's/^ActiveTaskCard = W0-01$/ActiveTaskCard = W0-02/' \
+  "s/^ActiveTaskCard = ${active_task_card}$/ActiveTaskCard = ${inactive_task_card}/" \
   "${active_mismatch_dir}/README.md"
 rm "${active_mismatch_dir}/README.md.bak"
-expect_failure "${active_mismatch_dir}" "ActiveTaskCard W0-02 is not READY"
+expect_failure \
+  "${active_mismatch_dir}" \
+  "ActiveTaskCard ${inactive_task_card} is not READY"
 
 printf '%s\n' \
   "TaskCardContractTests = PASS" \

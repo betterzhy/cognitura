@@ -18,7 +18,7 @@ CurrentStage =
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = W0-01
+ActiveTaskCard = W0-02
 Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```

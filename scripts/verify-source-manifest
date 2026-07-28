@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --manifest <path>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'SourceManifestValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+hash_file() {
+  local path="$1"
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "${path}" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "${path}" | awk '{print $1}'
+  else
+    fail "SHA256_TOOL_MISSING: expected sha256sum or shasum"
+  fi
+}
+
+expected_record() {
+  case "$1" in
+    DESIGN-OVERALL-001)
+      printf '%s\n' \
+        'DESIGN-OVERALL-001|NOT_APPLICABLE|cognitive-knowledge-atlas-overall-design-1.2.md|FORMAL_OVERALL_DESIGN|Cognitive-Knowledge-Atlas-Overall-Design-1.2'
+      ;;
+    GC-MYSQL-001)
+      printf '%s\n' \
+        'GC-MYSQL-001|GC-MYSQL-001|raw/11-MySQL数据库.docx|GOLDEN_CASE_ORIGINAL|ORIGINAL'
+      ;;
+    GC-REDIS-001)
+      printf '%s\n' \
+        'GC-REDIS-001|GC-REDIS-001|raw/12-Redis中间件.docx|GOLDEN_CASE_ORIGINAL|ORIGINAL'
+      ;;
+    GC-ENGLISH-001)
+      printf '%s\n' \
+        'GC-ENGLISH-001|GC-ENGLISH-001|raw/40-英语学习.docx|GOLDEN_CASE_ORIGINAL|ORIGINAL'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+manifest=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --manifest)
+      [[ "$#" -ge 2 ]] || usage
+      manifest="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+[[ -n "${manifest}" ]] || usage
+[[ -f "${manifest}" ]] || fail "MISSING_MANIFEST: ${manifest}"
+
+manifest_dir="$(cd "$(dirname "${manifest}")" && pwd -P)"
+repo_root="$(cd "${manifest_dir}/../.." && pwd -P)"
+parsed_file="$(mktemp "${TMPDIR:-/tmp}/cognitura-source-manifest-parsed.XXXXXX")"
+parser_error_file="$(mktemp "${TMPDIR:-/tmp}/cognitura-source-manifest-error.XXXXXX")"
+
+cleanup() {
+  rm -f "${parsed_file}" "${parser_error_file}"
+}
+trap cleanup EXIT
+
+if ! awk '
+  function malformed(message) {
+    print "MALFORMED_MANIFEST: " message > "/dev/stderr"
+    failed = 1
+    exit 1
+  }
+
+  function emit_source() {
+    if (!have_source) {
+      return
+    }
+    if (field_stage != 7) {
+      malformed("source " source_id " does not contain exactly six metadata fields")
+    }
+    print source_id "\t" case_id "\t" source_path "\t" role "\t" version "\t" size_bytes "\t" sha256
+  }
+
+  NR == 1 {
+    if ($0 != "manifestVersion: 1") {
+      malformed("manifestVersion must be 1")
+    }
+    next
+  }
+
+  NR == 2 {
+    if ($0 != "canonicalProjectName: Cognitura") {
+      malformed("canonicalProjectName must be Cognitura")
+    }
+    next
+  }
+
+  NR == 3 {
+    if ($0 != "sources:") {
+      malformed("sources collection is missing")
+    }
+    next
+  }
+
+  /^[[:space:]]*$/ {
+    next
+  }
+
+  /^  - sourceId: [A-Z0-9-]+$/ {
+    emit_source()
+    source_id = substr($0, 15)
+    case_id = ""
+    source_path = ""
+    role = ""
+    version = ""
+    size_bytes = ""
+    sha256 = ""
+    have_source = 1
+    field_stage = 1
+    next
+  }
+
+  /^    caseId: [A-Z0-9_-]+$/ {
+    if (!have_source || field_stage != 1) {
+      malformed("caseId is out of order")
+    }
+    case_id = substr($0, 13)
+    field_stage = 2
+    next
+  }
+
+  /^    path: [^[:space:]]+$/ {
+    if (!have_source || field_stage != 2) {
+      malformed("path is out of order")
+    }
+    source_path = substr($0, 11)
+    field_stage = 3
+    next
+  }
+
+  /^    role: [A-Z0-9_]+$/ {
+    if (!have_source || field_stage != 3) {
+      malformed("role is out of order")
+    }
+    role = substr($0, 11)
+    field_stage = 4
+    next
+  }
+
+  /^    version: [A-Za-z0-9._-]+$/ {
+    if (!have_source || field_stage != 4) {
+      malformed("version is out of order")
+    }
+    version = substr($0, 14)
+    field_stage = 5
+    next
+  }
+
+  /^    sizeBytes: [0-9]+$/ {
+    if (!have_source || field_stage != 5) {
+      malformed("sizeBytes is out of order")
+    }
+    size_bytes = substr($0, 16)
+    field_stage = 6
+    next
+  }
+
+  /^    sha256: [0-9a-f]{64}$/ {
+    if (!have_source || field_stage != 6) {
+      malformed("sha256 is out of order")
+    }
+    sha256 = substr($0, 13)
+    field_stage = 7
+    next
+  }
+
+  {
+    malformed("unexpected content at line " NR)
+  }
+
+  END {
+    if (!failed) {
+      emit_source()
+    }
+  }
+' "${manifest}" >"${parsed_file}" 2>"${parser_error_file}"; then
+  fail "$(cat "${parser_error_file}")"
+fi
+
+source_count="$(wc -l <"${parsed_file}" | tr -d '[:space:]')"
+if [[ "${source_count}" != "4" ]]; then
+  fail "SOURCE_COUNT: expected 4 canonical sources, found ${source_count}"
+fi
+
+duplicate_source_id="$(
+  awk -F '	' '{ if (seen[$1]++) { print $1; exit } }' "${parsed_file}"
+)"
+if [[ -n "${duplicate_source_id}" ]]; then
+  fail "DUPLICATE_SOURCE_ID: ${duplicate_source_id}"
+fi
+
+duplicate_case_id="$(
+  awk -F '	' '
+    $2 != "NOT_APPLICABLE" {
+      if (seen[$2]++) {
+        print $2
+        exit
+      }
+    }
+  ' "${parsed_file}"
+)"
+if [[ -n "${duplicate_case_id}" ]]; then
+  fail "DUPLICATE_CASE_ID: ${duplicate_case_id}"
+fi
+
+while IFS=$'\t' read -r \
+  source_id case_id source_path role version size_bytes expected_sha256; do
+  if ! expected="$(expected_record "${source_id}")"; then
+    fail "UNKNOWN_FORMAL_INPUT: unrecognized sourceId ${source_id}"
+  fi
+
+  IFS='|' read -r \
+    expected_source_id expected_case_id expected_path expected_role expected_version \
+    <<<"${expected}"
+
+  if [[ "${source_path}" != "${expected_path}" ]]; then
+    fail "UNKNOWN_FORMAL_INPUT: ${source_path}"
+  fi
+
+  if [[ \
+    "${source_id}" != "${expected_source_id}" ||
+    "${case_id}" != "${expected_case_id}" ||
+    "${role}" != "${expected_role}" ||
+    "${version}" != "${expected_version}" \
+  ]]; then
+    fail "SOURCE_METADATA_MISMATCH: ${source_id}"
+  fi
+
+  absolute_path="${repo_root}/${source_path}"
+  [[ -f "${absolute_path}" ]] || fail "MISSING_FILE: ${source_path}"
+
+  actual_size="$(wc -c <"${absolute_path}" | tr -d '[:space:]')"
+  if [[ "${actual_size}" != "${size_bytes}" ]]; then
+    fail \
+      "SIZE_MISMATCH: ${source_id} expected=${size_bytes} actual=${actual_size}"
+  fi
+
+  actual_sha256="$(hash_file "${absolute_path}")"
+  if [[ "${actual_sha256}" != "${expected_sha256}" ]]; then
+    fail \
+      "HASH_MISMATCH: ${source_id} expected=${expected_sha256} actual=${actual_sha256}"
+  fi
+
+  printf 'Source %s = MATCH path=%s sizeBytes=%s sha256=%s\n' \
+    "${source_id}" "${source_path}" "${actual_size}" "${actual_sha256}"
+done <"${parsed_file}"
+
+printf '%s\n' \
+  "SourceManifestValidation = PASS" \
+  "ExpectedSourceCount = 4"

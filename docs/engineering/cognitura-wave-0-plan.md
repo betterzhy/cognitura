@@ -43,7 +43,7 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-01
+ActiveTaskCard = W0-02
 ActiveTaskCardStatus = READY
 ```
 
@@ -99,11 +99,11 @@ W0-G0 RepositoryBaseline = PASS
 
 **Produces:** 机器可读的唯一来源清单，含路径、版本、角色、大小和 SHA-256。
 
-- [ ] **Step 1:** 先写校验失败用例：修改任一临时副本的一个字节时，验证器必须返回非零。
-- [ ] **Step 2:** 在 manifest 登记总体设计和三份 DOCX，不复制文件。
-- [ ] **Step 3:** 实现只读校验器，拒绝缺失文件、哈希漂移、重复 Case ID 和未知正式输入。
-- [ ] **Step 4:** 运行验证并确认四个输入全部为 `MATCH`。
-- [ ] **Step 5:** 提交并标记：
+- [x] **Step 1:** 先写校验失败用例：修改任一临时副本的一个字节时，验证器必须返回非零。
+- [x] **Step 2:** 在 manifest 登记总体设计和三份 DOCX，不复制文件。
+- [x] **Step 3:** 实现只读校验器，拒绝缺失文件、哈希漂移、重复 Case ID 和未知正式输入。
+- [x] **Step 4:** 运行验证并确认四个输入全部为 `MATCH`。
+- [x] **Step 5:** 提交并标记：
 
 ```text
 W0-G1 DesignSourceRegistry = PASS

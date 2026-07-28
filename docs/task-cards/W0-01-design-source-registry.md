@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-01
-Status = READY
+Status = DONE
 Gate = W0-G1 DesignSourceRegistry
 Risk = MEDIUM
 DependsOn = W0-00
@@ -36,19 +36,22 @@ ReviewRoute = MAIN_AGENT_GATE
 - Modify: `docs/task-cards/W0-02-specialty-contract-coverage.md`
 - Modify: `docs/engineering/cognitura-wave-0-plan.md`
 - Modify: `docs/engineering/cognitura-wave-0-entry-decision.md`
+- Modify (user-authorized write-set correction): `tests/task-cards/verify-task-cards.sh`
+- Modify (user-authorized status sync): `AGENTS.md`
+- Modify (user-authorized status sync): `README.md`
 
 不得修改 `raw/`、总体设计或创建它们的副本。
 
 ## 4. 执行步骤
 
-- [ ] 编写校验测试，覆盖哈希漂移、文件缺失、重复 Case ID 和未知正式输入。
-- [ ] 运行测试并确认因 manifest/校验器尚未实现而失败。
-- [ ] 创建 manifest，登记四个正式输入的规范路径、角色、版本、字节数和 SHA-256。
-- [ ] 实现只读校验器；校验器不得访问 DOCX 内的外部或本地链接。
-- [ ] 运行正例和全部反例，确认只有规范输入集合能够通过。
-- [ ] 更新设计索引，使其引用 manifest 但不复制总体设计正文。
-- [ ] 将本卡标为 `DONE`，把 `W0-02` 从依赖阻断改为 `READY`。
-- [ ] 提交本卡的唯一写集并记录固定提交。
+- [x] 编写校验测试，覆盖哈希漂移、文件缺失、重复 Case ID 和未知正式输入。
+- [x] 运行测试并确认因 manifest/校验器尚未实现而失败。
+- [x] 创建 manifest，登记四个正式输入的规范路径、角色、版本、字节数和 SHA-256。
+- [x] 实现只读校验器；校验器不得访问 DOCX 内的外部或本地链接。
+- [x] 运行正例和全部反例，确认只有规范输入集合能够通过。
+- [x] 更新设计索引，使其引用 manifest 但不复制总体设计正文。
+- [x] 将本卡标为 `DONE`，把 `W0-02` 从依赖阻断改为 `READY`。
+- [x] 提交本卡的唯一写集并记录固定提交。
 
 ## 5. 验证命令
 
@@ -74,6 +77,9 @@ git diff --check
 
 ```text
 W0-G1 DesignSourceRegistry = PASS
+PositiveSourceMatches = 4
+NegativeCases = 5
+FormalInputsUnchanged = PASS
 ```
 
 ## 7. 提交与审查
@@ -81,6 +87,7 @@ W0-G1 DesignSourceRegistry = PASS
 ```text
 CommitMessage = chore: add Cognitura design source registry
 CommitReview = MAIN_AGENT_GATE
+ReviewResult = MAIN_AGENT_VERIFIED
 NextTaskCardOnPass = W0-02
 ```
 

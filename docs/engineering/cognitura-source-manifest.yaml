@@ -1,0 +1,31 @@
+manifestVersion: 1
+canonicalProjectName: Cognitura
+sources:
+  - sourceId: DESIGN-OVERALL-001
+    caseId: NOT_APPLICABLE
+    path: cognitive-knowledge-atlas-overall-design-1.2.md
+    role: FORMAL_OVERALL_DESIGN
+    version: Cognitive-Knowledge-Atlas-Overall-Design-1.2
+    sizeBytes: 34985
+    sha256: 806d1fb00288b918dc4859007599c5e5d2f9a44e617bfc07cd562b9812e9eb2b
+  - sourceId: GC-MYSQL-001
+    caseId: GC-MYSQL-001
+    path: raw/11-MySQL数据库.docx
+    role: GOLDEN_CASE_ORIGINAL
+    version: ORIGINAL
+    sizeBytes: 1627219
+    sha256: 5a7adabb8d2769c422dd22ae43efe1deaf5efcf792b42b24be07da564aa97b50
+  - sourceId: GC-REDIS-001
+    caseId: GC-REDIS-001
+    path: raw/12-Redis中间件.docx
+    role: GOLDEN_CASE_ORIGINAL
+    version: ORIGINAL
+    sizeBytes: 1002548
+    sha256: 42fe82271b9f7a7c8aa956fd73486d7c8a9b7a5770780df03af306cfde41b72c
+  - sourceId: GC-ENGLISH-001
+    caseId: GC-ENGLISH-001
+    path: raw/40-英语学习.docx
+    role: GOLDEN_CASE_ORIGINAL
+    version: ORIGINAL
+    sizeBytes: 94445
+    sha256: a35763c77d6d7f98e396a51ae97f258bdba5c9b3ac9525c0b18168ff3947d3c1

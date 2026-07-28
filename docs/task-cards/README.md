@@ -4,7 +4,7 @@
 CanonicalProjectName = Cognitura
 TaskCardSet = WAVE0
 TaskCardCount = 9
-ActiveTaskCard = W0-01
+ActiveTaskCard = W0-02
 TaskCardSetStatus = READY_FOR_EXECUTION
 Wave1FeatureDevelopmentEntry = NO_GO
 ```
@@ -19,8 +19,8 @@ Wave1FeatureDevelopmentEntry = NO_GO
 | ID | 任务卡 | 状态 | 依赖 | Gate | 风险 |
 |---|---|---|---|---|---|
 | `W0-00` | [Repository 基线](W0-00-repository-baseline.md) | `DONE` | `NONE` | `W0-G0` | `LOW` |
-| `W0-01` | [设计和输入来源登记](W0-01-design-source-registry.md) | `READY` | `W0-00` | `W0-G1` | `MEDIUM` |
-| `W0-02` | [专项契约覆盖封口](W0-02-specialty-contract-coverage.md) | `BLOCKED_BY_DEPENDENCY` | `W0-01` | `W0-G2` | `HIGH` |
+| `W0-01` | [设计和输入来源登记](W0-01-design-source-registry.md) | `DONE` | `W0-00` | `W0-G1` | `MEDIUM` |
+| `W0-02` | [专项契约覆盖封口](W0-02-specialty-contract-coverage.md) | `READY` | `W0-01` | `W0-G2` | `HIGH` |
 | `W0-03` | [技术栈与模块化单体骨架](W0-03-build-baseline.md) | `BLOCKED_BY_DEPENDENCY` | `W0-02` | `W0-G2A` | `HIGH` |
 | `W0-04` | [JSON Schema Source](W0-04-json-schema-source.md) | `BLOCKED_BY_DOCUMENTATION_GAP` | `W0-02,W0-03` | `W0-G3` | `HIGH` |
 | `W0-05` | [Golden Case 回归资产](W0-05-golden-case-regression.md) | `BLOCKED_BY_DEPENDENCY` | `W0-01,W0-04` | `W0-G4` | `HIGH` |
@@ -78,5 +78,5 @@ scripts/verify-task-cards --cards-dir docs/task-cards
 TaskCardContractTests = PASS
 TaskCardValidation = PASS
 ExpectedTaskCardCount = 9
-ExpectedActiveTaskCard = W0-01
+ExpectedActiveTaskCard = W0-02
 ```
