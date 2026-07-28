@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-06
-Status = READY
+Status = DONE
 Gate = W0-G4A UiContractValidation
 Risk = MEDIUM
 DependsOn = W0-02
@@ -29,6 +29,10 @@ ReviewRoute = MAIN_AGENT_GATE
 - Create: `tests/contracts/ui/`
 - Create: `scripts/verify-ui-contracts`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `AGENTS.md`
+- Modify: `README.md`
+- Modify: `scripts/verify-task-cards`
+- Modify: `tests/task-cards/verify-task-cards.sh`
 - Modify: `docs/task-cards/README.md`
 - Modify: `docs/task-cards/W0-06-ui-renderer-contracts.md`
 - Modify: `docs/engineering/cognitura-wave-0-plan.md`
@@ -38,15 +42,15 @@ ReviewRoute = MAIN_AGENT_GATE
 
 ## 4. 执行步骤
 
-- [ ] 先编写页面职责、Renderer 类型、统一输入、状态和平台边界的失败验证。
-- [ ] 运行测试并确认契约文档尚未存在时失败。
-- [ ] 编码 Workspace、Upload、ParsingStatus、ThemeModel、SkeletonReview、Landscape、
+- [x] 先编写页面职责、Renderer 类型、统一输入、状态和平台边界的失败验证。
+- [x] 运行测试并确认契约文档尚未存在时失败。
+- [x] 编码 Workspace、Upload、ParsingStatus、ThemeModel、SkeletonReview、Landscape、
   Theme、ModuleReading、SourceEvidence、Revision 和 History 页面职责。
-- [ ] 编码 Skeleton Review 六类结构操作和 Desktop Web 三栏主布局。
-- [ ] 编码九类 Renderer、统一输入和“Renderer 不创建事实”不变量。
-- [ ] 编码页面状态、局部失败、最小重试和基础响应式安全边界。
-- [ ] 加入禁止原生 App、自由画布、Card-only 和管理表格主体验的反例。
-- [ ] 运行契约验证，更新任务卡状态并形成独立提交。
+- [x] 编码 Skeleton Review 六类结构操作和 Desktop Web 三栏主布局。
+- [x] 编码九类 Renderer、统一输入和“Renderer 不创建事实”不变量。
+- [x] 编码页面状态、局部失败、最小重试和基础响应式安全边界。
+- [x] 加入禁止原生 App、自由画布、Card-only 和管理表格主体验的反例。
+- [x] 运行契约验证，更新任务卡状态并形成独立提交。
 
 ## 5. 验证命令
 
@@ -69,12 +73,31 @@ git diff --check
 W0-G4A UiContractValidation = PASS
 ```
 
+完成证据：
+
+```text
+PageContractCount = 12
+SkeletonLayoutZoneCount = 3
+SkeletonOperationCount = 6
+PageStateCount = 12
+RendererContractCount = 9
+RendererInputCapabilityCount = 9
+ForbiddenExperienceCount = 4
+UiContractNegativeCases = 8
+TaskCardBlockedTerminalCases = 1
+DOC-GAP-001 = OPEN
+DOC-GAP-002 = OPEN
+```
+
 ## 7. 提交与审查
 
 ```text
 CommitMessage = docs: add Cognitura page and renderer contracts
 CommitReview = MAIN_AGENT_GATE
-NextTaskCardOnPass = W0-07_WHEN_OTHER_DEPENDENCIES_PASS
+NextTaskCardOnPass = NONE
+TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP
+BlockingGate = DOC-GAP-001
 ```
 
-本卡可在 `W0-05` 输入稳定后与其并行，但共享索引和状态文件由主 Agent 串行整合。
+本卡已在不依赖字段级 Schema 的边界内独立完成；共享索引和状态文件由主 Agent
+串行整合。后续不得据此绕过 `W0-04` 的 `DOC-GAP-001`。

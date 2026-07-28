@@ -1,0 +1,329 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --page-contracts <path> --renderer-contract <path>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'UiContractValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+contains_id() {
+  local expected="$1"
+  shift
+  local value
+
+  for value in "$@"; do
+    if [[ "${value}" == "${expected}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+record_has_id() {
+  local records_file="$1"
+  local expected_id="$2"
+
+  awk -F '|' -v expected_id="${expected_id}" '
+    $1 == expected_id {
+      found = 1
+    }
+    END {
+      exit(found ? 0 : 1)
+    }
+  ' "${records_file}"
+}
+
+duplicate_id() {
+  awk -F '|' '
+    {
+      if (seen[$1]++) {
+        print $1
+        exit
+      }
+    }
+  ' "$1"
+}
+
+page_contracts=""
+renderer_contract=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --page-contracts)
+      [[ "$#" -ge 2 ]] || usage
+      page_contracts="$2"
+      shift 2
+      ;;
+    --renderer-contract)
+      [[ "$#" -ge 2 ]] || usage
+      renderer_contract="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+[[ -n "${page_contracts}" && -n "${renderer_contract}" ]] || usage
+[[ -f "${page_contracts}" ]] || fail "MISSING_PAGE_CONTRACT_DOCUMENT"
+[[ -f "${renderer_contract}" ]] || fail "MISSING_RENDERER_CONTRACT_DOCUMENT"
+
+tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-ui-contract-parse.XXXXXX")"
+page_records="${tmp_root}/pages"
+operation_records="${tmp_root}/operations"
+layout_records="${tmp_root}/layout"
+state_records="${tmp_root}/states"
+platform_records="${tmp_root}/platform"
+forbidden_records="${tmp_root}/forbidden"
+renderer_records="${tmp_root}/renderers"
+input_records="${tmp_root}/inputs"
+invariant_records="${tmp_root}/invariants"
+
+cleanup() {
+  rm -rf "${tmp_root}"
+}
+trap cleanup EXIT
+
+sed -n 's/^PageContract = //p' "${page_contracts}" >"${page_records}"
+sed -n 's/^SkeletonOperation = //p' "${page_contracts}" >"${operation_records}"
+sed -n 's/^SkeletonLayoutZone = //p' "${page_contracts}" >"${layout_records}"
+sed -n 's/^PageState = //p' "${page_contracts}" >"${state_records}"
+sed -n 's/^PlatformContract = //p' "${page_contracts}" >"${platform_records}"
+sed -n 's/^ForbiddenExperience = //p' "${page_contracts}" >"${forbidden_records}"
+sed -n 's/^RendererContract = //p' "${renderer_contract}" >"${renderer_records}"
+sed -n 's/^RendererInputCapability = //p' "${renderer_contract}" >"${input_records}"
+sed -n 's/^RendererInvariant = //p' "${renderer_contract}" >"${invariant_records}"
+
+required_page_ids=(
+  WORKSPACE_LIST
+  WORKSPACE_CREATE
+  DOCUMENT_UPLOAD
+  DOCUMENT_PARSING_STATUS
+  THEME_MODEL_SELECTION
+  SKELETON_REVIEW
+  LANDSCAPE_OVERVIEW
+  THEME_DETAIL
+  MODULE_READING
+  SOURCE_EVIDENCE
+  STRUCTURE_REVISION
+  GENERATION_HISTORY
+)
+required_operations=(RENAME MOVE MERGE SPLIT PIN EXCLUDE)
+required_layout_zones=(LEFT CENTER RIGHT)
+required_states=(
+  EMPTY
+  UPLOADING
+  PARSING
+  ANALYZING
+  GENERATING
+  WAITING_REVIEW
+  PARTIALLY_GENERATED
+  FAILED
+  RETRYING
+  CONFIRMED
+  PUBLISHED
+  OUTDATED_BY_STRUCTURE_CHANGE
+)
+required_renderer_ids=(
+  HIERARCHY
+  MATRIX
+  STAGE_CHAIN
+  DECISION_PATH
+  STATE_TRANSITION
+  COMPARISON
+  CAUSAL_CHAIN
+  LAYERED_STRUCTURE
+  STRUCTURED_PANEL
+)
+required_input_ids=(
+  RENDERER_TYPE
+  TITLE
+  SUMMARY
+  NODES
+  GROUPS
+  RELATIONS
+  SOURCE_REFS
+  INCOMPLETE_STATE
+  INTERACTION_HINTS
+)
+required_forbidden_ids=(
+  COMPLEX_FREE_CANVAS
+  CARD_ONLY_LAYOUT
+  UNBOUNDED_NODE_GRAPH
+  TRADITIONAL_ADMIN_TABLE_PRIMARY
+)
+
+for records_file in \
+  "${page_records}" \
+  "${operation_records}" \
+  "${layout_records}" \
+  "${state_records}" \
+  "${platform_records}" \
+  "${forbidden_records}" \
+  "${renderer_records}" \
+  "${input_records}" \
+  "${invariant_records}"; do
+  duplicate="$(duplicate_id "${records_file}")"
+  [[ -z "${duplicate}" ]] || fail "DUPLICATE_CONTRACT_ID: ${duplicate}"
+done
+
+while IFS='|' read -r page_id page_name source responsibility extra; do
+  [[ -n "${page_id}" ]] || continue
+  contains_id "${page_id}" "${required_page_ids[@]}" ||
+    fail "UNKNOWN_PAGE_CONTRACT: ${page_id}"
+  [[ -n "${page_name}" && -n "${responsibility}" && -z "${extra}" ]] ||
+    fail "MALFORMED_PAGE_CONTRACT: ${page_id}"
+  [[ "${source}" == OD1.2§20.* ]] ||
+    fail "INVALID_PAGE_SOURCE: ${page_id}"
+done <"${page_records}"
+
+for required_id in "${required_page_ids[@]}"; do
+  record_has_id "${page_records}" "${required_id}" ||
+    fail "MISSING_PAGE_CONTRACT: ${required_id}"
+done
+page_count="$(wc -l <"${page_records}" | tr -d '[:space:]')"
+[[ "${page_count}" == "12" ]] ||
+  fail "PAGE_CONTRACT_COUNT: expected 12, found ${page_count}"
+
+while IFS='|' read -r operation_id source status extra; do
+  [[ -n "${operation_id}" ]] || continue
+  contains_id "${operation_id}" "${required_operations[@]}" ||
+    fail "UNKNOWN_SKELETON_OPERATION: ${operation_id}"
+  [[ "${source}" == "OD1.2§20.4" && "${status}" == "SUPPORTED" && -z "${extra}" ]] ||
+    fail "INVALID_SKELETON_OPERATION: ${operation_id}"
+done <"${operation_records}"
+
+for required_id in "${required_operations[@]}"; do
+  record_has_id "${operation_records}" "${required_id}" ||
+    fail "MISSING_SKELETON_OPERATION: ${required_id}"
+done
+operation_count="$(wc -l <"${operation_records}" | tr -d '[:space:]')"
+[[ "${operation_count}" == "6" ]] ||
+  fail "SKELETON_OPERATION_COUNT: expected 6, found ${operation_count}"
+
+for required_id in "${required_layout_zones[@]}"; do
+  record_has_id "${layout_records}" "${required_id}" ||
+    fail "MISSING_SKELETON_LAYOUT_ZONE: ${required_id}"
+done
+layout_count="$(wc -l <"${layout_records}" | tr -d '[:space:]')"
+[[ "${layout_count}" == "3" ]] ||
+  fail "SKELETON_LAYOUT_ZONE_COUNT: expected 3, found ${layout_count}"
+
+for required_id in "${required_states[@]}"; do
+  record_has_id "${state_records}" "${required_id}" ||
+    fail "MISSING_PAGE_STATE: ${required_id}"
+done
+state_count="$(wc -l <"${state_records}" | tr -d '[:space:]')"
+[[ "${state_count}" == "12" ]] ||
+  fail "PAGE_STATE_COUNT: expected 12, found ${state_count}"
+
+required_platform_records=(
+  'DELIVERY_PLATFORM|WEB_BROWSER|OD1.2§20.11'
+  'PRIMARY_EXPERIENCE|DESKTOP_WEB|OD1.2§20.11'
+  'RESPONSIVE_SAFETY|REQUIRED|OD1.2§20.11'
+  'DEDICATED_MOBILE_EXPERIENCE|DEFERRED|OD1.2§20.11'
+  'MOBILE_FEATURE_PARITY|NOT_REQUIRED|OD1.2§20.11'
+)
+for required_record in "${required_platform_records[@]}"; do
+  if ! grep -Fqx "${required_record}" "${platform_records}"; then
+    platform_id="${required_record%%|*}"
+    if [[ "${platform_id}" == "MOBILE_FEATURE_PARITY" ]]; then
+      fail "MOBILE_FEATURE_PARITY_FORBIDDEN"
+    fi
+    fail "INVALID_PLATFORM_CONTRACT: ${platform_id}"
+  fi
+done
+
+while IFS='|' read -r forbidden_id value source extra; do
+  [[ -n "${forbidden_id}" ]] || continue
+  contains_id "${forbidden_id}" "${required_forbidden_ids[@]}" ||
+    fail "UNKNOWN_FORBIDDEN_EXPERIENCE: ${forbidden_id}"
+  [[ "${value}" == "NO" ]] ||
+    fail "FORBIDDEN_EXPERIENCE_ENABLED: ${forbidden_id}"
+  [[ "${source}" == "OD1.2§20.1" && -z "${extra}" ]] ||
+    fail "INVALID_FORBIDDEN_EXPERIENCE: ${forbidden_id}"
+done <"${forbidden_records}"
+
+for required_id in "${required_forbidden_ids[@]}"; do
+  record_has_id "${forbidden_records}" "${required_id}" ||
+    fail "MISSING_FORBIDDEN_EXPERIENCE: ${required_id}"
+done
+forbidden_count="$(wc -l <"${forbidden_records}" | tr -d '[:space:]')"
+[[ "${forbidden_count}" == "4" ]] ||
+  fail "FORBIDDEN_EXPERIENCE_COUNT: expected 4, found ${forbidden_count}"
+
+while IFS='|' read -r renderer_id renderer_name source projection extra; do
+  [[ -n "${renderer_id}" ]] || continue
+  contains_id "${renderer_id}" "${required_renderer_ids[@]}" ||
+    fail "UNKNOWN_RENDERER_CONTRACT: ${renderer_id}"
+  [[ -n "${renderer_name}" && "${source}" == "OD1.2§20.8" ]] ||
+    fail "INVALID_RENDERER_CONTRACT: ${renderer_id}"
+  [[ "${projection}" == "PROJECTS_COGNITIVE_MODULE" && -z "${extra}" ]] ||
+    fail "INVALID_RENDERER_PROJECTION: ${renderer_id}"
+done <"${renderer_records}"
+
+for required_id in "${required_renderer_ids[@]}"; do
+  record_has_id "${renderer_records}" "${required_id}" ||
+    fail "MISSING_RENDERER_CONTRACT: ${required_id}"
+done
+renderer_count="$(wc -l <"${renderer_records}" | tr -d '[:space:]')"
+[[ "${renderer_count}" == "9" ]] ||
+  fail "RENDERER_CONTRACT_COUNT: expected 9, found ${renderer_count}"
+
+while IFS='|' read -r input_id semantics source extra; do
+  [[ -n "${input_id}" ]] || continue
+  contains_id "${input_id}" "${required_input_ids[@]}" ||
+    fail "UNKNOWN_RENDERER_INPUT: ${input_id}"
+  [[ "${semantics}" == "CONCEPT_ONLY" ]] ||
+    fail "SCHEMA_SEMANTICS_FORBIDDEN: ${input_id}"
+  [[ "${source}" == "OD1.2§20.8" && -z "${extra}" ]] ||
+    fail "INVALID_RENDERER_INPUT_SOURCE: ${input_id}"
+done <"${input_records}"
+
+for required_id in "${required_input_ids[@]}"; do
+  record_has_id "${input_records}" "${required_id}" ||
+    fail "MISSING_RENDERER_INPUT: ${required_id}"
+done
+input_count="$(wc -l <"${input_records}" | tr -d '[:space:]')"
+[[ "${input_count}" == "9" ]] ||
+  fail "RENDERER_INPUT_COUNT: expected 9, found ${input_count}"
+
+if ! grep -Fqx \
+  'CREATES_INDEPENDENT_FACTS|NO|OD1.2§20.8' \
+  "${invariant_records}"; then
+  fail "RENDERER_FACT_CREATION_FORBIDDEN"
+fi
+for required_record in \
+  'PROJECTION_SOURCE|COGNITIVE_MODULE|OD1.2§20.8' \
+  'SEMANTIC_REORDERING|FORBIDDEN|OD1.2§20.8' \
+  'DENSITY_OVERFLOW_HANDLING|GROUP_FOLD_OR_STAGE|OD1.2§20.8' \
+  'NARROW_SCREEN_FEATURE_PARITY|NOT_REQUIRED|OD1.2§20.8'; do
+  grep -Fqx "${required_record}" "${invariant_records}" ||
+    fail "MISSING_RENDERER_INVARIANT: ${required_record%%|*}"
+done
+
+grep -Fq \
+  'DocumentationGapRecord = DOC-GAP-001|OPEN|RENDERER_FIELD_LEVEL_SCHEMA_SOURCE_MISSING|BLOCKS_W0-G3' \
+  "${renderer_contract}" ||
+  fail "MISSING_DOCUMENTATION_GAP: DOC-GAP-001"
+grep -Fq \
+  'DocumentationGapRecord = DOC-GAP-002|OPEN|UIUX_SPECIALTY_BODY_MISSING|NON_SCHEMA_CONTRACTS_ONLY' \
+  "${page_contracts}" ||
+  fail "MISSING_DOCUMENTATION_GAP: DOC-GAP-002"
+
+printf '%s\n' \
+  "UiContractValidation = PASS" \
+  "PageContractCount = ${page_count}" \
+  "SkeletonOperationCount = ${operation_count}" \
+  "PageStateCount = ${state_count}" \
+  "RendererContractCount = ${renderer_count}" \
+  "RendererInputCapabilityCount = ${input_count}" \
+  "ForbiddenExperienceCount = ${forbidden_count}" \
+  "DocumentationGapCount = 2" \
+  "W0-G4A UiContractValidation = PASS"

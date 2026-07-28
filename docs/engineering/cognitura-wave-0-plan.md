@@ -43,8 +43,8 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-06
-ActiveTaskCardStatus = READY
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = BLOCKED_BY_DOCUMENTATION_GAP
 ```
 
 ## 0. 工作项与 Gate
@@ -218,12 +218,12 @@ W0-G4 GoldenCaseRegression = PASS
 
 **Produces:** 从总体设计回迁内容抽取的 Desktop Web 页面和 Renderer 验收契约，不重写产品设计。
 
-- [ ] **Step 1:** 编码 Workspace、Upload、ParsingStatus、ThemeModel、SkeletonReview、Landscape、Theme、ModuleReading、SourceEvidence、Revision 和 History 页面职责。
-- [ ] **Step 2:** 编码 Skeleton Review 六类结构操作和三栏 Desktop Web 契约。
-- [ ] **Step 3:** 编码九类 Renderer、统一输入和“Renderer 不创建事实”的不变量。
-- [ ] **Step 4:** 编码页面状态、局部失败、最小重试、基础响应式和移动端非等价边界。
-- [ ] **Step 5:** 验证不存在原生 App、自由画布、Card-only 或普通管理表格主体验。
-- [ ] **Step 6:** 提交并标记：
+- [x] **Step 1:** 编码 Workspace、Upload、ParsingStatus、ThemeModel、SkeletonReview、Landscape、Theme、ModuleReading、SourceEvidence、Revision 和 History 页面职责。
+- [x] **Step 2:** 编码 Skeleton Review 六类结构操作和三栏 Desktop Web 契约。
+- [x] **Step 3:** 编码九类 Renderer、统一输入和“Renderer 不创建事实”的不变量。
+- [x] **Step 4:** 编码页面状态、局部失败、最小重试、基础响应式和移动端非等价边界。
+- [x] **Step 5:** 验证不存在原生 App、自由画布、Card-only 或普通管理表格主体验。
+- [x] **Step 6:** 提交并标记：
 
 ```text
 W0-G4A UiContractValidation = PASS
@@ -280,10 +280,10 @@ Wave1FeatureDevelopmentEntry = NO_GO
 ```text
 W0-00 → W0-01 → W0-02 → W0-03
                        ├→ W0-04 [BLOCKED: DOC-GAP-001] → W0-05 ┐
-                       └→ W0-06 [READY] ────────────────────────┤
+                       └→ W0-06 [DONE] ─────────────────────────┤
                                                                └→ W0-07 → W0-08
 ```
 
-`W0-04` 必须等待字段级来源封口；等待期间执行不依赖字段级 Schema 的 `W0-06`。
-`W0-05` 和 `W0-06` 在各自输入稳定后可以并行，但共享状态文件由主 Agent 串行
-整合；`W0-08` 必须最后执行。
+`W0-06` 已在等待字段级来源期间完成。现在 `W0-04` 必须等待权威字段级来源或
+明确批准的 Schema 重基线；`W0-05/W0-07/W0-08` 受其依赖链阻断，任务卡集合
+处于 `BLOCKED_BY_DOCUMENTATION_GAP`。`W0-08` 必须最后执行。

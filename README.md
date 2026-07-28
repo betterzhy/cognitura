@@ -18,7 +18,7 @@ CurrentStage =
   WAVE0_EXECUTION
 
 Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = W0-06
+ActiveTaskCard = NONE
 ```
 
 当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、
@@ -37,6 +37,10 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 和 Vite 8.1.5。单部署 server、空 Desktop Web 入口、模块边界和 lockfile
 已经通过在线及缓存离线构建验证。
 
+`W0-G4A UiContractValidation = PASS`：12 个正式页面、Skeleton Review 三栏与
+六类操作、9 个 Renderer、12 个页面状态和 Desktop Web 边界已形成可验证的
+非 Schema 契约；`DOC-GAP-001/002` 仍保持开放。
+
 ## 正式输入
 
 - [总体设计 1.2](cognitive-knowledge-atlas-overall-design-1.2.md)：历史文件名保留，工程引用名为 `Cognitura-Overall-Design-1.2`。
@@ -53,6 +57,8 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [命名迁移记录](docs/engineering/cognitura-naming-migration.md)
 - [全栈技术基线](docs/engineering/cognitura-technology-baseline.md)
 - [模块边界基线](docs/engineering/cognitura-module-boundaries.md)
+- [页面契约](docs/contracts/cognitura-page-contracts.md)
+- [Renderer 契约](docs/contracts/cognitura-renderer-contract.md)
 - [Wave 0 实施计划](docs/engineering/cognitura-wave-0-plan.md)
 - [Wave 0 任务卡索引](docs/task-cards/README.md)
 - [Wave 0 开发准入裁决](docs/engineering/cognitura-wave-0-entry-decision.md)
@@ -67,8 +73,9 @@ DirectFullImplementationStart = NO
 ```
 
 `W0-G0 RepositoryBaseline = PASS`，`W0-G1 DesignSourceRegistry = PASS`，
-`W0-G2 SpecialtyContractCoverage = PASS`，`W0-G2A BuildBaseline = PASS`。
-`W0-00～W0-08` 已拆成独立任务卡，唯一当前卡为
-`W0-06 UiContractValidation = READY`；`W0-04` 继续受 `DOC-GAP-001` 阻断。
-在其余 Wave 0 门禁全部通过前，
+`W0-G2 SpecialtyContractCoverage = PASS`，`W0-G2A BuildBaseline = PASS`，
+`W0-G4A UiContractValidation = PASS`。当前没有可合法执行的 `READY` 卡：
+`W0-04` 受 `DOC-GAP-001` 阻断，其余未完成卡受它的依赖链阻断。任务卡集合处于
+`BLOCKED_BY_DOCUMENTATION_GAP`；在获得权威专项正文或明确 Schema 重基线批准前，
+自驱循环停在此真实 Gate。在其余 Wave 0 门禁全部通过前，
 不进入 Wave 1 业务功能开发。

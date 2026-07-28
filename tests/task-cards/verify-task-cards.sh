@@ -60,6 +60,7 @@ if [[ "${valid_output}" != *"TaskCardValidation = PASS"* ]]; then
 fi
 
 active_task_card="$(field_value "${cards_dir}/README.md" "ActiveTaskCard")"
+task_card_set_status="$(field_value "${cards_dir}/README.md" "TaskCardSetStatus")"
 inactive_card_file=""
 for card_file in "${cards_dir}"/W0-*.md; do
   if [[ "$(field_value "${card_file}" "TaskCardID")" != "${active_task_card}" ]]; then
@@ -100,7 +101,13 @@ sed -i.bak \
   "s/^Status = ${inactive_status}$/Status = READY/" \
   "${second_ready_dir}/$(basename "${inactive_card_file}")"
 rm "${second_ready_dir}/$(basename "${inactive_card_file}").bak"
-expect_failure "${second_ready_dir}" "expected exactly one READY task card"
+if [[ "${task_card_set_status}" == "BLOCKED_BY_DOCUMENTATION_GAP" ]]; then
+  expect_failure \
+    "${second_ready_dir}" \
+    "blocked task card set must have zero READY task cards"
+else
+  expect_failure "${second_ready_dir}" "expected exactly one READY task card"
+fi
 
 unknown_dependency_dir="${test_tmp_root}/unknown-dependency"
 cp -R "${cards_dir}" "${unknown_dependency_dir}"
@@ -129,10 +136,45 @@ sed -i.bak \
   "s/^ActiveTaskCard = ${active_task_card}$/ActiveTaskCard = ${inactive_task_card}/" \
   "${active_mismatch_dir}/README.md"
 rm "${active_mismatch_dir}/README.md.bak"
+if [[ "${task_card_set_status}" == "BLOCKED_BY_DOCUMENTATION_GAP" ]]; then
+  expect_failure \
+    "${active_mismatch_dir}" \
+    "blocked task card set must use ActiveTaskCard NONE"
+else
+  expect_failure \
+    "${active_mismatch_dir}" \
+    "ActiveTaskCard ${inactive_task_card} is not READY"
+fi
+
+blocked_terminal_dir="${test_tmp_root}/blocked-terminal"
+cp -R "${cards_dir}" "${blocked_terminal_dir}"
+sed -i.bak \
+  's/^Status = READY$/Status = DONE/' \
+  "${blocked_terminal_dir}/W0-06-ui-renderer-contracts.md"
+rm "${blocked_terminal_dir}/W0-06-ui-renderer-contracts.md.bak"
+sed -i.bak \
+  -e 's/^ActiveTaskCard = W0-06$/ActiveTaskCard = NONE/' \
+  -e 's/^TaskCardSetStatus = READY_FOR_EXECUTION$/TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP/' \
+  "${blocked_terminal_dir}/README.md"
+rm "${blocked_terminal_dir}/README.md.bak"
+expect_success "${blocked_terminal_dir}"
+
+blocked_with_ready_dir="${test_tmp_root}/blocked-with-ready"
+cp -R "${cards_dir}" "${blocked_with_ready_dir}"
+sed -i.bak \
+  's/^Status = DONE$/Status = READY/' \
+  "${blocked_with_ready_dir}/W0-06-ui-renderer-contracts.md"
+rm "${blocked_with_ready_dir}/W0-06-ui-renderer-contracts.md.bak"
+sed -i.bak \
+  -e 's/^ActiveTaskCard = W0-06$/ActiveTaskCard = NONE/' \
+  -e 's/^TaskCardSetStatus = READY_FOR_EXECUTION$/TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP/' \
+  "${blocked_with_ready_dir}/README.md"
+rm "${blocked_with_ready_dir}/README.md.bak"
 expect_failure \
-  "${active_mismatch_dir}" \
-  "ActiveTaskCard ${inactive_task_card} is not READY"
+  "${blocked_with_ready_dir}" \
+  "blocked task card set must have zero READY task cards"
 
 printf '%s\n' \
   "TaskCardContractTests = PASS" \
-  "NegativeCases = 7"
+  "NegativeCases = 8" \
+  "BlockedTerminalCases = 1"

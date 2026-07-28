@@ -4,8 +4,8 @@
 CanonicalProjectName = Cognitura
 TaskCardSet = WAVE0
 TaskCardCount = 9
-ActiveTaskCard = W0-06
-TaskCardSetStatus = READY_FOR_EXECUTION
+ActiveTaskCard = NONE
+TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP
 Wave1FeatureDevelopmentEntry = NO_GO
 ```
 
@@ -24,13 +24,13 @@ Wave1FeatureDevelopmentEntry = NO_GO
 | `W0-03` | [技术栈与模块化单体骨架](W0-03-build-baseline.md) | `DONE` | `W0-02` | `W0-G2A` | `HIGH` |
 | `W0-04` | [JSON Schema Source](W0-04-json-schema-source.md) | `BLOCKED_BY_DOCUMENTATION_GAP` | `W0-02,W0-03` | `W0-G3` | `HIGH` |
 | `W0-05` | [Golden Case 回归资产](W0-05-golden-case-regression.md) | `BLOCKED_BY_DEPENDENCY` | `W0-01,W0-04` | `W0-G4` | `HIGH` |
-| `W0-06` | [页面与 Renderer 契约](W0-06-ui-renderer-contracts.md) | `READY` | `W0-02` | `W0-G4A` | `MEDIUM` |
+| `W0-06` | [页面与 Renderer 契约](W0-06-ui-renderer-contracts.md) | `DONE` | `W0-02` | `W0-G4A` | `MEDIUM` |
 | `W0-07` | [测试与 CI 基线](W0-07-test-and-ci.md) | `BLOCKED_BY_DEPENDENCY` | `W0-03,W0-04,W0-05,W0-06` | `W0-G5` | `HIGH` |
 | `W0-08` | [固定提交复核与 Wave 1 准入](W0-08-fixed-commit-review.md) | `BLOCKED_BY_DEPENDENCY` | `W0-07` | `W0-G6` | `HIGH` |
 
-`W0-03` 已完成全栈版本锁、单部署 server、空 web 入口、模块边界和正反例构建
-验证，`W0-G2A = PASS`。名义后继 `W0-04` 仍受 `DOC-GAP-001` 阻断，因此依赖
-已满足且不需要字段级 Schema 的 `W0-06` 被释放为唯一 `READY` 卡。
+`W0-03` 与 `W0-06` 均已完成，`W0-G2A`、`W0-G4A` 为 `PASS`。`W0-04`
+仍受 `DOC-GAP-001` 阻断，`W0-05/W0-07/W0-08` 继续受其依赖链阻断；当前没有
+可合法释放的 `READY` 卡。
 
 ## 2. 状态模型
 
@@ -51,8 +51,11 @@ BLOCKED_BY_DOCUMENTATION_GAP
 - `DONE`：任务卡的全部验证通过、Gate 记录完成并已形成独立提交。
 - `BLOCKED_BY_DEPENDENCY`：必须等待所列任务卡完成。
 - `BLOCKED_BY_DOCUMENTATION_GAP`：除依赖外还有明确文档缺口，禁止猜测补齐。
-- 任意时刻只允许一张任务卡为 `READY`；进入实际写入后在执行记录中标记
-  `IN_PROGRESS`，但 Repository 卡片状态直到 Gate 封口前保持 `READY`。
+- `TaskCardSetStatus = READY_FOR_EXECUTION` 时必须恰有一张卡为 `READY`；
+  `TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP` 时必须没有 `READY` 卡，
+  且 `ActiveTaskCard = NONE`。
+- 进入实际写入后在执行记录中标记 `IN_PROGRESS`，但 Repository 卡片状态直到
+  Gate 封口前保持 `READY`。
 
 ## 3. 执行规则
 
@@ -81,5 +84,6 @@ scripts/verify-task-cards --cards-dir docs/task-cards
 TaskCardContractTests = PASS
 TaskCardValidation = PASS
 ExpectedTaskCardCount = 9
-ExpectedActiveTaskCard = W0-06
+ExpectedTaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP
+ExpectedActiveTaskCard = NONE
 ```

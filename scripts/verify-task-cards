@@ -165,9 +165,29 @@ for file in "${card_files[@]}"; do
   fi
 done
 
-if [[ "${ready_count}" -ne 1 ]]; then
-  fail "expected exactly one READY task card, found ${ready_count}"
-fi
+task_card_set_status="$(field_value "${cards_dir}/README.md" "TaskCardSetStatus")"
+case "${task_card_set_status}" in
+  READY_FOR_EXECUTION)
+    if [[ "${ready_count}" -ne 1 ]]; then
+      fail "expected exactly one READY task card, found ${ready_count}"
+    fi
+    ;;
+  BLOCKED_BY_DOCUMENTATION_GAP)
+    if [[ "${ready_count}" -ne 0 ]]; then
+      fail "blocked task card set must have zero READY task cards"
+    fi
+    documentation_gap_count="$(
+      grep -h '^Status = BLOCKED_BY_DOCUMENTATION_GAP$' "${card_files[@]}" |
+        wc -l |
+        tr -d '[:space:]'
+    )"
+    [[ "${documentation_gap_count}" -gt 0 ]] ||
+      fail "blocked task card set has no documentation-gap card"
+    ;;
+  *)
+    fail "README.md: invalid TaskCardSetStatus ${task_card_set_status}"
+    ;;
+esac
 
 for expected_number in 0 1 2 3 4 5 6 7 8; do
   expected_id="W0-0${expected_number}"
@@ -195,21 +215,27 @@ if [[ "${index_count}" != "9" ]]; then
 fi
 
 active_task_card="$(field_value "${cards_dir}/README.md" "ActiveTaskCard")"
-if ! contains_id "${active_task_card}"; then
-  fail "README.md: unknown ActiveTaskCard ${active_task_card}"
-fi
+if [[ "${task_card_set_status}" == "BLOCKED_BY_DOCUMENTATION_GAP" ]]; then
+  [[ "${active_task_card}" == "NONE" ]] ||
+    fail "blocked task card set must use ActiveTaskCard NONE"
+else
+  if ! contains_id "${active_task_card}"; then
+    fail "README.md: unknown ActiveTaskCard ${active_task_card}"
+  fi
 
-active_file=("${cards_dir}/${active_task_card}-"*.md)
-if [[ "${#active_file[@]}" -ne 1 ]]; then
-  fail "README.md: cannot resolve ActiveTaskCard ${active_task_card}"
-fi
+  active_file=("${cards_dir}/${active_task_card}-"*.md)
+  if [[ "${#active_file[@]}" -ne 1 ]]; then
+    fail "README.md: cannot resolve ActiveTaskCard ${active_task_card}"
+  fi
 
-active_status="$(field_value "${active_file[0]}" "Status")"
-if [[ "${active_status}" != "READY" ]]; then
-  fail "ActiveTaskCard ${active_task_card} is not READY"
+  active_status="$(field_value "${active_file[0]}" "Status")"
+  if [[ "${active_status}" != "READY" ]]; then
+    fail "ActiveTaskCard ${active_task_card} is not READY"
+  fi
 fi
 
 printf '%s\n' \
   "TaskCardValidation = PASS" \
   "TaskCardCount = 9" \
+  "TaskCardSetStatus = ${task_card_set_status}" \
   "ActiveTaskCard = ${active_task_card}"

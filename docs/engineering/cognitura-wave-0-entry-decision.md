@@ -36,16 +36,16 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G2A BuildBaseline` | `PASS` | 精确全栈版本、单部署 server、空 web 入口、模块边界与在线/离线构建验证通过 |
 | `W0-G3 JsonSchemaValidation` | `BLOCKED_BY_DOC_GAP_001` | 权威字段来源和 Schema 正反例 |
 | `W0-G4 GoldenCaseRegression` | `PARTIAL` | 机器可执行断言与离线回归 |
-| `W0-G4A UiContractValidation` | `PARTIAL` | 页面/Renderer 契约验证 |
+| `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 8 个负例通过 |
 | `W0-G5 TestAndCI` | `NOT_STARTED` | 本地和 CI 全绿 |
 | `W0-G6 FixedCommitReview` | `NOT_STARTED` | 固定提交深度审查无 P0/P1/P2 |
 
 ## 4. 当前阻断边界
 
 `DOC-GAP-001` 不阻断 Wave 0 开始，但阻断 `W0-G3 JsonSchemaValidation` 完成，
-并通过任务依赖继续阻断 `W0-05 GoldenCaseRegression`。当前允许执行不依赖
-字段级 Schema 的 `W0-06 UiContractValidation`；字段级 Schema 必须等待权威
-专项正文落地，或等待一个明确批准的 Schema 重基线设计。
+并通过任务依赖继续阻断 `W0-05 GoldenCaseRegression`。不依赖字段级 Schema
+的 `W0-06 UiContractValidation` 已完成；字段级 Schema 必须等待权威专项正文
+落地，或等待一个明确批准的 Schema 重基线设计。
 
 不得把总体设计中的字段摘要扩写成声称来自历史专项的完整 Schema。
 
@@ -74,18 +74,18 @@ PostgreSQL 18.4 容器 tag/digest、Spring Boot BOM 实际解析版本、后端�
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-06
-ActiveTaskCardStatus = READY
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = BLOCKED_BY_DOCUMENTATION_GAP
 TaskCardIndex = docs/task-cards/README.md
 ```
 
-每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。只有唯一
-`READY` 卡可以开始实施。
+每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。当前没有
+`READY` 卡；阻断终态由任务卡验证器明确校验，不保留假当前卡。
 
 ## 7. 下一动作
 
 ```text
-NextAction = EXECUTE_W0_06_UI_RENDERER_CONTRACTS
+NextAction = RESOLVE_DOC_GAP_001_OR_APPROVE_SCHEMA_REBASELINE
 W0-01 ExecutionStatus = DONE
 W0-G1 DesignSourceRegistry = PASS
 W0-02 ExecutionStatus = DONE
@@ -93,7 +93,10 @@ W0-G2 SpecialtyContractCoverage = PASS
 W0-03 ExecutionStatus = DONE
 W0-G2A BuildBaseline = PASS
 W0-04 ExecutionStatus = BLOCKED_BY_DOC_GAP_001
+W0-06 ExecutionStatus = DONE
+W0-G4A UiContractValidation = PASS
 ```
 
-下一轮只允许处理 `W0-06` 写集；`DOC-GAP-001`、`DOC-GAP-002` 继续保持开放，
-不得猜测字段级 Schema、实现 React 产品页面或执行 Wave 1。
+`DOC-GAP-001` 是当前真实 Gate；在权威专项正文落地或用户明确批准 Schema
+重基线设计前，不得猜测字段级 Schema、实现 Wave 1 或把其他卡伪标为 `READY`。
+`DOC-GAP-002` 继续保持开放，但不回滚已经验证的非 Schema UI 契约。
