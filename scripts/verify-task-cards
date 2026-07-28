@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --cards-dir <path>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'TaskCardValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+cards_dir=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --cards-dir)
+      [[ "$#" -ge 2 ]] || usage
+      cards_dir="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+[[ -n "${cards_dir}" ]] || usage
+[[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
+[[ -f "${cards_dir}/README.md" ]] || fail "task card index is missing: README.md"
+
+shopt -s nullglob
+card_files=("${cards_dir}"/W0-*.md)
+shopt -u nullglob
+
+if [[ "${#card_files[@]}" -ne 9 ]]; then
+  fail "expected 9 task cards, found ${#card_files[@]}"
+fi
+
+required_fields=(
+  "TaskCardID"
+  "Status"
+  "Gate"
+  "Risk"
+  "DependsOn"
+  "ReviewRoute"
+)
+
+required_sections=(
+  "## 1. 目标"
+  "## 2. 前置条件与输入"
+  "## 3. 写集"
+  "## 4. 执行步骤"
+  "## 5. 验证命令"
+  "## 6. Gate 与完成定义"
+  "## 7. 提交与审查"
+)
+
+card_ids=()
+card_dependencies=()
+ready_count=0
+
+field_value() {
+  local file="$1"
+  local field="$2"
+  sed -n "s/^${field} = //p" "${file}"
+}
+
+contains_id() {
+  local expected="$1"
+  local id
+  if [[ "${#card_ids[@]}" -eq 0 ]]; then
+    return 1
+  fi
+  for id in "${card_ids[@]}"; do
+    if [[ "${id}" == "${expected}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+for file in "${card_files[@]}"; do
+  filename="$(basename "${file}")"
+
+  for field in "${required_fields[@]}"; do
+    field_count="$(grep -c "^${field} = " "${file}" || true)"
+    if [[ "${field_count}" -eq 0 ]]; then
+      fail "${filename}: missing required field: ${field}"
+    fi
+    if [[ "${field_count}" -ne 1 ]]; then
+      fail "${filename}: expected one ${field} field, found ${field_count}"
+    fi
+  done
+
+  for section in "${required_sections[@]}"; do
+    if ! grep -Fqx "${section}" "${file}"; then
+      fail "${filename}: missing required section: ${section}"
+    fi
+  done
+
+  task_id="$(field_value "${file}" "TaskCardID")"
+  status="$(field_value "${file}" "Status")"
+  gate="$(field_value "${file}" "Gate")"
+  risk="$(field_value "${file}" "Risk")"
+  depends_on="$(field_value "${file}" "DependsOn")"
+  review_route="$(field_value "${file}" "ReviewRoute")"
+
+  if contains_id "${task_id}"; then
+    fail "duplicate TaskCardID: ${task_id}"
+  fi
+  card_ids+=("${task_id}")
+  card_dependencies+=("${depends_on}")
+
+  if [[ ! "${task_id}" =~ ^W0-0[0-8]$ ]]; then
+    fail "${filename}: invalid TaskCardID: ${task_id}"
+  fi
+  if [[ "${filename}" != "${task_id}-"* ]]; then
+    fail "${filename}: filename does not match TaskCardID ${task_id}"
+  fi
+
+  case "${status}" in
+    DONE|READY|QUEUED|BLOCKED_BY_DEPENDENCY|BLOCKED_BY_DOCUMENTATION_GAP)
+      ;;
+    *)
+      fail "${filename}: invalid Status: ${status}"
+      ;;
+  esac
+
+  if [[ "${status}" == "READY" ]]; then
+    ready_count=$((ready_count + 1))
+  fi
+
+  case "${risk}" in
+    LOW|MEDIUM|HIGH)
+      ;;
+    *)
+      fail "${filename}: invalid Risk: ${risk}"
+      ;;
+  esac
+
+  case "${review_route}" in
+    MAIN_AGENT_GATE|DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER)
+      ;;
+    *)
+      fail "${filename}: invalid ReviewRoute: ${review_route}"
+      ;;
+  esac
+
+  expected_gate=""
+  case "${task_id}" in
+    W0-00) expected_gate="W0-G0 RepositoryBaseline" ;;
+    W0-01) expected_gate="W0-G1 DesignSourceRegistry" ;;
+    W0-02) expected_gate="W0-G2 SpecialtyContractCoverage" ;;
+    W0-03) expected_gate="W0-G2A BuildBaseline" ;;
+    W0-04) expected_gate="W0-G3 JsonSchemaValidation" ;;
+    W0-05) expected_gate="W0-G4 GoldenCaseRegression" ;;
+    W0-06) expected_gate="W0-G4A UiContractValidation" ;;
+    W0-07) expected_gate="W0-G5 TestAndCI" ;;
+    W0-08) expected_gate="W0-G6 FixedCommitReview" ;;
+  esac
+  if [[ "${gate}" != "${expected_gate}" ]]; then
+    fail "${filename}: Gate '${gate}' does not match '${expected_gate}'"
+  fi
+done
+
+if [[ "${ready_count}" -ne 1 ]]; then
+  fail "expected exactly one READY task card, found ${ready_count}"
+fi
+
+for expected_number in 0 1 2 3 4 5 6 7 8; do
+  expected_id="W0-0${expected_number}"
+  if ! contains_id "${expected_id}"; then
+    fail "missing TaskCardID: ${expected_id}"
+  fi
+done
+
+for dependency_list in "${card_dependencies[@]}"; do
+  if [[ "${dependency_list}" == "NONE" ]]; then
+    continue
+  fi
+
+  IFS=',' read -r -a dependencies <<< "${dependency_list}"
+  for dependency in "${dependencies[@]}"; do
+    if ! contains_id "${dependency}"; then
+      fail "unknown dependency ${dependency}"
+    fi
+  done
+done
+
+index_count="$(field_value "${cards_dir}/README.md" "TaskCardCount")"
+if [[ "${index_count}" != "9" ]]; then
+  fail "README.md: TaskCardCount must be 9"
+fi
+
+active_task_card="$(field_value "${cards_dir}/README.md" "ActiveTaskCard")"
+if ! contains_id "${active_task_card}"; then
+  fail "README.md: unknown ActiveTaskCard ${active_task_card}"
+fi
+
+active_file=("${cards_dir}/${active_task_card}-"*.md)
+if [[ "${#active_file[@]}" -ne 1 ]]; then
+  fail "README.md: cannot resolve ActiveTaskCard ${active_task_card}"
+fi
+
+active_status="$(field_value "${active_file[0]}" "Status")"
+if [[ "${active_status}" != "READY" ]]; then
+  fail "ActiveTaskCard ${active_task_card} is not READY"
+fi
+
+printf '%s\n' \
+  "TaskCardValidation = PASS" \
+  "TaskCardCount = 9" \
+  "ActiveTaskCard = ${active_task_card}"

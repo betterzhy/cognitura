@@ -18,6 +18,7 @@ CurrentStage =
   WAVE0_EXECUTION
 
 Wave0ExecutionStatus = IN_PROGRESS
+ActiveTaskCard = W0-01
 ```
 
 当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、英语学习三份 Golden Case 原始文档；尚无业务源码、构建系统、测试或 CI。
@@ -40,6 +41,7 @@ PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0。构建骨架尚未创建�
 - [命名迁移记录](docs/engineering/cognitura-naming-migration.md)
 - [后端技术基线](docs/engineering/cognitura-technology-baseline.md)
 - [Wave 0 实施计划](docs/engineering/cognitura-wave-0-plan.md)
+- [Wave 0 任务卡索引](docs/task-cards/README.md)
 - [Wave 0 开发准入裁决](docs/engineering/cognitura-wave-0-entry-decision.md)
 
 ## 当前准入
@@ -51,4 +53,6 @@ Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```
 
-`W0-G0 RepositoryBaseline = PASS`。下一步执行 `W0-01 DesignSourceRegistry`；在其余 Wave 0 门禁全部通过前，不进入 Wave 1 业务功能开发。
+`W0-G0 RepositoryBaseline = PASS`。`W0-00～W0-08` 已拆成独立任务卡，唯一
+当前卡为 `W0-01 DesignSourceRegistry = READY`；在其余 Wave 0 门禁全部通过前，
+不进入 Wave 1 业务功能开发。

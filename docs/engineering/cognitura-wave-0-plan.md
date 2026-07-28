@@ -34,6 +34,19 @@ DirectFullImplementationStart = NO
 
 ---
 
+## 执行任务卡
+
+本计划定义 Wave 0 的总体工作分解；可执行写集、依赖、验证命令和提交边界以
+[`docs/task-cards/README.md`](../task-cards/README.md) 及其九张独立任务卡为准。
+任务卡不得扩大本计划或总体设计的范围。
+
+```text
+TaskCardBreakdown = COMPLETE
+TaskCardCount = 9
+ActiveTaskCard = W0-01
+ActiveTaskCardStatus = READY
+```
+
 ## 0. 工作项与 Gate
 
 | Task | 交付 | Gate |

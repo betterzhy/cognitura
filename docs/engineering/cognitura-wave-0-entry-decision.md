@@ -66,11 +66,25 @@ MyBatis Starter 4.0.0、Flyway、Spring AI 2.0.0 和后端测试策略。
 解析尚未验证，因此 `W0-G2A BuildBaseline` 仍为 `IN_PROGRESS`，不得描述为
 已经通过。
 
-## 6. 下一动作
+## 6. 任务卡状态
 
 ```text
-NextAction = W0-01 DesignSourceRegistry
-StopAfterThisRound = YES
+TaskCardBreakdown = COMPLETE
+TaskCardCount = 9
+ActiveTaskCard = W0-01
+ActiveTaskCardStatus = READY
+TaskCardIndex = docs/task-cards/README.md
 ```
 
-本轮已完成 `W0-00 RepositoryBaseline`，并停在状态记录后的干净提交检查点；不创建 server/web/test-data 业务骨架，不执行 Wave 1。
+每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。只有唯一
+`READY` 卡可以开始实施。
+
+## 7. 下一动作
+
+```text
+NextAction = EXECUTE_W0_01_DESIGN_SOURCE_REGISTRY
+W0-01 ExecutionStatus = NOT_STARTED
+```
+
+任务卡拆分不等同于执行 `W0-01`。下一轮应只处理该卡写集，不创建 server/web
+业务骨架，不执行 Wave 1。

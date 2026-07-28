@@ -61,5 +61,6 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = YES
 - `docs/engineering/cognitura-technology-baseline.md`
 - `docs/engineering/cognitura-wave-0-plan.md`
 - `docs/engineering/cognitura-wave-0-entry-decision.md`
+- `docs/task-cards/README.md`
 
 这些工程记录只描述当前落地事实、缺口、计划和门禁，不替代正式设计。

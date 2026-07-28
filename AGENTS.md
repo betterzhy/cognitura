@@ -18,6 +18,7 @@ CurrentStage =
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = IN_PROGRESS
+ActiveTaskCard = W0-01
 Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```
@@ -34,6 +35,8 @@ Wave 0 只允许建立 Repository、设计索引、专项契约覆盖、JSON Sch
    - `Cognitive-Knowledge-Atlas-UIUX-Design-1.0`
 3. `raw/` 下三份 Golden Case 原始 DOCX。
 4. `docs/engineering/` 下的工程索引、计划和准入记录；这些文件解释落地状态，不覆盖正式设计。
+5. `docs/task-cards/` 下的执行卡和索引；这些文件固定写集、依赖、验证和 Gate，
+   不覆盖总体设计或工程裁决。
 
 后端工程选择以
 `docs/engineering/cognitura-technology-baseline.md` 为唯一技术基线；不得在
@@ -93,11 +96,15 @@ V1Architecture = MODULAR_MONOLITH
 
 开始任何任务前：
 
-1. 读取本文件、`README.md`、设计索引和相关正式设计章节。
+1. 读取本文件、`README.md`、设计索引、`docs/task-cards/README.md`、当前
+   `READY` 任务卡和相关正式设计章节。
 2. 检查真实目录、Git 状态、当前分支、最近提交和未提交修改。
 3. 保留用户修改；不得 reset、覆盖、amend 或把无关修改混入当前提交。
 4. 先写失败的验证或契约测试，再实现最小变更。
 5. 每项 Wave 0 资产必须有可复现的验证命令和明确 Gate 结果。
+6. 只执行唯一 `READY` 卡的写集；依赖阻断、文档缺口或排队卡不得提前实施。
+7. 完成卡片时同步任务卡索引、Wave 0 计划和准入记录，并运行
+   `bash tests/task-cards/verify-task-cards.sh`。
 
 ## 8. Agent 路由
 
