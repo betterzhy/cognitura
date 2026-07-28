@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-05
-Status = READY
+Status = DONE
 Gate = W0-G4 GoldenCaseRegression
 Risk = HIGH
 DependsOn = W0-01,W0-04
@@ -37,6 +37,10 @@ ReviewRoute = MAIN_AGENT_GATE
 - Modify: `docs/task-cards/W0-05-golden-case-regression.md`
 - Modify: `docs/engineering/cognitura-wave-0-plan.md`
 - Modify: `docs/engineering/cognitura-wave-0-entry-decision.md`
+- Modify（用户持续执行授权的生命周期同步）:
+  `docs/task-cards/W0-07-test-and-ci.md`
+- Modify（用户持续执行授权的根状态同步）: `AGENTS.md`
+- Modify（用户持续执行授权的根状态同步）: `README.md`
 
 所有解析派生物必须位于 `test-data/` 或测试临时目录，不得回写 `raw/`。
 
@@ -56,7 +60,7 @@ ReviewRoute = MAIN_AGENT_GATE
 - [x] 在隔离临时目录运行离线回归，证明 Redis 的 4 个遗留外链仅被计数且
   目标指纹保持一致，JDK 21 I/O Guard 报告 `ExternalLinksAccessed = 0`，
   且 canary 访问探针被拒绝。
-- [ ] 更新任务卡状态并形成独立提交。
+- [x] 更新任务卡状态，记录固定候选深审 GO，并形成独立生命周期提交。
 
 ## 5. 验证命令
 
@@ -100,7 +104,7 @@ ExternalLinksObserved = 4
 ExternalLinksAccessed = 0
 ExternalAccessGuard = ACTIVE
 FormalInputsUnchanged = PASS
-W0-G4 CandidateStatus = IN_REVIEW
+W0-G4 CandidateStatus = PASS
 ```
 
 总体设计没有为三个 Case 分别指定 `ExpectedRole` 和
@@ -112,7 +116,7 @@ W0-G4 CandidateStatus = IN_REVIEW
 四项分别绝对禁止。
 
 ```text
-W0-G4 GoldenCaseRegression = IN_REVIEW
+W0-G4 GoldenCaseRegression = PASS
 ```
 
 ## 7. 提交与审查
@@ -123,7 +127,7 @@ CommitReview = MAIN_AGENT_GATE
 AdditionalFixedCommitReview = DEEP_REVIEWER_FIXED_COMMIT
 PreviousFixedImplementationReview = a613db348bd312a73b34c924d270778f7c93a92f|NO_GO|P0=0|P1=4|P2=2
 PreviousRealpathReview = 1edca85f52f344035056be6b56ae485abdb7b8f1|NO_GO|P0=0|P1=1|P2=0
-FixedImplementationReview = PENDING
+FixedImplementationReview = 608a98cdfc6353084798f0c6a3e131ec2a9e32ea|GO|P0=0|P1=0|P2=0
 NextTaskCardOnPass = W0-07
 ```
 

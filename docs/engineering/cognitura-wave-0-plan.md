@@ -43,7 +43,7 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-05
+ActiveTaskCard = W0-07
 ActiveTaskCardStatus = READY
 ```
 
@@ -208,10 +208,10 @@ W0-G3 JsonSchemaValidation = PASS
 - [x] **Step 5:** 运行离线回归，确认 Redis 的 4 个 `file:///` 链接仅被计数且没有网络或文件访问。
 - [x] **Step 5a:** 将八组断言实际应用到三份候选结果契约夹具，并以 8 个逐组
   反例证明任一结果违约都会使 Gate 失败；夹具不冒充业务生成结果。
-- [ ] **Step 6:** 提交并标记：
+- [x] **Step 6:** 固定候选 `608a98c` 通过深审后提交并标记：
 
 ```text
-W0-G4 GoldenCaseRegression = IN_REVIEW
+W0-G4 GoldenCaseRegression = PASS
 ```
 
 ## Task W0-06：页面与 Renderer 契约基线
@@ -285,14 +285,14 @@ Wave1FeatureDevelopmentEntry = NO_GO
 
 ```text
 W0-00 → W0-01 → W0-02 → W0-03
-                       ├→ W0-04 [DONE/PASS] → W0-05 [READY/IN_REVIEW] ─┐
+                       ├→ W0-04 [DONE/PASS] → W0-05 [DONE/PASS] ──────┐
                        └→ W0-06 [DONE] ─────────────────────────┤
-                                                               └→ W0-07 → W0-08
+                                                               └→ W0-07 [READY] → W0-08
 ```
 
 `W0-06` 已在等待字段级来源期间完成。`Cognitura-Schema-Baseline-2.0`
 已经投影为机器 Schema，W0-04 固定候选 `72b5ce7` 通过本地 Gate 与深审，
-`W0-G3 = PASS`；W0-05 的 3 个正例、8 个负例和结构基线已经本地通过，
-当前等待固定候选深审，Repository 状态仍为唯一 `READY`，W0-07 及其后继继续
-受依赖阻断。
+`W0-G3 = PASS`；W0-05 的 3 个原件正例、3 个结果正例、22 个负例和 24 组
+结果断言已经通过，固定候选 `608a98c` 深审为 `GO / P0=0 / P1=0 / P2=0`，
+因此 `W0-G4 = PASS`。W0-07 已释放为唯一 `READY` 卡，W0-08 继续受依赖阻断。
 `W0-08` 必须最后执行。

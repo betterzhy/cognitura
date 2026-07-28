@@ -18,9 +18,10 @@ CurrentStage =
   WAVE0_EXECUTION
 
 Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = W0-05
+ActiveTaskCard = W0-07
 ActiveTaskCardStatus = READY
 W0G3ReviewStatus = PASS
+W0G4ReviewStatus = PASS
 ```
 
 当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、
@@ -45,6 +46,10 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 `W0-G4A UiContractValidation = PASS`：12 个正式页面、Skeleton Review 三栏与
 六类操作、9 个 Renderer、12 个页面状态和 Desktop Web 边界已形成可验证的
 非 Schema 契约；两项历史专项正文缺失事实仍保持登记。
+
+`W0-G4 GoldenCaseRegression = PASS`：三份原件及结果契约夹具、24 组结果断言、
+结构与分页位置指纹、Redis 外链目标指纹和 JDK 21 I/O Guard 已通过 22 个隔离
+负例；固定候选 `608a98c` 深审为 `GO / P0=0 / P1=0 / P2=0`。
 
 ## 正式输入
 
@@ -84,6 +89,6 @@ DirectFullImplementationStart = NO
 已经获得批准并落地；14 份 Schema、34 个语义
 反例、68 个运行时语义错误码、645 个精确 Schema 证据节点、16 个语义不变量
 证据及其篡改反例已经通过，固定候选 `72b5ce7` 深审为
-`GO / P0=0 / P1=0 / P2=0`，因此 `W0-G3 JsonSchemaValidation = PASS`，
-W0-04 已关闭，W0-05 释放为唯一 `READY` 卡。在其余 Wave 0 门禁全部通过前，
+`GO / P0=0 / P1=0 / P2=0`，因此 `W0-G3 JsonSchemaValidation = PASS`。
+W0-05 已关闭且 `W0-G4 = PASS`，W0-07 释放为唯一 `READY` 卡。在其余 Wave 0 门禁全部通过前，
 不进入 Wave 1 业务功能开发。

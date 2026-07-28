@@ -35,7 +35,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G2 SpecialtyContractCoverage` | `PASS` | 26 项迁移、19 项契约、2 个开放缺口和 1 个证据限制通过验证 |
 | `W0-G2A BuildBaseline` | `PASS` | 精确全栈版本、单部署 server、空 web 入口、模块边界与在线/离线构建验证通过 |
 | `W0-G3 JsonSchemaValidation` | `PASS` | 14 份 Schema、2 个合法空值上下文、34 个语义反例、68 个运行时语义错误码、645 条精确 Schema 证据映射、16 条语义不变量证据、6 个映射篡改反例和全量渲染 round-trip 通过；固定候选 `72b5ce7` 深审 GO |
-| `W0-G4 GoldenCaseRegression` | `IN_REVIEW` | 3 个原件正例、3 个结果契约正例、22 个隔离负例、24 组结果断言、结构/分页/外链目标指纹与 I/O Guard 本地通过；候选 `a613db3`、`1edca85` 深审问题均已整改，等待新候选深审 |
+| `W0-G4 GoldenCaseRegression` | `PASS` | 3 个原件正例、3 个结果契约正例、22 个隔离负例、24 组结果断言、结构/分页/外链目标指纹与 I/O Guard 通过；固定候选 `608a98c` 深审 GO |
 | `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 9 个负例通过 |
 | `W0-G5 TestAndCI` | `NOT_STARTED` | 本地和 CI 全绿 |
 | `W0-G6 FixedCommitReview` | `NOT_STARTED` | 固定提交深度审查无 P0/P1/P2 |
@@ -75,19 +75,20 @@ PostgreSQL 18.4 容器 tag/digest、Spring Boot BOM 实际解析版本、后端�
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-05
+ActiveTaskCard = W0-07
 ActiveTaskCardStatus = READY
 TaskCardIndex = docs/task-cards/README.md
 ```
 
 每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。W0-04
-已经关闭；W0-05 的本地回归已通过并进入固定候选复核，但在深审封口前仍是唯一
-`READY` 卡；W0-07 及其后继仍受依赖阻断。
+已经关闭；W0-05 固定候选 `608a98c` 深审为
+`GO / P0=0 / P1=0 / P2=0`，`W0-G4 = PASS`。W0-07 已解除全部依赖并成为
+唯一 `READY` 卡；W0-08 仍受依赖阻断。
 
 ## 7. 下一动作
 
 ```text
-NextAction = REVIEW_W0_05_FIXED_CANDIDATE
+NextAction = EXECUTE_W0_07_TEST_AND_CI
 W0-01 ExecutionStatus = DONE
 W0-G1 DesignSourceRegistry = PASS
 W0-02 ExecutionStatus = DONE
@@ -98,11 +99,13 @@ SchemaRebaseline = Cognitura-Schema-Baseline-2.0
 SchemaRebaselineStatus = FORMAL_SCHEMA_REBASELINE
 W0-04 ExecutionStatus = DONE
 W0-G3 JsonSchemaValidation = PASS
-W0-05 ExecutionStatus = IN_REVIEW
+W0-05 ExecutionStatus = DONE
+W0-G4 GoldenCaseRegression = PASS
 W0-06 ExecutionStatus = DONE
 W0-G4A UiContractValidation = PASS
 ```
 
-下一步只允许固定 W0-05 候选并完成深审；三份只读 Golden Case 原件继续保持不变。
+下一步只允许按 W0-07 任务卡建立测试与 CI 基线；三份只读 Golden Case 原件
+继续保持不变。
 `DOC-GAP-002` 继续保持开放，但不回滚已经验证的非 Schema UI 契约；
 Wave 1 仍为 `NO_GO`。
