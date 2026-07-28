@@ -18,13 +18,18 @@ CurrentStage =
   WAVE0_EXECUTION
 
 Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = W0-02
+ActiveTaskCard = W0-03
 ```
 
-当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、英语学习三份 Golden Case 原始文档；尚无业务源码、构建系统、测试或 CI。
+当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、
+英语学习三份 Golden Case 原始文档；已有 Wave 0 来源与契约校验测试，尚无业务
+源码、构建骨架或 CI。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
+
+`W0-G2 SpecialtyContractCoverage = PASS`：总体设计中的非 Schema 构造与 UI
+契约已建立机器可验证的覆盖矩阵；`DOC-GAP-001/002` 继续保持开放。
 
 后端技术基线已经封口为 JDK 21、Maven 3.9.16、Spring Boot 4.1.0、
 PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0。构建骨架尚未创建，
@@ -42,6 +47,7 @@ PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0。构建骨架尚未创建�
 - [Repository 基线复验](docs/engineering/cognitura-repository-baseline-review.md)
 - [设计与输入索引](docs/engineering/cognitura-design-index.md)
 - [正式来源 Manifest](docs/engineering/cognitura-source-manifest.yaml)
+- [专项契约覆盖矩阵](docs/engineering/cognitura-specialty-contract-coverage.md)
 - [命名迁移记录](docs/engineering/cognitura-naming-migration.md)
 - [后端技术基线](docs/engineering/cognitura-technology-baseline.md)
 - [Wave 0 实施计划](docs/engineering/cognitura-wave-0-plan.md)
@@ -57,7 +63,8 @@ Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```
 
-`W0-G0 RepositoryBaseline = PASS`，`W0-G1 DesignSourceRegistry = PASS`。
+`W0-G0 RepositoryBaseline = PASS`，`W0-G1 DesignSourceRegistry = PASS`，
+`W0-G2 SpecialtyContractCoverage = PASS`。
 `W0-00～W0-08` 已拆成独立任务卡，唯一当前卡为
-`W0-02 SpecialtyContractCoverage = READY`；在其余 Wave 0 门禁全部通过前，
+`W0-03 BuildBaseline = READY`；在其余 Wave 0 门禁全部通过前，
 不进入 Wave 1 业务功能开发。

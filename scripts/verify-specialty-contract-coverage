@@ -1,0 +1,285 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s <coverage-document>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'SpecialtyContractCoverageValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+contains_id() {
+  local expected="$1"
+  shift
+  local value
+
+  for value in "$@"; do
+    if [[ "${value}" == "${expected}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+duplicate_id() {
+  awk -F '|' '
+    {
+      if (seen[$1]++) {
+        print $1
+        exit
+      }
+    }
+  ' "$1"
+}
+
+record_has_id() {
+  local records_file="$1"
+  local expected_id="$2"
+
+  awk -F '|' -v expected_id="${expected_id}" '
+    $1 == expected_id {
+      found = 1
+    }
+    END {
+      exit(found ? 0 : 1)
+    }
+  ' "${records_file}"
+}
+
+[[ "$#" -eq 1 ]] || usage
+coverage_doc="$1"
+[[ -f "${coverage_doc}" ]] || fail "MISSING_COVERAGE_DOCUMENT: ${coverage_doc}"
+
+tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-specialty-coverage-parse.XXXXXX")"
+migration_records="${tmp_root}/migration-records"
+contract_records="${tmp_root}/contract-records"
+gap_records="${tmp_root}/gap-records"
+evidence_limit_records="${tmp_root}/evidence-limit-records"
+
+cleanup() {
+  rm -rf "${tmp_root}"
+}
+trap cleanup EXIT
+
+sed -n 's/^MigrationRecord = //p' "${coverage_doc}" >"${migration_records}"
+sed -n 's/^ContractCoverageRecord = //p' "${coverage_doc}" >"${contract_records}"
+sed -n 's/^DocumentationGapRecord = //p' "${coverage_doc}" >"${gap_records}"
+sed -n 's/^EvidenceLimitRecord = //p' "${coverage_doc}" >"${evidence_limit_records}"
+
+required_migration_ids=(
+  RM-01 RM-02 RM-03 RM-04 RM-05 RM-06 RM-07 RM-08 RM-09 RM-10 RM-11
+  UI-RM-01 UI-RM-02 UI-RM-03 UI-RM-04 UI-RM-05
+  UI-RM-06 UI-RM-07 UI-RM-08 UI-RM-09 UI-RM-10
+  UI-SCOPE-RM-01 UI-SCOPE-RM-02 UI-SCOPE-RM-03
+  UI-SCOPE-RM-04 UI-SCOPE-RM-05
+)
+
+required_contract_ids=(
+  KSC-HIERARCHY
+  KSC-SPINE-AND-CLOSURE
+  KSC-SOURCE-AND-MERGE
+  KSC-TEN-ARTIFACTS
+  KSC-GENERATION
+  KSC-DENSITY-AND-RENDERING
+  KSC-REVISION
+  KSC-GOLDEN-CASE
+  UI-PAGE-IA
+  UI-CORE-FLOW
+  UI-SKELETON-REVIEW
+  UI-LANDSCAPE
+  UI-THEME-DETAIL
+  UI-MODULE-READING
+  UI-RENDERER
+  UI-SOURCE-EVIDENCE
+  UI-PAGE-STATE
+  UI-MVP-SCOPE
+  UI-DESKTOP-WEB
+)
+
+required_gap_ids=(DOC-GAP-001 DOC-GAP-002)
+required_evidence_limit_ids=(RM_ID_TO_TOPIC_SOURCE_MISSING)
+
+migration_count="$(wc -l <"${migration_records}" | tr -d '[:space:]')"
+contract_count="$(wc -l <"${contract_records}" | tr -d '[:space:]')"
+gap_count="$(wc -l <"${gap_records}" | tr -d '[:space:]')"
+evidence_limit_count="$(wc -l <"${evidence_limit_records}" | tr -d '[:space:]')"
+
+duplicate="$(duplicate_id "${migration_records}")"
+[[ -z "${duplicate}" ]] || fail "DUPLICATE_MIGRATION_ID: ${duplicate}"
+duplicate="$(duplicate_id "${contract_records}")"
+[[ -z "${duplicate}" ]] || fail "DUPLICATE_CONTRACT_ID: ${duplicate}"
+duplicate="$(duplicate_id "${gap_records}")"
+[[ -z "${duplicate}" ]] || fail "DUPLICATE_DOCUMENTATION_GAP_ID: ${duplicate}"
+duplicate="$(duplicate_id "${evidence_limit_records}")"
+[[ -z "${duplicate}" ]] || fail "DUPLICATE_EVIDENCE_LIMIT_ID: ${duplicate}"
+
+while IFS='|' read -r migration_id domain source_section status extra; do
+  [[ -n "${migration_id}" ]] || continue
+
+  contains_id "${migration_id}" "${required_migration_ids[@]}" ||
+    fail "UNKNOWN_MIGRATION_ID: ${migration_id}"
+  [[ -n "${source_section}" ]] ||
+    fail "MISSING_SOURCE_SECTION: ${migration_id}"
+  [[ "${source_section}" == OD1.2§* ]] ||
+    fail "INVALID_SOURCE_SECTION: ${migration_id}"
+  [[ "${status}" == "APPLIED" ]] ||
+    fail "INVALID_MIGRATION_STATUS: ${migration_id}"
+  [[ -z "${extra}" ]] ||
+    fail "MALFORMED_MIGRATION_RECORD: ${migration_id}"
+
+  case "${migration_id}" in
+    RM-*)
+      [[ "${domain}" == "CONSTRUCTION" ]] ||
+        fail "INVALID_MIGRATION_DOMAIN: ${migration_id}"
+      ;;
+    UI-RM-*)
+      [[ "${domain}" == "UIUX" ]] ||
+        fail "INVALID_MIGRATION_DOMAIN: ${migration_id}"
+      ;;
+    UI-SCOPE-RM-*)
+      [[ "${domain}" == "UI_SCOPE" ]] ||
+        fail "INVALID_MIGRATION_DOMAIN: ${migration_id}"
+      ;;
+  esac
+done <"${migration_records}"
+
+for expected_id in "${required_migration_ids[@]}"; do
+  record_has_id "${migration_records}" "${expected_id}" ||
+    fail "MISSING_MIGRATION_ID: ${expected_id}"
+done
+[[ "${migration_count}" == "26" ]] ||
+  fail "MIGRATION_RECORD_COUNT: expected 26, found ${migration_count}"
+
+expected_schema_gap() {
+  case "$1" in
+    KSC-TEN-ARTIFACTS|KSC-GENERATION|KSC-GOLDEN-CASE|UI-RENDERER)
+      printf '%s\n' "DOC-GAP-001"
+      ;;
+    *)
+      printf '%s\n' "NONE"
+      ;;
+  esac
+}
+
+while IFS='|' read -r \
+  contract_id domain source_section coverage_status schema_gap extra; do
+  [[ -n "${contract_id}" ]] || continue
+
+  contains_id "${contract_id}" "${required_contract_ids[@]}" ||
+    fail "UNKNOWN_CONTRACT_ID: ${contract_id}"
+  [[ -n "${source_section}" ]] ||
+    fail "MISSING_SOURCE_SECTION: ${contract_id}"
+  [[ "${source_section}" == OD1.2§* ]] ||
+    fail "INVALID_SOURCE_SECTION: ${contract_id}"
+  [[ "${coverage_status}" == "COVERED_BY_REVERSE_MIGRATION" ]] ||
+    fail "INVALID_COVERAGE_STATUS: ${contract_id}"
+  [[ "${schema_gap}" == "$(expected_schema_gap "${contract_id}")" ]] ||
+    fail "INVALID_SCHEMA_GAP_LINK: ${contract_id}"
+  [[ -z "${extra}" ]] ||
+    fail "MALFORMED_CONTRACT_RECORD: ${contract_id}"
+
+  case "${contract_id}" in
+    KSC-*)
+      [[ "${domain}" == "CONSTRUCTION" ]] ||
+        fail "INVALID_CONTRACT_DOMAIN: ${contract_id}"
+      ;;
+    UI-DESKTOP-WEB)
+      [[ "${domain}" == "UI_SCOPE" ]] ||
+        fail "INVALID_CONTRACT_DOMAIN: ${contract_id}"
+      ;;
+    UI-*)
+      [[ "${domain}" == "UIUX" ]] ||
+        fail "INVALID_CONTRACT_DOMAIN: ${contract_id}"
+      ;;
+  esac
+done <"${contract_records}"
+
+for expected_id in "${required_contract_ids[@]}"; do
+  record_has_id "${contract_records}" "${expected_id}" ||
+    fail "MISSING_CONTRACT_ID: ${expected_id}"
+done
+[[ "${contract_count}" == "19" ]] ||
+  fail "CONTRACT_RECORD_COUNT: expected 19, found ${contract_count}"
+
+while IFS='|' read -r \
+  gap_id missing_body state impact disposition gate_effect extra; do
+  [[ -n "${gap_id}" ]] || continue
+
+  contains_id "${gap_id}" "${required_gap_ids[@]}" ||
+    fail "UNKNOWN_DOCUMENTATION_GAP_ID: ${gap_id}"
+  [[ "${state}" == "OPEN" ]] ||
+    fail "DOCUMENTATION_GAP_MUST_REMAIN_OPEN: ${gap_id}"
+  [[ -z "${extra}" ]] ||
+    fail "MALFORMED_DOCUMENTATION_GAP_RECORD: ${gap_id}"
+
+  case "${gap_id}" in
+    DOC-GAP-001)
+      [[ "${missing_body}" == "CONSTRUCTION_SPECIALTY_BODY" ]] ||
+        fail "INVALID_MISSING_BODY: ${gap_id}"
+      [[ "${impact}" == "SCHEMA_SOURCE_MISSING" ]] ||
+        fail "SCHEMA_GAP_MARKER_MISSING: ${gap_id}"
+      [[ "${disposition}" == \
+        "AUTHORITATIVE_BODY_OR_APPROVED_SCHEMA_REBASELINE" ]] ||
+        fail "INVALID_GAP_DISPOSITION: ${gap_id}"
+      [[ "${gate_effect}" == "BLOCKS_W0-G3" ]] ||
+        fail "INVALID_GATE_EFFECT: ${gap_id}"
+      ;;
+    DOC-GAP-002)
+      [[ "${missing_body}" == "UIUX_SPECIALTY_BODY" ]] ||
+        fail "INVALID_MISSING_BODY: ${gap_id}"
+      [[ "${impact}" == "NON_SCHEMA_UI_CONTRACTS_COVERED" ]] ||
+        fail "INVALID_GAP_IMPACT: ${gap_id}"
+      [[ "${disposition}" == \
+        "AUTHORITATIVE_BODY_OR_APPROVED_REBASELINE" ]] ||
+        fail "INVALID_GAP_DISPOSITION: ${gap_id}"
+      [[ "${gate_effect}" == "DOES_NOT_BLOCK_W0-G2" ]] ||
+        fail "INVALID_GATE_EFFECT: ${gap_id}"
+      ;;
+  esac
+done <"${gap_records}"
+
+for expected_id in "${required_gap_ids[@]}"; do
+  record_has_id "${gap_records}" "${expected_id}" ||
+    fail "MISSING_DOCUMENTATION_GAP_ID: ${expected_id}"
+done
+[[ "${gap_count}" == "2" ]] ||
+  fail "DOCUMENTATION_GAP_COUNT: expected 2, found ${gap_count}"
+
+while IFS='|' read -r \
+  limit_id state source_section limitation handling extra; do
+  [[ -n "${limit_id}" ]] || continue
+
+  contains_id "${limit_id}" "${required_evidence_limit_ids[@]}" ||
+    fail "UNKNOWN_EVIDENCE_LIMIT_ID: ${limit_id}"
+  [[ "${state}" == "OPEN" ]] ||
+    fail "EVIDENCE_LIMIT_MUST_REMAIN_OPEN: ${limit_id}"
+  [[ "${source_section}" == "OD1.2§1.1,27.1" ]] ||
+    fail "INVALID_EVIDENCE_LIMIT_SOURCE: ${limit_id}"
+  [[ "${limitation}" == "NO_OFFICIAL_PER_ID_TOPIC_MAPPING" ]] ||
+    fail "INVALID_EVIDENCE_LIMIT: ${limit_id}"
+  [[ "${handling}" == \
+    "USE_AGGREGATE_MIGRATION_PLUS_TOPIC_EVIDENCE" ]] ||
+    fail "INVALID_EVIDENCE_HANDLING: ${limit_id}"
+  [[ -z "${extra}" ]] ||
+    fail "MALFORMED_EVIDENCE_LIMIT_RECORD: ${limit_id}"
+done <"${evidence_limit_records}"
+
+for expected_id in "${required_evidence_limit_ids[@]}"; do
+  record_has_id "${evidence_limit_records}" "${expected_id}" ||
+    fail "MISSING_EVIDENCE_LIMIT: ${expected_id}"
+done
+[[ "${evidence_limit_count}" == "1" ]] ||
+  fail "EVIDENCE_LIMIT_COUNT: expected 1, found ${evidence_limit_count}"
+
+printf '%s\n' \
+  "SpecialtyContractCoverageValidation = PASS" \
+  "MigrationRecordCount = 26" \
+  "ContractCoverageCount = 19" \
+  "DocumentationGapCount = 2" \
+  "EvidenceLimitCount = 1" \
+  "W0-G2 SpecialtyContractCoverage = PASS" \
+  "W0-G3 JsonSchemaValidation = BLOCKED_BY_DOC_GAP_001"

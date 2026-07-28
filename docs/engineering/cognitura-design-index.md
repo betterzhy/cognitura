@@ -7,6 +7,9 @@ CurrentDesignBaseline = Cognitura-Overall-Design-1.2
 CanonicalSourceManifest =
   docs/engineering/cognitura-source-manifest.yaml
 W0-G1 DesignSourceRegistry = PASS
+SpecialtyContractCoverage =
+  docs/engineering/cognitura-specialty-contract-coverage.md
+W0-G2 SpecialtyContractCoverage = PASS
 ```
 
 本索引登记实际落地文件，不复制总体设计正文，也不改变历史设计名称。
@@ -26,8 +29,8 @@ W0-G1 DesignSourceRegistry = PASS
 
 | 专项设计 | 总体设计引用状态 | Repository 文件状态 | 工程处理 |
 |---|---|---|---|
-| `Cognitive-Knowledge-System-Construction-Design-1.0` | `RM-01～RM-11` 已回迁，`11/11` | `MISSING` | 记录 `DOC-GAP-001`；总体层契约可用，字段级 Schema 不得猜测 |
-| `Cognitive-Knowledge-Atlas-UIUX-Design-1.0` | `UI-RM-01～10` 已回迁，`10/10` | `MISSING` | 记录 `DOC-GAP-002`；页面与 Renderer 正式契约已可从总体设计读取 |
+| `Cognitive-Knowledge-System-Construction-Design-1.0` | `RM-01～RM-11` 已回迁，`11/11` | `MISSING` | 覆盖矩阵已验证；`DOC-GAP-001` 保持开放，字段级 Schema 不得猜测 |
+| `Cognitive-Knowledge-Atlas-UIUX-Design-1.0` | `UI-RM-01～10` 已回迁，`10/10` | `MISSING` | 覆盖矩阵已验证；`DOC-GAP-002` 保持开放，页面与 Renderer 非 Schema 契约可用 |
 
 ```text
 DocumentationGapCount = 2
@@ -66,6 +69,7 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = YES
 - `docs/engineering/cognitura-naming-migration.md`
 - `docs/engineering/cognitura-technology-baseline.md`
 - `docs/engineering/cognitura-source-manifest.yaml`
+- `docs/engineering/cognitura-specialty-contract-coverage.md`
 - `docs/engineering/cognitura-wave-0-plan.md`
 - `docs/engineering/cognitura-wave-0-entry-decision.md`
 - `docs/task-cards/README.md`

@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-03
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W0-G2A BuildBaseline
 Risk = HIGH
 DependsOn = W0-02

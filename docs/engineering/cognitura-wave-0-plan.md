@@ -43,7 +43,7 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-02
+ActiveTaskCard = W0-03
 ActiveTaskCardStatus = READY
 ```
 
@@ -118,11 +118,11 @@ W0-G1 DesignSourceRegistry = PASS
 
 **Produces:** 每个正式契约对应的权威来源、总体设计回迁证据和字段级缺口。
 
-- [ ] **Step 1:** 对构造专项的层级、十项产物、生成阶段、密度、修订和 Golden Case 建立逐项覆盖矩阵。
-- [ ] **Step 2:** 对 UI/UX 专项的页面、Renderer、Source Evidence、状态模型和 Desktop Web 边界建立逐项覆盖矩阵。
-- [ ] **Step 3:** 将总体设计已完整覆盖的条目标记为 `COVERED_BY_REVERSE_MIGRATION`。
-- [ ] **Step 4:** 将缺少字段、类型、required、枚举、约束或示例的条目标记为 `SCHEMA_SOURCE_MISSING`，不得补写虚构字段。
-- [ ] **Step 5:** 只有当所有非 Schema 契约有正式证据、所有 Schema 缺口都有唯一处置时，标记：
+- [x] **Step 1:** 对构造专项的层级、十项产物、生成阶段、密度、修订和 Golden Case 建立逐项覆盖矩阵。
+- [x] **Step 2:** 对 UI/UX 专项的页面、Renderer、Source Evidence、状态模型和 Desktop Web 边界建立逐项覆盖矩阵。
+- [x] **Step 3:** 将总体设计已完整覆盖的条目标记为 `COVERED_BY_REVERSE_MIGRATION`。
+- [x] **Step 4:** 将缺少字段、类型、required、枚举、约束或示例的条目标记为 `SCHEMA_SOURCE_MISSING`，不得补写虚构字段。
+- [x] **Step 5:** 只有当所有非 Schema 契约有正式证据、所有 Schema 缺口都有唯一处置时，标记：
 
 ```text
 W0-G2 SpecialtyContractCoverage = PASS
