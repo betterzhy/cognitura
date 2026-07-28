@@ -29,8 +29,9 @@ Wave1FeatureDevelopmentEntry = NO_GO
 | `W0-08` | [固定提交复核与 Wave 1 准入](W0-08-fixed-commit-review.md) | `BLOCKED_BY_DEPENDENCY` | `W0-07` | `W0-G6` | `HIGH` |
 
 `W0-03`、`W0-04` 与 `W0-06` 已完成，`W0-G2A`、`W0-G3`、`W0-G4A`
-均为 `PASS`。W0-04 固定候选 `72b5ce7` 深审为 GO，W0-05 已释放为唯一
-`READY` 卡；W0-07 及其后继继续受依赖阻断。
+均为 `PASS`。W0-04 固定候选 `72b5ce7` 深审为 GO；W0-05 的 Golden Case
+正反例已在本地通过，当前等待固定候选深审，因此 Repository 状态仍保持为唯一
+`READY`。W0-07 及其后继继续受依赖阻断。
 
 ## 2. 状态模型
 

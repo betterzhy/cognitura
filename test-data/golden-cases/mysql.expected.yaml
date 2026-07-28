@@ -1,0 +1,31 @@
+ExpectedVersion: 1
+CaseId: GC-MYSQL-001
+SourceId: GC-MYSQL-001
+SourcePath: raw/11-MySQL数据库.docx
+SourceSha256: 5a7adabb8d2769c422dd22ae43efe1deaf5efcf792b42b24be07da564aa97b50
+FormalEvidence: OD1.2§21.MySQL
+MustInclude: 锁|事务|数据行|undo log|MVCC|Read View|隐藏列|幻读
+MustMergeTarget: 事务可见性与幻读控制
+MustMergeMembers: 锁|事务|数据行|Undo Log
+MustNotSplit: 事务可见性与幻读控制
+MustNotPromote: MVCC|Read View字段|隐藏列|单个锁类型
+ExpectedRoleStatus: SOURCE_GAP
+ExpectedRole: NOT_ASSERTED
+ExpectedSpine: 锁|事务|数据行|Undo Log
+ExpectedThemeClosureStatus: SOURCE_GAP
+ExpectedThemeClosure: NOT_ASSERTED
+KnownSourceGaps: EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED
+ExternalRelationshipPolicy: RECORD_ONLY_DO_NOT_RESOLVE
+ParagraphCount: 369
+HeadingCount: 71
+TableCount: 0
+TableRowCount: 0
+TableCellCount: 0
+ImageReferenceCount: 12
+MediaEntryCount: 12
+ExternalRelationshipCount: 0
+PageBreakCount: 38
+HeadingOrderSha256: 44ac3afc778bd0821da0d5608915b0eac418670c394022675cbd2c1a5fca167b
+BlockOrderSha256: 4aed383a9bf7950a59877d251a3663a0a8cdc59cbe32e4b891eb0b70bb80f0b3
+TableStructureSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+ImageReferenceSha256: d0e1b9dd374112f342e68dab287dbcff778dd58cb3e312a3ac5339bbf2eaeb01

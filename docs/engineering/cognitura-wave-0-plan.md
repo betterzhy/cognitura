@@ -201,15 +201,15 @@ W0-G3 JsonSchemaValidation = PASS
 
 **Produces:** 绑定原件哈希的 MustInclude/MustMerge/MustNotSplit/MustNotPromote/ExpectedRole/ExpectedSpine/ExpectedThemeClosure/KnownSourceGaps。
 
-- [ ] **Step 1:** 先写哈希漂移、链接访问、丢失表格、丢失图片引用和标题顺序变化的失败测试。
-- [ ] **Step 2:** MySQL Case 编码“事务可见性与幻读控制”闭环，并禁止把 MVCC、Read View 字段、隐藏列或单锁类型全部升级为一级 Module。
-- [ ] **Step 3:** Redis Case 编码“请求处理与高性能线程模型”聚合，并将 `beforeSleep` 标为 `MustNotPromote`。
-- [ ] **Step 4:** 英语 Case 编码“谓语动词类型 → 必要成分 → 五大句型 → 判定路径 → SVOO/SVOC 辨析”，并禁止例句升级。
-- [ ] **Step 5:** 运行离线回归，确认 Redis 的 `file:///` 链接没有网络或文件访问。
+- [x] **Step 1:** 先写哈希漂移、链接策略弱化、丢失表格、丢失图片引用、标题和段落顺序变化的失败测试，并观察缺少验证器时的预期失败。
+- [x] **Step 2:** MySQL Case 编码“事务可见性与幻读控制”闭环，并禁止把 MVCC、Read View 字段、隐藏列或单锁类型全部升级为一级 Module。
+- [x] **Step 3:** Redis Case 编码“请求处理与高性能线程模型”聚合，并将 `beforeSleep` 标为 `MustNotPromote`。
+- [x] **Step 4:** 英语 Case 编码“谓语动词类型 → 必要成分 → 五大句型 → 判定路径 → SVOO/SVOC 辨析”，并禁止例句升级。
+- [x] **Step 5:** 运行离线回归，确认 Redis 的 4 个 `file:///` 链接仅被计数且没有网络或文件访问。
 - [ ] **Step 6:** 提交并标记：
 
 ```text
-W0-G4 GoldenCaseRegression = PASS
+W0-G4 GoldenCaseRegression = IN_REVIEW
 ```
 
 ## Task W0-06：页面与 Renderer 契约基线
@@ -283,12 +283,14 @@ Wave1FeatureDevelopmentEntry = NO_GO
 
 ```text
 W0-00 → W0-01 → W0-02 → W0-03
-                       ├→ W0-04 [DONE/PASS] → W0-05 [READY] ────┐
+                       ├→ W0-04 [DONE/PASS] → W0-05 [READY/IN_REVIEW] ─┐
                        └→ W0-06 [DONE] ─────────────────────────┤
                                                                └→ W0-07 → W0-08
 ```
 
 `W0-06` 已在等待字段级来源期间完成。`Cognitura-Schema-Baseline-2.0`
 已经投影为机器 Schema，W0-04 固定候选 `72b5ce7` 通过本地 Gate 与深审，
-`W0-G3 = PASS`；`W0-05` 是唯一 `READY` 卡，W0-07 及其后继继续受依赖阻断。
+`W0-G3 = PASS`；W0-05 的 3 个正例、8 个负例和结构基线已经本地通过，
+当前等待固定候选深审，Repository 状态仍为唯一 `READY`，W0-07 及其后继继续
+受依赖阻断。
 `W0-08` 必须最后执行。

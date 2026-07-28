@@ -1,0 +1,31 @@
+ExpectedVersion: 1
+CaseId: GC-REDIS-001
+SourceId: GC-REDIS-001
+SourcePath: raw/12-Redis中间件.docx
+SourceSha256: 42fe82271b9f7a7c8aa956fd73486d7c8a9b7a5770780df03af306cfde41b72c
+FormalEvidence: OD1.2§21.Redis
+MustInclude: 死循环|客户端输出缓冲区|Pending Writes|beforeSleep|写事件|多线程 IO
+MustMergeTarget: 请求处理与高性能线程模型
+MustMergeMembers: 事件循环|客户端输出缓冲|Pending Writes|beforeSleep|写事件兜底|IO 多线程边界
+MustNotSplit: 请求处理与高性能线程模型
+MustNotPromote: beforeSleep
+ExpectedRoleStatus: SOURCE_GAP
+ExpectedRole: NOT_ASSERTED
+ExpectedSpine: 事件循环|客户端输出缓冲|Pending Writes|beforeSleep|写事件兜底|IO 多线程边界
+ExpectedThemeClosureStatus: SOURCE_GAP
+ExpectedThemeClosure: NOT_ASSERTED
+KnownSourceGaps: EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED
+ExternalRelationshipPolicy: RECORD_ONLY_DO_NOT_RESOLVE
+ParagraphCount: 345
+HeadingCount: 66
+TableCount: 0
+TableRowCount: 0
+TableCellCount: 0
+ImageReferenceCount: 10
+MediaEntryCount: 11
+ExternalRelationshipCount: 4
+PageBreakCount: 28
+HeadingOrderSha256: 92e19222eea26479b38f84f4c9b4b1ad18f59de54987c2fc460a5313534a51f1
+BlockOrderSha256: a5df1f6fd4b8dae9afba3782fa844536eda1cd86a2efb353f9e716e233e81392
+TableStructureSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+ImageReferenceSha256: 24b69efa9a724b42ea0d3e903fb9effdc5552115c365364571838e0490114c07

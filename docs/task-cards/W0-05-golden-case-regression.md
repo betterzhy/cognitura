@@ -42,14 +42,16 @@ ReviewRoute = MAIN_AGENT_GATE
 
 ## 4. 执行步骤
 
-- [ ] 编写原件哈希漂移、标题顺序变化、表格丢失、图片引用丢失和链接访问失败测试。
-- [ ] 运行测试并确认回归资产未实现时失败。
-- [ ] 建立绑定源 manifest SHA-256 的三份 expected 文件。
-- [ ] 编码 MySQL 闭环及 MVCC、Read View、隐藏列和单锁类型不得全部升级的断言。
-- [ ] 编码 Redis 线程模型聚合及 `beforeSleep = MustNotPromote`。
-- [ ] 编码英语五大句型判定路径及例句不得升级的断言。
-- [ ] 验证解析保留标题、段落、表格单元格、图片引用和原始顺序。
-- [ ] 在隔离环境运行离线回归，证明没有访问 Redis 遗留本地链接。
+- [x] 编写原件哈希漂移、标题顺序变化、段落顺序变化、表格丢失、图片引用丢失、
+  外链策略弱化和断言策略弱化测试。
+- [x] 运行测试并确认回归资产未实现时因缺少可执行验证器而失败。
+- [x] 建立绑定来源 manifest SHA-256 的三份 expected 文件。
+- [x] 编码 MySQL 闭环及 MVCC、Read View、隐藏列和单锁类型不得全部升级的断言。
+- [x] 编码 Redis 线程模型聚合及 `beforeSleep = MustNotPromote`。
+- [x] 编码英语五大句型判定路径及例句不得升级的断言。
+- [x] 验证解析保留标题、段落、表格行列与单元格、图片引用、分页符和原始顺序。
+- [x] 在隔离临时目录运行离线回归，证明 Redis 的 4 个遗留外链仅被计数且
+  `ExternalLinksAccessed = 0`。
 - [ ] 更新任务卡状态并形成独立提交。
 
 ## 5. 验证命令
@@ -72,15 +74,36 @@ git diff --check
 - Redis 链接没有发生网络或本地文件访问；
 - 正例、反例、任务卡集合验证全部通过。
 
+固定候选前执行证据：
+
 ```text
-W0-G4 GoldenCaseRegression = PASS
+ObservedRedBoundary = missing executable verifier
+CaseCount = 3
+ExecutableAssertionGroupCount = 24
+StructuralBaselineCount = 3
+PositiveCases = 3
+NegativeCases = 8
+ExternalLinksObserved = 4
+ExternalLinksAccessed = 0
+FormalInputsUnchanged = PASS
+W0-G4 CandidateStatus = IN_REVIEW
+```
+
+总体设计没有为三个 Case 分别指定 `ExpectedRole` 和
+`ExpectedThemeClosure` 的具体值，因此对应字段以
+`SOURCE_GAP / NOT_ASSERTED` 作为可执行预期，并在每个 Case 的
+`KnownSourceGaps` 中显式登记；没有从常识补写角色或 Closure。
+
+```text
+W0-G4 GoldenCaseRegression = IN_REVIEW
 ```
 
 ## 7. 提交与审查
 
 ```text
 CommitMessage = test: add Cognitura golden case regression baseline
-CommitReview = MAIN_AGENT_GATE
+CommitReview = DEEP_REVIEWER_FIXED_COMMIT
+FixedImplementationReview = PENDING
 NextTaskCardOnPass = W0-07
 ```
 

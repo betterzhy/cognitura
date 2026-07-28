@@ -1,0 +1,16 @@
+ManifestVersion: 1
+CanonicalProjectName: Cognitura
+SourceManifestPath: docs/engineering/cognitura-source-manifest.yaml
+CaseOrder: GC-MYSQL-001|GC-REDIS-001|GC-ENGLISH-001
+GC-MYSQL-001.SourceId: GC-MYSQL-001
+GC-MYSQL-001.SourcePath: raw/11-MySQL数据库.docx
+GC-MYSQL-001.SourceSha256: 5a7adabb8d2769c422dd22ae43efe1deaf5efcf792b42b24be07da564aa97b50
+GC-MYSQL-001.ExpectedPath: test-data/golden-cases/mysql.expected.yaml
+GC-REDIS-001.SourceId: GC-REDIS-001
+GC-REDIS-001.SourcePath: raw/12-Redis中间件.docx
+GC-REDIS-001.SourceSha256: 42fe82271b9f7a7c8aa956fd73486d7c8a9b7a5770780df03af306cfde41b72c
+GC-REDIS-001.ExpectedPath: test-data/golden-cases/redis.expected.yaml
+GC-ENGLISH-001.SourceId: GC-ENGLISH-001
+GC-ENGLISH-001.SourcePath: raw/40-英语学习.docx
+GC-ENGLISH-001.SourceSha256: a35763c77d6d7f98e396a51ae97f258bdba5c9b3ac9525c0b18168ff3947d3c1
+GC-ENGLISH-001.ExpectedPath: test-data/golden-cases/english.expected.yaml

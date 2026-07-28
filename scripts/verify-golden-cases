@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+verifier="${repo_root}/tests/golden-cases/GoldenCaseVerifier.java"
+
+java_version="$(java -version 2>&1 | sed -n '1p')"
+if [[ "${java_version}" != *'version "21.'* ]]; then
+  printf '%s\n' \
+    "GoldenCaseValidation = FAIL" \
+    "JAVA_VERSION_MISMATCH: expected JDK 21" >&2
+  exit 1
+fi
+
+if [[ "$#" -eq 0 ]]; then
+  set -- \
+    --manifest \
+    "${repo_root}/test-data/golden-cases/manifest.yaml"
+fi
+
+exec java "${verifier}" "$@"
