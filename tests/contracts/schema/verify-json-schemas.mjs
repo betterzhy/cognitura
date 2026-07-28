@@ -2205,10 +2205,23 @@ function buildExpectedEvidenceMapDocument() {
   };
 }
 
+async function writeJsonToStdoutAndExit(document, indentation = undefined) {
+  const output = `${JSON.stringify(document, null, indentation)}\n`;
+  await new Promise((resolve, reject) => {
+    process.stdout.write(output, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+  process.exit(0);
+}
+
 const expectedEvidenceMap = buildExpectedEvidenceMapDocument();
 if (process.argv.includes("--render-evidence-map")) {
-  process.stdout.write(`${JSON.stringify(expectedEvidenceMap, null, 2)}\n`);
-  process.exit(0);
+  await writeJsonToStdoutAndExit(expectedEvidenceMap, 2);
 }
 const evidenceMapPageArgument = process.argv.find((argument) => (
   argument.startsWith("--render-evidence-map-page=")
@@ -2216,13 +2229,12 @@ const evidenceMapPageArgument = process.argv.find((argument) => (
 if (evidenceMapPageArgument) {
   const page = Number(evidenceMapPageArgument.split("=")[1]);
   const pageSize = 40;
-  process.stdout.write(`${JSON.stringify({
+  await writeJsonToStdoutAndExit({
     baseline: expectedEvidenceMap.baseline,
     baselineSha256: expectedEvidenceMap.baselineSha256,
     entries: expectedEvidenceMap.entries.slice(page * pageSize, (page + 1) * pageSize),
     semanticEntries: page === 0 ? expectedEvidenceMap.semanticEntries : []
-  })}\n`);
-  process.exit(0);
+  });
 }
 
 function validateEvidenceMapDocument(document) {

@@ -4,6 +4,8 @@ set -euo pipefail
 TEST_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(CDPATH= cd -- "${TEST_DIR}/../../.." && pwd -P)"
 VERIFIER="${REPO_ROOT}/scripts/verify-json-schemas"
+VERIFIER_JS="${TEST_DIR}/verify-json-schemas.mjs"
+EVIDENCE_MAP="${REPO_ROOT}/schemas/evidence-map.json"
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -38,3 +40,17 @@ for expected in "${EXPECTED_LINES[@]}"; do
   grep -Fqx -- "${expected}" <<<"${OUTPUT}" ||
     fail "missing verifier output: ${expected}"
 done
+
+RENDERED_MAP="$(mktemp "${TMPDIR:-/tmp}/cognitura-evidence-map.XXXXXX")"
+cleanup() {
+  rm -f -- "${RENDERED_MAP}"
+}
+trap cleanup EXIT
+
+node "${VERIFIER_JS}" --render-evidence-map | cat > "${RENDERED_MAP}"
+jq empty "${RENDERED_MAP}" ||
+  fail "rendered evidence map is not valid JSON"
+cmp -s "${RENDERED_MAP}" "${EVIDENCE_MAP}" ||
+  fail "rendered evidence map differs from schemas/evidence-map.json"
+
+printf '%s\n' "EvidenceMapRenderRoundTrip = PASS"

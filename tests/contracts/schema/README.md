@@ -46,7 +46,9 @@ semantic false positives, so this remediation must be a separate follow-up
 commit; it must not amend or rewrite the original commit. The first remediation
 at `8cfd056` closed those findings but its fixed-commit review found two further
 P1 gaps in COMPLETE coverage union and evidence-map completeness; this second
-follow-up closes those gaps without rewriting either predecessor.
+follow-up closed those gaps at `c15a005`. Its review found one P2 in truncated
+full-map rendering; the final follow-up adds a pipe-backed round-trip regression
+without rewriting any predecessor.
 
 ### Task 1: Establish the red contract harness and pinned validator
 
@@ -76,6 +78,7 @@ EvidenceMapSemanticEntryCount = 16
 EvidenceMapEntryCount = 661
 EvidenceMapNegativeCaseCount = 6
 EvidenceMapValidation = PASS
+EvidenceMapRenderRoundTrip = PASS
 NetworkResolution = FORBIDDEN
 W0-G3 JsonSchemaValidation = PASS
 ```
@@ -602,7 +605,7 @@ git add AGENTS.md README.md schemas tests/contracts/schema \
   docs/task-cards/W0-05-golden-case-regression.md \
   docs/engineering/cognitura-wave-0-plan.md \
   docs/engineering/cognitura-wave-0-entry-decision.md
-git commit -m "fix: complete Cognitura schema evidence invariants"
+git commit -m "fix: flush Cognitura evidence map rendering"
 ```
 
 Expected: one follow-up W0-04 remediation commit; no amend, `raw/`, server

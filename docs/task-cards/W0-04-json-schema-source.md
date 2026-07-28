@@ -105,6 +105,7 @@ EvidenceMapSchemaEntryCount = 645
 EvidenceMapSemanticEntryCount = 16
 EvidenceMapEntryCount = 661
 EvidenceMapNegativeCaseCount = 6
+EvidenceMapRenderRoundTrip = PASS
 Validator = Ajv-8.20.0
 NetworkResolution = FORBIDDEN
 ObservedRedBoundary =
@@ -123,7 +124,8 @@ W0-G3 JsonSchemaValidation = IN_REVIEW
 
 ```text
 PreviousRemediationReview = 8cfd056|NO_GO|P0=0|P1=2|P2=0
-CommitMessage = fix: complete Cognitura schema evidence invariants
+PreviousEvidenceReview = c15a005|NO_GO|P0=0|P1=0|P2=1
+CommitMessage = fix: flush Cognitura evidence map rendering
 CommitReview = DEEP_REVIEWER_FIXED_COMMIT
 NextTaskCardOnPass = W0-05
 ```
