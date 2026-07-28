@@ -278,6 +278,19 @@ ln -s \
   "${symlink_escape_root}/raw/11-MySQL数据库.docx"
 expect_failure "${symlink_escape_root}" "SOURCE_PATH_REALPATH"
 
+raw_symlink_escape_root="${test_tmp_root}/raw-symlink-escape"
+make_fixture "${raw_symlink_escape_root}"
+mkdir -p "${raw_symlink_escape_root}/other"
+mv \
+  "${raw_symlink_escape_root}/raw/11-MySQL数据库.docx" \
+  "${raw_symlink_escape_root}/other/mysql.docx"
+ln -s \
+  "${raw_symlink_escape_root}/other/mysql.docx" \
+  "${raw_symlink_escape_root}/raw/11-MySQL数据库.docx"
+expect_failure \
+  "${raw_symlink_escape_root}" \
+  "SOURCE_PATH_SYMLINK"
+
 zip_limit_root="${test_tmp_root}/zip-limit"
 make_fixture "${zip_limit_root}"
 java "${mutator}" \
@@ -412,7 +425,7 @@ printf '%s\n' \
   "PositiveCases = 3" \
   "PositiveResultFixtures = ${result_positive_count}" \
   "AssertionNegativeCases = 8" \
-  "BaselineNegativeCases = 12" \
+  "BaselineNegativeCases = 13" \
   "AccessIsolationNegativeCases = 1" \
-  "NegativeCases = 21" \
+  "NegativeCases = 22" \
   "FormalInputsUnchanged = PASS"

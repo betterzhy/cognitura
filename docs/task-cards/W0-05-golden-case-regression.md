@@ -85,6 +85,7 @@ ObservedRedBoundary = missing executable verifier
   → missing result assertion mode
   → external access guard inactive
   → symlink escape accepted
+  → repository-internal raw symlink escape accepted
   → PASS
 CaseCount = 3
 ExecutableAssertionGroupCount = 24
@@ -92,9 +93,9 @@ StructuralBaselineCount = 3
 PositiveCases = 3
 PositiveResultFixtures = 3
 AssertionNegativeCases = 8
-BaselineNegativeCases = 12
+BaselineNegativeCases = 13
 AccessIsolationNegativeCases = 1
-NegativeCases = 21
+NegativeCases = 22
 ExternalLinksObserved = 4
 ExternalLinksAccessed = 0
 ExternalAccessGuard = ACTIVE
@@ -121,6 +122,7 @@ CommitMessage = test: add Cognitura golden case regression baseline
 CommitReview = MAIN_AGENT_GATE
 AdditionalFixedCommitReview = DEEP_REVIEWER_FIXED_COMMIT
 PreviousFixedImplementationReview = a613db348bd312a73b34c924d270778f7c93a92f|NO_GO|P0=0|P1=4|P2=2
+PreviousRealpathReview = 1edca85f52f344035056be6b56ae485abdb7b8f1|NO_GO|P0=0|P1=1|P2=0
 FixedImplementationReview = PENDING
 NextTaskCardOnPass = W0-07
 ```

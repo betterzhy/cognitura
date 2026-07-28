@@ -239,8 +239,24 @@ public final class GoldenCaseVerifier {
 
       Path source = safeResolve(repositoryRoot, sourcePath, "SOURCE_PATH");
       Path rawRoot = repositoryRoot.resolve("raw").normalize();
+      if (
+          Files.isSymbolicLink(rawRoot) ||
+          Files.isSymbolicLink(source)
+      ) {
+        throw failure("SOURCE_PATH_SYMLINK", sourcePath);
+      }
       if (!source.startsWith(rawRoot) || !Files.isRegularFile(source)) {
         throw failure("SOURCE_PATH", sourcePath);
+      }
+      try {
+        if (!source.toRealPath().startsWith(rawRoot.toRealPath())) {
+          throw failure("SOURCE_PATH_RAW_REALPATH", sourcePath);
+        }
+      } catch (IOException error) {
+        throw failure(
+            "SOURCE_PATH_RAW_REALPATH",
+            sourcePath + ": " + error.getMessage()
+        );
       }
       String actualHash = sha256(source);
       if (!actualHash.equals(sourceSha256)) {
