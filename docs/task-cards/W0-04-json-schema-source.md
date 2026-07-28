@@ -125,7 +125,8 @@ W0-G3 JsonSchemaValidation = IN_REVIEW
 ```text
 PreviousRemediationReview = 8cfd056|NO_GO|P0=0|P1=2|P2=0
 PreviousEvidenceReview = c15a005|NO_GO|P0=0|P1=0|P2=1
-CommitMessage = fix: flush Cognitura evidence map rendering
+PreviousRenderReview = e79e69c|NO_GO|P0=0|P1=0|P2=1
+CommitMessage = fix: keep Cognitura schema verification self-contained
 CommitReview = DEEP_REVIEWER_FIXED_COMMIT
 NextTaskCardOnPass = W0-05
 ```

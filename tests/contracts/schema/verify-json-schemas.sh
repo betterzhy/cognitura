@@ -48,9 +48,16 @@ cleanup() {
 trap cleanup EXIT
 
 node "${VERIFIER_JS}" --render-evidence-map | cat > "${RENDERED_MAP}"
-jq empty "${RENDERED_MAP}" ||
-  fail "rendered evidence map is not valid JSON"
-cmp -s "${RENDERED_MAP}" "${EVIDENCE_MAP}" ||
-  fail "rendered evidence map differs from schemas/evidence-map.json"
+node -e '
+  const fs = require("node:fs");
+  const [renderedPath, expectedPath] = process.argv.slice(1);
+  const rendered = fs.readFileSync(renderedPath);
+  const expected = fs.readFileSync(expectedPath);
+  JSON.parse(rendered.toString("utf8"));
+  if (!rendered.equals(expected)) {
+    process.exitCode = 1;
+  }
+' "${RENDERED_MAP}" "${EVIDENCE_MAP}" ||
+  fail "rendered evidence map is invalid or differs from schemas/evidence-map.json"
 
 printf '%s\n' "EvidenceMapRenderRoundTrip = PASS"

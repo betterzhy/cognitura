@@ -48,7 +48,9 @@ at `8cfd056` closed those findings but its fixed-commit review found two further
 P1 gaps in COMPLETE coverage union and evidence-map completeness; this second
 follow-up closed those gaps at `c15a005`. Its review found one P2 in truncated
 full-map rendering; the final follow-up adds a pipe-backed round-trip regression
-without rewriting any predecessor.
+without rewriting any predecessor. Review of `e79e69c` confirmed the render fix
+but rejected an undeclared `jq` dependency in the regression; the current
+candidate uses only the already pinned Node runtime for parse and byte checks.
 
 ### Task 1: Establish the red contract harness and pinned validator
 
@@ -605,7 +607,7 @@ git add AGENTS.md README.md schemas tests/contracts/schema \
   docs/task-cards/W0-05-golden-case-regression.md \
   docs/engineering/cognitura-wave-0-plan.md \
   docs/engineering/cognitura-wave-0-entry-decision.md
-git commit -m "fix: flush Cognitura evidence map rendering"
+git commit -m "fix: keep Cognitura schema verification self-contained"
 ```
 
 Expected: one follow-up W0-04 remediation commit; no amend, `raw/`, server
