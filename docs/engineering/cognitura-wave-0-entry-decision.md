@@ -33,7 +33,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G0 RepositoryBaseline` | `PASS` | `main`、原件哈希匹配、Repository 基线内容提交 `2047a80` |
 | `W0-G1 DesignSourceRegistry` | `PASS` | manifest 的 4 项正例与 5 项反例通过，正式输入保持不变 |
 | `W0-G2 SpecialtyContractCoverage` | `PASS` | 26 项迁移、19 项契约、2 个开放缺口和 1 个证据限制通过验证 |
-| `W0-G2A BuildBaseline` | `IN_PROGRESS` | 后端技术已封口；仍需前端版本、Java/React 最小构建骨架与版本锁 |
+| `W0-G2A BuildBaseline` | `PASS` | 精确全栈版本、单部署 server、空 web 入口、模块边界与在线/离线构建验证通过 |
 | `W0-G3 JsonSchemaValidation` | `BLOCKED_BY_DOC_GAP_001` | 权威字段来源和 Schema 正反例 |
 | `W0-G4 GoldenCaseRegression` | `PARTIAL` | 机器可执行断言与离线回归 |
 | `W0-G4A UiContractValidation` | `PARTIAL` | 页面/Renderer 契约验证 |
@@ -42,7 +42,10 @@ Cognitura 可以进入 Wave 0 执行。
 
 ## 4. 当前阻断边界
 
-`DOC-GAP-001` 不阻断 Wave 0 开始，但阻断 `W0-G3 JsonSchemaValidation` 完成。允许先执行 Repository、来源清单、覆盖矩阵、技术骨架、Golden Case 和 UI 契约任务；字段级 Schema 必须等待权威专项正文落地，或等待一个明确批准的 Schema 重基线设计。
+`DOC-GAP-001` 不阻断 Wave 0 开始，但阻断 `W0-G3 JsonSchemaValidation` 完成，
+并通过任务依赖继续阻断 `W0-05 GoldenCaseRegression`。当前允许执行不依赖
+字段级 Schema 的 `W0-06 UiContractValidation`；字段级 Schema 必须等待权威
+专项正文落地，或等待一个明确批准的 Schema 重基线设计。
 
 不得把总体设计中的字段摘要扩写成声称来自历史专项的完整 Schema。
 
@@ -51,27 +54,27 @@ Cognitura 可以进入 Wave 0 执行。
 ```text
 ArchitectureAndPlatformDecision = FINAL
 TechnologyStackDirection = APPROVED
-TechnologyBaselineDecision = PARTIALLY_FORMALIZED
+TechnologyBaselineDecision = FORMAL
 BackendTechnologyBaseline = FORMAL
-FrontendTechnologyBaseline = PENDING_W0_03
+FrontendTechnologyBaseline = FORMAL
 ```
 
 已经封口的是模块化单体、Desktop Web，以及
 `docs/engineering/cognitura-technology-baseline.md` 记录的 JDK 21、
 Maven 3.9.16、Spring Boot 4.1.0、Spring Modulith 2.1.0、PostgreSQL 18、
-MyBatis Starter 4.0.0、Flyway、Spring AI 2.0.0 和后端测试策略。
+MyBatis Starter 4.0.0、Flyway、Spring AI 2.0.0、Node 24.18.0、
+pnpm 11.17.0、React 19.2.8、TypeScript 7.0.2 和 Vite 8.1.5。
 
-尚未封口的是 React/TypeScript/Node 精确版本、前端构建工具与包管理器、
-对象存储实现、CI Provider、部署策略和精确容器 digest。后端构建骨架与依赖
-解析尚未验证，因此 `W0-G2A BuildBaseline` 仍为 `IN_PROGRESS`，不得描述为
-已经通过。
+对象存储实现、CI Provider 和部署策略尚未封口；它们不属于 `W0-03`。
+PostgreSQL 18.4 容器 tag/digest、Spring Boot BOM 实际解析版本、后端健康检查、
+模块边界和前端冻结 lockfile 已验证，因此 `W0-G2A BuildBaseline = PASS`。
 
 ## 6. 任务卡状态
 
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-03
+ActiveTaskCard = W0-06
 ActiveTaskCardStatus = READY
 TaskCardIndex = docs/task-cards/README.md
 ```
@@ -82,12 +85,15 @@ TaskCardIndex = docs/task-cards/README.md
 ## 7. 下一动作
 
 ```text
-NextAction = EXECUTE_W0_03_BUILD_BASELINE
+NextAction = EXECUTE_W0_06_UI_RENDERER_CONTRACTS
 W0-01 ExecutionStatus = DONE
 W0-G1 DesignSourceRegistry = PASS
 W0-02 ExecutionStatus = DONE
 W0-G2 SpecialtyContractCoverage = PASS
+W0-03 ExecutionStatus = DONE
+W0-G2A BuildBaseline = PASS
+W0-04 ExecutionStatus = BLOCKED_BY_DOC_GAP_001
 ```
 
-下一轮只允许处理 `W0-03` 写集；`DOC-GAP-001`、`DOC-GAP-002` 继续保持开放，
-不得猜测字段级 Schema 或执行 Wave 1。
+下一轮只允许处理 `W0-06` 写集；`DOC-GAP-001`、`DOC-GAP-002` 继续保持开放，
+不得猜测字段级 Schema、实现 React 产品页面或执行 Wave 1。

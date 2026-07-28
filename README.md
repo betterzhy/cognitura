@@ -18,12 +18,12 @@ CurrentStage =
   WAVE0_EXECUTION
 
 Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = W0-03
+ActiveTaskCard = W0-06
 ```
 
 当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、
-英语学习三份 Golden Case 原始文档；已有 Wave 0 来源与契约校验测试，尚无业务
-源码、构建骨架或 CI。
+英语学习三份 Golden Case 原始文档；已有 Wave 0 来源、契约校验测试和不含业务
+功能的模块化单体构建骨架，尚无业务源码或 CI。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
@@ -31,9 +31,11 @@ ActiveTaskCard = W0-03
 `W0-G2 SpecialtyContractCoverage = PASS`：总体设计中的非 Schema 构造与 UI
 契约已建立机器可验证的覆盖矩阵；`DOC-GAP-001/002` 继续保持开放。
 
-后端技术基线已经封口为 JDK 21、Maven 3.9.16、Spring Boot 4.1.0、
-PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0。构建骨架尚未创建，
-`W0-G2A BuildBaseline` 仍为 `IN_PROGRESS`。
+`W0-G2A BuildBaseline = PASS`：后端固定为 JDK 21、Maven 3.9.16、
+Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
+前端固定为 Node 24.18.0、pnpm 11.17.0、React 19.2.8、TypeScript 7.0.2
+和 Vite 8.1.5。单部署 server、空 Desktop Web 入口、模块边界和 lockfile
+已经通过在线及缓存离线构建验证。
 
 ## 正式输入
 
@@ -49,7 +51,8 @@ PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0。构建骨架尚未创建�
 - [正式来源 Manifest](docs/engineering/cognitura-source-manifest.yaml)
 - [专项契约覆盖矩阵](docs/engineering/cognitura-specialty-contract-coverage.md)
 - [命名迁移记录](docs/engineering/cognitura-naming-migration.md)
-- [后端技术基线](docs/engineering/cognitura-technology-baseline.md)
+- [全栈技术基线](docs/engineering/cognitura-technology-baseline.md)
+- [模块边界基线](docs/engineering/cognitura-module-boundaries.md)
 - [Wave 0 实施计划](docs/engineering/cognitura-wave-0-plan.md)
 - [Wave 0 任务卡索引](docs/task-cards/README.md)
 - [Wave 0 开发准入裁决](docs/engineering/cognitura-wave-0-entry-decision.md)
@@ -64,7 +67,8 @@ DirectFullImplementationStart = NO
 ```
 
 `W0-G0 RepositoryBaseline = PASS`，`W0-G1 DesignSourceRegistry = PASS`，
-`W0-G2 SpecialtyContractCoverage = PASS`。
+`W0-G2 SpecialtyContractCoverage = PASS`，`W0-G2A BuildBaseline = PASS`。
 `W0-00～W0-08` 已拆成独立任务卡，唯一当前卡为
-`W0-03 BuildBaseline = READY`；在其余 Wave 0 门禁全部通过前，
+`W0-06 UiContractValidation = READY`；`W0-04` 继续受 `DOC-GAP-001` 阻断。
+在其余 Wave 0 门禁全部通过前，
 不进入 Wave 1 业务功能开发。

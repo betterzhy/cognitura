@@ -6,10 +6,10 @@
 
 **Architecture:** Wave 0 不实现业务功能。它先固定原始输入与设计来源，再封口专项契约覆盖和 JSON Schema，随后建立 Golden Case 回归、页面/Renderer 契约验证、技术栈工程骨架和 CI。所有产物围绕模块化单体与 Desktop Web 边界组织。
 
-**Tech Stack:** 后端已正式选择 Java 21、Maven 3.9.16、Spring Boot 4.1.0、
+**Tech Stack:** 后端正式选择 Java 21、Maven 3.9.16、Spring Boot 4.1.0、
 Spring Modulith 2.1.0、PostgreSQL 18、MyBatis Spring Boot Starter 4.0.0、
-Flyway、Spring AI 2.0.0 和 JSON Schema。前端版本、包管理器、对象存储及
-可运行骨架仍由 `W0-03` 后续步骤封口。
+Flyway 和 Spring AI 2.0.0；前端正式选择 Node 24.18.0、pnpm 11.17.0、
+React 19.2.8、TypeScript 7.0.2 和 Vite 8.1.5。对象存储仍未裁决。
 
 ## Global Constraints
 
@@ -43,7 +43,7 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-03
+ActiveTaskCard = W0-06
 ActiveTaskCardStatus = READY
 ```
 
@@ -142,24 +142,24 @@ W0-G2 SpecialtyContractCoverage = PASS
 **Produces:** 只有构建、模块边界和健康检查的最小骨架，不含业务功能。
 
 - [x] **Step 1a:** 在技术基线中固定 Java 21、Maven 3.9.16、Spring Boot 4.1.0、PostgreSQL 18、MyBatis 4.0.0、迁移、模块治理、AI Adapter 和后端测试工具链。
-- [ ] **Step 1b:** 固定 React、TypeScript、Node、前端构建工具、包管理器及精确版本。
-- [ ] **Step 2:** 记录 server 的 `source`、`cognition`、`generation`、`reading`、`llm` 模块边界。
-- [ ] **Step 3:** 记录 web 的 `workspace`、`document-ingestion`、`structure-review`、`landscape`、`theme`、`module-reading`、`source-evidence`、`generation-status`、`revision-history` 边界。
-- [ ] **Step 4:** 先写最小构建与健康检查失败验证，再创建只包含启动/健康检查的骨架。
-- [ ] **Step 5:** 验证没有微服务、Kafka、Neo4j、Elasticsearch、原生 App 或业务生成代码。
-- [ ] **Step 6:** 提交并标记：
+- [x] **Step 1b:** 固定 React、TypeScript、Node、前端构建工具、包管理器及精确版本。
+- [x] **Step 2:** 记录 server 的 `source`、`cognition`、`generation`、`reading`、`llm` 模块边界。
+- [x] **Step 3:** 记录 web 的 `workspace`、`document-ingestion`、`structure-review`、`landscape`、`theme`、`module-reading`、`source-evidence`、`generation-status`、`revision-history` 边界。
+- [x] **Step 4:** 先写最小构建与健康检查失败验证，再创建只包含启动/健康检查的骨架。
+- [x] **Step 5:** 验证没有微服务、Kafka、Neo4j、Elasticsearch、原生 App 或业务生成代码。
+- [x] **Step 6:** 提交并标记：
 
 ```text
 W0-G2A BuildBaseline = PASS
 ```
 
-当前中间状态：
+完成状态：
 
 ```text
 W0-03 BackendTechnologySelection = PASS
-W0-03 FrontendTechnologySelection = NOT_STARTED
-W0-03 BuildSkeleton = NOT_STARTED
-W0-G2A BuildBaseline = IN_PROGRESS
+W0-03 FrontendTechnologySelection = PASS
+W0-03 BuildSkeleton = PASS
+W0-G2A BuildBaseline = PASS
 ```
 
 ## Task W0-04：建立 JSON Schema Source
@@ -278,15 +278,12 @@ Wave1FeatureDevelopmentEntry = NO_GO
 ## 1. 执行顺序
 
 ```text
-W0-00
-→ W0-01
-→ W0-02
-→ W0-03
-→ W0-04
-→ W0-05
-→ W0-06
-→ W0-07
-→ W0-08
+W0-00 → W0-01 → W0-02 → W0-03
+                       ├→ W0-04 [BLOCKED: DOC-GAP-001] → W0-05 ┐
+                       └→ W0-06 [READY] ────────────────────────┤
+                                                               └→ W0-07 → W0-08
 ```
 
-`W0-05` 和 `W0-06` 在各自输入稳定后可以并行；`W0-04` 必须等待字段级来源封口；`W0-08` 必须最后执行。
+`W0-04` 必须等待字段级来源封口；等待期间执行不依赖字段级 Schema 的 `W0-06`。
+`W0-05` 和 `W0-06` 在各自输入稳定后可以并行，但共享状态文件由主 Agent 串行
+整合；`W0-08` 必须最后执行。

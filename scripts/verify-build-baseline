@@ -1,0 +1,226 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s [--repo-root <path>] [--structure-only]\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'BuildBaselineValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+repo_root="${script_root}"
+structure_only="false"
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --repo-root)
+      [[ "$#" -ge 2 ]] || usage
+      repo_root="$(cd "$2" && pwd -P)"
+      shift 2
+      ;;
+    --structure-only)
+      structure_only="true"
+      shift
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+root_pom="${repo_root}/pom.xml"
+server_pom="${repo_root}/server/pom.xml"
+web_package="${repo_root}/web/package.json"
+technology_baseline="${repo_root}/docs/engineering/cognitura-technology-baseline.md"
+module_boundaries="${repo_root}/docs/engineering/cognitura-module-boundaries.md"
+
+for required_file in \
+  "${root_pom}" \
+  "${server_pom}" \
+  "${web_package}" \
+  "${technology_baseline}" \
+  "${module_boundaries}" \
+  "${repo_root}/server/src/main/java/io/cognitura/CognituraApplication.java" \
+  "${repo_root}/server/src/main/resources/application.yaml" \
+  "${repo_root}/server/src/test/java/io/cognitura/HealthBaselineTest.java" \
+  "${repo_root}/server/src/test/java/io/cognitura/ModuleBoundariesTest.java" \
+  "${repo_root}/web/index.html" \
+  "${repo_root}/web/src/App.tsx" \
+  "${repo_root}/web/src/main.tsx" \
+  "${repo_root}/web/tsconfig.json" \
+  "${repo_root}/web/vite.config.mjs"; do
+  [[ -f "${required_file}" ]] || fail "MISSING_BASELINE_FILE: ${required_file#${repo_root}/}"
+done
+
+deployment_unit_count="$(grep -c '<module>' "${root_pom}" || true)"
+if [[ "${deployment_unit_count}" -ne 1 ]]; then
+  extra_deployment_unit="$(
+    sed -nE 's@.*<module>([^<]+)</module>.*@\1@p' "${root_pom}" |
+      grep -v '^server$' |
+      head -1
+  )"
+  if [[ -n "${extra_deployment_unit}" ]]; then
+    fail "EXTRA_DEPLOYMENT_UNIT: ${extra_deployment_unit}"
+  fi
+  fail "INVALID_DEPLOYMENT_UNIT_COUNT: ${deployment_unit_count}"
+fi
+grep -Fq '<module>server</module>' "${root_pom}" ||
+  fail "MISSING_DEPLOYMENT_UNIT: server"
+
+server_modules=(source cognition generation reading llm)
+web_modules=(
+  workspace
+  document-ingestion
+  structure-review
+  landscape
+  theme
+  module-reading
+  source-evidence
+  generation-status
+  revision-history
+)
+
+for module_name in "${server_modules[@]}"; do
+  [[ -f "${repo_root}/server/src/main/java/io/cognitura/${module_name}/package-info.java" ]] ||
+    fail "MISSING_SERVER_MODULE: ${module_name}"
+done
+
+for module_name in "${web_modules[@]}"; do
+  [[ -f "${repo_root}/web/src/modules/${module_name}/README.md" ]] ||
+    fail "MISSING_WEB_MODULE: ${module_name}"
+done
+
+required_maven_versions=(
+  '<version>4.1.0</version>'
+  '<spring-ai.version>2.0.0</spring-ai.version>'
+  '<spring-modulith.version>2.1.0</spring-modulith.version>'
+  '<mybatis-spring-boot.version>4.0.0</mybatis-spring-boot.version>'
+  '<postgresql.version>42.7.11</postgresql.version>'
+  '<maven.compiler.release>21</maven.compiler.release>'
+  '<version>[3.9.16,4)</version>'
+)
+
+for version_marker in "${required_maven_versions[@]}"; do
+  grep -Fq "${version_marker}" "${root_pom}" ||
+    fail "MISSING_MAVEN_VERSION_LOCK: ${version_marker}"
+done
+
+required_web_versions=(
+  '"node": "24.18.0"'
+  '"pnpm": "11.17.0"'
+  '"react": "19.2.8"'
+  '"react-dom": "19.2.8"'
+  '"@types/react": "19.2.17"'
+  '"@types/react-dom": "19.2.3"'
+  '"@vitejs/plugin-react": "6.0.4"'
+  '"typescript": "7.0.2"'
+  '"vite": "8.1.5"'
+)
+
+if grep -Eq '"(react|react-dom|@types/react|@types/react-dom|@vitejs/plugin-react|typescript|vite)": "[~^*><=]' \
+  "${web_package}"; then
+  unpinned_name="$(sed -nE 's/.*"(react|react-dom|@types\/react|@types\/react-dom|@vitejs\/plugin-react|typescript|vite)": "[~^*><=].*/\1/p' "${web_package}" | head -1)"
+  fail "UNPINNED_WEB_VERSION: ${unpinned_name}"
+fi
+
+for version_marker in "${required_web_versions[@]}"; do
+  grep -Fq "${version_marker}" "${web_package}" ||
+    fail "MISSING_WEB_VERSION_LOCK: ${version_marker}"
+done
+
+for forbidden_dependency in \
+  spring-boot-starter-data-jpa \
+  hibernate-core \
+  mybatis-plus \
+  spring-boot-starter-webflux \
+  spring-kafka \
+  neo4j \
+  elasticsearch \
+  spring-cloud; do
+  if grep -Fq "<artifactId>${forbidden_dependency}" "${root_pom}" "${server_pom}"; then
+    fail "FORBIDDEN_MAVEN_DEPENDENCY: ${forbidden_dependency}"
+  fi
+done
+
+for forbidden_dependency in next nuxt @nestjs microservices kafka neo4j elasticsearch; do
+  if grep -Eq "\"${forbidden_dependency}\": *\"" "${web_package}"; then
+    fail "FORBIDDEN_WEB_DEPENDENCY: ${forbidden_dependency}"
+  fi
+done
+
+business_file="$(find "${repo_root}/server/src/main/java/io/cognitura" \
+  -mindepth 2 -type f -name '*.java' ! -name 'package-info.java' -print -quit)"
+[[ -z "${business_file}" ]] ||
+  fail "BUSINESS_IMPLEMENTATION_FORBIDDEN: ${business_file#${repo_root}/}"
+
+[[ ! -d "${repo_root}/web/src/pages" ]] || fail "PRODUCT_PAGE_IMPLEMENTATION_FORBIDDEN"
+[[ ! -d "${repo_root}/server/src/main/resources/db/migration" ]] ||
+  fail "PERSISTENCE_IMPLEMENTATION_FORBIDDEN"
+
+if [[ "${structure_only}" == "false" ]]; then
+  [[ -x "${repo_root}/mvnw" ]] || fail "MISSING_MAVEN_WRAPPER"
+  [[ -f "${repo_root}/.mvn/wrapper/maven-wrapper.properties" ]] ||
+    fail "MISSING_MAVEN_WRAPPER_PROPERTIES"
+  grep -Fq 'apache-maven-3.9.16-bin.zip' \
+    "${repo_root}/.mvn/wrapper/maven-wrapper.properties" ||
+    fail "INVALID_MAVEN_WRAPPER_VERSION"
+  [[ -f "${repo_root}/web/pnpm-lock.yaml" ]] || fail "MISSING_WEB_LOCKFILE"
+
+  [[ "$(node --version 2>/dev/null || true)" == "v24.18.0" ]] ||
+    fail "INVALID_NODE_VERSION: expected v24.18.0"
+  pnpm_version="$(
+    cd "${repo_root}/web"
+    corepack pnpm --version 2>/dev/null || true
+  )"
+  [[ "${pnpm_version}" == "11.17.0" ]] ||
+    fail "INVALID_PNPM_VERSION: expected 11.17.0"
+
+  (
+    cd "${repo_root}"
+    ./mvnw -q verify
+  ) || fail "SERVER_BUILD_FAILED"
+
+  if ! dependency_tree="$(
+    cd "${repo_root}"
+    ./mvnw -pl server dependency:tree -DoutputType=text 2>&1
+  )"; then
+    fail "DEPENDENCY_TREE_FAILED"
+  fi
+
+  for forbidden_tree_pattern in \
+    ':spring-boot-starter-data-jpa:' \
+    ':hibernate-core:' \
+    ':mybatis-plus' \
+    ':spring-boot-starter-webflux:' \
+    ':spring-kafka:' \
+    ':kafka-clients:' \
+    ':neo4j-java-driver:' \
+    ':spring-data-neo4j:' \
+    ':elasticsearch-java:' \
+    ':spring-data-elasticsearch:' \
+    ':spring-cloud-'; do
+    if grep -Fq "${forbidden_tree_pattern}" <<<"${dependency_tree}"; then
+      fail "FORBIDDEN_TRANSITIVE_DEPENDENCY: ${forbidden_tree_pattern}"
+    fi
+  done
+
+  (
+    cd "${repo_root}/web"
+    corepack pnpm install --frozen-lockfile
+    corepack pnpm build
+  ) || fail "WEB_BUILD_FAILED"
+fi
+
+printf '%s\n' \
+  "BuildBaselineValidation = PASS" \
+  "ServerModuleCount = ${#server_modules[@]}" \
+  "WebModuleCount = ${#web_modules[@]}" \
+  "ForbiddenDependencyCount = 0" \
+  "ServerBuild = PASS" \
+  "WebBuild = PASS" \
+  "W0-G2A BuildBaseline = PASS"

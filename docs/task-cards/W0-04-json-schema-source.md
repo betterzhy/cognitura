@@ -24,9 +24,10 @@ JSON Schema，使生成、存储和展示共享同一机器契约。
 ```text
 ExternalBlocker = DOC-GAP-001
 BlockedReason = FIELD_LEVEL_SCHEMA_SOURCE_MISSING
+DependencyState = SATISFIED
 ```
 
-总体设计摘要不足以单独解除此阻断。
+`W0-G2A BuildBaseline` 已通过，但总体设计摘要仍不足以单独解除此阻断。
 
 ## 3. 写集
 

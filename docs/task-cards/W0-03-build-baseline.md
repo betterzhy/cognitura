@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-03
-Status = READY
+Status = DONE
 Gate = W0-G2A BuildBaseline
 Risk = HIGH
 DependsOn = W0-02
@@ -19,16 +19,16 @@ ReviewRoute = MAIN_AGENT_GATE
 - `W0-G2 SpecialtyContractCoverage = PASS`
 - `docs/engineering/cognitura-technology-baseline.md`
 - 总体设计第 22～26 章
-- 已完成的局部进度：
+- 执行入口时已存在的局部进度：
 
 ```text
-BackendTechnologySelection = PASS
+ExecutionEntryBackendTechnologySelection = PASS
 BackendTechnologyCommit = 79fc305
-FrontendTechnologySelection = NOT_STARTED
-BuildSkeleton = NOT_STARTED
+ExecutionEntryFrontendTechnologySelection = NOT_STARTED
+ExecutionEntryBuildSkeleton = NOT_STARTED
 ```
 
-局部进度不构成本卡 Gate 通过。
+以上是执行入口历史，不是当前状态；局部进度当时不构成本卡 Gate 通过。
 
 ## 3. 写集
 
@@ -37,12 +37,15 @@ BuildSkeleton = NOT_STARTED
 - Create: `server/`
 - Create: `web/`
 - Create: 根构建、版本锁、Maven Wrapper 和前端 lockfile
+- Modify: `.gitignore`
 - Create: `scripts/verify-build-baseline`
 - Create: `tests/build-baseline/`
 - Modify: `README.md`
+- Modify: `AGENTS.md`
 - Modify: `docs/task-cards/README.md`
 - Modify: `docs/task-cards/W0-03-build-baseline.md`
 - Modify: `docs/task-cards/W0-04-json-schema-source.md`
+- Modify: `docs/task-cards/W0-06-ui-renderer-contracts.md`
 - Modify: `docs/engineering/cognitura-wave-0-plan.md`
 - Modify: `docs/engineering/cognitura-wave-0-entry-decision.md`
 
@@ -51,15 +54,15 @@ BuildSkeleton = NOT_STARTED
 ## 4. 执行步骤
 
 - [x] 固定 JDK 21、Maven 3.9.16、Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis 4.0.0。
-- [ ] 形成前端技术裁决，固定 React、TypeScript、Node、构建工具和包管理器精确版本。
-- [ ] 先编写 server/web 构建、健康检查、模块边界和禁用依赖的失败验证。
-- [ ] 运行验证并确认因骨架和 lockfile 尚未存在而失败。
-- [ ] 创建单 Spring Boot 部署单元、Maven Wrapper、健康检查和模块边界。
-- [ ] 创建 Desktop Web 最小入口、前端 lockfile 和空模块边界，不实现产品页面。
-- [ ] 固定 `source`、`cognition`、`generation`、`reading`、`llm` 以及九个 web 模块边界。
-- [ ] 验证依赖树不含微服务、Kafka、Neo4j、Elasticsearch、JPA、MyBatis-Plus 或默认 WebFlux。
-- [ ] 记录实际 BOM 解析版本、PostgreSQL 18 容器 tag/digest 和本地等价构建命令。
-- [ ] 更新卡片状态并形成独立提交。
+- [x] 形成前端技术裁决，固定 React、TypeScript、Node、构建工具和包管理器精确版本。
+- [x] 先编写 server/web 构建、健康检查、模块边界和禁用依赖的失败验证。
+- [x] 运行验证并确认因骨架和 lockfile 尚未存在而失败。
+- [x] 创建单 Spring Boot 部署单元、Maven Wrapper、健康检查和模块边界。
+- [x] 创建 Desktop Web 最小入口、前端 lockfile 和空模块边界，不实现产品页面。
+- [x] 固定 `source`、`cognition`、`generation`、`reading`、`llm` 以及九个 web 模块边界。
+- [x] 验证依赖树不含微服务、Kafka、Neo4j、Elasticsearch、JPA、MyBatis-Plus 或默认 WebFlux。
+- [x] 记录实际 BOM 解析版本、PostgreSQL 18 容器 tag/digest 和本地等价构建命令。
+- [x] 更新卡片状态并形成独立提交。
 
 ## 5. 验证命令
 
@@ -87,12 +90,30 @@ git diff --check
 W0-G2A BuildBaseline = PASS
 ```
 
+完成证据：
+
+```text
+MavenWrapper = 3.3.4
+Maven = 3.9.16
+Java = 21.0.7
+Node = 24.18.0
+pnpm = 11.17.0
+ServerModuleCount = 5
+WebModuleCount = 9
+ForbiddenDependencyCount = 0
+BuildBaselineNegativeCases = 7
+OnlineLockedBuild = PASS
+OfflineCachedBuild = PASS
+```
+
 ## 7. 提交与审查
 
 ```text
 CommitMessage = build: establish Cognitura modular monolith baseline
 CommitReview = MAIN_AGENT_GATE
-NextTaskCardOnPass = W0-04
+NominalNextTaskCard = W0-04
+NominalNextStatus = BLOCKED_BY_DOCUMENTATION_GAP:DOC-GAP-001
+ReleasedReadyTaskCard = W0-06
 ```
 
 如果依赖解析与技术基线不一致，先更新裁决证据并重新验证，不得静默漂移版本。

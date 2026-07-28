@@ -1,18 +1,17 @@
-# Cognitura 后端技术基线
+# Cognitura 技术基线
 
 ```text
 DecisionDate = 2026-07-28
 CanonicalProjectName = Cognitura
-BaselineScope = W0-03_BACKEND_TECHNOLOGY_SELECTION
+BaselineScope = W0-03_FULL_STACK_BUILD_BASELINE
 BackendTechnologyBaseline = FORMAL
-FrontendTechnologyBaseline = PENDING_W0_03
-W0-G2A BuildBaseline = IN_PROGRESS
+FrontendTechnologyBaseline = FORMAL
+W0-G2A BuildBaseline = PASS
 Wave1FeatureDevelopmentEntry = NO_GO
 ```
 
-本基线固定 Cognitura V1 后端工程骨架所使用的技术与版本。它授权后续
-`W0-03` 创建最小构建、模块边界和健康检查，不授权业务功能开发，也不代表
-`W0-G2A BuildBaseline` 已通过。
+本基线固定 Cognitura V1 前后端工程骨架所使用的技术与版本。它授权 `W0-03`
+创建最小构建、模块边界和健康检查，不授权业务功能开发。
 
 ## 1. 正式版本裁决
 
@@ -36,6 +35,23 @@ Wave1FeatureDevelopmentEntry = NO_GO
 上述精确版本是后续生成构建文件时的唯一输入。被 Spring Boot BOM 管理的库
 不得在子模块中任意覆盖版本；确需覆盖时必须记录兼容性或安全原因及依赖树证据。
 
+### 1.1 前端正式版本
+
+| 范围 | 正式选择 | 精确版本 |
+|---|---|---|
+| JavaScript 运行时 | Node.js LTS | `24.18.0` |
+| 包管理器 | pnpm + Corepack | `11.17.0` |
+| UI 框架 | React / React DOM | `19.2.8` |
+| 类型系统 | TypeScript | `7.0.2` |
+| 构建工具 | Vite | `8.1.5` |
+| React 构建插件 | `@vitejs/plugin-react` | `6.0.4` |
+| React 类型 | `@types/react` | `19.2.17` |
+| React DOM 类型 | `@types/react-dom` | `19.2.3` |
+
+Node 版本由根 `.node-version` 锁定，pnpm 版本同时由 `web/package.json` 的
+`packageManager` 与 `engines` 锁定。所有直接依赖使用精确版本，不使用
+`^`、`~`、动态标签或范围；传递依赖由 `web/pnpm-lock.yaml` 固定。
+
 ## 2. 选择依据与兼容性
 
 - Spring Boot `4.1.0` 的最低 Java 版本为 17，并支持至 Java 26，因此与
@@ -48,6 +64,11 @@ Wave1FeatureDevelopmentEntry = NO_GO
   编写模块集成测试和生成模块文档。
 - PostgreSQL `18` 是当前稳定主版本；Flyway 的 PostgreSQL 支持通过独立
   `flyway-database-postgresql` 模块启用。
+- Node `24.18.0` 属于 Node 24 LTS 版本线；生产构建不采用奇数版本线。
+- React `19.2.8`、TypeScript `7.0.2`、Vite `8.1.5` 与
+  `@vitejs/plugin-react 6.0.4` 已由实际 lockfile 安装和生产构建验证。
+- TypeScript 7 当前不提供稳定的 programmatic API，但 Cognitura Web 基线只通过
+  `tsc` CLI 执行普通 React 类型检查，不依赖语言服务嵌入或编译器 API。
 
 权威版本来源：
 
@@ -60,6 +81,11 @@ Wave1FeatureDevelopmentEntry = NO_GO
 - [PostgreSQL Releases](https://www.postgresql.org/support/versioning/)
 - [pgJDBC](https://jdbc.postgresql.org/)
 - [Flyway PostgreSQL](https://documentation.red-gate.com/fd/postgresql-database-277579325.html)
+- [Node.js Releases](https://nodejs.org/en/about/previous-releases)
+- [React Versions](https://react.dev/versions)
+- [TypeScript 7.0](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)
+- [Vite Releases](https://vite.dev/releases)
+- [Vite 8](https://vite.dev/blog/announcing-vite8)
 
 ## 3. 后端工程形态
 
@@ -138,7 +164,17 @@ org.flywaydb:flyway-database-postgresql
 - Mapper、migration、事务和 JSONB 集成测试使用 Testcontainers PostgreSQL 18。
 - 不使用 H2 代替 PostgreSQL 契约测试，避免 JSONB、SQL 方言、锁和事务行为失真。
 - 测试容器必须固定到 PostgreSQL 18 的精确补丁 tag 或镜像 digest；具体 digest
-  在 `W0-03` 创建可运行骨架时记录。
+  由本卡固定为：
+
+```text
+PostgreSQLTestImage =
+  postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a
+DigestScope = MULTI_PLATFORM_IMAGE_INDEX
+```
+
+- Testcontainers 2 的 PostgreSQL Maven 坐标为
+  `org.testcontainers:testcontainers-postgresql`，不得退回已不受当前 BOM
+  管理的旧模块坐标。
 - 测试 migration 只能作用于临时容器，不得连接或写入正式数据库。
 
 ## 7. 明确不采用
@@ -157,23 +193,48 @@ org.flywaydb:flyway-database-postgresql
 这些排除项可避免在 Wave 0 引入与 Cognitura 核心问题无关的基础设施和第二套
 事实模型。后续若有可验证需求，必须通过新的工程裁决变更本基线。
 
-## 8. 尚未封口
+## 8. 实际解析与可重复构建证据
 
-以下决定不属于本次后端选择，继续保持待定：
+`./mvnw dependency:tree` 在 Maven `3.9.16`、Temurin JDK `21.0.7` 下解析出：
 
-- React、TypeScript、Node、前端构建工具与包管理器的精确版本；
-- 对象存储的具体实现和本地开发替代方案；
-- CI Provider 与部署环境；
-- PostgreSQL 18 精确补丁镜像和 digest；
-- Spring Boot BOM 所管理依赖的实际解析清单。
+| 依赖 | 实际解析版本 | 管理来源 |
+|---|---|---|
+| Spring Framework Core / Web MVC | `7.0.8` | Spring Boot `4.1.0` |
+| Jackson Databind | `3.1.4` | Spring Boot `4.1.0` |
+| HikariCP | `7.0.2` | Spring Boot `4.1.0` |
+| Flyway Core / PostgreSQL | `12.4.0` | Spring Boot `4.1.0` |
+| Testcontainers / PostgreSQL | `2.0.5` | Spring Boot `4.1.0` |
+| MyBatis Core | `3.5.19` | MyBatis Starter `4.0.0` |
+| Spring Modulith Core | `2.1.0` | Spring Modulith BOM `2.1.0` |
 
-因此当前状态是：
+前端生产构建的实际输入为 Node `24.18.0`、pnpm `11.17.0` 和已提交的
+`web/pnpm-lock.yaml`。等价本地命令：
+
+```bash
+./mvnw --version
+./mvnw -q verify
+corepack pnpm --dir web install --frozen-lockfile
+corepack pnpm --dir web build
+scripts/verify-build-baseline
+```
+
+依赖已进入本地缓存后，还必须可用下列命令复验：
+
+```bash
+./mvnw -o -q verify
+corepack pnpm --dir web install --offline --frozen-lockfile
+```
+
+对象存储实现、CI Provider 与部署环境仍未裁决；它们不属于 `W0-03` 构建基线，
+也不影响当前空骨架的可重复构建。
+
+当前卡内状态是：
 
 ```text
 W0-03 BackendTechnologySelection = PASS
-W0-03 FrontendTechnologySelection = NOT_STARTED
-W0-03 BuildSkeleton = NOT_STARTED
-W0-G2A BuildBaseline = IN_PROGRESS
+W0-03 FrontendTechnologySelection = PASS
+W0-03 BuildSkeleton = PASS
+W0-G2A BuildBaseline = PASS
 Wave1FeatureDevelopmentEntry = NO_GO
 ```
 
@@ -196,6 +257,8 @@ shasum -a 256 \
 验收条件：
 
 - 四项核心后端版本在本基线、Repository 指令、README 和 Wave 0 状态中一致；
+- 前端直接依赖、Node 和 pnpm 版本在本基线、版本锁与 lockfile 中一致；
 - Markdown 变更无空白错误；
 - 总体设计和三份 Golden Case 的 SHA-256 与设计索引完全一致；
-- `W0-G2A` 只允许为 `IN_PROGRESS`，直到前端版本和可运行骨架完成验证。
+- `W0-G2A` 只允许在 server/web 构建、负例和任务卡集合验证全部通过后变更为
+  `PASS`。

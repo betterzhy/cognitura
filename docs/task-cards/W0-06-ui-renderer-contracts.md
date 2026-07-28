@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-06
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W0-G4A UiContractValidation
 Risk = MEDIUM
 DependsOn = W0-02
