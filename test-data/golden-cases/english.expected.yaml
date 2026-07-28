@@ -7,10 +7,12 @@ FormalEvidence: OD1.2§21.英语
 MustInclude: 主+谓（S+V）|主+系+表|主+谓+宾|主+谓+间宾+直宾|主+谓+宾+宾补|谓语动词|SVOO|SVOC
 MustMergeTarget: 五大句型统一规则体系
 MustMergeMembers: 主+谓|主+系+表|主+谓+宾|主+谓+间宾+直宾|主+谓+宾+宾补
-MustNotSplit: 五大句型统一规则体系
+MustNotSplit: 主+谓|主+系+表|主+谓+宾|主+谓+间宾+直宾|主+谓+宾+宾补
 MustNotPromote: 例句|主导航节点
+MustNotPromoteMode: NONE_ALLOWED
 ExpectedRoleStatus: SOURCE_GAP
 ExpectedRole: NOT_ASSERTED
+ExpectedSpineStatus: ASSERTED
 ExpectedSpine: 谓语动词类型|必要成分|五大句型|判定路径|SVOO-SVOC辨析
 ExpectedThemeClosureStatus: SOURCE_GAP
 ExpectedThemeClosure: NOT_ASSERTED
@@ -24,7 +26,9 @@ TableCellCount: 339
 ImageReferenceCount: 0
 MediaEntryCount: 0
 ExternalRelationshipCount: 0
+ExternalRelationshipSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 PageBreakCount: 13
+PageOrderSha256: c949e2cd9a39cf6b6c261d34748fdc10b6167e470e147bd182a8adf74770c588
 HeadingOrderSha256: 58137933aa496f6558c03c4d12d13f0997d2f315cee651b0447596d8fb0f2dad
 BlockOrderSha256: c89304116eddc9ccec1cd07203bc315c095847eea2940877a58e29b2681fc792
 TableStructureSha256: 4cfa099c9139a9757b4c519f249ac7672f27c0d5a8bcd1e79ad92d7e320130ab

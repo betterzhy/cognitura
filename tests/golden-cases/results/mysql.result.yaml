@@ -1,0 +1,11 @@
+ResultVersion: 1
+CaseId: GC-MYSQL-001
+IncludedConcepts: 锁|事务|数据行|undo log|MVCC|Read View|隐藏列|幻读
+MergeTarget: 事务可见性与幻读控制
+MergeMembers: 锁|事务|数据行|Undo Log
+StandaloneModules: NONE
+PromotedModules: MVCC
+Role: NOT_ASSERTED
+Spine: NOT_ASSERTED
+ThemeClosure: NOT_ASSERTED
+ReportedSourceGaps: EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_SPINE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED

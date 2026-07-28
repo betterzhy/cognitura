@@ -1,4 +1,5 @@
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -35,6 +36,15 @@ public final class GoldenCaseVerifier {
   private static final String PACKAGE_REL_NS =
       "http://schemas.openxmlformats.org/package/2006/relationships";
   private static final String IMAGE_REL_SUFFIX = "/image";
+  private static final int MAX_ZIP_ENTRY_COUNT = 4096;
+  private static final long MAX_ZIP_ENTRY_BYTES = 16L * 1024L * 1024L;
+  private static final long MAX_ZIP_TOTAL_BYTES = 128L * 1024L * 1024L;
+  private static final long MAX_COMPRESSION_RATIO = 200L;
+  private static final Set<String> REQUIRED_DOCX_ENTRIES = Set.of(
+      "word/document.xml",
+      "word/styles.xml",
+      "word/_rels/document.xml.rels"
+  );
   private static final List<String> CASE_IDS = List.of(
       "GC-MYSQL-001",
       "GC-REDIS-001",
@@ -52,8 +62,10 @@ public final class GoldenCaseVerifier {
       "MustMergeMembers",
       "MustNotSplit",
       "MustNotPromote",
+      "MustNotPromoteMode",
       "ExpectedRoleStatus",
       "ExpectedRole",
+      "ExpectedSpineStatus",
       "ExpectedSpine",
       "ExpectedThemeClosureStatus",
       "ExpectedThemeClosure",
@@ -67,11 +79,26 @@ public final class GoldenCaseVerifier {
       "ImageReferenceCount",
       "MediaEntryCount",
       "ExternalRelationshipCount",
+      "ExternalRelationshipSha256",
       "PageBreakCount",
+      "PageOrderSha256",
       "HeadingOrderSha256",
       "BlockOrderSha256",
       "TableStructureSha256",
       "ImageReferenceSha256"
+  );
+  private static final Set<String> RESULT_KEYS = Set.of(
+      "ResultVersion",
+      "CaseId",
+      "IncludedConcepts",
+      "MergeTarget",
+      "MergeMembers",
+      "StandaloneModules",
+      "PromotedModules",
+      "Role",
+      "Spine",
+      "ThemeClosure",
+      "ReportedSourceGaps"
   );
   private static final Map<String, AssertionPolicy> POLICIES = policies();
 
@@ -82,6 +109,26 @@ public final class GoldenCaseVerifier {
     try {
       if (args.length == 2 && "--inspect-docx".equals(args[0])) {
         printStructure(inspectDocx(Path.of(args[1])));
+        return;
+      }
+      if (args.length == 3 && "--probe-file-access".equals(args[0])) {
+        inspectDocx(Path.of(args[1]), Path.of(args[2]));
+        throw failure(
+            "EXTERNAL_ACCESS_GUARD_INACTIVE",
+            args[2]
+        );
+      }
+      if (
+          args.length == 5 &&
+          "--assert-result".equals(args[0]) &&
+          "--expected".equals(args[1]) &&
+          "--result".equals(args[3])
+      ) {
+        assertResult(
+            Path.of(args[2]).toAbsolutePath().normalize(),
+            Path.of(args[4]).toAbsolutePath().normalize(),
+            true
+        );
         return;
       }
       Path manifest = parseManifestArgument(args);
@@ -145,6 +192,7 @@ public final class GoldenCaseVerifier {
     int assertionGroupCount = 0;
     int structureCount = 0;
     int externalLinksObserved = 0;
+    int externalLinksAccessed = 0;
 
     for (String caseId : caseOrder) {
       AssertionPolicy policy = POLICIES.get(caseId);
@@ -156,6 +204,10 @@ public final class GoldenCaseVerifier {
       String sourcePath = required(manifest, prefix + "SourcePath");
       String sourceSha256 = required(manifest, prefix + "SourceSha256");
       String expectedPath = required(manifest, prefix + "ExpectedPath");
+      String contractResultPath = required(
+          manifest,
+          prefix + "ContractResultPath"
+      );
 
       if (!sourceId.equals(caseId)) {
         throw failure("SOURCE_ID_MISMATCH", caseId);
@@ -165,6 +217,9 @@ public final class GoldenCaseVerifier {
       }
       if (!expectedPath.equals(policy.expectedPath())) {
         throw failure("EXPECTED_PATH_MISMATCH", caseId);
+      }
+      if (!contractResultPath.equals(policy.contractResultPath())) {
+        throw failure("CONTRACT_RESULT_PATH_MISMATCH", caseId);
       }
 
       SourceRecord sourceRecord = sourceRecords.get(sourceId);
@@ -211,12 +266,22 @@ public final class GoldenCaseVerifier {
       );
       validateAssertionPolicy(expected, policy);
       Structure structure = inspectDocx(source);
+      if (structure.externalAccessAttemptCount() != 0) {
+        throw failure("EXTERNAL_LINK_ACCESS", caseId);
+      }
       validateStructure(expected, structure, caseId);
       validateSourceTerms(expected, structure.allText(), caseId);
+      Path contractResult = safeResolve(
+          repositoryRoot,
+          contractResultPath,
+          "CONTRACT_RESULT_PATH"
+      );
+      assertResult(expected, readFlatYaml(contractResult), policy, false);
 
       assertionGroupCount += 8;
       structureCount += 1;
       externalLinksObserved += structure.externalRelationshipCount();
+      externalLinksAccessed += structure.externalAccessAttemptCount();
     }
 
     for (Map.Entry<Path, String> entry : beforeHashes.entrySet()) {
@@ -236,7 +301,8 @@ public final class GoldenCaseVerifier {
     );
     System.out.println("StructuralBaselineCount = " + structureCount);
     System.out.println("ExternalLinksObserved = " + externalLinksObserved);
-    System.out.println("ExternalLinksAccessed = 0");
+    System.out.println("ExternalLinksAccessed = " + externalLinksAccessed);
+    System.out.println("ExternalAccessGuard = ACTIVE");
     System.out.println("FormalInputsUnchanged = PASS");
     System.out.println("W0-G4 GoldenCaseRegression = PASS");
   }
@@ -256,6 +322,7 @@ public final class GoldenCaseVerifier {
       expectedKeys.add(caseId + ".SourcePath");
       expectedKeys.add(caseId + ".SourceSha256");
       expectedKeys.add(caseId + ".ExpectedPath");
+      expectedKeys.add(caseId + ".ContractResultPath");
     }
     if (!manifest.keySet().equals(expectedKeys)) {
       throw failure(
@@ -299,6 +366,20 @@ public final class GoldenCaseVerifier {
     Path resolved = root.resolve(relative).normalize();
     if (!resolved.startsWith(root)) {
       throw failure(code, relativePath);
+    }
+    if (Files.exists(resolved)) {
+      try {
+        Path rootReal = root.toRealPath();
+        Path resolvedReal = resolved.toRealPath();
+        if (!resolvedReal.startsWith(rootReal)) {
+          throw failure(code + "_REALPATH", relativePath);
+        }
+      } catch (IOException error) {
+        throw failure(
+            code + "_REALPATH",
+            relativePath + ": " + error.getMessage()
+        );
+      }
     }
     return resolved;
   }
@@ -434,6 +515,180 @@ public final class GoldenCaseVerifier {
     );
   }
 
+  private static void assertResult(
+      Path expectedPath,
+      Path resultPath,
+      boolean emit
+  ) {
+    Map<String, String> expected = readFlatYaml(expectedPath);
+    String caseId = required(expected, "CaseId");
+    AssertionPolicy policy = POLICIES.get(caseId);
+    if (policy == null) {
+      throw failure("UNKNOWN_CASE_ID", caseId);
+    }
+    validateExpectedMetadata(
+        expected,
+        caseId,
+        caseId,
+        policy.sourcePath(),
+        required(expected, "SourceSha256")
+    );
+    validateAssertionPolicy(expected, policy);
+    assertResult(
+        expected,
+        readFlatYaml(resultPath),
+        policy,
+        emit
+    );
+  }
+
+  private static void assertResult(
+      Map<String, String> expected,
+      Map<String, String> result,
+      AssertionPolicy policy,
+      boolean emit
+  ) {
+    if (!result.keySet().equals(RESULT_KEYS)) {
+      throw failure(
+          "RESULT_FIELD_SET",
+          "unexpected or missing result fields"
+      );
+    }
+    requireValue(result, "ResultVersion", "1", "RESULT_METADATA");
+    String caseId = required(expected, "CaseId");
+    requireValue(result, "CaseId", caseId, "RESULT_METADATA");
+
+    Set<String> included = valueSet(result, "IncludedConcepts");
+    if (!included.containsAll(valueSet(expected, "MustInclude"))) {
+      throw failure("MUST_INCLUDE_VIOLATION", caseId);
+    }
+
+    if (
+        !required(result, "MergeTarget").equals(
+            required(expected, "MustMergeTarget")
+        ) ||
+        !valueSet(result, "MergeMembers").equals(
+            valueSet(expected, "MustMergeMembers")
+        )
+    ) {
+      throw failure("MUST_MERGE_VIOLATION", caseId);
+    }
+
+    Set<String> standalone = optionalValueSet(
+        result,
+        "StandaloneModules"
+    );
+    if (
+        standalone.stream().anyMatch(
+            valueSet(expected, "MustNotSplit")::contains
+        )
+    ) {
+      throw failure("MUST_NOT_SPLIT_VIOLATION", caseId);
+    }
+
+    Set<String> promoted = optionalValueSet(result, "PromotedModules");
+    Set<String> promotionPolicy = valueSet(expected, "MustNotPromote");
+    String promotionMode = required(expected, "MustNotPromoteMode");
+    if (
+        ("NOT_ALL".equals(promotionMode) &&
+            promoted.containsAll(promotionPolicy)) ||
+        ("NONE_ALLOWED".equals(promotionMode) &&
+            promoted.stream().anyMatch(promotionPolicy::contains))
+    ) {
+      throw failure("MUST_NOT_PROMOTE_VIOLATION", caseId);
+    }
+    if (
+        !"NOT_ALL".equals(promotionMode) &&
+        !"NONE_ALLOWED".equals(promotionMode)
+    ) {
+      throw failure("ASSERTION_POLICY_MISMATCH", "MustNotPromoteMode");
+    }
+
+    assertExpectedValue(
+        expected,
+        result,
+        "ExpectedRoleStatus",
+        "ExpectedRole",
+        "Role",
+        "EXPECTED_ROLE_VIOLATION",
+        caseId
+    );
+    assertExpectedValue(
+        expected,
+        result,
+        "ExpectedSpineStatus",
+        "ExpectedSpine",
+        "Spine",
+        "EXPECTED_SPINE_VIOLATION",
+        caseId
+    );
+    assertExpectedValue(
+        expected,
+        result,
+        "ExpectedThemeClosureStatus",
+        "ExpectedThemeClosure",
+        "ThemeClosure",
+        "EXPECTED_THEME_CLOSURE_VIOLATION",
+        caseId
+    );
+
+    if (
+        !valueSet(result, "ReportedSourceGaps").equals(
+            valueSet(expected, "KnownSourceGaps")
+        )
+    ) {
+      throw failure("KNOWN_SOURCE_GAPS_VIOLATION", caseId);
+    }
+
+    if (emit) {
+      System.out.println("ResultAssertion = PASS");
+      System.out.println("CaseId = " + caseId);
+      System.out.println("ExecutableAssertionGroupCount = 8");
+    }
+  }
+
+  private static void assertExpectedValue(
+      Map<String, String> expected,
+      Map<String, String> result,
+      String statusField,
+      String expectedField,
+      String resultField,
+      String code,
+      String caseId
+  ) {
+    String status = required(expected, statusField);
+    String expectedValue = required(expected, expectedField);
+    String resultValue = required(result, resultField);
+    if (
+        ("SOURCE_GAP".equals(status) &&
+            (!"NOT_ASSERTED".equals(expectedValue) ||
+                !"NOT_ASSERTED".equals(resultValue))) ||
+        ("ASSERTED".equals(status) &&
+            !expectedValue.equals(resultValue)) ||
+        (!"SOURCE_GAP".equals(status) && !"ASSERTED".equals(status))
+    ) {
+      throw failure(code, caseId);
+    }
+  }
+
+  private static Set<String> valueSet(
+      Map<String, String> values,
+      String key
+  ) {
+    return new LinkedHashSet<>(splitList(required(values, key)));
+  }
+
+  private static Set<String> optionalValueSet(
+      Map<String, String> values,
+      String key
+  ) {
+    String value = required(values, key);
+    if ("NONE".equals(value)) {
+      return Set.of();
+    }
+    return new LinkedHashSet<>(splitList(value));
+  }
+
   private static void validateAssertionPolicy(
       Map<String, String> expected,
       AssertionPolicy policy
@@ -476,6 +731,12 @@ public final class GoldenCaseVerifier {
     );
     requireValue(
         expected,
+        "MustNotPromoteMode",
+        policy.mustNotPromoteMode(),
+        "ASSERTION_POLICY_MISMATCH"
+    );
+    requireValue(
+        expected,
         "ExpectedRoleStatus",
         "SOURCE_GAP",
         "ASSERTION_POLICY_MISMATCH"
@@ -484,6 +745,12 @@ public final class GoldenCaseVerifier {
         expected,
         "ExpectedRole",
         "NOT_ASSERTED",
+        "ASSERTION_POLICY_MISMATCH"
+    );
+    requireValue(
+        expected,
+        "ExpectedSpineStatus",
+        policy.expectedSpineStatus(),
         "ASSERTION_POLICY_MISMATCH"
     );
     requireValue(
@@ -507,7 +774,7 @@ public final class GoldenCaseVerifier {
     requireValue(
         expected,
         "KnownSourceGaps",
-        "EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED",
+        policy.knownSourceGaps(),
         "ASSERTION_POLICY_MISMATCH"
     );
     requireValue(
@@ -519,6 +786,7 @@ public final class GoldenCaseVerifier {
     for (String field : List.of(
         "MustInclude",
         "MustMergeMembers",
+        "MustNotSplit",
         "MustNotPromote",
         "ExpectedSpine",
         "KnownSourceGaps"
@@ -608,6 +876,12 @@ public final class GoldenCaseVerifier {
         "EXTERNAL_RELATIONSHIP_MISMATCH",
         caseId
     );
+    requireValue(
+        expected,
+        "ExternalRelationshipSha256",
+        actual.externalRelationshipSha256(),
+        "EXTERNAL_RELATIONSHIP_MISMATCH"
+    );
     requireInt(
         expected,
         "ParagraphCount",
@@ -621,6 +895,12 @@ public final class GoldenCaseVerifier {
         actual.pageBreakCount(),
         "PAGE_OR_ORDER_MISMATCH",
         caseId
+    );
+    requireValue(
+        expected,
+        "PageOrderSha256",
+        actual.pageOrderSha256(),
+        "PAGE_OR_ORDER_MISMATCH"
     );
     requireValue(
         expected,
@@ -679,8 +959,26 @@ public final class GoldenCaseVerifier {
     return items;
   }
 
+  @SuppressWarnings("removal")
   static Structure inspectDocx(Path path) {
+    return inspectDocx(path, null);
+  }
+
+  @SuppressWarnings("removal")
+  private static Structure inspectDocx(Path path, Path accessProbe) {
+    Path allowedSource = path.toAbsolutePath().normalize();
+    ExternalAccessAudit accessAudit = new ExternalAccessAudit(allowedSource);
+    SecurityManager previousSecurityManager = System.getSecurityManager();
+    System.setSecurityManager(
+        new NoExternalAccessSecurityManager(accessAudit)
+    );
     try (ZipFile zip = new ZipFile(path.toFile(), StandardCharsets.UTF_8)) {
+      if (accessProbe != null) {
+        try (InputStream ignored = Files.newInputStream(accessProbe)) {
+          ignored.read();
+        }
+      }
+      validateZipInventory(zip);
       Document document = parseXml(readEntry(zip, "word/document.xml"));
       Document stylesDocument = parseXml(readEntry(zip, "word/styles.xml"));
       Document relationshipsDocument = parseXml(
@@ -692,12 +990,19 @@ public final class GoldenCaseVerifier {
       );
       Set<String> imageRelationshipIds = new HashSet<>();
       int externalRelationships = 0;
+      StringBuilder externalRelationshipRecord = new StringBuilder();
       for (Relationship relationship : relationships.values()) {
         if (relationship.type().endsWith(IMAGE_REL_SUFFIX)) {
           imageRelationshipIds.add(relationship.id());
         }
         if (relationship.external()) {
           externalRelationships += 1;
+          addRecord(
+              externalRelationshipRecord,
+              relationship.id(),
+              relationship.type(),
+              relationship.target()
+          );
         }
       }
 
@@ -782,6 +1087,13 @@ public final class GoldenCaseVerifier {
       }
 
       int pageBreakCount = countPageBreaks(body);
+      String pageOrderRecord = pageOrderRecord(body);
+      if (accessAudit.attemptCount() != 0) {
+        throw failure(
+            "EXTERNAL_LINK_ACCESS",
+            accessAudit.attemptSummary()
+        );
+      }
       return new Structure(
           paragraphCount,
           headingCount,
@@ -791,15 +1103,32 @@ public final class GoldenCaseVerifier {
           imageReferences.size(),
           mediaEntryCount,
           externalRelationships,
+          accessAudit.attemptCount(),
           pageBreakCount,
+          sha256(
+              externalRelationshipRecord
+                  .toString()
+                  .getBytes(StandardCharsets.UTF_8)
+          ),
+          sha256(pageOrderRecord.getBytes(StandardCharsets.UTF_8)),
           sha256(headings.toString().getBytes(StandardCharsets.UTF_8)),
           sha256(blocks.toString().getBytes(StandardCharsets.UTF_8)),
           sha256(tables.toString().getBytes(StandardCharsets.UTF_8)),
           sha256(imageReferenceRecord.toString().getBytes(StandardCharsets.UTF_8)),
           allText.toString()
       );
+    } catch (SecurityException error) {
+      if (accessAudit.attemptCount() != 0) {
+        throw failure(
+            "EXTERNAL_LINK_ACCESS",
+            accessAudit.attemptSummary()
+        );
+      }
+      throw error;
     } catch (IOException error) {
       throw failure("DOCX_READ_FAILURE", path + ": " + error.getMessage());
+    } finally {
+      System.setSecurityManager(previousSecurityManager);
     }
   }
 
@@ -809,13 +1138,82 @@ public final class GoldenCaseVerifier {
       throw failure("DOCX_ENTRY_MISSING", name);
     }
     try (InputStream input = zip.getInputStream(entry)) {
-      return input.readAllBytes();
+      ByteArrayOutputStream output = new ByteArrayOutputStream();
+      byte[] buffer = new byte[8192];
+      long total = 0;
+      int count;
+      while ((count = input.read(buffer)) >= 0) {
+        total += count;
+        if (total > MAX_ZIP_ENTRY_BYTES) {
+          throw failure("DOCX_ENTRY_LIMIT", name);
+        }
+        output.write(buffer, 0, count);
+      }
+      return output.toByteArray();
+    }
+  }
+
+  private static void validateZipInventory(ZipFile zip) {
+    Set<String> names = new HashSet<>();
+    Map<String, Integer> requiredCounts = new LinkedHashMap<>();
+    for (String required : REQUIRED_DOCX_ENTRIES) {
+      requiredCounts.put(required, 0);
+    }
+    long totalBytes = 0;
+    int entryCount = 0;
+    for (ZipEntry entry : java.util.Collections.list(zip.entries())) {
+      entryCount += 1;
+      if (entryCount > MAX_ZIP_ENTRY_COUNT) {
+        throw failure("DOCX_ENTRY_COUNT_LIMIT", zip.getName());
+      }
+      if (!names.add(entry.getName())) {
+        throw failure("DOCX_DUPLICATE_ENTRY", entry.getName());
+      }
+      if (requiredCounts.containsKey(entry.getName())) {
+        requiredCounts.put(
+            entry.getName(),
+            requiredCounts.get(entry.getName()) + 1
+        );
+      }
+      if (entry.isDirectory()) {
+        continue;
+      }
+      long size = entry.getSize();
+      long compressedSize = entry.getCompressedSize();
+      if (size < 0 || compressedSize < 0) {
+        throw failure("DOCX_ENTRY_SIZE_UNKNOWN", entry.getName());
+      }
+      if (size > MAX_ZIP_ENTRY_BYTES) {
+        throw failure("DOCX_ENTRY_LIMIT", entry.getName());
+      }
+      totalBytes += size;
+      if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
+        throw failure("DOCX_TOTAL_SIZE_LIMIT", zip.getName());
+      }
+      if (
+          size > 0 &&
+          (
+              compressedSize == 0 ||
+              size / Math.max(1, compressedSize) > MAX_COMPRESSION_RATIO
+          )
+      ) {
+        throw failure("DOCX_COMPRESSION_RATIO", entry.getName());
+      }
+    }
+    for (Map.Entry<String, Integer> required : requiredCounts.entrySet()) {
+      if (required.getValue() != 1) {
+        throw failure(
+            "DOCX_REQUIRED_ENTRY_COUNT",
+            required.getKey()
+        );
+      }
     }
   }
 
   private static Document parseXml(byte[] bytes) {
     try {
-      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      DocumentBuilderFactory factory =
+          DocumentBuilderFactory.newDefaultInstance();
       factory.setNamespaceAware(true);
       factory.setXIncludeAware(false);
       factory.setExpandEntityReferences(false);
@@ -963,6 +1361,47 @@ public final class GoldenCaseVerifier {
     return count;
   }
 
+  private static String pageOrderRecord(Element body) {
+    StringBuilder record = new StringBuilder();
+    collectPageMarkers(body, "0", record);
+    return record.toString();
+  }
+
+  private static void collectPageMarkers(
+      Element element,
+      String path,
+      StringBuilder record
+  ) {
+    if (
+        W_NS.equals(element.getNamespaceURI()) &&
+        "lastRenderedPageBreak".equals(element.getLocalName())
+    ) {
+      addRecord(record, path, "LAST_RENDERED_PAGE_BREAK");
+    } else if (
+        W_NS.equals(element.getNamespaceURI()) &&
+        "br".equals(element.getLocalName()) &&
+        "page".equals(element.getAttributeNS(W_NS, "type"))
+    ) {
+      addRecord(record, path, "EXPLICIT_PAGE_BREAK");
+    }
+
+    int elementIndex = 0;
+    for (
+        Node child = element.getFirstChild();
+        child != null;
+        child = child.getNextSibling()
+    ) {
+      if (child instanceof Element childElement) {
+        collectPageMarkers(
+            childElement,
+            path + "." + elementIndex,
+            record
+        );
+        elementIndex += 1;
+      }
+    }
+  }
+
   private static Element firstElement(
       Document document,
       String namespace,
@@ -1071,7 +1510,12 @@ public final class GoldenCaseVerifier {
         "ExternalRelationshipCount: " +
         structure.externalRelationshipCount()
     );
+    System.out.println(
+        "ExternalRelationshipSha256: " +
+        structure.externalRelationshipSha256()
+    );
     System.out.println("PageBreakCount: " + structure.pageBreakCount());
+    System.out.println("PageOrderSha256: " + structure.pageOrderSha256());
     System.out.println(
         "HeadingOrderSha256: " + structure.headingOrderSha256()
     );
@@ -1091,13 +1535,17 @@ public final class GoldenCaseVerifier {
         new AssertionPolicy(
             "raw/11-MySQL数据库.docx",
             "test-data/golden-cases/mysql.expected.yaml",
+            "tests/golden-cases/results/mysql.result.yaml",
             "OD1.2§21.MySQL",
             "锁|事务|数据行|undo log|MVCC|Read View|隐藏列|幻读",
             "事务可见性与幻读控制",
             "锁|事务|数据行|Undo Log",
-            "事务可见性与幻读控制",
+            "锁|事务|数据行|Undo Log",
             "MVCC|Read View字段|隐藏列|单个锁类型",
-            "锁|事务|数据行|Undo Log"
+            "NOT_ALL",
+            "SOURCE_GAP",
+            "NOT_ASSERTED",
+            "EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_SPINE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED"
         )
     );
     policies.put(
@@ -1105,13 +1553,17 @@ public final class GoldenCaseVerifier {
         new AssertionPolicy(
             "raw/12-Redis中间件.docx",
             "test-data/golden-cases/redis.expected.yaml",
+            "tests/golden-cases/results/redis.result.yaml",
             "OD1.2§21.Redis",
             "死循环|客户端输出缓冲区|Pending Writes|beforeSleep|写事件|多线程 IO",
             "请求处理与高性能线程模型",
             "事件循环|客户端输出缓冲|Pending Writes|beforeSleep|写事件兜底|IO 多线程边界",
-            "请求处理与高性能线程模型",
+            "事件循环|客户端输出缓冲|Pending Writes|beforeSleep|写事件兜底|IO 多线程边界",
             "beforeSleep",
-            "事件循环|客户端输出缓冲|Pending Writes|beforeSleep|写事件兜底|IO 多线程边界"
+            "NONE_ALLOWED",
+            "SOURCE_GAP",
+            "NOT_ASSERTED",
+            "EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_SPINE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED"
         )
     );
     policies.put(
@@ -1119,13 +1571,17 @@ public final class GoldenCaseVerifier {
         new AssertionPolicy(
             "raw/40-英语学习.docx",
             "test-data/golden-cases/english.expected.yaml",
+            "tests/golden-cases/results/english.result.yaml",
             "OD1.2§21.英语",
             "主+谓（S+V）|主+系+表|主+谓+宾|主+谓+间宾+直宾|主+谓+宾+宾补|谓语动词|SVOO|SVOC",
             "五大句型统一规则体系",
             "主+谓|主+系+表|主+谓+宾|主+谓+间宾+直宾|主+谓+宾+宾补",
-            "五大句型统一规则体系",
+            "主+谓|主+系+表|主+谓+宾|主+谓+间宾+直宾|主+谓+宾+宾补",
             "例句|主导航节点",
-            "谓语动词类型|必要成分|五大句型|判定路径|SVOO-SVOC辨析"
+            "NONE_ALLOWED",
+            "ASSERTED",
+            "谓语动词类型|必要成分|五大句型|判定路径|SVOO-SVOC辨析",
+            "EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED"
         )
     );
     return Map.copyOf(policies);
@@ -1156,13 +1612,17 @@ public final class GoldenCaseVerifier {
   record AssertionPolicy(
       String sourcePath,
       String expectedPath,
+      String contractResultPath,
       String formalEvidence,
       String mustInclude,
       String mustMergeTarget,
       String mustMergeMembers,
       String mustNotSplit,
       String mustNotPromote,
-      String expectedSpine
+      String mustNotPromoteMode,
+      String expectedSpineStatus,
+      String expectedSpine,
+      String knownSourceGaps
   ) {
   }
 
@@ -1175,13 +1635,92 @@ public final class GoldenCaseVerifier {
       int imageReferenceCount,
       int mediaEntryCount,
       int externalRelationshipCount,
+      int externalAccessAttemptCount,
       int pageBreakCount,
+      String externalRelationshipSha256,
+      String pageOrderSha256,
       String headingOrderSha256,
       String blockOrderSha256,
       String tableStructureSha256,
       String imageReferenceSha256,
       String allText
   ) {
+  }
+
+  static final class ExternalAccessAudit {
+    private final Path allowedSource;
+    private final Path javaHome;
+    private final List<String> attempts = new ArrayList<>();
+    private int attemptCount;
+
+    ExternalAccessAudit(Path allowedSource) {
+      this.allowedSource = allowedSource;
+      this.javaHome = Path.of(
+          System.getProperty("java.home")
+      ).toAbsolutePath().normalize();
+    }
+
+    boolean allowedRead(String file) {
+      if (file == null) {
+        return false;
+      }
+      Path candidate;
+      try {
+        candidate = Path.of(file).toAbsolutePath().normalize();
+      } catch (RuntimeException error) {
+        return false;
+      }
+      return candidate.equals(allowedSource) ||
+          candidate.startsWith(javaHome) ||
+          candidate.equals(Path.of("/dev/random")) ||
+          candidate.equals(Path.of("/dev/urandom"));
+    }
+
+    void recordAttempt(String target) {
+      attemptCount += 1;
+      attempts.add(target);
+    }
+
+    int attemptCount() {
+      return attemptCount;
+    }
+
+    String attemptSummary() {
+      return String.join("|", attempts);
+    }
+  }
+
+  @SuppressWarnings("removal")
+  static final class NoExternalAccessSecurityManager
+      extends SecurityManager {
+    private final ExternalAccessAudit audit;
+
+    NoExternalAccessSecurityManager(ExternalAccessAudit audit) {
+      this.audit = audit;
+    }
+
+    @Override
+    public void checkPermission(java.security.Permission permission) {
+      // This guard is scoped only to external I/O observation.
+    }
+
+    @Override
+    public void checkRead(String file) {
+      if (!audit.allowedRead(file)) {
+        audit.recordAttempt("FILE:" + file);
+        throw new SecurityException(
+            "external file access denied by Golden Case verifier: " + file
+        );
+      }
+    }
+
+    @Override
+    public void checkConnect(String host, int port) {
+      audit.recordAttempt("NETWORK:" + host + ":" + port);
+      throw new SecurityException(
+          "network access denied by Golden Case verifier"
+      );
+    }
   }
 
   static final class ValidationFailure extends RuntimeException {

@@ -201,11 +201,13 @@ W0-G3 JsonSchemaValidation = PASS
 
 **Produces:** 绑定原件哈希的 MustInclude/MustMerge/MustNotSplit/MustNotPromote/ExpectedRole/ExpectedSpine/ExpectedThemeClosure/KnownSourceGaps。
 
-- [x] **Step 1:** 先写哈希漂移、链接策略弱化、丢失表格、丢失图片引用、标题和段落顺序变化的失败测试，并观察缺少验证器时的预期失败。
-- [x] **Step 2:** MySQL Case 编码“事务可见性与幻读控制”闭环，并禁止把 MVCC、Read View 字段、隐藏列或单锁类型全部升级为一级 Module。
+- [x] **Step 1:** 先写哈希漂移、外链访问与目标变化、ZIP/路径逃逸、丢失表格、丢失图片引用、标题、段落和分页位置变化的失败测试，并观察缺少验证器时的预期失败。
+- [x] **Step 2:** MySQL Case 编码“事务可见性与幻读控制”闭环，并以 `NOT_ALL` 集合语义禁止把 MVCC、Read View 字段、隐藏列和单锁类型全部升级为一级 Module。
 - [x] **Step 3:** Redis Case 编码“请求处理与高性能线程模型”聚合，并将 `beforeSleep` 标为 `MustNotPromote`。
 - [x] **Step 4:** 英语 Case 编码“谓语动词类型 → 必要成分 → 五大句型 → 判定路径 → SVOO/SVOC 辨析”，并禁止例句升级。
 - [x] **Step 5:** 运行离线回归，确认 Redis 的 4 个 `file:///` 链接仅被计数且没有网络或文件访问。
+- [x] **Step 5a:** 将八组断言实际应用到三份候选结果契约夹具，并以 8 个逐组
+  反例证明任一结果违约都会使 Gate 失败；夹具不冒充业务生成结果。
 - [ ] **Step 6:** 提交并标记：
 
 ```text

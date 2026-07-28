@@ -1,0 +1,11 @@
+ResultVersion: 1
+CaseId: GC-REDIS-001
+IncludedConcepts: 死循环|客户端输出缓冲区|Pending Writes|beforeSleep|写事件|多线程 IO
+MergeTarget: 请求处理与高性能线程模型
+MergeMembers: 事件循环|客户端输出缓冲|Pending Writes|beforeSleep|写事件兜底|IO 多线程边界
+StandaloneModules: NONE
+PromotedModules: NONE
+Role: NOT_ASSERTED
+Spine: NOT_ASSERTED
+ThemeClosure: NOT_ASSERTED
+ReportedSourceGaps: EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_SPINE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED

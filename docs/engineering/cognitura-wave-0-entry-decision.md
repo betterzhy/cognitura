@@ -35,7 +35,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G2 SpecialtyContractCoverage` | `PASS` | 26 项迁移、19 项契约、2 个开放缺口和 1 个证据限制通过验证 |
 | `W0-G2A BuildBaseline` | `PASS` | 精确全栈版本、单部署 server、空 web 入口、模块边界与在线/离线构建验证通过 |
 | `W0-G3 JsonSchemaValidation` | `PASS` | 14 份 Schema、2 个合法空值上下文、34 个语义反例、68 个运行时语义错误码、645 条精确 Schema 证据映射、16 条语义不变量证据、6 个映射篡改反例和全量渲染 round-trip 通过；固定候选 `72b5ce7` 深审 GO |
-| `W0-G4 GoldenCaseRegression` | `IN_REVIEW` | 3 个原件绑定正例、8 个隔离负例、24 组可执行断言与结构基线本地通过；等待固定候选深审 |
+| `W0-G4 GoldenCaseRegression` | `IN_REVIEW` | 3 个原件正例、3 个结果契约正例、21 个隔离负例、24 组结果断言、结构/分页/外链目标指纹与 I/O Guard 本地通过；首候选 `a613db3` 深审 NO_GO 后已整改，等待新候选深审 |
 | `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 9 个负例通过 |
 | `W0-G5 TestAndCI` | `NOT_STARTED` | 本地和 CI 全绿 |
 | `W0-G6 FixedCommitReview` | `NOT_STARTED` | 固定提交深度审查无 P0/P1/P2 |

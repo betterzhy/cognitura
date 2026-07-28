@@ -7,14 +7,16 @@ FormalEvidence: OD1.2§21.MySQL
 MustInclude: 锁|事务|数据行|undo log|MVCC|Read View|隐藏列|幻读
 MustMergeTarget: 事务可见性与幻读控制
 MustMergeMembers: 锁|事务|数据行|Undo Log
-MustNotSplit: 事务可见性与幻读控制
+MustNotSplit: 锁|事务|数据行|Undo Log
 MustNotPromote: MVCC|Read View字段|隐藏列|单个锁类型
+MustNotPromoteMode: NOT_ALL
 ExpectedRoleStatus: SOURCE_GAP
 ExpectedRole: NOT_ASSERTED
-ExpectedSpine: 锁|事务|数据行|Undo Log
+ExpectedSpineStatus: SOURCE_GAP
+ExpectedSpine: NOT_ASSERTED
 ExpectedThemeClosureStatus: SOURCE_GAP
 ExpectedThemeClosure: NOT_ASSERTED
-KnownSourceGaps: EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED
+KnownSourceGaps: EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_SPINE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED
 ExternalRelationshipPolicy: RECORD_ONLY_DO_NOT_RESOLVE
 ParagraphCount: 369
 HeadingCount: 71
@@ -24,7 +26,9 @@ TableCellCount: 0
 ImageReferenceCount: 12
 MediaEntryCount: 12
 ExternalRelationshipCount: 0
+ExternalRelationshipSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 PageBreakCount: 38
+PageOrderSha256: 7f61a005412199c80b5ef1a4a8297994a388116d31fc980014781c8e275d4138
 HeadingOrderSha256: 44ac3afc778bd0821da0d5608915b0eac418670c394022675cbd2c1a5fca167b
 BlockOrderSha256: 4aed383a9bf7950a59877d251a3663a0a8cdc59cbe32e4b891eb0b70bb80f0b3
 TableStructureSha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

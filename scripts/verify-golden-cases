@@ -19,4 +19,7 @@ if [[ "$#" -eq 0 ]]; then
     "${repo_root}/test-data/golden-cases/manifest.yaml"
 fi
 
-exec java "${verifier}" "$@"
+exec java \
+  -Djava.security.manager=allow \
+  "${verifier}" \
+  "$@"

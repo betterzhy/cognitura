@@ -1,0 +1,11 @@
+ResultVersion: 1
+CaseId: GC-ENGLISH-001
+IncludedConcepts: 主+谓（S+V）|主+系+表|主+谓+宾|主+谓+间宾+直宾|主+谓+宾+宾补|谓语动词|SVOO|SVOC
+MergeTarget: 五大句型统一规则体系
+MergeMembers: 主+谓|主+系+表|主+谓+宾|主+谓+间宾+直宾|主+谓+宾+宾补
+StandaloneModules: NONE
+PromotedModules: NONE
+Role: NOT_ASSERTED
+Spine: 谓语动词类型|必要成分|五大句型|判定路径|SVOO-SVOC辨析
+ThemeClosure: NOT_ASSERTED
+ReportedSourceGaps: EXPECTED_ROLE_NOT_SPECIFIED|EXPECTED_THEME_CLOSURE_NOT_SPECIFIED

@@ -62,6 +62,18 @@ public final class DocxFixtureMutator {
           document,
           entries.get("word/_rels/document.xml.rels")
       );
+      case "move-first-page-marker" -> moveFirstPageMarker(document);
+      case "inflate-document-xml" -> inflateDocumentXml(body);
+      case "rewrite-first-external-target" -> {
+        Document relationships = parse(
+            entries.get("word/_rels/document.xml.rels")
+        );
+        rewriteFirstExternalTarget(relationships);
+        entries.put(
+            "word/_rels/document.xml.rels",
+            serialize(relationships)
+        );
+      }
       default -> throw new IllegalArgumentException(
           "unknown mutation " + mutation
       );
@@ -173,6 +185,72 @@ public final class DocxFixtureMutator {
     if (!removeImageAttribute(document.getDocumentElement(), imageIds)) {
       throw new IllegalStateException("image reference not found");
     }
+  }
+
+  private static void moveFirstPageMarker(Document document) {
+    NodeList markers = document.getElementsByTagNameNS(
+        W_NS,
+        "lastRenderedPageBreak"
+    );
+    if (markers.getLength() == 0) {
+      throw new IllegalStateException("page marker not found");
+    }
+    Node marker = markers.item(0);
+    Node sourceRun = marker.getParentNode();
+    while (
+        sourceRun != null &&
+        !(
+            sourceRun instanceof Element element &&
+            W_NS.equals(element.getNamespaceURI()) &&
+            "r".equals(element.getLocalName())
+        )
+    ) {
+      sourceRun = sourceRun.getParentNode();
+    }
+    if (sourceRun == null) {
+      throw new IllegalStateException("page marker run not found");
+    }
+
+    NodeList runs = document.getElementsByTagNameNS(W_NS, "r");
+    Element targetRun = null;
+    for (int index = 0; index + 1 < runs.getLength(); index++) {
+      if (runs.item(index) == sourceRun) {
+        targetRun = (Element) runs.item(index + 1);
+        break;
+      }
+    }
+    if (targetRun == null) {
+      throw new IllegalStateException("target run not found");
+    }
+    Node moved = marker.cloneNode(true);
+    marker.getParentNode().removeChild(marker);
+    targetRun.appendChild(moved);
+  }
+
+  private static void rewriteFirstExternalTarget(Document relationships) {
+    NodeList nodes = relationships.getElementsByTagNameNS(
+        PACKAGE_REL_NS,
+        "Relationship"
+    );
+    for (int index = 0; index < nodes.getLength(); index++) {
+      Element relationship = (Element) nodes.item(index);
+      if ("External".equals(relationship.getAttribute("TargetMode"))) {
+        relationship.setAttribute(
+            "Target",
+            "file:///cognitura-access-canary/forbidden.txt"
+        );
+        return;
+      }
+    }
+    throw new IllegalStateException("external relationship not found");
+  }
+
+  private static void inflateDocumentXml(Element body) {
+    body.appendChild(
+        body.getOwnerDocument().createTextNode(
+            " ".repeat(17 * 1024 * 1024)
+        )
+    );
   }
 
   private static Set<String> imageRelationshipIds(Document relationships) {

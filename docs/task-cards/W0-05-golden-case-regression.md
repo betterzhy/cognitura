@@ -42,16 +42,20 @@ ReviewRoute = MAIN_AGENT_GATE
 
 ## 4. 执行步骤
 
-- [x] 编写原件哈希漂移、标题顺序变化、段落顺序变化、表格丢失、图片引用丢失、
-  外链策略弱化和断言策略弱化测试。
+- [x] 编写原件哈希漂移、标题顺序变化、段落顺序变化、分页位置变化、表格丢失、
+  图片引用丢失、外链目标变化、外链访问、符号链接逃逸、ZIP 资源越界和断言
+  策略弱化测试。
 - [x] 运行测试并确认回归资产未实现时因缺少可执行验证器而失败。
 - [x] 建立绑定来源 manifest SHA-256 的三份 expected 文件。
 - [x] 编码 MySQL 闭环及 MVCC、Read View、隐藏列和单锁类型不得全部升级的断言。
 - [x] 编码 Redis 线程模型聚合及 `beforeSleep = MustNotPromote`。
 - [x] 编码英语五大句型判定路径及例句不得升级的断言。
+- [x] 将八组 expected 断言应用到三份候选结果契约夹具，并为每组断言建立
+  独立失败样例；契约夹具只验证回归引擎，不冒充 Wave 1 生成产物。
 - [x] 验证解析保留标题、段落、表格行列与单元格、图片引用、分页符和原始顺序。
 - [x] 在隔离临时目录运行离线回归，证明 Redis 的 4 个遗留外链仅被计数且
-  `ExternalLinksAccessed = 0`。
+  目标指纹保持一致，JDK 21 I/O Guard 报告 `ExternalLinksAccessed = 0`，
+  且 canary 访问探针被拒绝。
 - [ ] 更新任务卡状态并形成独立提交。
 
 ## 5. 验证命令
@@ -78,21 +82,33 @@ git diff --check
 
 ```text
 ObservedRedBoundary = missing executable verifier
+  → missing result assertion mode
+  → external access guard inactive
+  → symlink escape accepted
+  → PASS
 CaseCount = 3
 ExecutableAssertionGroupCount = 24
 StructuralBaselineCount = 3
 PositiveCases = 3
-NegativeCases = 8
+PositiveResultFixtures = 3
+AssertionNegativeCases = 8
+BaselineNegativeCases = 12
+AccessIsolationNegativeCases = 1
+NegativeCases = 21
 ExternalLinksObserved = 4
 ExternalLinksAccessed = 0
+ExternalAccessGuard = ACTIVE
 FormalInputsUnchanged = PASS
 W0-G4 CandidateStatus = IN_REVIEW
 ```
 
 总体设计没有为三个 Case 分别指定 `ExpectedRole` 和
-`ExpectedThemeClosure` 的具体值，因此对应字段以
+`ExpectedThemeClosure` 的具体值，也没有给出 MySQL、Redis 的 case 级
+`ExpectedSpine` 路径。因此对应字段以
 `SOURCE_GAP / NOT_ASSERTED` 作为可执行预期，并在每个 Case 的
-`KnownSourceGaps` 中显式登记；没有从常识补写角色或 Closure。
+`KnownSourceGaps` 中显式登记；英语 `ExpectedSpine` 保留总体设计明确给出的
+判定路径。MySQL 的 promotion 约束使用 `NOT_ALL` 集合语义，没有把它错误解释为
+四项分别绝对禁止。
 
 ```text
 W0-G4 GoldenCaseRegression = IN_REVIEW
@@ -102,7 +118,9 @@ W0-G4 GoldenCaseRegression = IN_REVIEW
 
 ```text
 CommitMessage = test: add Cognitura golden case regression baseline
-CommitReview = DEEP_REVIEWER_FIXED_COMMIT
+CommitReview = MAIN_AGENT_GATE
+AdditionalFixedCommitReview = DEEP_REVIEWER_FIXED_COMMIT
+PreviousFixedImplementationReview = a613db348bd312a73b34c924d270778f7c93a92f|NO_GO|P0=0|P1=4|P2=2
 FixedImplementationReview = PENDING
 NextTaskCardOnPass = W0-07
 ```
