@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+  "title": "Cognitura PrimaryCognitiveSpine 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "revisionId",
+    "publicationState",
+    "moduleRef",
+    "steps"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"
+    },
+    "artifactId": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"
+    },
+    "revisionId": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/revisionId"
+    },
+    "publicationState": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/publicationState"
+    },
+    "moduleRef": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 9,
+      "items": {
+        "$ref": "#/$defs/spineStep"
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "publicationState": {
+        "const": "PUBLISHED"
+      }
+    },
+    "required": ["publicationState"]
+  },
+  "then": {
+    "properties": {
+      "steps": {
+        "items": {
+          "properties": {
+            "sourceRefs": {
+              "minItems": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "spineStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepId", "order", "statement", "sourceRefs"],
+      "properties": {
+        "stepId": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "statement": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+        },
+        "sourceRefs": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"
+        }
+      }
+    }
+  }
+}

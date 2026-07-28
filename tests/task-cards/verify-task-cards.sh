@@ -148,10 +148,13 @@ fi
 
 blocked_terminal_dir="${test_tmp_root}/blocked-terminal"
 cp -R "${cards_dir}" "${blocked_terminal_dir}"
+blocked_active_file=("${blocked_terminal_dir}/${active_task_card}-"*.md)
+[[ "${#blocked_active_file[@]}" -eq 1 ]] ||
+  fail "could not resolve active task card fixture: ${active_task_card}"
 sed -i.bak \
   -E 's/^Status = (DONE|READY|QUEUED)$/Status = BLOCKED_BY_DOCUMENTATION_GAP/' \
-  "${blocked_terminal_dir}/W0-04-json-schema-source.md"
-rm "${blocked_terminal_dir}/W0-04-json-schema-source.md.bak"
+  "${blocked_active_file[0]}"
+rm "${blocked_active_file[0]}.bak"
 sed -i.bak \
   -e 's/^ActiveTaskCard = .*$/ActiveTaskCard = NONE/' \
   -e 's/^TaskCardSetStatus = .*$/TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP/' \
@@ -161,10 +164,13 @@ expect_success "${blocked_terminal_dir}"
 
 blocked_with_ready_dir="${test_tmp_root}/blocked-with-ready"
 cp -R "${blocked_terminal_dir}" "${blocked_with_ready_dir}"
+blocked_with_ready_active_file=("${blocked_with_ready_dir}/${active_task_card}-"*.md)
+[[ "${#blocked_with_ready_active_file[@]}" -eq 1 ]] ||
+  fail "could not resolve blocked active task card fixture: ${active_task_card}"
 sed -i.bak \
   's/^Status = BLOCKED_BY_DOCUMENTATION_GAP$/Status = READY/' \
-  "${blocked_with_ready_dir}/W0-04-json-schema-source.md"
-rm "${blocked_with_ready_dir}/W0-04-json-schema-source.md.bak"
+  "${blocked_with_ready_active_file[0]}"
+rm "${blocked_with_ready_active_file[0]}.bak"
 expect_failure \
   "${blocked_with_ready_dir}" \
   "blocked task card set must have zero READY task cards"

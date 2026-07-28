@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "spine.mvcc",
+  "revisionId": "rev.spine.mvcc.1",
+  "publicationState": "PUBLISHED",
+  "moduleRef": "module.mvcc",
+  "steps": [
+    {
+      "stepId": "spine-step.mvcc.1",
+      "order": 1,
+      "statement": "Create a version when a write changes state.",
+      "sourceRefs": ["evidence.mvcc"]
+    },
+    {
+      "stepId": "spine-step.mvcc.2",
+      "order": 2,
+      "statement": "Capture the transaction visibility boundary.",
+      "sourceRefs": ["evidence.mvcc"]
+    },
+    {
+      "stepId": "spine-step.mvcc.3",
+      "order": 3,
+      "statement": "Select a visible version for each read.",
+      "sourceRefs": ["evidence.mvcc"]
+    },
+    {
+      "stepId": "spine-step.mvcc.4",
+      "order": 4,
+      "statement": "Retire versions after they are no longer visible.",
+      "sourceRefs": ["evidence.mvcc"]
+    }
+  ]
+}

@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+  "title": "Cognitura KnowledgeTheme 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "revisionId",
+    "publicationState",
+    "title",
+    "coreQuestions",
+    "role",
+    "primaryParent",
+    "moduleCandidates",
+    "coreModuleRefs",
+    "relations",
+    "sourceCoverage",
+    "gaps"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"
+    },
+    "artifactId": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"
+    },
+    "revisionId": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/revisionId"
+    },
+    "publicationState": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/publicationState"
+    },
+    "title": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+    },
+    "coreQuestions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+      }
+    },
+    "role": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/knowledgeRole"
+    },
+    "primaryParent": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"
+    },
+    "moduleCandidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/moduleCandidate"
+      }
+    },
+    "coreModuleRefs": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray",
+      "maxItems": 7
+    },
+    "relations": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/relation"
+      }
+    },
+    "sourceCoverage": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/sourceCoverage"
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/gap"
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "publicationState": {
+        "const": "PUBLISHED"
+      }
+    },
+    "required": ["publicationState"]
+  },
+  "then": {
+    "properties": {
+      "coreModuleRefs": {
+        "minItems": 2,
+        "maxItems": 7
+      }
+    }
+  },
+  "$defs": {
+    "moduleCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "moduleId",
+        "title",
+        "coreQuestions",
+        "role",
+        "primaryParent",
+        "candidateSpine",
+        "sourceCoverage",
+        "gaps"
+      ],
+      "properties": {
+        "moduleId": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"
+        },
+        "title": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+        },
+        "coreQuestions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+          }
+        },
+        "role": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/knowledgeRole"
+        },
+        "primaryParent": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"
+        },
+        "candidateSpine": {
+          "type": "array",
+          "maxItems": 9,
+          "items": {
+            "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+          }
+        },
+        "sourceCoverage": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/sourceCoverage"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/gap"
+          }
+        }
+      }
+    }
+  }
+}

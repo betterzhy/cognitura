@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:ui:page-state:2.0.0",
+  "title": "Cognitura PageState 2.0.0",
+  "type": "string",
+  "enum": [
+    "EMPTY",
+    "UPLOADING",
+    "PARSING",
+    "ANALYZING",
+    "GENERATING",
+    "WAITING_REVIEW",
+    "PARTIALLY_GENERATED",
+    "FAILED",
+    "RETRYING",
+    "CONFIRMED",
+    "PUBLISHED",
+    "OUTDATED_BY_STRUCTURE_CHANGE"
+  ]
+}

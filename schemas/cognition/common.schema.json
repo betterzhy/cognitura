@@ -1,0 +1,399 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:cognition:common:2.0.0",
+  "title": "Cognitura Common Contract Definitions 2.0.0",
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "artifactId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "revisionId": {
+      "$ref": "#/$defs/artifactId"
+    },
+    "artifactRef": {
+      "$ref": "#/$defs/artifactId"
+    },
+    "nonBlankText": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "publicationState": {
+      "enum": ["DRAFT", "CONFIRMED", "PUBLISHED"]
+    },
+    "knowledgeRole": {
+      "enum": ["FOUNDATION", "CORE", "BRIDGE", "APPLICATION", "EXTENSION"]
+    },
+    "relationType": {
+      "enum": ["DEPENDS_ON", "EXPLAINS", "CONTRASTS_WITH", "APPLIES_TO", "IMPACTS"]
+    },
+    "knowledgeElementType": {
+      "enum": ["CONCEPT", "RULE", "MECHANISM", "STEP", "DISTINCTION", "BOUNDARY", "EXAMPLE", "PRACTICE"]
+    },
+    "sourceKind": {
+      "enum": ["SOURCE_EXPLICIT", "SOURCE_SYNTHESIZED"]
+    },
+    "assessmentStatus": {
+      "enum": ["PASS", "WARN", "FAIL"]
+    },
+    "conflictState": {
+      "enum": ["NONE", "UNRESOLVED", "RESOLVED_BY_USER"]
+    },
+    "riskLevel": {
+      "enum": ["LOW", "MEDIUM", "HIGH"]
+    },
+    "artifactRefArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "uniqueItems": true
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relationId", "type", "sourceRef", "targetRef", "origin", "riskLevel", "sourceRefs", "gapRefs"],
+      "properties": {
+        "relationId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "type": {
+          "$ref": "#/$defs/relationType"
+        },
+        "sourceRef": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "targetRef": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "origin": {
+          "$ref": "#/$defs/sourceKind"
+        },
+        "riskLevel": {
+          "$ref": "#/$defs/riskLevel"
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        },
+        "gapRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceRefs": {
+                "maxItems": 0
+              }
+            },
+            "required": ["sourceRefs"]
+          },
+          "then": {
+            "properties": {
+              "gapRefs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "const": "SOURCE_EXPLICIT"
+              }
+            },
+            "required": ["origin"]
+          },
+          "then": {
+            "properties": {
+              "sourceRefs": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sourceCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidenceRefs", "gapRefs"],
+      "properties": {
+        "status": {
+          "enum": ["COMPLETE", "PARTIAL", "MISSING"]
+        },
+        "evidenceRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        },
+        "gapRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "COMPLETE"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "evidenceRefs": {
+                "minItems": 1
+              },
+              "gapRefs": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "PARTIAL"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "evidenceRefs": {
+                "minItems": 1
+              },
+              "gapRefs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "MISSING"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "evidenceRefs": {
+                "maxItems": 0
+              },
+              "gapRefs": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gapId", "summary", "state", "sourceRefs"],
+      "properties": {
+        "gapId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "summary": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "state": {
+          "enum": ["OPEN", "RESOLVED"]
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        }
+      }
+    },
+    "criticalBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundaryId", "statement", "sourceRefs"],
+      "properties": {
+        "boundaryId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "statement": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        }
+      }
+    },
+    "evidenceStatement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statementId", "statement", "sourceRefs", "gapRefs"],
+      "properties": {
+        "statementId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "statement": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        },
+        "gapRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        }
+      },
+      "if": {
+        "properties": {
+          "sourceRefs": {
+            "maxItems": 0
+          }
+        },
+        "required": ["sourceRefs"]
+      },
+      "then": {
+        "properties": {
+          "gapRefs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "conflictResolutionDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decisionId", "decidedBy", "outcome", "preferredEvidenceRef", "rationale"],
+      "properties": {
+        "decisionId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "decidedBy": {
+          "const": "USER"
+        },
+        "outcome": {
+          "enum": ["PRESERVE_ALL", "PREFER_EVIDENCE"]
+        },
+        "preferredEvidenceRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/artifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonBlankText"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "PRESERVE_ALL"
+              }
+            },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "preferredEvidenceRef": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "PREFER_EVIDENCE"
+              }
+            },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "preferredEvidenceRef": {
+                "$ref": "#/$defs/artifactRef"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "orderedArtifactStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stepId", "order", "artifactRef", "statement", "sourceRefs"],
+      "properties": {
+        "stepId": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "artifactRef": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "statement": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        }
+      }
+    },
+    "assessmentFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "artifactRefs", "sourceRefs"],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "message": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "artifactRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/artifactRefArray"
+        }
+      }
+    },
+    "assessmentDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "findings"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/assessmentStatus"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assessmentFinding"
+          }
+        }
+      }
+    }
+  }
+}

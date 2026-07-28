@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "2.0.0",
+  "runId": "run.module.mvcc.1",
+  "stage": "MODULE_DEEP_GENERATION",
+  "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "promptVersion": "prompt.module.v1",
+  "model": "model.contract-test",
+  "sourceBlockRefs": ["block.mysql.mvcc.1"],
+  "outputKind": "INTERMEDIATE",
+  "outputSchemaId": null,
+  "structuredOutput": {
+    "snapshot": "module-generation-complete"
+  },
+  "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "validationResult": {
+    "status": "PASS",
+    "validatedSchemaIds": [],
+    "errors": []
+  },
+  "generationStatus": "SUCCEEDED",
+  "retryCount": 0,
+  "retryScopeRefs": [],
+  "failure": null
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "2.0.0",
+  "moduleRef": "module.mvcc",
+  "rendererType": "STAGE_CHAIN",
+  "title": "MVCC mechanism",
+  "summary": "A focused projection of the module thesis and visibility element.",
+  "nodes": [
+    {
+      "nodeId": "renderer-node.mvcc.thesis",
+      "artifactRef": "module.mvcc",
+      "contentPath": "/thesis",
+      "label": "Module thesis",
+      "summary": "The central claim of the module.",
+      "groupRef": null,
+      "sourceRefs": ["evidence.mvcc"]
+    }
+  ],
+  "groups": [],
+  "relations": [],
+  "sourceRefs": ["evidence.mvcc"],
+  "incompleteState": {
+    "status": "COMPLETE",
+    "gapRefs": []
+  },
+  "interactionHints": ["EXPAND_DETAILS", "SHOW_SOURCE"]
+}

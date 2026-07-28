@@ -1,0 +1,33 @@
+{
+  "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+  "expectedCategory": "INSTANCE_CONTRACT_VIOLATION",
+  "instance": {
+    "schemaVersion": "2.0.0",
+    "runId": "run.invalid.succeeded",
+    "stage": "MODULE_DEEP_GENERATION",
+    "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "promptVersion": "prompt.module.v1",
+    "model": "model.contract-test",
+    "sourceBlockRefs": [],
+    "outputKind": "NONE",
+    "outputSchemaId": null,
+    "structuredOutput": null,
+    "outputHash": null,
+    "validationResult": {
+      "status": "FAIL",
+      "validatedSchemaIds": [],
+      "errors": [
+        {
+          "code": "INVALID_OUTPUT",
+          "instancePath": "",
+          "schemaPath": "",
+          "message": "Output failed validation."
+        }
+      ]
+    },
+    "generationStatus": "SUCCEEDED",
+    "retryCount": 0,
+    "retryScopeRefs": [],
+    "failure": null
+  }
+}

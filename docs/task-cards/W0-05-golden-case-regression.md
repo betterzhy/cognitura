@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-05
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W0-G4 GoldenCaseRegression
 Risk = HIGH
 DependsOn = W0-01,W0-04
@@ -81,7 +81,7 @@ W0-G4 GoldenCaseRegression = PASS
 ```text
 CommitMessage = test: add Cognitura golden case regression baseline
 CommitReview = MAIN_AGENT_GATE
-NextTaskCardOnPass = W0-06
+NextTaskCardOnPass = W0-07
 ```
 
 原件内容与总体设计预期冲突时记录 `KnownSourceGap`，不得静默补写原文。

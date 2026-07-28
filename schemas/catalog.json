@@ -1,0 +1,104 @@
+{
+  "catalogVersion": "2.0.0",
+  "draft": "https://json-schema.org/draft/2020-12/schema",
+  "schemas": [
+    {
+      "id": "urn:cognitura:schema:cognition:common:2.0.0",
+      "path": "schemas/cognition/common.schema.json",
+      "version": "2.0.0",
+      "instantiable": false,
+      "fixture": null
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "path": "schemas/cognition/knowledge-skeleton.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/knowledge-skeleton.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "path": "schemas/cognition/knowledge-theme.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/knowledge-theme.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "path": "schemas/cognition/cognitive-module.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/cognitive-module.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "path": "schemas/cognition/primary-cognitive-spine.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/primary-cognitive-spine.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "path": "schemas/cognition/knowledge-element.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/knowledge-element.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "path": "schemas/cognition/theme-closure.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/theme-closure.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "path": "schemas/cognition/landscape-closure.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/landscape-closure.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "path": "schemas/cognition/evidence-reference.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/evidence-reference.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "path": "schemas/cognition/structure-ambiguity.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/structure-ambiguity.json"
+    },
+    {
+      "id": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "path": "schemas/cognition/quality-assessment.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/quality-assessment.json"
+    },
+    {
+      "id": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "path": "schemas/generation/generation-stage-record.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/generation-stage-record.json"
+    },
+    {
+      "id": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "path": "schemas/ui/renderer-input.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/renderer-input.json"
+    },
+    {
+      "id": "urn:cognitura:schema:ui:page-state:2.0.0",
+      "path": "schemas/ui/page-state.schema.json",
+      "version": "2.0.0",
+      "instantiable": true,
+      "fixture": "tests/contracts/schema/fixtures/valid/page-state.json"
+    }
+  ]
+}

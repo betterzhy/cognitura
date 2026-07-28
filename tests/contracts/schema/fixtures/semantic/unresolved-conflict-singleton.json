@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "CONFLICT_GROUP_SINGLETON",
+  "mutation": "UNRESOLVED_CONFLICT_SINGLETON"
+}

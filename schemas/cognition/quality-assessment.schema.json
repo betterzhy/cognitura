@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+  "title": "Cognitura QualityAssessment 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "revisionId",
+    "publicationState",
+    "subjectRef",
+    "hierarchyCorrectness",
+    "granularityFitness",
+    "cognitiveClosure",
+    "spineCoherence",
+    "importanceAccuracy",
+    "sourceFaithfulness",
+    "compressionEfficiency",
+    "hardFailures"
+  ],
+  "properties": {
+    "schemaVersion": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"},
+    "artifactId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+    "revisionId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/revisionId"},
+    "publicationState": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/publicationState"},
+    "subjectRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+    "hierarchyCorrectness": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/assessmentDimension"},
+    "granularityFitness": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/assessmentDimension"},
+    "cognitiveClosure": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/assessmentDimension"},
+    "spineCoherence": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/assessmentDimension"},
+    "importanceAccuracy": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/assessmentDimension"},
+    "sourceFaithfulness": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/assessmentDimension"},
+    "compressionEfficiency": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/assessmentDimension"},
+    "hardFailures": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "SOURCE_DIRECTORY_COPIED",
+          "MECHANISM_FRAGMENTED",
+          "PRIMARY_SPINE_MISSING",
+          "ORPHAN_CORE_KNOWLEDGE",
+          "BOUNDARY_MISSING",
+          "CRITICAL_CLAIM_WITHOUT_SOURCE",
+          "SOURCE_GAP_SILENTLY_FILLED",
+          "THEME_CLOSURE_MISSING",
+          "DUPLICATED_BODY_ACROSS_THEMES"
+        ]
+      }
+    }
+  },
+  "if": {
+    "properties": {"publicationState": {"const": "PUBLISHED"}},
+    "required": ["publicationState"]
+  },
+  "then": {
+    "properties": {
+      "hierarchyCorrectness": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+      "granularityFitness": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+      "cognitiveClosure": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+      "spineCoherence": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+      "importanceAccuracy": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+      "sourceFaithfulness": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+      "compressionEfficiency": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+      "hardFailures": {"maxItems": 0}
+    }
+  }
+}

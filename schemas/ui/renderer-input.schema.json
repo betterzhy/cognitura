@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+  "title": "Cognitura RendererInput 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "moduleRef",
+    "rendererType",
+    "title",
+    "summary",
+    "nodes",
+    "groups",
+    "relations",
+    "sourceRefs",
+    "incompleteState",
+    "interactionHints"
+  ],
+  "properties": {
+    "schemaVersion": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"},
+    "moduleRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+    "rendererType": {
+      "enum": [
+        "HIERARCHY",
+        "MATRIX",
+        "STAGE_CHAIN",
+        "DECISION_PATH",
+        "STATE_TRANSITION",
+        "COMPARISON",
+        "CAUSAL_CHAIN",
+        "LAYERED_STRUCTURE",
+        "STRUCTURED_PANEL"
+      ]
+    },
+    "title": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+    "summary": {"type": "string"},
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/rendererNode"}
+    },
+    "groups": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {"$ref": "#/$defs/rendererGroup"}
+    },
+    "relations": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/rendererRelation"}
+    },
+    "sourceRefs": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"},
+    "incompleteState": {"$ref": "#/$defs/incompleteState"},
+    "interactionHints": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["EXPAND_DETAILS", "SHOW_SOURCE", "FOLD_GROUP"]}
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"nodes": {"minItems": 13}},
+        "required": ["nodes"]
+      },
+      "then": {
+        "properties": {"groups": {"minItems": 1}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "incompleteState": {
+            "properties": {"status": {"const": "COMPLETE"}},
+            "required": ["status"]
+          }
+        },
+        "required": ["incompleteState"]
+      },
+      "then": {
+        "properties": {"sourceRefs": {"minItems": 1}}
+      }
+    }
+  ],
+  "$defs": {
+    "rendererNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "artifactRef", "contentPath", "label", "summary", "groupRef", "sourceRefs"],
+      "properties": {
+        "nodeId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+        "artifactRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+        "contentPath": {
+          "type": "string",
+          "pattern": "^(?:/(?:[^~/]|~0|~1)*)*$"
+        },
+        "label": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+        "summary": {"type": "string"},
+        "groupRef": {
+          "anyOf": [
+            {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+            {"type": "null"}
+          ]
+        },
+        "sourceRefs": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"}
+      }
+    },
+    "rendererGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groupId", "title", "nodeRefs", "collapsed"],
+      "properties": {
+        "groupId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+        "title": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+        "nodeRefs": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray",
+          "minItems": 1
+        },
+        "collapsed": {"type": "boolean"}
+      }
+    },
+    "rendererRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relationId",
+        "type",
+        "sourceNodeRef",
+        "targetNodeRef",
+        "artifactRelationRef",
+        "sourceRefs"
+      ],
+      "properties": {
+        "relationId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+        "type": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/relationType"},
+        "sourceNodeRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+        "targetNodeRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+        "artifactRelationRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+        "sourceRefs": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"}
+      }
+    },
+    "incompleteState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "gapRefs"],
+      "properties": {
+        "status": {"enum": ["COMPLETE", "PARTIAL", "BLOCKED_BY_SOURCE_GAP"]},
+        "gapRefs": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"status": {"const": "COMPLETE"}},
+            "required": ["status"]
+          },
+          "then": {"properties": {"gapRefs": {"maxItems": 0}}}
+        },
+        {
+          "if": {
+            "properties": {"status": {"const": "BLOCKED_BY_SOURCE_GAP"}},
+            "required": ["status"]
+          },
+          "then": {"properties": {"gapRefs": {"minItems": 1}}}
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "assessment.module.mvcc",
+  "revisionId": "rev.assessment.module.mvcc.1",
+  "publicationState": "PUBLISHED",
+  "subjectRef": "module.mvcc",
+  "hierarchyCorrectness": {"status": "PASS", "findings": []},
+  "granularityFitness": {"status": "PASS", "findings": []},
+  "cognitiveClosure": {"status": "PASS", "findings": []},
+  "spineCoherence": {"status": "PASS", "findings": []},
+  "importanceAccuracy": {"status": "PASS", "findings": []},
+  "sourceFaithfulness": {"status": "PASS", "findings": []},
+  "compressionEfficiency": {"status": "WARN", "findings": [
+    {
+      "code": "DENSITY_NEAR_LIMIT",
+      "message": "The module is close to the preferred reading density.",
+      "artifactRefs": ["module.mvcc"],
+      "sourceRefs": ["evidence.mvcc"]
+    }
+  ]},
+  "hardFailures": []
+}

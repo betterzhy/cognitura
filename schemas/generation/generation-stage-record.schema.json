@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+  "title": "Cognitura GenerationStageRecord 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "stage",
+    "inputHash",
+    "promptVersion",
+    "model",
+    "sourceBlockRefs",
+    "outputKind",
+    "outputSchemaId",
+    "structuredOutput",
+    "outputHash",
+    "validationResult",
+    "generationStatus",
+    "retryCount",
+    "retryScopeRefs",
+    "failure"
+  ],
+  "properties": {
+    "schemaVersion": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"},
+    "runId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+    "stage": {
+      "enum": [
+        "SOURCE_PARSING",
+        "SECTION_UNDERSTANDING",
+        "CONCEPT_AND_QUESTION_EXTRACTION",
+        "THEME_CANDIDATE_GENERATION",
+        "MODULE_CANDIDATE_CLUSTERING",
+        "SKELETON_QUALITY_CHECK",
+        "USER_STRUCTURE_CONFIRMATION",
+        "MODULE_DEEP_GENERATION",
+        "THEME_CLOSURE_GENERATION",
+        "LANDSCAPE_CONVERGENCE",
+        "PUBLICATION"
+      ]
+    },
+    "inputHash": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/sha256"},
+    "promptVersion": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+    "model": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+    "sourceBlockRefs": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"},
+    "outputKind": {"enum": ["NONE", "INTERMEDIATE", "COGNITIVE_ARTIFACT"]},
+    "outputSchemaId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^urn:cognitura:schema:"
+        },
+        {"type": "null"}
+      ]
+    },
+    "structuredOutput": true,
+    "outputHash": {
+      "anyOf": [
+        {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/sha256"},
+        {"type": "null"}
+      ]
+    },
+    "validationResult": {"$ref": "#/$defs/validationResult"},
+    "generationStatus": {"enum": ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "RETRYING"]},
+    "retryCount": {"type": "integer", "minimum": 0},
+    "retryScopeRefs": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"},
+    "failure": {
+      "anyOf": [
+        {"$ref": "#/$defs/failure"},
+        {"type": "null"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"outputKind": {"const": "NONE"}},
+        "required": ["outputKind"]
+      },
+      "then": {
+        "properties": {
+          "outputSchemaId": {"type": "null"},
+          "structuredOutput": {"type": "null"},
+          "outputHash": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"outputKind": {"const": "INTERMEDIATE"}},
+        "required": ["outputKind"]
+      },
+      "then": {
+        "properties": {
+          "outputSchemaId": {"type": "null"},
+          "structuredOutput": {"not": {"type": "null"}},
+          "outputHash": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/sha256"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"outputKind": {"const": "COGNITIVE_ARTIFACT"}},
+        "required": ["outputKind"]
+      },
+      "then": {
+        "properties": {
+          "outputSchemaId": {
+            "type": "string",
+            "pattern": "^urn:cognitura:schema:cognition:(?!common:)"
+          },
+          "structuredOutput": {"not": {"type": "null"}},
+          "outputHash": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/sha256"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"generationStatus": {"const": "SUCCEEDED"}},
+        "required": ["generationStatus"]
+      },
+      "then": {
+        "properties": {
+          "validationResult": {
+            "properties": {"status": {"const": "PASS"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"generationStatus": {"const": "FAILED"}},
+        "required": ["generationStatus"]
+      },
+      "then": {
+        "properties": {"failure": {"$ref": "#/$defs/failure"}}
+      },
+      "else": {
+        "properties": {"failure": {"type": "null"}}
+      }
+    },
+    {
+      "if": {
+        "properties": {"generationStatus": {"const": "RETRYING"}},
+        "required": ["generationStatus"]
+      },
+      "then": {
+        "properties": {"retryCount": {"minimum": 1}}
+      }
+    }
+  ],
+  "$defs": {
+    "validationError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "instancePath", "schemaPath", "message"],
+      "properties": {
+        "code": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+        "instancePath": {"type": "string"},
+        "schemaPath": {"type": "string"},
+        "message": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"}
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "validatedSchemaIds", "errors"],
+      "properties": {
+        "status": {"enum": ["NOT_RUN", "PASS", "FAIL"]},
+        "validatedSchemaIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^urn:cognitura:schema:"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/validationError"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"status": {"const": "PASS"}},
+            "required": ["status"]
+          },
+          "then": {"properties": {"errors": {"maxItems": 0}}}
+        },
+        {
+          "if": {
+            "properties": {"status": {"const": "FAIL"}},
+            "required": ["status"]
+          },
+          "then": {"properties": {"errors": {"minItems": 1}}}
+        },
+        {
+          "if": {
+            "properties": {"status": {"const": "NOT_RUN"}},
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "validatedSchemaIds": {"maxItems": 0},
+              "errors": {"maxItems": 0}
+            }
+          }
+        }
+      ]
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "retryable", "failedScopeRefs"],
+      "properties": {
+        "code": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+        "message": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+        "retryable": {"type": "boolean"},
+        "failedScopeRefs": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"}
+      }
+    }
+  }
+}

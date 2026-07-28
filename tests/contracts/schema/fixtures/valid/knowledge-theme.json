@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "theme.storage",
+  "revisionId": "rev.theme.storage.1",
+  "publicationState": "PUBLISHED",
+  "title": "Storage mechanisms",
+  "coreQuestions": ["How do storage mechanisms preserve consistency?"],
+  "role": "CORE",
+  "primaryParent": "landscape.database",
+  "moduleCandidates": [
+    {
+      "moduleId": "module.mvcc",
+      "title": "MVCC",
+      "coreQuestions": ["How does MVCC coordinate readers and writers?"],
+      "role": "CORE",
+      "primaryParent": "theme.storage",
+      "candidateSpine": ["Version creation", "Visibility judgment", "Cleanup"],
+      "sourceCoverage": {
+        "status": "COMPLETE",
+        "evidenceRefs": ["evidence.mvcc"],
+        "gapRefs": []
+      },
+      "gaps": []
+    },
+    {
+      "moduleId": "module.locking",
+      "title": "Locking",
+      "coreQuestions": ["How do locks serialize conflicting work?"],
+      "role": "FOUNDATION",
+      "primaryParent": "theme.storage",
+      "candidateSpine": ["Conflict", "Acquisition", "Release"],
+      "sourceCoverage": {
+        "status": "COMPLETE",
+        "evidenceRefs": ["evidence.locks"],
+        "gapRefs": []
+      },
+      "gaps": []
+    }
+  ],
+  "coreModuleRefs": ["module.mvcc", "module.locking"],
+  "relations": [],
+  "sourceCoverage": {
+    "status": "COMPLETE",
+    "evidenceRefs": ["evidence.theme.storage"],
+    "gapRefs": []
+  },
+  "gaps": []
+}

@@ -18,7 +18,9 @@ W0-G4A UiContractValidation = PASS
 SchemaDesignBaseline =
   docs/design/cognitura-schema-baseline-2.0.md
 SchemaDesignBaselineStatus = FORMAL_SCHEMA_REBASELINE
-W0-G3 JsonSchemaValidation = READY
+SchemaCatalog = schemas/catalog.json
+SchemaEvidenceMap = schemas/evidence-map.json
+W0-G3 JsonSchemaValidation = PASS
 ```
 
 本索引登记实际落地文件，不复制总体设计正文，也不改变历史设计名称。
@@ -39,7 +41,7 @@ Manifest。
 
 | 专项设计 | 总体设计引用状态 | Repository 文件状态 | 工程处理 |
 |---|---|---|---|
-| `Cognitive-Knowledge-System-Construction-Design-1.0` | `RM-01～RM-11` 已回迁，`11/11` | `MISSING` | 覆盖矩阵已验证；`DOC-GAP-001` 保持开放，字段级 Schema 不得猜测 |
+| `Cognitive-Knowledge-System-Construction-Design-1.0` | `RM-01～RM-11` 已回迁，`11/11` | `MISSING` | 历史正文缺口继续登记；字段级契约由批准的 2.0 重基线与已验证 Schema 唯一承接 |
 | `Cognitive-Knowledge-Atlas-UIUX-Design-1.0` | `UI-RM-01～10` 已回迁，`10/10` | `MISSING` | 页面与 Renderer 非 Schema 契约已验证；`DOC-GAP-002` 保持开放 |
 
 ```text
@@ -55,9 +57,12 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 |---|---|---|---|
 | `Cognitura-Schema-Baseline-2.0` | `docs/design/cognitura-schema-baseline-2.0.md` | `FORMAL_SCHEMA_REBASELINE` | 从属于总体设计；按固定审查结果升级并补足字段级工程裁决；不冒充历史专项正文 |
 
-该重基线是 `DOC-GAP-001` 的批准处置证据，使 `W0-04` 可以进入实施；它不自动
-使 `W0-G3` 通过。Schema、Catalog、Evidence Map、结构与语义正反例仍须全部
-落地并验证。
+该重基线是 `DOC-GAP-001` 的批准处置证据。W0-04 已将其投影为 14 份 Draft
+2020-12 Schema 文档、13 个可实例化契约、Catalog 和逐字段 Evidence Map；
+13 个正例、18 个结构反例、12 个严格对象未知字段反例与 12 个跨对象语义反例
+全部通过，因此
+`W0-G3 JsonSchemaValidation = PASS`。历史专项正文缺失事实仍登记为开放缺口，
+但不再阻断 W0-G3。
 
 ## 4. Golden Case 原始输入
 

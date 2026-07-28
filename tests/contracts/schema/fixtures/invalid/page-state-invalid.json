@@ -1,0 +1,5 @@
+{
+  "schemaId": "urn:cognitura:schema:ui:page-state:2.0.0",
+  "expectedCategory": "INSTANCE_CONTRACT_VIOLATION",
+  "instance": "RUNNING"
+}

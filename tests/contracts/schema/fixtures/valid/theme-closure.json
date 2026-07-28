@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "closure.theme.storage",
+  "revisionId": "rev.closure.theme.storage.1",
+  "publicationState": "PUBLISHED",
+  "themeRef": "theme.storage",
+  "coreQuestions": ["How do storage mechanisms cooperate?"],
+  "thesis": "Storage mechanisms connect representation, visibility and durability.",
+  "moduleCooperation": [
+    {
+      "moduleRef": "module.mvcc",
+      "contribution": "MVCC explains visibility over stored versions.",
+      "sourceRefs": ["evidence.mvcc"]
+    }
+  ],
+  "themeSpine": [
+    {
+      "stepId": "theme-step.storage.1",
+      "order": 1,
+      "artifactRef": "module.mvcc",
+      "statement": "Start with version representation and visibility.",
+      "sourceRefs": ["evidence.mvcc"]
+    }
+  ],
+  "criticalDistinctions": [
+    {
+      "statementId": "distinction.storage.1",
+      "statement": "Visibility and durability solve different problems.",
+      "sourceRefs": ["evidence.mvcc"],
+      "gapRefs": []
+    }
+  ],
+  "boundaries": [
+    {
+      "statementId": "boundary.storage.1",
+      "statement": "A storage mechanism is not a complete transaction protocol.",
+      "sourceRefs": ["evidence.mvcc"],
+      "gapRefs": []
+    }
+  ],
+  "relatedThemes": [],
+  "sourceCoverage": {
+    "status": "COMPLETE",
+    "evidenceRefs": ["evidence.mvcc"],
+    "gapRefs": []
+  },
+  "gaps": []
+}

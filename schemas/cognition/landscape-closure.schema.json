@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+  "title": "Cognitura LandscapeClosure 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "revisionId",
+    "publicationState",
+    "landscapeThesis",
+    "coreThemes",
+    "crossThemeSpine",
+    "keyDependencies",
+    "globalBoundaries",
+    "understandingRoute",
+    "sourceCoverage",
+    "gaps"
+  ],
+  "properties": {
+    "schemaVersion": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"},
+    "artifactId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+    "revisionId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/revisionId"},
+    "publicationState": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/publicationState"},
+    "landscapeThesis": {"type": "string"},
+    "coreThemes": {
+      "type": "array",
+      "maxItems": 9,
+      "items": {"$ref": "#/$defs/coreTheme"}
+    },
+    "crossThemeSpine": {
+      "type": "array",
+      "items": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/orderedArtifactStep"}
+    },
+    "keyDependencies": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/relation"}
+    },
+    "globalBoundaries": {
+      "type": "array",
+      "items": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/evidenceStatement"}
+    },
+    "understandingRoute": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"
+    },
+    "sourceCoverage": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/sourceCoverage"},
+    "gaps": {
+      "type": "array",
+      "items": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/gap"}
+    }
+  },
+  "if": {
+    "properties": {"publicationState": {"const": "PUBLISHED"}},
+    "required": ["publicationState"]
+  },
+  "then": {
+    "properties": {
+      "landscapeThesis": {"minLength": 1},
+      "coreThemes": {"minItems": 3, "maxItems": 9},
+      "crossThemeSpine": {"minItems": 1},
+      "globalBoundaries": {"minItems": 1},
+      "understandingRoute": {"minItems": 1}
+    }
+  },
+  "$defs": {
+    "coreTheme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["themeRef", "role", "contribution", "sourceRefs"],
+      "properties": {
+        "themeRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+        "role": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/knowledgeRole"},
+        "contribution": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+        "sourceRefs": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"}
+      }
+    }
+  }
+}

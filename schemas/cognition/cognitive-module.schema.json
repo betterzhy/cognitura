@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+  "title": "Cognitura CognitiveModule 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "revisionId",
+    "publicationState",
+    "primaryParent",
+    "title",
+    "thesis",
+    "role",
+    "coreQuestions",
+    "primaryCognitiveSpine",
+    "facets",
+    "knowledgeElements",
+    "keyTakeaways",
+    "criticalBoundaries",
+    "relations",
+    "sourceRefs",
+    "gaps",
+    "qualityAssessment"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"
+    },
+    "artifactId": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"
+    },
+    "revisionId": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/revisionId"
+    },
+    "publicationState": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/publicationState"
+    },
+    "primaryParent": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"
+    },
+    "title": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+    },
+    "thesis": {
+      "type": "string"
+    },
+    "role": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/knowledgeRole"
+    },
+    "coreQuestions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+      }
+    },
+    "primaryCognitiveSpine": {
+      "anyOf": [
+        {
+          "$ref": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "facets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/facet"
+      }
+    },
+    "knowledgeElements": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:knowledge-element:2.0.0"
+      }
+    },
+    "keyTakeaways": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/evidenceStatement"
+      }
+    },
+    "criticalBoundaries": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/criticalBoundary"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/relation"
+      }
+    },
+    "sourceRefs": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/gap"
+      }
+    },
+    "qualityAssessment": {
+      "anyOf": [
+        {
+          "$ref": "urn:cognitura:schema:cognition:quality-assessment:2.0.0"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "if": {
+    "properties": {
+      "publicationState": {
+        "const": "PUBLISHED"
+      }
+    },
+    "required": ["publicationState"]
+  },
+  "then": {
+    "properties": {
+      "thesis": {
+        "minLength": 1
+      },
+      "primaryCognitiveSpine": {
+        "$ref": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0"
+      },
+      "keyTakeaways": {
+        "minItems": 3,
+        "maxItems": 7
+      },
+      "criticalBoundaries": {
+        "minItems": 1,
+        "maxItems": 5,
+        "items": {
+          "properties": {
+            "sourceRefs": {
+              "minItems": 1
+            }
+          }
+        }
+      },
+      "relations": {
+        "minItems": 1,
+        "maxItems": 5
+      },
+      "sourceRefs": {
+        "minItems": 1
+      },
+      "qualityAssessment": {
+        "$ref": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+        "properties": {
+          "hierarchyCorrectness": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+          "granularityFitness": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+          "cognitiveClosure": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+          "spineCoherence": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+          "importanceAccuracy": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+          "sourceFaithfulness": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+          "compressionEfficiency": {"properties": {"status": {"not": {"const": "FAIL"}}}},
+          "hardFailures": {"maxItems": 0}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "facet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facetId", "title", "summary", "elementRefs", "sourceRefs"],
+      "properties": {
+        "facetId": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"
+        },
+        "title": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "elementRefs": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"
+        },
+        "sourceRefs": {
+          "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"
+        }
+      }
+    }
+  }
+}

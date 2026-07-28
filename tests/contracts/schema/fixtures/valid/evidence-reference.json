@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "evidence.mvcc",
+  "revisionId": "rev.evidence.mvcc.1",
+  "publicationState": "CONFIRMED",
+  "sourceDocumentRef": "source.mysql",
+  "documentBlockRef": "block.mysql.mvcc.1",
+  "sectionPath": ["InnoDB", "MVCC"],
+  "pageNumber": 12,
+  "sourceOrder": 48,
+  "blockType": "PARAGRAPH",
+  "contentSummary": "The source explains how transaction visibility selects record versions.",
+  "sourceKind": "SOURCE_EXPLICIT",
+  "supports": ["module.mvcc", "element.visibility", "closure.theme.storage"],
+  "inferenceDisclosure": "",
+  "conflictState": "NONE",
+  "conflictGroupId": null,
+  "resolutionDecision": null
+}

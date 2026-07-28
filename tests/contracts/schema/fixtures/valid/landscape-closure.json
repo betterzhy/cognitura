@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "closure.landscape.database",
+  "revisionId": "rev.closure.landscape.database.1",
+  "publicationState": "PUBLISHED",
+  "landscapeThesis": "Database behavior emerges from storage, consistency and execution mechanisms.",
+  "coreThemes": [
+    {
+      "themeRef": "theme.storage",
+      "role": "FOUNDATION",
+      "contribution": "Explains how state is represented.",
+      "sourceRefs": ["evidence.landscape"]
+    },
+    {
+      "themeRef": "theme.consistency",
+      "role": "CORE",
+      "contribution": "Explains how invariants are preserved.",
+      "sourceRefs": ["evidence.landscape"]
+    },
+    {
+      "themeRef": "theme.execution",
+      "role": "APPLICATION",
+      "contribution": "Explains how operations are carried out.",
+      "sourceRefs": ["evidence.landscape"]
+    }
+  ],
+  "crossThemeSpine": [
+    {
+      "stepId": "landscape-step.1",
+      "order": 1,
+      "artifactRef": "theme.storage",
+      "statement": "Begin with stored representation.",
+      "sourceRefs": ["evidence.landscape"]
+    },
+    {
+      "stepId": "landscape-step.2",
+      "order": 2,
+      "artifactRef": "theme.consistency",
+      "statement": "Then connect consistency controls.",
+      "sourceRefs": ["evidence.landscape"]
+    },
+    {
+      "stepId": "landscape-step.3",
+      "order": 3,
+      "artifactRef": "theme.execution",
+      "statement": "Finally connect execution behavior.",
+      "sourceRefs": ["evidence.landscape"]
+    }
+  ],
+  "keyDependencies": [],
+  "globalBoundaries": [
+    {
+      "statementId": "landscape-boundary.1",
+      "statement": "The landscape does not replace product-specific database design.",
+      "sourceRefs": ["evidence.landscape"],
+      "gapRefs": []
+    }
+  ],
+  "understandingRoute": ["theme.storage", "theme.consistency", "theme.execution"],
+  "sourceCoverage": {
+    "status": "COMPLETE",
+    "evidenceRefs": ["evidence.landscape"],
+    "gapRefs": []
+  },
+  "gaps": []
+}

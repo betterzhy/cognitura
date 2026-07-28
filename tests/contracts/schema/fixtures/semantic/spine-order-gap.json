@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "SPINE_ORDER_NOT_CONTIGUOUS",
+  "mutation": "SPINE_ORDER_GAP"
+}

@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "DANGLING_PARENT",
+  "mutation": "DANGLING_PARENT"
+}

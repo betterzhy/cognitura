@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+  "title": "Cognitura KnowledgeElement 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "revisionId",
+    "publicationState",
+    "moduleRef",
+    "elementType",
+    "title",
+    "content",
+    "sourceRefs",
+    "relations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"
+    },
+    "artifactId": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"
+    },
+    "revisionId": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/revisionId"
+    },
+    "publicationState": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/publicationState"
+    },
+    "moduleRef": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"
+    },
+    "elementType": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/knowledgeElementType"
+    },
+    "title": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"
+    },
+    "content": {
+      "type": "string"
+    },
+    "sourceRefs": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray"
+    },
+    "relations": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray",
+      "maxItems": 5
+    }
+  },
+  "if": {
+    "properties": {
+      "publicationState": {
+        "const": "PUBLISHED"
+      }
+    },
+    "required": ["publicationState"]
+  },
+  "then": {
+    "properties": {
+      "content": {
+        "minLength": 1
+      },
+      "sourceRefs": {
+        "minItems": 1
+      }
+    }
+  }
+}

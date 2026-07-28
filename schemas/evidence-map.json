@@ -1,0 +1,4846 @@
+{
+  "baseline": "Cognitura-Schema-Baseline-2.0",
+  "baselineSha256": "d7f2a83ea2c0252478341d5e2cb37df1ee38798d1b7b4b5a8f96f9b3ef0cc1d4",
+  "entries": [
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "CONST",
+        "VALUE_CONSTRAINT",
+        "FIELD_REFERENCE",
+        "ENUM",
+        "ITEM_CONTRACT",
+        "CARDINALITY",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/schemaVersion",
+      "constraintKinds": [
+        "TYPE",
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/artifactId",
+      "constraintKinds": [
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/artifactRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/nonBlankText",
+      "constraintKinds": [
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sha256",
+      "constraintKinds": [
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/publicationState",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/knowledgeRole",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relationType",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/knowledgeElementType",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceKind",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentStatus",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictState",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/riskLevel",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/artifactRefArray",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "CARDINALITY",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/properties/relationId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/properties/type",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/properties/sourceRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/properties/targetRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/properties/origin",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/properties/riskLevel",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/properties/gapRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/allOf/0/if/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/allOf/0/then/properties/gapRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/allOf/1/if/properties/origin",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/relation/allOf/1/then/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "ENUM",
+        "FIELD_REFERENCE",
+        "CONST",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/properties/status",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/properties/evidenceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/properties/gapRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/0/if/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/0/then/properties/evidenceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/0/then/properties/gapRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/1/if/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/1/then/properties/evidenceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/1/then/properties/gapRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/2/if/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/2/then/properties/evidenceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/sourceCoverage/allOf/2/then/properties/gapRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/gap",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/gap/properties/gapId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/gap/properties/summary",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/gap/properties/state",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/gap/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/criticalBoundary",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/criticalBoundary/properties/boundaryId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/criticalBoundary/properties/statement",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/criticalBoundary/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/evidenceStatement",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/evidenceStatement/properties/statementId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/evidenceStatement/properties/statement",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/evidenceStatement/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/evidenceStatement/properties/gapRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/evidenceStatement/if/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/evidenceStatement/then/properties/gapRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CONST",
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/properties/decisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/properties/decidedBy",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/properties/outcome",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/properties/preferredEvidenceRef",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "TYPE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/properties/rationale",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/allOf/0/if/properties/outcome",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/allOf/0/then/properties/preferredEvidenceRef",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/allOf/1/if/properties/outcome",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/conflictResolutionDecision/allOf/1/then/properties/preferredEvidenceRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/orderedArtifactStep",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/orderedArtifactStep/properties/stepId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/orderedArtifactStep/properties/order",
+      "constraintKinds": [
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/orderedArtifactStep/properties/artifactRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/orderedArtifactStep/properties/statement",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/orderedArtifactStep/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentFinding",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentFinding/properties/code",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentFinding/properties/message",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentFinding/properties/artifactRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentFinding/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentDimension",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "ITEM_CONTRACT"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentDimension/properties/status",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:common:2.0.0",
+      "schemaPointer": "/$defs/assessmentDimension/properties/findings",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "REBASELINE_DECISION",
+      "source": "RB-003,RB-004,RB-005,RB-008,RB-015,RB-016",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "CONST",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/landscapeThesis",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/themes",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/coreThemeRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/relations",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/understandingRoute",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/structureAmbiguityRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/sourceCoverage",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/properties/gaps",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/if/properties/publicationState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/then/properties/landscapeThesis",
+      "constraintKinds": [
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-skeleton:2.0.0",
+      "schemaPointer": "/then/properties/coreThemeRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19;RB-017",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/title",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/coreQuestions",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/role",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/primaryParent",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/moduleCandidates",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/coreModuleRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/relations",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/sourceCoverage",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/properties/gaps",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/if/properties/publicationState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/then/properties/coreModuleRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate/properties/moduleId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate/properties/title",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate/properties/coreQuestions",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate/properties/role",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate/properties/primaryParent",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate/properties/candidateSpine",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate/properties/sourceCoverage",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-theme:2.0.0",
+      "schemaPointer": "/$defs/moduleCandidate/properties/gaps",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "CONST",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/primaryParent",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/title",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/thesis",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/role",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/coreQuestions",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/primaryCognitiveSpine",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/facets",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/knowledgeElements",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/keyTakeaways",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/criticalBoundaries",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/relations",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/gaps",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/properties/qualityAssessment",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/if/properties/publicationState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/thesis",
+      "constraintKinds": [
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/primaryCognitiveSpine",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/keyTakeaways",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/criticalBoundaries",
+      "constraintKinds": [
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_SET"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/criticalBoundaries/items/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/relations",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/hierarchyCorrectness",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/hierarchyCorrectness/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/granularityFitness",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/granularityFitness/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/cognitiveClosure",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/cognitiveClosure/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/spineCoherence",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/spineCoherence/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/importanceAccuracy",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/importanceAccuracy/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/sourceFaithfulness",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/sourceFaithfulness/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/compressionEfficiency",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/compressionEfficiency/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/then/properties/qualityAssessment/properties/hardFailures",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/$defs/facet",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/$defs/facet/properties/facetId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/$defs/facet/properties/title",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/$defs/facet/properties/summary",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/$defs/facet/properties/elementRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "schemaPointer": "/$defs/facet/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19,§21",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "CONST",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/properties/moduleRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/properties/steps",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/if/properties/publicationState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/then/properties/steps",
+      "constraintKinds": [
+        "ITEM_CONTRACT",
+        "FIELD_SET",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/then/properties/steps/items/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/$defs/spineStep",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/$defs/spineStep/properties/stepId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/$defs/spineStep/properties/order",
+      "constraintKinds": [
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/$defs/spineStep/properties/statement",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:primary-cognitive-spine:2.0.0",
+      "schemaPointer": "/$defs/spineStep/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§8,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "CONST",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/moduleRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/elementType",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/title",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/content",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/properties/relations",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/if/properties/publicationState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/then/properties/content",
+      "constraintKinds": [
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:knowledge-element:2.0.0",
+      "schemaPointer": "/then/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-12,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "CONST",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/themeRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/coreQuestions",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/thesis",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/moduleCooperation",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/themeSpine",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/criticalDistinctions",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/boundaries",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/relatedThemes",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/sourceCoverage",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/properties/gaps",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/if/properties/publicationState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/then/properties/thesis",
+      "constraintKinds": [
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/then/properties/moduleCooperation",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/then/properties/themeSpine",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/then/properties/criticalDistinctions",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/then/properties/boundaries",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/$defs/moduleContribution",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/$defs/moduleContribution/properties/moduleRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/$defs/moduleContribution/properties/contribution",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:theme-closure:2.0.0",
+      "schemaPointer": "/$defs/moduleContribution/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§15,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "CONST",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/landscapeThesis",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/coreThemes",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/crossThemeSpine",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/keyDependencies",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/globalBoundaries",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/understandingRoute",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/sourceCoverage",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/properties/gaps",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/if/properties/publicationState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/then/properties/landscapeThesis",
+      "constraintKinds": [
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/then/properties/coreThemes",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/then/properties/crossThemeSpine",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/then/properties/globalBoundaries",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/then/properties/understandingRoute",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/$defs/coreTheme",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/$defs/coreTheme/properties/themeRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/$defs/coreTheme/properties/role",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/$defs/coreTheme/properties/contribution",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:landscape-closure:2.0.0",
+      "schemaPointer": "/$defs/coreTheme/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§16,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "VALUE_CONSTRAINT",
+        "ENUM",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/sourceDocumentRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/documentBlockRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/sectionPath",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/pageNumber",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/sourceOrder",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/blockType",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/contentSummary",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/sourceKind",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/supports",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/inferenceDisclosure",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/conflictState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/conflictGroupId",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/properties/resolutionDecision",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/0/not/properties/pageNumber",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/0/not/properties/sourceOrder",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/1/if/properties/sourceKind",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/1/then/properties/inferenceDisclosure",
+      "constraintKinds": [
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/2/if/properties/conflictState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/2/then/properties/conflictGroupId",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/2/then/properties/resolutionDecision",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/3/if/properties/conflictState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/3/then/properties/conflictGroupId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/3/then/properties/resolutionDecision",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/4/if/properties/conflictState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/4/then/properties/conflictGroupId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+      "schemaPointer": "/allOf/4/then/properties/resolutionDecision",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§12-14,§19-20;RB-015",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/locationRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/recommendedStructure",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/alternatives",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/rationale",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/closureImpacts",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/properties/gapRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/if/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/then/properties/gapRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/recommendedStructure",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/recommendedStructure/properties/summary",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/recommendedStructure/properties/affectedRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/alternative",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/alternative/properties/alternativeId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/alternative/properties/summary",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/alternative/properties/affectedRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/alternative/properties/riskLevel",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/closureImpact",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/closureImpact/properties/scopeRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/closureImpact/properties/impact",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:structure-ambiguity:2.0.0",
+      "schemaPointer": "/$defs/closureImpact/properties/riskLevel",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§5-7,§19",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "ENUM",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/artifactId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/revisionId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/publicationState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/subjectRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/hierarchyCorrectness",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/granularityFitness",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/cognitiveClosure",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/spineCoherence",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/importanceAccuracy",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/sourceFaithfulness",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/compressionEfficiency",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/properties/hardFailures",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/if/properties/publicationState",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/hierarchyCorrectness",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/hierarchyCorrectness/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/granularityFitness",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/granularityFitness/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/cognitiveClosure",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/cognitiveClosure/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/spineCoherence",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/spineCoherence/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/importanceAccuracy",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/importanceAccuracy/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/sourceFaithfulness",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/sourceFaithfulness/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/compressionEfficiency",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/compressionEfficiency/properties/status",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:cognition:quality-assessment:2.0.0",
+      "schemaPointer": "/then/properties/hardFailures",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§19,§21;RB-005",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "ENUM",
+        "VALUE_CONSTRAINT",
+        "CONST",
+        "CARDINALITY",
+        "ITEM_CONTRACT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/runId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/stage",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/inputHash",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/promptVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/model",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/sourceBlockRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/outputKind",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/outputSchemaId",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/outputHash",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/validationResult",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/generationStatus",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/retryCount",
+      "constraintKinds": [
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/retryScopeRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/properties/failure",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/0/if/properties/outputKind",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/0/then/properties/outputSchemaId",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/0/then/properties/structuredOutput",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/0/then/properties/outputHash",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/1/if/properties/outputKind",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/1/then/properties/outputSchemaId",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/1/then/properties/structuredOutput",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/1/then/properties/outputHash",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/2/if/properties/outputKind",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/2/then/properties/outputSchemaId",
+      "constraintKinds": [
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/2/then/properties/structuredOutput",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/2/then/properties/outputHash",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/3/if/properties/generationStatus",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/3/then/properties/validationResult",
+      "constraintKinds": [
+        "FIELD_SET",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/3/then/properties/validationResult/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/4/if/properties/generationStatus",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/4/then/properties/failure",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/4/else/properties/failure",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/5/if/properties/generationStatus",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/allOf/5/then/properties/retryCount",
+      "constraintKinds": [
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationError",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationError/properties/code",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationError/properties/instancePath",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationError/properties/schemaPath",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationError/properties/message",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "ENUM",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "VALUE_CONSTRAINT",
+        "FIELD_REFERENCE",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/properties/status",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/properties/validatedSchemaIds",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/properties/errors",
+      "constraintKinds": [
+        "TYPE",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/allOf/0/if/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/allOf/0/then/properties/errors",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/allOf/1/if/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/allOf/1/then/properties/errors",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/allOf/2/if/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/allOf/2/then/properties/validatedSchemaIds",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/validationResult/allOf/2/then/properties/errors",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/failure",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/failure/properties/code",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/failure/properties/message",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/failure/properties/retryable",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:generation:generation-stage-record:2.0.0",
+      "schemaPointer": "/$defs/failure/properties/failedScopeRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§17-19;RB-006,RB-009",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "ENUM",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "CONST",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/schemaVersion",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/moduleRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/rendererType",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/title",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/summary",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/nodes",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/groups",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/relations",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/incompleteState",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/properties/interactionHints",
+      "constraintKinds": [
+        "TYPE",
+        "CARDINALITY",
+        "ITEM_CONTRACT",
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/allOf/0/if/properties/nodes",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/allOf/0/then/properties/groups",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/allOf/1/if/properties/incompleteState",
+      "constraintKinds": [
+        "FIELD_SET",
+        "REQUIRED",
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/allOf/1/if/properties/incompleteState/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/allOf/1/then/properties/sourceRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererNode",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "VALUE_CONSTRAINT",
+        "CONDITIONAL"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererNode/properties/nodeId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererNode/properties/artifactRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererNode/properties/contentPath",
+      "constraintKinds": [
+        "TYPE",
+        "VALUE_CONSTRAINT"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererNode/properties/label",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererNode/properties/summary",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererNode/properties/groupRef",
+      "constraintKinds": [
+        "CONDITIONAL",
+        "FIELD_REFERENCE",
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererNode/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererGroup",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererGroup/properties/groupId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererGroup/properties/title",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererGroup/properties/nodeRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererGroup/properties/collapsed",
+      "constraintKinds": [
+        "TYPE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererRelation",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererRelation/properties/relationId",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererRelation/properties/type",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererRelation/properties/sourceNodeRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererRelation/properties/targetNodeRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererRelation/properties/artifactRelationRef",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/rendererRelation/properties/sourceRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/incompleteState",
+      "constraintKinds": [
+        "TYPE",
+        "STRICTNESS",
+        "REQUIRED",
+        "FIELD_SET",
+        "CONDITIONAL",
+        "ENUM",
+        "FIELD_REFERENCE",
+        "CONST",
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/incompleteState/properties/status",
+      "constraintKinds": [
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/incompleteState/properties/gapRefs",
+      "constraintKinds": [
+        "FIELD_REFERENCE"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/incompleteState/allOf/0/if/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/incompleteState/allOf/0/then/properties/gapRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/incompleteState/allOf/1/if/properties/status",
+      "constraintKinds": [
+        "CONST"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+      "schemaPointer": "/$defs/incompleteState/allOf/1/then/properties/gapRefs",
+      "constraintKinds": [
+        "CARDINALITY"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.7-20.10;RB-010,RB-012",
+      "reason": "Approved baseline node."
+    },
+    {
+      "schemaId": "urn:cognitura:schema:ui:page-state:2.0.0",
+      "schemaPointer": "",
+      "constraintKinds": [
+        "TYPE",
+        "ENUM"
+      ],
+      "evidenceKind": "OVERALL_DESIGN_EVIDENCE",
+      "source": "OD1.2§20.10;RB-013",
+      "reason": "Approved baseline node."
+    }
+  ]
+}

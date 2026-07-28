@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "landscape.database",
+  "revisionId": "rev.landscape.database.1",
+  "publicationState": "PUBLISHED",
+  "landscapeThesis": "Database knowledge is organized around representation, consistency and execution.",
+  "themes": [
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "theme.storage",
+      "revisionId": "rev.theme.storage.1",
+      "publicationState": "DRAFT",
+      "title": "Storage",
+      "coreQuestions": ["How is state represented?"],
+      "role": "FOUNDATION",
+      "primaryParent": "landscape.database",
+      "moduleCandidates": [
+        {
+          "moduleId": "module.storage",
+          "title": "Storage module",
+          "coreQuestions": ["How is state stored?"],
+          "role": "FOUNDATION",
+          "primaryParent": "theme.storage",
+          "candidateSpine": [],
+          "sourceCoverage": {
+            "status": "MISSING",
+            "evidenceRefs": [],
+            "gapRefs": ["gap.module.storage"]
+          },
+          "gaps": [
+            {
+              "gapId": "gap.module.storage",
+              "summary": "Module evidence is pending.",
+              "state": "OPEN",
+              "sourceRefs": []
+            }
+          ]
+        }
+      ],
+      "coreModuleRefs": [],
+      "relations": [],
+      "sourceCoverage": {
+        "status": "MISSING",
+        "evidenceRefs": [],
+        "gapRefs": ["gap.theme.storage"]
+      },
+      "gaps": [
+        {
+          "gapId": "gap.theme.storage",
+          "summary": "Theme evidence is pending.",
+          "state": "OPEN",
+          "sourceRefs": []
+        }
+      ]
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "theme.consistency",
+      "revisionId": "rev.theme.consistency.1",
+      "publicationState": "DRAFT",
+      "title": "Consistency",
+      "coreQuestions": ["How is consistency preserved?"],
+      "role": "CORE",
+      "primaryParent": "landscape.database",
+      "moduleCandidates": [
+        {
+          "moduleId": "module.consistency",
+          "title": "Consistency module",
+          "coreQuestions": ["How are invariants enforced?"],
+          "role": "CORE",
+          "primaryParent": "theme.consistency",
+          "candidateSpine": [],
+          "sourceCoverage": {
+            "status": "MISSING",
+            "evidenceRefs": [],
+            "gapRefs": ["gap.module.consistency"]
+          },
+          "gaps": [
+            {
+              "gapId": "gap.module.consistency",
+              "summary": "Module evidence is pending.",
+              "state": "OPEN",
+              "sourceRefs": []
+            }
+          ]
+        }
+      ],
+      "coreModuleRefs": [],
+      "relations": [],
+      "sourceCoverage": {
+        "status": "MISSING",
+        "evidenceRefs": [],
+        "gapRefs": ["gap.theme.consistency"]
+      },
+      "gaps": [
+        {
+          "gapId": "gap.theme.consistency",
+          "summary": "Theme evidence is pending.",
+          "state": "OPEN",
+          "sourceRefs": []
+        }
+      ]
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "theme.execution",
+      "revisionId": "rev.theme.execution.1",
+      "publicationState": "DRAFT",
+      "title": "Execution",
+      "coreQuestions": ["How is work executed?"],
+      "role": "APPLICATION",
+      "primaryParent": "landscape.database",
+      "moduleCandidates": [
+        {
+          "moduleId": "module.execution",
+          "title": "Execution module",
+          "coreQuestions": ["How are plans carried out?"],
+          "role": "APPLICATION",
+          "primaryParent": "theme.execution",
+          "candidateSpine": [],
+          "sourceCoverage": {
+            "status": "MISSING",
+            "evidenceRefs": [],
+            "gapRefs": ["gap.module.execution"]
+          },
+          "gaps": [
+            {
+              "gapId": "gap.module.execution",
+              "summary": "Module evidence is pending.",
+              "state": "OPEN",
+              "sourceRefs": []
+            }
+          ]
+        }
+      ],
+      "coreModuleRefs": [],
+      "relations": [],
+      "sourceCoverage": {
+        "status": "MISSING",
+        "evidenceRefs": [],
+        "gapRefs": ["gap.theme.execution"]
+      },
+      "gaps": [
+        {
+          "gapId": "gap.theme.execution",
+          "summary": "Theme evidence is pending.",
+          "state": "OPEN",
+          "sourceRefs": []
+        }
+      ]
+    }
+  ],
+  "coreThemeRefs": ["theme.storage", "theme.consistency", "theme.execution"],
+  "relations": [],
+  "understandingRoute": ["theme.storage", "theme.consistency", "theme.execution"],
+  "structureAmbiguityRefs": [],
+  "sourceCoverage": {
+    "status": "COMPLETE",
+    "evidenceRefs": ["evidence.landscape"],
+    "gapRefs": []
+  },
+  "gaps": []
+}

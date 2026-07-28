@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-04
-Status = READY
+Status = DONE
 Gate = W0-G3 JsonSchemaValidation
 Risk = HIGH
 DependsOn = W0-02,W0-03
@@ -50,6 +50,7 @@ DependencyState = SATISFIED
 - Modify: `docs/task-cards/W0-05-golden-case-regression.md`
 - Modify: `docs/engineering/cognitura-wave-0-plan.md`
 - Modify: `docs/engineering/cognitura-wave-0-entry-decision.md`
+- Modify（用户补充授权）: `tests/task-cards/verify-task-cards.sh`
 
 不得伪造历史专项文档，不得从常识推断 required、枚举、类型或关系约束。
 
@@ -57,14 +58,14 @@ DependencyState = SATISFIED
 
 - [x] 解除 `DOC-GAP-001` 执行阻断，记录批准的
   `Cognitura-Schema-Baseline-2.0`。
-- [ ] 为十项正式认知产物编写缺少 required、非法枚举和非法关系的失败样例。
-- [ ] 为生成阶段记录和 Renderer 输入编写失败样例。
-- [ ] 运行测试并确认 Schema 未实现时失败。
-- [ ] 实现认知产物 Schema，所有字段都绑定来源证据。
-- [ ] 实现生成阶段 Schema，覆盖输入哈希、Prompt、模型、来源块、验证与重试状态。
-- [ ] 实现统一 Renderer 输入 Schema 和页面状态枚举。
-- [ ] 运行正例与反例，确认缺少 thesis、spine、boundary 或 sourceRefs 的 Module 被拒绝。
-- [ ] 更新设计索引、缺口状态和任务卡，并形成独立提交。
+- [x] 为十项正式认知产物编写缺少 required、非法枚举和非法关系的失败样例。
+- [x] 为生成阶段记录和 Renderer 输入编写失败样例。
+- [x] 运行测试并确认 Schema 未实现时失败。
+- [x] 实现认知产物 Schema，所有字段都绑定来源证据。
+- [x] 实现生成阶段 Schema，覆盖输入哈希、Prompt、模型、来源块、验证与重试状态。
+- [x] 实现统一 Renderer 输入 Schema 和页面状态枚举。
+- [x] 运行正例与反例，确认缺少 thesis、spine、boundary 或 sourceRefs 的 Module 被拒绝。
+- [x] 更新设计索引、缺口状态和任务卡，并形成独立提交。
 
 ## 5. 验证命令
 
@@ -84,6 +85,27 @@ git diff --check
 - 每个字段可追溯到权威来源；
 - required、枚举、关系和来源引用正反例全部通过；
 - 没有把第二棵个性化知识树写入契约。
+
+完成证据：
+
+```text
+SchemaDraft = 2020-12
+SchemaDocumentCount = 14
+InstantiableSchemaCount = 13
+ValidFixtureCount = 13
+InvalidFixtureCount = 18
+StrictObjectNegativeCaseCount = 12
+SemanticNegativeCaseCount = 12
+EvidenceMapEntryCount = 439
+Validator = Ajv-8.20.0
+NetworkResolution = FORBIDDEN
+ObservedRedBoundary =
+  missing verifier
+  → missing catalog
+  → missing Schema documents
+  → missing evidence mapping
+  → PASS
+```
 
 ```text
 W0-G3 JsonSchemaValidation = PASS

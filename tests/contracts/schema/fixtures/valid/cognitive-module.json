@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "module.mvcc",
+  "revisionId": "rev.module.mvcc.1",
+  "publicationState": "PUBLISHED",
+  "primaryParent": "theme.storage",
+  "title": "MVCC",
+  "thesis": "MVCC coordinates readers and writers by selecting visible record versions.",
+  "role": "CORE",
+  "coreQuestions": ["How does a read choose a visible version?"],
+  "primaryCognitiveSpine": {
+    "schemaVersion": "2.0.0",
+    "artifactId": "spine.mvcc",
+    "revisionId": "rev.spine.mvcc.1",
+    "publicationState": "PUBLISHED",
+    "moduleRef": "module.mvcc",
+    "steps": [
+      {
+        "stepId": "spine-step.mvcc.1",
+        "order": 1,
+        "statement": "Create a version.",
+        "sourceRefs": ["evidence.mvcc"]
+      },
+      {
+        "stepId": "spine-step.mvcc.2",
+        "order": 2,
+        "statement": "Capture a visibility boundary.",
+        "sourceRefs": ["evidence.mvcc"]
+      },
+      {
+        "stepId": "spine-step.mvcc.3",
+        "order": 3,
+        "statement": "Select a visible version.",
+        "sourceRefs": ["evidence.mvcc"]
+      },
+      {
+        "stepId": "spine-step.mvcc.4",
+        "order": 4,
+        "statement": "Retire obsolete versions.",
+        "sourceRefs": ["evidence.mvcc"]
+      }
+    ]
+  },
+  "facets": [
+    {
+      "facetId": "facet.visibility",
+      "title": "Visibility",
+      "summary": "Rules for selecting record versions.",
+      "elementRefs": ["element.visibility", "element.version"],
+      "sourceRefs": ["evidence.mvcc"]
+    }
+  ],
+  "knowledgeElements": [
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "element.visibility",
+      "revisionId": "rev.element.visibility.1",
+      "publicationState": "PUBLISHED",
+      "moduleRef": "module.mvcc",
+      "elementType": "MECHANISM",
+      "title": "Visibility judgment",
+      "content": "A read view selects the newest visible record version.",
+      "sourceRefs": ["evidence.mvcc"],
+      "relations": ["relation.visibility.depends-version"]
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "element.version",
+      "revisionId": "rev.element.version.1",
+      "publicationState": "PUBLISHED",
+      "moduleRef": "module.mvcc",
+      "elementType": "CONCEPT",
+      "title": "Record version",
+      "content": "A record version preserves one historical state.",
+      "sourceRefs": ["evidence.mvcc"],
+      "relations": ["relation.visibility.depends-version"]
+    }
+  ],
+  "keyTakeaways": [
+    {
+      "statementId": "takeaway.mvcc.1",
+      "statement": "Visibility depends on transaction boundaries.",
+      "sourceRefs": ["evidence.mvcc"],
+      "gapRefs": []
+    },
+    {
+      "statementId": "takeaway.mvcc.2",
+      "statement": "Multiple record versions decouple reads from current writes.",
+      "sourceRefs": ["evidence.mvcc"],
+      "gapRefs": []
+    },
+    {
+      "statementId": "takeaway.mvcc.3",
+      "statement": "Version cleanup depends on active visibility windows.",
+      "sourceRefs": ["evidence.mvcc"],
+      "gapRefs": []
+    }
+  ],
+  "criticalBoundaries": [
+    {
+      "boundaryId": "boundary.mvcc.1",
+      "statement": "MVCC visibility does not by itself prevent every write conflict.",
+      "sourceRefs": ["evidence.mvcc"]
+    }
+  ],
+  "relations": [
+    {
+      "relationId": "relation.visibility.depends-version",
+      "type": "DEPENDS_ON",
+      "sourceRef": "element.visibility",
+      "targetRef": "element.version",
+      "origin": "SOURCE_EXPLICIT",
+      "riskLevel": "LOW",
+      "sourceRefs": ["evidence.mvcc"],
+      "gapRefs": []
+    }
+  ],
+  "sourceRefs": ["evidence.mvcc"],
+  "gaps": [],
+  "qualityAssessment": {
+    "schemaVersion": "2.0.0",
+    "artifactId": "assessment.module.mvcc",
+    "revisionId": "rev.assessment.module.mvcc.1",
+    "publicationState": "PUBLISHED",
+    "subjectRef": "module.mvcc",
+    "hierarchyCorrectness": {"status": "PASS", "findings": []},
+    "granularityFitness": {"status": "PASS", "findings": []},
+    "cognitiveClosure": {"status": "PASS", "findings": []},
+    "spineCoherence": {"status": "PASS", "findings": []},
+    "importanceAccuracy": {"status": "PASS", "findings": []},
+    "sourceFaithfulness": {"status": "PASS", "findings": []},
+    "compressionEfficiency": {"status": "PASS", "findings": []},
+    "hardFailures": []
+  }
+}

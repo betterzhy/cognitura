@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+TEST_DIR="${REPO_ROOT}/tests/contracts/schema"
+
+fail() {
+  printf 'STAGE_EXECUTION_FAILED: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ "$(node --version 2>/dev/null || true)" == "v24.18.0" ]] ||
+  fail "expected Node v24.18.0"
+
+PNPM_VERSION="$(
+  cd "${TEST_DIR}"
+  corepack pnpm --version 2>/dev/null || true
+)"
+[[ "${PNPM_VERSION}" == "11.17.0" ]] ||
+  fail "expected pnpm 11.17.0"
+
+[[ -f "${TEST_DIR}/pnpm-lock.yaml" ]] ||
+  fail "missing tests/contracts/schema/pnpm-lock.yaml"
+[[ -f "${TEST_DIR}/node_modules/ajv/package.json" ]] ||
+  fail "Ajv is not installed; run corepack pnpm install --frozen-lockfile in tests/contracts/schema"
+
+exec node "${TEST_DIR}/verify-json-schemas.mjs"

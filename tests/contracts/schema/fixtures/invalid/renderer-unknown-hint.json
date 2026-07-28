@@ -1,0 +1,30 @@
+{
+  "schemaId": "urn:cognitura:schema:ui:renderer-input:2.0.0",
+  "expectedCategory": "INSTANCE_CONTRACT_VIOLATION",
+  "instance": {
+    "schemaVersion": "2.0.0",
+    "moduleRef": "module.mvcc",
+    "rendererType": "STAGE_CHAIN",
+    "title": "MVCC mechanism",
+    "summary": "",
+    "nodes": [
+      {
+        "nodeId": "renderer-node.mvcc.thesis",
+        "artifactRef": "module.mvcc",
+        "contentPath": "/thesis",
+        "label": "Module thesis",
+        "summary": "",
+        "groupRef": null,
+        "sourceRefs": ["evidence.mvcc"]
+      }
+    ],
+    "groups": [],
+    "relations": [],
+    "sourceRefs": ["evidence.mvcc"],
+    "incompleteState": {
+      "status": "COMPLETE",
+      "gapRefs": []
+    },
+    "interactionHints": ["OPEN_EXTERNAL_DOCUMENT"]
+  }
+}

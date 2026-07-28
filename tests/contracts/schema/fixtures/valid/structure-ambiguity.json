@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "ambiguity.mvcc.boundary",
+  "revisionId": "rev.ambiguity.mvcc.boundary.1",
+  "publicationState": "CONFIRMED",
+  "locationRef": "module.mvcc",
+  "recommendedStructure": {
+    "summary": "Keep visibility judgment inside the MVCC module.",
+    "affectedRefs": ["module.mvcc", "element.visibility"]
+  },
+  "alternatives": [
+    {
+      "alternativeId": "alternative.visibility.theme",
+      "summary": "Promote visibility into a separate theme.",
+      "affectedRefs": ["theme.storage", "module.mvcc"],
+      "riskLevel": "HIGH"
+    }
+  ],
+  "rationale": "Visibility lacks independent closure outside the MVCC mechanism.",
+  "closureImpacts": [
+    {
+      "scopeRef": "closure.theme.storage",
+      "impact": "Promotion would fragment the theme spine.",
+      "riskLevel": "HIGH"
+    }
+  ],
+  "sourceRefs": ["evidence.mvcc"],
+  "gapRefs": []
+}

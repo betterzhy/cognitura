@@ -43,7 +43,7 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-04
+ActiveTaskCard = W0-05
 ActiveTaskCardStatus = READY
 ```
 
@@ -178,12 +178,12 @@ W0-G2A BuildBaseline = PASS
 
 - [x] **Step 1:** 以批准并落地的 `Cognitura-Schema-Baseline-2.0` 解除执行
   阻断，不从总体摘要或常识继续猜测字段。
-- [ ] **Step 2:** 为十项正式认知产物逐一写缺失 required 字段、非法枚举和非法关系类型的失败样例。
-- [ ] **Step 3:** 实现 `KnowledgeSkeleton`、`KnowledgeTheme`、`CognitiveModule`、`PrimaryCognitiveSpine`、`KnowledgeElement`、`ThemeClosure`、`LandscapeClosure`、`EvidenceReference`、`StructureAmbiguity`、`QualityAssessment` Schema。
-- [ ] **Step 4:** 实现生成阶段记录 Schema，覆盖 `inputHash`、`promptVersion`、`model`、`sourceBlockRefs`、`structuredOutput`、`validationResult`、`generationStatus`、`retryCount`。
-- [ ] **Step 5:** 实现统一 Renderer 输入 Schema 和页面状态枚举。
-- [ ] **Step 6:** 运行正例与反例验证，确认缺少 thesis、spine、boundary 或 sourceRefs 的 Module 被拒绝。
-- [ ] **Step 7:** 提交并标记：
+- [x] **Step 2:** 为十项正式认知产物逐一写缺失 required 字段、非法枚举和非法关系类型的失败样例。
+- [x] **Step 3:** 实现 `KnowledgeSkeleton`、`KnowledgeTheme`、`CognitiveModule`、`PrimaryCognitiveSpine`、`KnowledgeElement`、`ThemeClosure`、`LandscapeClosure`、`EvidenceReference`、`StructureAmbiguity`、`QualityAssessment` Schema。
+- [x] **Step 4:** 实现生成阶段记录 Schema，覆盖 `inputHash`、`promptVersion`、`model`、`sourceBlockRefs`、`structuredOutput`、`validationResult`、`generationStatus`、`retryCount`。
+- [x] **Step 5:** 实现统一 Renderer 输入 Schema 和页面状态枚举。
+- [x] **Step 6:** 运行正例与反例验证，确认缺少 thesis、spine、boundary 或 sourceRefs 的 Module 被拒绝。
+- [x] **Step 7:** 提交并标记：
 
 ```text
 W0-G3 JsonSchemaValidation = PASS
@@ -283,11 +283,11 @@ Wave1FeatureDevelopmentEntry = NO_GO
 
 ```text
 W0-00 → W0-01 → W0-02 → W0-03
-                       ├→ W0-04 [READY] → W0-05 ───────────────┐
+                       ├→ W0-04 [DONE] → W0-05 [READY] ────────┐
                        └→ W0-06 [DONE] ─────────────────────────┤
                                                                └→ W0-07 → W0-08
 ```
 
-`W0-06` 已在等待字段级来源期间完成。现在
-`Cognitura-Schema-Baseline-2.0` 已批准并落地，`W0-04` 是唯一 `READY` 卡；
-`W0-05/W0-07/W0-08` 继续受其依赖链阻断。`W0-08` 必须最后执行。
+`W0-06` 已在等待字段级来源期间完成。`Cognitura-Schema-Baseline-2.0`
+已经投影为通过验证的机器 Schema，`W0-04` 为 `DONE`，`W0-05` 是唯一
+`READY` 卡；`W0-07/W0-08` 继续受其依赖链阻断。`W0-08` 必须最后执行。

@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cognitura:schema:cognition:evidence-reference:2.0.0",
+  "title": "Cognitura EvidenceReference 2.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactId",
+    "revisionId",
+    "publicationState",
+    "sourceDocumentRef",
+    "documentBlockRef",
+    "sectionPath",
+    "pageNumber",
+    "sourceOrder",
+    "blockType",
+    "contentSummary",
+    "sourceKind",
+    "supports",
+    "inferenceDisclosure",
+    "conflictState",
+    "conflictGroupId",
+    "resolutionDecision"
+  ],
+  "properties": {
+    "schemaVersion": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/schemaVersion"},
+    "artifactId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+    "revisionId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/revisionId"},
+    "publicationState": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/publicationState"},
+    "sourceDocumentRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+    "documentBlockRef": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRef"},
+    "sectionPath": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"}
+    },
+    "pageNumber": {
+      "anyOf": [
+        {"type": "integer", "minimum": 1},
+        {"type": "null"}
+      ]
+    },
+    "sourceOrder": {
+      "anyOf": [
+        {"type": "integer", "minimum": 0},
+        {"type": "null"}
+      ]
+    },
+    "blockType": {
+      "enum": ["HEADING", "PARAGRAPH", "LIST", "TABLE", "IMAGE", "CAPTION", "OTHER"]
+    },
+    "contentSummary": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/nonBlankText"},
+    "sourceKind": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/sourceKind"},
+    "supports": {
+      "$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactRefArray",
+      "minItems": 1
+    },
+    "inferenceDisclosure": {"type": "string"},
+    "conflictState": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/conflictState"},
+    "conflictGroupId": {
+      "anyOf": [
+        {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+        {"type": "null"}
+      ]
+    },
+    "resolutionDecision": {
+      "anyOf": [
+        {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/conflictResolutionDecision"},
+        {"type": "null"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "not": {
+        "properties": {
+          "pageNumber": {"type": "null"},
+          "sourceOrder": {"type": "null"}
+        },
+        "required": ["pageNumber", "sourceOrder"]
+      }
+    },
+    {
+      "if": {
+        "properties": {"sourceKind": {"const": "SOURCE_SYNTHESIZED"}},
+        "required": ["sourceKind"]
+      },
+      "then": {
+        "properties": {"inferenceDisclosure": {"minLength": 1}}
+      }
+    },
+    {
+      "if": {
+        "properties": {"conflictState": {"const": "NONE"}},
+        "required": ["conflictState"]
+      },
+      "then": {
+        "properties": {
+          "conflictGroupId": {"type": "null"},
+          "resolutionDecision": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"conflictState": {"const": "UNRESOLVED"}},
+        "required": ["conflictState"]
+      },
+      "then": {
+        "properties": {
+          "conflictGroupId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+          "resolutionDecision": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"conflictState": {"const": "RESOLVED_BY_USER"}},
+        "required": ["conflictState"]
+      },
+      "then": {
+        "properties": {
+          "conflictGroupId": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/artifactId"},
+          "resolutionDecision": {"$ref": "urn:cognitura:schema:cognition:common:2.0.0#/$defs/conflictResolutionDecision"}
+        }
+      }
+    }
+  ]
+}

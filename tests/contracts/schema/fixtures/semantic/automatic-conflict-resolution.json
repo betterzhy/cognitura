@@ -1,0 +1,5 @@
+{
+  "expectedCategory": "SEMANTIC_REFERENCE_VIOLATION",
+  "expectedCode": "CONFLICT_RESOLUTION_NOT_USER",
+  "mutation": "AUTOMATIC_CONFLICT_RESOLUTION"
+}

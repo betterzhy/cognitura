@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "2.0.0",
+  "artifactId": "element.visibility",
+  "revisionId": "rev.element.visibility.1",
+  "publicationState": "PUBLISHED",
+  "moduleRef": "module.mvcc",
+  "elementType": "MECHANISM",
+  "title": "Visibility judgment",
+  "content": "A read view selects the newest version visible to the transaction.",
+  "sourceRefs": ["evidence.mvcc"],
+  "relations": ["relation.visibility.depends-version"]
+}

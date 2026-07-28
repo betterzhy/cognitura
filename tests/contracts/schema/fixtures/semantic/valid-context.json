@@ -1,0 +1,961 @@
+{
+  "contextId": "context.database.valid.1",
+  "externalRefs": [
+    "source.mysql",
+    "block.mysql.mvcc.1",
+    "block.mysql.locks.1",
+    "block.mysql.landscape.1",
+    "block.mysql.theme.1"
+  ],
+  "skeleton": {
+    "schemaVersion": "2.0.0",
+    "artifactId": "landscape.database",
+    "revisionId": "rev.landscape.database.1",
+    "publicationState": "PUBLISHED",
+    "landscapeThesis": "Database knowledge is organized around representation, consistency and execution.",
+    "themes": [
+      {
+        "schemaVersion": "2.0.0",
+        "artifactId": "theme.storage",
+        "revisionId": "rev.theme.storage.1",
+        "publicationState": "PUBLISHED",
+        "title": "Storage mechanisms",
+        "coreQuestions": [
+          "How do storage mechanisms preserve consistency?"
+        ],
+        "role": "CORE",
+        "primaryParent": "landscape.database",
+        "moduleCandidates": [
+          {
+            "moduleId": "module.mvcc",
+            "title": "MVCC",
+            "coreQuestions": [
+              "How does MVCC coordinate readers and writers?"
+            ],
+            "role": "CORE",
+            "primaryParent": "theme.storage",
+            "candidateSpine": [
+              "Version creation",
+              "Visibility judgment",
+              "Cleanup"
+            ],
+            "sourceCoverage": {
+              "status": "COMPLETE",
+              "evidenceRefs": [
+                "evidence.mvcc"
+              ],
+              "gapRefs": []
+            },
+            "gaps": []
+          },
+          {
+            "moduleId": "module.locking",
+            "title": "Locking",
+            "coreQuestions": [
+              "How do locks serialize conflicting work?"
+            ],
+            "role": "FOUNDATION",
+            "primaryParent": "theme.storage",
+            "candidateSpine": [
+              "Conflict",
+              "Acquisition",
+              "Release"
+            ],
+            "sourceCoverage": {
+              "status": "COMPLETE",
+              "evidenceRefs": [
+                "evidence.locks"
+              ],
+              "gapRefs": []
+            },
+            "gaps": []
+          }
+        ],
+        "coreModuleRefs": [
+          "module.mvcc",
+          "module.locking"
+        ],
+        "relations": [],
+        "sourceCoverage": {
+          "status": "COMPLETE",
+          "evidenceRefs": [
+            "evidence.theme.storage"
+          ],
+          "gapRefs": []
+        },
+        "gaps": []
+      },
+      {
+        "schemaVersion": "2.0.0",
+        "artifactId": "theme.consistency",
+        "revisionId": "rev.theme.consistency.1",
+        "publicationState": "DRAFT",
+        "title": "Consistency",
+        "coreQuestions": [
+          "How is consistency preserved?"
+        ],
+        "role": "CORE",
+        "primaryParent": "landscape.database",
+        "moduleCandidates": [
+          {
+            "moduleId": "module.consistency",
+            "title": "Consistency module",
+            "coreQuestions": [
+              "How are invariants enforced?"
+            ],
+            "role": "CORE",
+            "primaryParent": "theme.consistency",
+            "candidateSpine": [],
+            "sourceCoverage": {
+              "status": "MISSING",
+              "evidenceRefs": [],
+              "gapRefs": [
+                "gap.module.consistency"
+              ]
+            },
+            "gaps": [
+              {
+                "gapId": "gap.module.consistency",
+                "summary": "Module evidence is pending.",
+                "state": "OPEN",
+                "sourceRefs": []
+              }
+            ]
+          }
+        ],
+        "coreModuleRefs": [],
+        "relations": [],
+        "sourceCoverage": {
+          "status": "MISSING",
+          "evidenceRefs": [],
+          "gapRefs": [
+            "gap.theme.consistency"
+          ]
+        },
+        "gaps": [
+          {
+            "gapId": "gap.theme.consistency",
+            "summary": "Theme evidence is pending.",
+            "state": "OPEN",
+            "sourceRefs": []
+          }
+        ]
+      },
+      {
+        "schemaVersion": "2.0.0",
+        "artifactId": "theme.execution",
+        "revisionId": "rev.theme.execution.1",
+        "publicationState": "DRAFT",
+        "title": "Execution",
+        "coreQuestions": [
+          "How is work executed?"
+        ],
+        "role": "APPLICATION",
+        "primaryParent": "landscape.database",
+        "moduleCandidates": [
+          {
+            "moduleId": "module.execution",
+            "title": "Execution module",
+            "coreQuestions": [
+              "How are plans carried out?"
+            ],
+            "role": "APPLICATION",
+            "primaryParent": "theme.execution",
+            "candidateSpine": [],
+            "sourceCoverage": {
+              "status": "MISSING",
+              "evidenceRefs": [],
+              "gapRefs": [
+                "gap.module.execution"
+              ]
+            },
+            "gaps": [
+              {
+                "gapId": "gap.module.execution",
+                "summary": "Module evidence is pending.",
+                "state": "OPEN",
+                "sourceRefs": []
+              }
+            ]
+          }
+        ],
+        "coreModuleRefs": [],
+        "relations": [],
+        "sourceCoverage": {
+          "status": "MISSING",
+          "evidenceRefs": [],
+          "gapRefs": [
+            "gap.theme.execution"
+          ]
+        },
+        "gaps": [
+          {
+            "gapId": "gap.theme.execution",
+            "summary": "Theme evidence is pending.",
+            "state": "OPEN",
+            "sourceRefs": []
+          }
+        ]
+      }
+    ],
+    "coreThemeRefs": [
+      "theme.storage",
+      "theme.consistency",
+      "theme.execution"
+    ],
+    "relations": [],
+    "understandingRoute": [
+      "theme.storage",
+      "theme.consistency",
+      "theme.execution"
+    ],
+    "structureAmbiguityRefs": [],
+    "sourceCoverage": {
+      "status": "COMPLETE",
+      "evidenceRefs": [
+        "evidence.landscape"
+      ],
+      "gapRefs": []
+    },
+    "gaps": []
+  },
+  "modules": [
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "module.mvcc",
+      "revisionId": "rev.module.mvcc.1",
+      "publicationState": "PUBLISHED",
+      "primaryParent": "theme.storage",
+      "title": "MVCC",
+      "thesis": "MVCC coordinates readers and writers by selecting visible record versions.",
+      "role": "CORE",
+      "coreQuestions": [
+        "How does a read choose a visible version?"
+      ],
+      "primaryCognitiveSpine": {
+        "schemaVersion": "2.0.0",
+        "artifactId": "spine.mvcc",
+        "revisionId": "rev.spine.mvcc.1",
+        "publicationState": "PUBLISHED",
+        "moduleRef": "module.mvcc",
+        "steps": [
+          {
+            "stepId": "spine-step.mvcc.1",
+            "order": 1,
+            "statement": "Create a version.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ]
+          },
+          {
+            "stepId": "spine-step.mvcc.2",
+            "order": 2,
+            "statement": "Capture a visibility boundary.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ]
+          },
+          {
+            "stepId": "spine-step.mvcc.3",
+            "order": 3,
+            "statement": "Select a visible version.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ]
+          },
+          {
+            "stepId": "spine-step.mvcc.4",
+            "order": 4,
+            "statement": "Retire obsolete versions.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ]
+          }
+        ]
+      },
+      "facets": [
+        {
+          "facetId": "facet.visibility",
+          "title": "Visibility",
+          "summary": "Rules for selecting record versions.",
+          "elementRefs": [
+            "element.visibility",
+            "element.version"
+          ],
+          "sourceRefs": [
+            "evidence.mvcc"
+          ]
+        }
+      ],
+      "knowledgeElements": [
+        {
+          "schemaVersion": "2.0.0",
+          "artifactId": "element.visibility",
+          "revisionId": "rev.element.visibility.1",
+          "publicationState": "PUBLISHED",
+          "moduleRef": "module.mvcc",
+          "elementType": "MECHANISM",
+          "title": "Visibility judgment",
+          "content": "A read view selects the newest visible record version.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ],
+          "relations": [
+            "relation.visibility.depends-version"
+          ]
+        },
+        {
+          "schemaVersion": "2.0.0",
+          "artifactId": "element.version",
+          "revisionId": "rev.element.version.1",
+          "publicationState": "PUBLISHED",
+          "moduleRef": "module.mvcc",
+          "elementType": "CONCEPT",
+          "title": "Record version",
+          "content": "A record version preserves one historical state.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ],
+          "relations": [
+            "relation.visibility.depends-version"
+          ]
+        }
+      ],
+      "keyTakeaways": [
+        {
+          "statementId": "takeaway.mvcc.1",
+          "statement": "Visibility depends on transaction boundaries.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ],
+          "gapRefs": []
+        },
+        {
+          "statementId": "takeaway.mvcc.2",
+          "statement": "Multiple record versions decouple reads from current writes.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ],
+          "gapRefs": []
+        },
+        {
+          "statementId": "takeaway.mvcc.3",
+          "statement": "Version cleanup depends on active visibility windows.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ],
+          "gapRefs": []
+        }
+      ],
+      "criticalBoundaries": [
+        {
+          "boundaryId": "boundary.mvcc.1",
+          "statement": "MVCC visibility does not by itself prevent every write conflict.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "relationId": "relation.visibility.depends-version",
+          "type": "DEPENDS_ON",
+          "sourceRef": "element.visibility",
+          "targetRef": "element.version",
+          "origin": "SOURCE_EXPLICIT",
+          "riskLevel": "LOW",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ],
+          "gapRefs": []
+        }
+      ],
+      "sourceRefs": [
+        "evidence.mvcc"
+      ],
+      "gaps": [],
+      "qualityAssessment": {
+        "schemaVersion": "2.0.0",
+        "artifactId": "assessment.module.mvcc",
+        "revisionId": "rev.assessment.module.mvcc.1",
+        "publicationState": "PUBLISHED",
+        "subjectRef": "module.mvcc",
+        "hierarchyCorrectness": {
+          "status": "PASS",
+          "findings": []
+        },
+        "granularityFitness": {
+          "status": "PASS",
+          "findings": []
+        },
+        "cognitiveClosure": {
+          "status": "PASS",
+          "findings": []
+        },
+        "spineCoherence": {
+          "status": "PASS",
+          "findings": []
+        },
+        "importanceAccuracy": {
+          "status": "PASS",
+          "findings": []
+        },
+        "sourceFaithfulness": {
+          "status": "PASS",
+          "findings": []
+        },
+        "compressionEfficiency": {
+          "status": "PASS",
+          "findings": []
+        },
+        "hardFailures": []
+      }
+    }
+  ],
+  "themeClosures": [
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "closure.theme.storage",
+      "revisionId": "rev.closure.theme.storage.1",
+      "publicationState": "PUBLISHED",
+      "themeRef": "theme.storage",
+      "coreQuestions": [
+        "How do storage mechanisms cooperate?"
+      ],
+      "thesis": "Storage mechanisms connect representation, visibility and durability.",
+      "moduleCooperation": [
+        {
+          "moduleRef": "module.mvcc",
+          "contribution": "MVCC explains visibility over stored versions.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ]
+        }
+      ],
+      "themeSpine": [
+        {
+          "stepId": "theme-step.storage.1",
+          "order": 1,
+          "artifactRef": "module.mvcc",
+          "statement": "Start with version representation and visibility.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ]
+        }
+      ],
+      "criticalDistinctions": [
+        {
+          "statementId": "distinction.storage.1",
+          "statement": "Visibility and durability solve different problems.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ],
+          "gapRefs": []
+        }
+      ],
+      "boundaries": [
+        {
+          "statementId": "boundary.storage.1",
+          "statement": "A storage mechanism is not a complete transaction protocol.",
+          "sourceRefs": [
+            "evidence.mvcc"
+          ],
+          "gapRefs": []
+        }
+      ],
+      "relatedThemes": [],
+      "sourceCoverage": {
+        "status": "COMPLETE",
+        "evidenceRefs": [
+          "evidence.mvcc"
+        ],
+        "gapRefs": []
+      },
+      "gaps": []
+    }
+  ],
+  "landscapeClosures": [
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "closure.landscape.database",
+      "revisionId": "rev.closure.landscape.database.1",
+      "publicationState": "PUBLISHED",
+      "landscapeThesis": "Database behavior emerges from storage, consistency and execution mechanisms.",
+      "coreThemes": [
+        {
+          "themeRef": "theme.storage",
+          "role": "FOUNDATION",
+          "contribution": "Explains how state is represented.",
+          "sourceRefs": [
+            "evidence.landscape"
+          ]
+        },
+        {
+          "themeRef": "theme.consistency",
+          "role": "CORE",
+          "contribution": "Explains how invariants are preserved.",
+          "sourceRefs": [
+            "evidence.landscape"
+          ]
+        },
+        {
+          "themeRef": "theme.execution",
+          "role": "APPLICATION",
+          "contribution": "Explains how operations are carried out.",
+          "sourceRefs": [
+            "evidence.landscape"
+          ]
+        }
+      ],
+      "crossThemeSpine": [
+        {
+          "stepId": "landscape-step.1",
+          "order": 1,
+          "artifactRef": "theme.storage",
+          "statement": "Begin with stored representation.",
+          "sourceRefs": [
+            "evidence.landscape"
+          ]
+        },
+        {
+          "stepId": "landscape-step.2",
+          "order": 2,
+          "artifactRef": "theme.consistency",
+          "statement": "Then connect consistency controls.",
+          "sourceRefs": [
+            "evidence.landscape"
+          ]
+        },
+        {
+          "stepId": "landscape-step.3",
+          "order": 3,
+          "artifactRef": "theme.execution",
+          "statement": "Finally connect execution behavior.",
+          "sourceRefs": [
+            "evidence.landscape"
+          ]
+        }
+      ],
+      "keyDependencies": [],
+      "globalBoundaries": [
+        {
+          "statementId": "landscape-boundary.1",
+          "statement": "The landscape does not replace product-specific database design.",
+          "sourceRefs": [
+            "evidence.landscape"
+          ],
+          "gapRefs": []
+        }
+      ],
+      "understandingRoute": [
+        "theme.storage",
+        "theme.consistency",
+        "theme.execution"
+      ],
+      "sourceCoverage": {
+        "status": "COMPLETE",
+        "evidenceRefs": [
+          "evidence.landscape"
+        ],
+        "gapRefs": []
+      },
+      "gaps": []
+    }
+  ],
+  "structureAmbiguities": [
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "ambiguity.mvcc.boundary",
+      "revisionId": "rev.ambiguity.mvcc.boundary.1",
+      "publicationState": "CONFIRMED",
+      "locationRef": "module.mvcc",
+      "recommendedStructure": {
+        "summary": "Keep visibility judgment inside the MVCC module.",
+        "affectedRefs": [
+          "module.mvcc",
+          "element.visibility"
+        ]
+      },
+      "alternatives": [
+        {
+          "alternativeId": "alternative.visibility.theme",
+          "summary": "Promote visibility into a separate theme.",
+          "affectedRefs": [
+            "theme.storage",
+            "module.mvcc"
+          ],
+          "riskLevel": "HIGH"
+        }
+      ],
+      "rationale": "Visibility lacks independent closure outside the MVCC mechanism.",
+      "closureImpacts": [
+        {
+          "scopeRef": "closure.theme.storage",
+          "impact": "Promotion would fragment the theme spine.",
+          "riskLevel": "HIGH"
+        }
+      ],
+      "sourceRefs": [
+        "evidence.mvcc"
+      ],
+      "gapRefs": []
+    }
+  ],
+  "evidenceReferences": [
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "evidence.mvcc",
+      "revisionId": "rev.evidence.mvcc.1",
+      "publicationState": "CONFIRMED",
+      "sourceDocumentRef": "source.mysql",
+      "documentBlockRef": "block.mysql.mvcc.1",
+      "sectionPath": [
+        "InnoDB",
+        "MVCC"
+      ],
+      "pageNumber": 12,
+      "sourceOrder": 48,
+      "blockType": "PARAGRAPH",
+      "contentSummary": "The source explains how transaction visibility selects record versions.",
+      "sourceKind": "SOURCE_EXPLICIT",
+      "supports": [
+        "module.mvcc",
+        "element.visibility",
+        "element.version",
+        "closure.theme.storage",
+        "ambiguity.mvcc.boundary"
+      ],
+      "inferenceDisclosure": "",
+      "conflictState": "NONE",
+      "conflictGroupId": null,
+      "resolutionDecision": null
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "evidence.locks",
+      "revisionId": "rev.evidence.locks.1",
+      "publicationState": "CONFIRMED",
+      "sourceDocumentRef": "source.mysql",
+      "documentBlockRef": "block.mysql.locks.1",
+      "sectionPath": [
+        "InnoDB",
+        "MVCC"
+      ],
+      "pageNumber": 12,
+      "sourceOrder": 48,
+      "blockType": "PARAGRAPH",
+      "contentSummary": "Evidence for evidence.locks.",
+      "sourceKind": "SOURCE_EXPLICIT",
+      "supports": [
+        "module.locking"
+      ],
+      "inferenceDisclosure": "",
+      "conflictState": "NONE",
+      "conflictGroupId": null,
+      "resolutionDecision": null
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "evidence.landscape",
+      "revisionId": "rev.evidence.landscape.1",
+      "publicationState": "CONFIRMED",
+      "sourceDocumentRef": "source.mysql",
+      "documentBlockRef": "block.mysql.landscape.1",
+      "sectionPath": [
+        "InnoDB",
+        "MVCC"
+      ],
+      "pageNumber": 12,
+      "sourceOrder": 48,
+      "blockType": "PARAGRAPH",
+      "contentSummary": "Evidence for evidence.landscape.",
+      "sourceKind": "SOURCE_EXPLICIT",
+      "supports": [
+        "landscape.database",
+        "closure.landscape.database"
+      ],
+      "inferenceDisclosure": "",
+      "conflictState": "NONE",
+      "conflictGroupId": null,
+      "resolutionDecision": null
+    },
+    {
+      "schemaVersion": "2.0.0",
+      "artifactId": "evidence.theme.storage",
+      "revisionId": "rev.evidence.theme.storage.1",
+      "publicationState": "CONFIRMED",
+      "sourceDocumentRef": "source.mysql",
+      "documentBlockRef": "block.mysql.theme.1",
+      "sectionPath": [
+        "InnoDB",
+        "MVCC"
+      ],
+      "pageNumber": 12,
+      "sourceOrder": 48,
+      "blockType": "PARAGRAPH",
+      "contentSummary": "Evidence for evidence.theme.storage.",
+      "sourceKind": "SOURCE_EXPLICIT",
+      "supports": [
+        "theme.storage"
+      ],
+      "inferenceDisclosure": "",
+      "conflictState": "NONE",
+      "conflictGroupId": null,
+      "resolutionDecision": null
+    }
+  ],
+  "additionalSpines": [],
+  "generationRecords": [
+    {
+      "schemaVersion": "2.0.0",
+      "runId": "run.module.mvcc.1",
+      "stage": "MODULE_DEEP_GENERATION",
+      "inputHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "promptVersion": "prompt.module.v1",
+      "model": "model.contract-test",
+      "sourceBlockRefs": [
+        "block.mysql.mvcc.1"
+      ],
+      "outputKind": "COGNITIVE_ARTIFACT",
+      "outputSchemaId": "urn:cognitura:schema:cognition:cognitive-module:2.0.0",
+      "structuredOutput": {
+        "schemaVersion": "2.0.0",
+        "artifactId": "module.mvcc",
+        "revisionId": "rev.module.mvcc.1",
+        "publicationState": "PUBLISHED",
+        "primaryParent": "theme.storage",
+        "title": "MVCC",
+        "thesis": "MVCC coordinates readers and writers by selecting visible record versions.",
+        "role": "CORE",
+        "coreQuestions": [
+          "How does a read choose a visible version?"
+        ],
+        "primaryCognitiveSpine": {
+          "schemaVersion": "2.0.0",
+          "artifactId": "spine.mvcc",
+          "revisionId": "rev.spine.mvcc.1",
+          "publicationState": "PUBLISHED",
+          "moduleRef": "module.mvcc",
+          "steps": [
+            {
+              "stepId": "spine-step.mvcc.1",
+              "order": 1,
+              "statement": "Create a version.",
+              "sourceRefs": [
+                "evidence.mvcc"
+              ]
+            },
+            {
+              "stepId": "spine-step.mvcc.2",
+              "order": 2,
+              "statement": "Capture a visibility boundary.",
+              "sourceRefs": [
+                "evidence.mvcc"
+              ]
+            },
+            {
+              "stepId": "spine-step.mvcc.3",
+              "order": 3,
+              "statement": "Select a visible version.",
+              "sourceRefs": [
+                "evidence.mvcc"
+              ]
+            },
+            {
+              "stepId": "spine-step.mvcc.4",
+              "order": 4,
+              "statement": "Retire obsolete versions.",
+              "sourceRefs": [
+                "evidence.mvcc"
+              ]
+            }
+          ]
+        },
+        "facets": [
+          {
+            "facetId": "facet.visibility",
+            "title": "Visibility",
+            "summary": "Rules for selecting record versions.",
+            "elementRefs": [
+              "element.visibility",
+              "element.version"
+            ],
+            "sourceRefs": [
+              "evidence.mvcc"
+            ]
+          }
+        ],
+        "knowledgeElements": [
+          {
+            "schemaVersion": "2.0.0",
+            "artifactId": "element.visibility",
+            "revisionId": "rev.element.visibility.1",
+            "publicationState": "PUBLISHED",
+            "moduleRef": "module.mvcc",
+            "elementType": "MECHANISM",
+            "title": "Visibility judgment",
+            "content": "A read view selects the newest visible record version.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ],
+            "relations": [
+              "relation.visibility.depends-version"
+            ]
+          },
+          {
+            "schemaVersion": "2.0.0",
+            "artifactId": "element.version",
+            "revisionId": "rev.element.version.1",
+            "publicationState": "PUBLISHED",
+            "moduleRef": "module.mvcc",
+            "elementType": "CONCEPT",
+            "title": "Record version",
+            "content": "A record version preserves one historical state.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ],
+            "relations": [
+              "relation.visibility.depends-version"
+            ]
+          }
+        ],
+        "keyTakeaways": [
+          {
+            "statementId": "takeaway.mvcc.1",
+            "statement": "Visibility depends on transaction boundaries.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ],
+            "gapRefs": []
+          },
+          {
+            "statementId": "takeaway.mvcc.2",
+            "statement": "Multiple record versions decouple reads from current writes.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ],
+            "gapRefs": []
+          },
+          {
+            "statementId": "takeaway.mvcc.3",
+            "statement": "Version cleanup depends on active visibility windows.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ],
+            "gapRefs": []
+          }
+        ],
+        "criticalBoundaries": [
+          {
+            "boundaryId": "boundary.mvcc.1",
+            "statement": "MVCC visibility does not by itself prevent every write conflict.",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "relationId": "relation.visibility.depends-version",
+            "type": "DEPENDS_ON",
+            "sourceRef": "element.visibility",
+            "targetRef": "element.version",
+            "origin": "SOURCE_EXPLICIT",
+            "riskLevel": "LOW",
+            "sourceRefs": [
+              "evidence.mvcc"
+            ],
+            "gapRefs": []
+          }
+        ],
+        "sourceRefs": [
+          "evidence.mvcc"
+        ],
+        "gaps": [],
+        "qualityAssessment": {
+          "schemaVersion": "2.0.0",
+          "artifactId": "assessment.module.mvcc",
+          "revisionId": "rev.assessment.module.mvcc.1",
+          "publicationState": "PUBLISHED",
+          "subjectRef": "module.mvcc",
+          "hierarchyCorrectness": {
+            "status": "PASS",
+            "findings": []
+          },
+          "granularityFitness": {
+            "status": "PASS",
+            "findings": []
+          },
+          "cognitiveClosure": {
+            "status": "PASS",
+            "findings": []
+          },
+          "spineCoherence": {
+            "status": "PASS",
+            "findings": []
+          },
+          "importanceAccuracy": {
+            "status": "PASS",
+            "findings": []
+          },
+          "sourceFaithfulness": {
+            "status": "PASS",
+            "findings": []
+          },
+          "compressionEfficiency": {
+            "status": "PASS",
+            "findings": []
+          },
+          "hardFailures": []
+        }
+      },
+      "outputHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "validationResult": {
+        "status": "PASS",
+        "validatedSchemaIds": [
+          "urn:cognitura:schema:cognition:cognitive-module:2.0.0"
+        ],
+        "errors": []
+      },
+      "generationStatus": "SUCCEEDED",
+      "retryCount": 0,
+      "retryScopeRefs": [],
+      "failure": null
+    }
+  ],
+  "rendererInputs": [
+    {
+      "schemaVersion": "2.0.0",
+      "moduleRef": "module.mvcc",
+      "rendererType": "STAGE_CHAIN",
+      "title": "MVCC mechanism",
+      "summary": "A focused projection of the module thesis and visibility element.",
+      "nodes": [
+        {
+          "nodeId": "renderer-node.mvcc.thesis",
+          "artifactRef": "module.mvcc",
+          "contentPath": "/thesis",
+          "label": "Module thesis",
+          "summary": "The central claim of the module.",
+          "groupRef": null,
+          "sourceRefs": [
+            "evidence.mvcc"
+          ]
+        }
+      ],
+      "groups": [],
+      "relations": [],
+      "sourceRefs": [
+        "evidence.mvcc"
+      ],
+      "incompleteState": {
+        "status": "COMPLETE",
+        "gapRefs": []
+      },
+      "interactionHints": [
+        "EXPAND_DETAILS",
+        "SHOW_SOURCE"
+      ]
+    }
+  ]
+}
