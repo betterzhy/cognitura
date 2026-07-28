@@ -95,7 +95,7 @@ DOC-GAP-002 = OPEN
 CommitMessage = docs: add Cognitura page and renderer contracts
 CommitReview = MAIN_AGENT_GATE
 NextTaskCardOnPass = NONE
-TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP
+TaskCardSetStatusOnW0-06Pass = BLOCKED_BY_DOCUMENTATION_GAP
 BlockingGate = DOC-GAP-001
 ```
 

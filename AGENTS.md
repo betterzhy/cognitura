@@ -18,7 +18,7 @@ CurrentStage =
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = NONE
+ActiveTaskCard = W0-04
 Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```
@@ -30,19 +30,25 @@ Wave 0 只允许建立 Repository、设计索引、专项契约覆盖、JSON Sch
 按以下优先级读取，不得凭对话记忆补写：
 
 1. `cognitive-knowledge-atlas-overall-design-1.2.md`：当前总体正式基线；工程引用名 `Cognitura-Overall-Design-1.2`。
-2. 后续实际落地且通过来源校验的专项设计正文：
+2. `docs/design/cognitura-schema-baseline-1.0.md`：经用户明确批准的字段级
+   工程重基线；工程引用名 `Cognitura-Schema-Baseline-1.0`。它从属于总体设计，
+   不冒充或替代历史专项正文。
+3. 后续实际落地且通过来源校验的专项设计正文：
    - `Cognitive-Knowledge-System-Construction-Design-1.0`
    - `Cognitive-Knowledge-Atlas-UIUX-Design-1.0`
-3. `raw/` 下三份 Golden Case 原始 DOCX。
-4. `docs/engineering/` 下的工程索引、计划和准入记录；这些文件解释落地状态，不覆盖正式设计。
-5. `docs/task-cards/` 下的执行卡和索引；这些文件固定写集、依赖、验证和 Gate，
+4. `raw/` 下三份 Golden Case 原始 DOCX。
+5. `docs/engineering/` 下的工程索引、计划和准入记录；这些文件解释落地状态，不覆盖正式设计。
+6. `docs/task-cards/` 下的执行卡和索引；这些文件固定写集、依赖、验证和 Gate，
    不覆盖总体设计或工程裁决。
 
 后端工程选择以
 `docs/engineering/cognitura-technology-baseline.md` 为唯一技术基线；不得在
 子模块中另行选择 Java、Spring Boot、数据库或数据访问框架版本。
 
-专项正文缺失时，使用总体设计中已经回迁的正式契约继续 Wave 0 非 Schema 工作；字段级 JSON Schema 不得猜测。缺口必须记录为 `DocumentationGap`，直到权威来源落地或形成明确的工程裁决。
+专项正文缺失时，使用总体设计中已经回迁的正式契约继续 Wave 0 非 Schema 工作；
+字段级 JSON Schema 必须服从 `Cognitura-Schema-Baseline-1.0`，不得从常识或提示词
+继续扩写。缺口必须记录为 `DocumentationGap`，直到权威来源落地或形成明确的
+工程裁决。
 
 ## 4. 不可修改的产品裁决
 

@@ -2,7 +2,7 @@
 
 ```text
 TaskCardID = W0-04
-Status = BLOCKED_BY_DOCUMENTATION_GAP
+Status = READY
 Gate = W0-G3 JsonSchemaValidation
 Risk = HIGH
 DependsOn = W0-02,W0-03
@@ -18,22 +18,29 @@ JSON Schema，使生成、存储和展示共享同一机器契约。
 
 - `W0-G2 SpecialtyContractCoverage = PASS`
 - `W0-G2A BuildBaseline = PASS`
-- 权威专项正文已经落地并通过来源校验，或用户批准了明确的 Schema 重基线设计
-- 当前额外阻断：
+- `Cognitura-Schema-Baseline-1.0 = FORMAL_SCHEMA_REBASELINE`
+- Schema 重基线来源：
+  `docs/design/cognitura-schema-baseline-1.0.md`
+- 文档缺口处置：
 
 ```text
-ExternalBlocker = DOC-GAP-001
-BlockedReason = FIELD_LEVEL_SCHEMA_SOURCE_MISSING
+ExternalBlocker = RESOLVED_BY_APPROVED_SCHEMA_REBASELINE
+DocumentationGap = DOC-GAP-001
+SchemaRebaselineDisposition = APPROVED
 DependencyState = SATISFIED
 ```
 
-`W0-G2A BuildBaseline` 已通过，但总体设计摘要仍不足以单独解除此阻断。
+总体设计摘要本身仍不足以生成字段级 Schema；本卡只能实现已经批准的
+`Cognitura-Schema-Baseline-1.0`，不得继续补写未裁决语义。
 
 ## 3. 写集
 
 - Create: `schemas/cognition/*.schema.json`
 - Create: `schemas/generation/*.schema.json`
 - Create: `schemas/ui/renderer-input.schema.json`
+- Create: `schemas/ui/page-state.schema.json`
+- Create: `schemas/catalog.json`
+- Create: `schemas/evidence-map.json`
 - Create: `tests/contracts/schema/`
 - Create: `scripts/verify-json-schemas`
 - Modify: `docs/engineering/cognitura-design-index.md`
@@ -48,7 +55,8 @@ DependencyState = SATISFIED
 
 ## 4. 执行步骤
 
-- [ ] 先解除 `DOC-GAP-001`，记录权威来源路径、版本、哈希或批准的重基线裁决。
+- [x] 解除 `DOC-GAP-001` 执行阻断，记录批准的
+  `Cognitura-Schema-Baseline-1.0`。
 - [ ] 为十项正式认知产物编写缺少 required、非法枚举和非法关系的失败样例。
 - [ ] 为生成阶段记录和 Renderer 输入编写失败样例。
 - [ ] 运行测试并确认 Schema 未实现时失败。
@@ -89,4 +97,5 @@ CommitReview = MAIN_AGENT_GATE
 NextTaskCardOnPass = W0-05
 ```
 
-未获权威字段来源或明确重基线批准时，本卡保持阻断并停止执行。
+本卡只实施已经固定的重基线。实施中发现设计矛盾时必须停止并形成版本化设计
+变更，不得边写 Schema 边静默改变本基线。

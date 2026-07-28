@@ -43,8 +43,8 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = NONE
-ActiveTaskCardStatus = BLOCKED_BY_DOCUMENTATION_GAP
+ActiveTaskCard = W0-04
+ActiveTaskCardStatus = READY
 ```
 
 ## 0. 工作项与 Gate
@@ -169,11 +169,15 @@ W0-G2A BuildBaseline = PASS
 - Create: `schemas/cognition/*.schema.json`
 - Create: `schemas/generation/*.schema.json`
 - Create: `schemas/ui/renderer-input.schema.json`
+- Create: `schemas/ui/page-state.schema.json`
+- Create: `schemas/catalog.json`
+- Create: `schemas/evidence-map.json`
 - Test: `tests/contracts/schema/`
 
 **Produces:** 版本化、可引用、可验证的 Cognitura 正式 Schema 集。
 
-- [ ] **Step 1:** 在 `W0-G2` 通过前保持本任务阻断，不从总体摘要猜测字段。
+- [x] **Step 1:** 以批准并落地的 `Cognitura-Schema-Baseline-1.0` 解除执行
+  阻断，不从总体摘要或常识继续猜测字段。
 - [ ] **Step 2:** 为十项正式认知产物逐一写缺失 required 字段、非法枚举和非法关系类型的失败样例。
 - [ ] **Step 3:** 实现 `KnowledgeSkeleton`、`KnowledgeTheme`、`CognitiveModule`、`PrimaryCognitiveSpine`、`KnowledgeElement`、`ThemeClosure`、`LandscapeClosure`、`EvidenceReference`、`StructureAmbiguity`、`QualityAssessment` Schema。
 - [ ] **Step 4:** 实现生成阶段记录 Schema，覆盖 `inputHash`、`promptVersion`、`model`、`sourceBlockRefs`、`structuredOutput`、`validationResult`、`generationStatus`、`retryCount`。
@@ -279,11 +283,11 @@ Wave1FeatureDevelopmentEntry = NO_GO
 
 ```text
 W0-00 → W0-01 → W0-02 → W0-03
-                       ├→ W0-04 [BLOCKED: DOC-GAP-001] → W0-05 ┐
+                       ├→ W0-04 [READY] → W0-05 ───────────────┐
                        └→ W0-06 [DONE] ─────────────────────────┤
                                                                └→ W0-07 → W0-08
 ```
 
-`W0-06` 已在等待字段级来源期间完成。现在 `W0-04` 必须等待权威字段级来源或
-明确批准的 Schema 重基线；`W0-05/W0-07/W0-08` 受其依赖链阻断，任务卡集合
-处于 `BLOCKED_BY_DOCUMENTATION_GAP`。`W0-08` 必须最后执行。
+`W0-06` 已在等待字段级来源期间完成。现在
+`Cognitura-Schema-Baseline-1.0` 已批准并落地，`W0-04` 是唯一 `READY` 卡；
+`W0-05/W0-07/W0-08` 继续受其依赖链阻断。`W0-08` 必须最后执行。

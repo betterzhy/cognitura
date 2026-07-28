@@ -149,27 +149,22 @@ fi
 blocked_terminal_dir="${test_tmp_root}/blocked-terminal"
 cp -R "${cards_dir}" "${blocked_terminal_dir}"
 sed -i.bak \
-  's/^Status = READY$/Status = DONE/' \
-  "${blocked_terminal_dir}/W0-06-ui-renderer-contracts.md"
-rm "${blocked_terminal_dir}/W0-06-ui-renderer-contracts.md.bak"
+  -E 's/^Status = (DONE|READY|QUEUED)$/Status = BLOCKED_BY_DOCUMENTATION_GAP/' \
+  "${blocked_terminal_dir}/W0-04-json-schema-source.md"
+rm "${blocked_terminal_dir}/W0-04-json-schema-source.md.bak"
 sed -i.bak \
-  -e 's/^ActiveTaskCard = W0-06$/ActiveTaskCard = NONE/' \
-  -e 's/^TaskCardSetStatus = READY_FOR_EXECUTION$/TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP/' \
+  -e 's/^ActiveTaskCard = .*$/ActiveTaskCard = NONE/' \
+  -e 's/^TaskCardSetStatus = .*$/TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP/' \
   "${blocked_terminal_dir}/README.md"
 rm "${blocked_terminal_dir}/README.md.bak"
 expect_success "${blocked_terminal_dir}"
 
 blocked_with_ready_dir="${test_tmp_root}/blocked-with-ready"
-cp -R "${cards_dir}" "${blocked_with_ready_dir}"
+cp -R "${blocked_terminal_dir}" "${blocked_with_ready_dir}"
 sed -i.bak \
-  's/^Status = DONE$/Status = READY/' \
-  "${blocked_with_ready_dir}/W0-06-ui-renderer-contracts.md"
-rm "${blocked_with_ready_dir}/W0-06-ui-renderer-contracts.md.bak"
-sed -i.bak \
-  -e 's/^ActiveTaskCard = W0-06$/ActiveTaskCard = NONE/' \
-  -e 's/^TaskCardSetStatus = READY_FOR_EXECUTION$/TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP/' \
-  "${blocked_with_ready_dir}/README.md"
-rm "${blocked_with_ready_dir}/README.md.bak"
+  's/^Status = BLOCKED_BY_DOCUMENTATION_GAP$/Status = READY/' \
+  "${blocked_with_ready_dir}/W0-04-json-schema-source.md"
+rm "${blocked_with_ready_dir}/W0-04-json-schema-source.md.bak"
 expect_failure \
   "${blocked_with_ready_dir}" \
   "blocked task card set must have zero READY task cards"

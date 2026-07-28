@@ -18,7 +18,7 @@ CurrentStage =
   WAVE0_EXECUTION
 
 Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = NONE
+ActiveTaskCard = W0-04
 ```
 
 当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、
@@ -29,7 +29,8 @@ ActiveTaskCard = NONE
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
 
 `W0-G2 SpecialtyContractCoverage = PASS`：总体设计中的非 Schema 构造与 UI
-契约已建立机器可验证的覆盖矩阵；`DOC-GAP-001/002` 继续保持开放。
+契约已建立机器可验证的覆盖矩阵。`DOC-GAP-001` 已取得正式 Schema 重基线
+处置，等待 W0-04 实施封口；`DOC-GAP-002` 继续保持开放。
 
 `W0-G2A BuildBaseline = PASS`：后端固定为 JDK 21、Maven 3.9.16、
 Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
@@ -39,11 +40,12 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 
 `W0-G4A UiContractValidation = PASS`：12 个正式页面、Skeleton Review 三栏与
 六类操作、9 个 Renderer、12 个页面状态和 Desktop Web 边界已形成可验证的
-非 Schema 契约；`DOC-GAP-001/002` 仍保持开放。
+非 Schema 契约；两项历史专项正文缺失事实仍保持登记。
 
 ## 正式输入
 
 - [总体设计 1.2](cognitive-knowledge-atlas-overall-design-1.2.md)：历史文件名保留，工程引用名为 `Cognitura-Overall-Design-1.2`。
+- [Schema Baseline 1.0](docs/design/cognitura-schema-baseline-1.0.md)：经批准的字段级工程重基线，不冒充历史专项正文。
 - [MySQL Golden Case](raw/11-MySQL数据库.docx)
 - [Redis Golden Case](raw/12-Redis中间件.docx)
 - [英语学习 Golden Case](raw/40-英语学习.docx)
@@ -74,8 +76,7 @@ DirectFullImplementationStart = NO
 
 `W0-G0 RepositoryBaseline = PASS`，`W0-G1 DesignSourceRegistry = PASS`，
 `W0-G2 SpecialtyContractCoverage = PASS`，`W0-G2A BuildBaseline = PASS`，
-`W0-G4A UiContractValidation = PASS`。当前没有可合法执行的 `READY` 卡：
-`W0-04` 受 `DOC-GAP-001` 阻断，其余未完成卡受它的依赖链阻断。任务卡集合处于
-`BLOCKED_BY_DOCUMENTATION_GAP`；在获得权威专项正文或明确 Schema 重基线批准前，
-自驱循环停在此真实 Gate。在其余 Wave 0 门禁全部通过前，
+`W0-G4A UiContractValidation = PASS`。`Cognitura-Schema-Baseline-1.0`
+已经获得批准并落地，`W0-04` 现为唯一 `READY` 卡；`W0-G3` 仍须等待 Schema、
+证据映射和正反例全部实现后才能标记 `PASS`。在其余 Wave 0 门禁全部通过前，
 不进入 Wave 1 业务功能开发。

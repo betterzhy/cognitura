@@ -34,7 +34,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G1 DesignSourceRegistry` | `PASS` | manifest 的 4 项正例与 5 项反例通过，正式输入保持不变 |
 | `W0-G2 SpecialtyContractCoverage` | `PASS` | 26 项迁移、19 项契约、2 个开放缺口和 1 个证据限制通过验证 |
 | `W0-G2A BuildBaseline` | `PASS` | 精确全栈版本、单部署 server、空 web 入口、模块边界与在线/离线构建验证通过 |
-| `W0-G3 JsonSchemaValidation` | `BLOCKED_BY_DOC_GAP_001` | 权威字段来源和 Schema 正反例 |
+| `W0-G3 JsonSchemaValidation` | `READY` | 按正式重基线实现 Schema、证据映射和正反例 |
 | `W0-G4 GoldenCaseRegression` | `PARTIAL` | 机器可执行断言与离线回归 |
 | `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 8 个负例通过 |
 | `W0-G5 TestAndCI` | `NOT_STARTED` | 本地和 CI 全绿 |
@@ -42,12 +42,12 @@ Cognitura 可以进入 Wave 0 执行。
 
 ## 4. 当前阻断边界
 
-`DOC-GAP-001` 不阻断 Wave 0 开始，但阻断 `W0-G3 JsonSchemaValidation` 完成，
-并通过任务依赖继续阻断 `W0-05 GoldenCaseRegression`。不依赖字段级 Schema
-的 `W0-06 UiContractValidation` 已完成；字段级 Schema 必须等待权威专项正文
-落地，或等待一个明确批准的 Schema 重基线设计。
+`DOC-GAP-001` 的历史专项正文缺失事实继续登记，但经用户明确批准的
+`Cognitura-Schema-Baseline-1.0` 已作为正式字段级工程来源落地，W0-04 的执行
+阻断已经解除。`W0-G3` 尚未通过，`W0-05` 继续等待 Schema、证据映射和正反例
+全部完成。
 
-不得把总体设计中的字段摘要扩写成声称来自历史专项的完整 Schema。
+不得把该重基线声称为历史专项正文，也不得在 W0-04 实施中继续补写未裁决语义。
 
 ## 5. 技术选择状态
 
@@ -74,29 +74,31 @@ PostgreSQL 18.4 容器 tag/digest、Spring Boot BOM 实际解析版本、后端�
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = NONE
-ActiveTaskCardStatus = BLOCKED_BY_DOCUMENTATION_GAP
+ActiveTaskCard = W0-04
+ActiveTaskCardStatus = READY
 TaskCardIndex = docs/task-cards/README.md
 ```
 
-每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。当前没有
-`READY` 卡；阻断终态由任务卡验证器明确校验，不保留假当前卡。
+每张任务卡都固定前置依赖、写集、失败验证、Gate、提交和审查方式。W0-04 是
+唯一 `READY` 卡；W0-05 及其后继仍受依赖阻断。
 
 ## 7. 下一动作
 
 ```text
-NextAction = RESOLVE_DOC_GAP_001_OR_APPROVE_SCHEMA_REBASELINE
+NextAction = EXECUTE_W0_04_JSON_SCHEMA_SOURCE
 W0-01 ExecutionStatus = DONE
 W0-G1 DesignSourceRegistry = PASS
 W0-02 ExecutionStatus = DONE
 W0-G2 SpecialtyContractCoverage = PASS
 W0-03 ExecutionStatus = DONE
 W0-G2A BuildBaseline = PASS
-W0-04 ExecutionStatus = BLOCKED_BY_DOC_GAP_001
+SchemaRebaseline = Cognitura-Schema-Baseline-1.0
+SchemaRebaselineStatus = FORMAL_SCHEMA_REBASELINE
+W0-04 ExecutionStatus = READY
 W0-06 ExecutionStatus = DONE
 W0-G4A UiContractValidation = PASS
 ```
 
-`DOC-GAP-001` 是当前真实 Gate；在权威专项正文落地或用户明确批准 Schema
-重基线设计前，不得猜测字段级 Schema、实现 Wave 1 或把其他卡伪标为 `READY`。
-`DOC-GAP-002` 继续保持开放，但不回滚已经验证的非 Schema UI 契约。
+下一轮只允许处理 W0-04 写集，并严格投影
+`docs/design/cognitura-schema-baseline-1.0.md`。`DOC-GAP-002` 继续保持开放，
+但不回滚已经验证的非 Schema UI 契约；Wave 1 仍为 `NO_GO`。

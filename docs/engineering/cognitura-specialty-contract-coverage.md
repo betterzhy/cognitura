@@ -12,8 +12,9 @@ W0-G2 SpecialtyContractCoverage = PASS
 ```
 
 本矩阵只登记总体设计 1.2 已经落地的正式证据及仍然存在的来源缺口，不复制专项
-正文，不把工程归纳伪装成历史专项设计。字段级 Schema 仍受
-`DOC-GAP-001` 阻断。
+正文，不把工程归纳伪装成历史专项设计。字段级 Schema 已取得
+`Cognitura-Schema-Baseline-1.0` 的明确重基线处置；`W0-G3` 仍须等待机器
+Schema 和正反例实际通过。
 
 ## 1. 证据规则
 
@@ -92,8 +93,14 @@ Renderer Schema 仍关联 `DOC-GAP-001`。
 | `DOC-GAP-001` | `OPEN` | 构造专项正文缺失；字段、类型、required/optional、枚举、约束、示例、生成阶段输入输出和质量细则为 `SCHEMA_SOURCE_MISSING` | 落地并校验权威构造专项正文，或取得明确批准的 Schema 重基线设计 | 阻断 `W0-G3` |
 | `DOC-GAP-002` | `OPEN` | UI/UX 专项正文缺失；页面、Renderer、Source Evidence、状态和 Desktop Web 非 Schema 契约已由回迁正文覆盖 | 落地并校验权威 UI/UX 正文，或取得明确批准的重基线记录 | 不阻断 `W0-G2` 或页面契约基线 |
 
-W0-02 不关闭以上缺口，也不因 `W0-G2 = PASS` 自动解除 W0-04 的
-`BLOCKED_BY_DOCUMENTATION_GAP`。
+`DOC-GAP-001` 的历史正文缺失事实继续保持 `OPEN`，但其唯一合法处置已经由
+`Cognitura-Schema-Baseline-1.0` 满足；因此 W0-04 可以进入实施。只有机器
+Schema、Evidence Map 和验证全部通过后，才关闭它对 `W0-G3` 的影响。
+`DOC-GAP-002` 继续开放。
+
+```text
+SchemaRebaselineApprovalRecord = DOC-GAP-001|Cognitura-Schema-Baseline-1.0|docs/design/cognitura-schema-baseline-1.0.md|APPROVED|W0-04_READY
+```
 
 ## 6. 机器校验记录
 
@@ -169,11 +176,11 @@ EvidenceLimitRecord = RM_ID_TO_TOPIC_SOURCE_MISSING|OPEN|OD1.2§1.1,27.1|NO_OFFI
 
 ## 7. Gate 结论
 
-全部非 Schema 契约具有总体设计正式证据，Schema 来源缺口及其处置已唯一化，
-两个 DocumentationGap 均保持开放，构造专项逐 RM 语义映射的证据限制也已显式
-登记。
+全部非 Schema 契约具有总体设计正式证据，Schema 来源缺口及其处置已唯一化。
+`DOC-GAP-001` 的历史正文缺失事实继续登记，但批准的正式重基线已经解除 W0-04
+执行阻断；`DOC-GAP-002` 和构造专项逐 RM 语义映射的证据限制继续保持开放。
 
 ```text
 W0-G2 SpecialtyContractCoverage = PASS
-W0-G3 JsonSchemaValidation = BLOCKED_BY_DOC_GAP_001
+W0-G3 JsonSchemaValidation = READY
 ```

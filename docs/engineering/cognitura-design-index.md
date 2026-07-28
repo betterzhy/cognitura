@@ -15,12 +15,17 @@ PageContractBaseline =
 RendererContractBaseline =
   docs/contracts/cognitura-renderer-contract.md
 W0-G4A UiContractValidation = PASS
+SchemaDesignBaseline =
+  docs/design/cognitura-schema-baseline-1.0.md
+SchemaDesignBaselineStatus = FORMAL_SCHEMA_REBASELINE
+W0-G3 JsonSchemaValidation = READY
 ```
 
 本索引登记实际落地文件，不复制总体设计正文，也不改变历史设计名称。
-路径、角色、版本、字节数与 SHA-256 的唯一机器可读清单是
-[`cognitura-source-manifest.yaml`](cognitura-source-manifest.yaml)；本索引只保留
-面向工程阅读的来源关系与职责。
+正式原始输入的路径、角色、版本、字节数与 SHA-256 唯一机器清单是
+[`cognitura-source-manifest.yaml`](cognitura-source-manifest.yaml)；经批准的
+工程重基线由本索引、固定 Git 提交和对应 Gate 记录追踪，不混入只读原始输入
+Manifest。
 
 ## 1. 正式总体设计
 
@@ -40,10 +45,21 @@ W0-G4A UiContractValidation = PASS
 ```text
 DocumentationGapCount = 2
 SpecialtyBodyAbsenceBlocksWave0Planning = NO
-SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = YES
+SchemaRebaselineDisposition = APPROVED
+SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 ```
 
-## 3. Golden Case 原始输入
+## 3. Schema 重基线
+
+| 工程引用名 | 实际路径 | 状态 | 权威边界 |
+|---|---|---|---|
+| `Cognitura-Schema-Baseline-1.0` | `docs/design/cognitura-schema-baseline-1.0.md` | `FORMAL_SCHEMA_REBASELINE` | 从属于总体设计；补足字段级工程裁决；不冒充历史专项正文 |
+
+该重基线是 `DOC-GAP-001` 的批准处置证据，使 `W0-04` 可以进入实施；它不自动
+使 `W0-G3` 通过。Schema、Catalog、Evidence Map、结构与语义正反例仍须全部
+落地并验证。
+
+## 4. Golden Case 原始输入
 
 | Case ID | 路径 | 类型 | Manifest Source ID | 关键验收职责 |
 |---|---|---|---|---|
@@ -53,7 +69,7 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = YES
 
 三份 DOCX 均为纯原始学习材料，不是设计契约来源。它们没有重复内容，也不包含 Cognitura 或历史项目名称。
 
-## 4. 总体设计已落地的正式契约
+## 5. 总体设计已落地的正式契约
 
 | 契约组 | 总体设计章节 |
 |---|---|
@@ -68,13 +84,14 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = YES
 | 质量、Golden Case、模块化单体、Wave 0–5 | 21–26 |
 | Reverse Migration 与正式状态 | 27–28 |
 
-## 5. 工程记录
+## 6. 工程记录
 
 - `docs/engineering/cognitura-repository-baseline-review.md`
 - `docs/engineering/cognitura-naming-migration.md`
 - `docs/engineering/cognitura-technology-baseline.md`
 - `docs/engineering/cognitura-source-manifest.yaml`
 - `docs/engineering/cognitura-specialty-contract-coverage.md`
+- `docs/design/cognitura-schema-baseline-1.0.md`
 - `docs/contracts/cognitura-page-contracts.md`
 - `docs/contracts/cognitura-renderer-contract.md`
 - `docs/engineering/cognitura-wave-0-plan.md`

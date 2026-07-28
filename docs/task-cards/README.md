@@ -4,8 +4,8 @@
 CanonicalProjectName = Cognitura
 TaskCardSet = WAVE0
 TaskCardCount = 9
-ActiveTaskCard = NONE
-TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP
+ActiveTaskCard = W0-04
+TaskCardSetStatus = READY_FOR_EXECUTION
 Wave1FeatureDevelopmentEntry = NO_GO
 ```
 
@@ -22,15 +22,16 @@ Wave1FeatureDevelopmentEntry = NO_GO
 | `W0-01` | [设计和输入来源登记](W0-01-design-source-registry.md) | `DONE` | `W0-00` | `W0-G1` | `MEDIUM` |
 | `W0-02` | [专项契约覆盖封口](W0-02-specialty-contract-coverage.md) | `DONE` | `W0-01` | `W0-G2` | `HIGH` |
 | `W0-03` | [技术栈与模块化单体骨架](W0-03-build-baseline.md) | `DONE` | `W0-02` | `W0-G2A` | `HIGH` |
-| `W0-04` | [JSON Schema Source](W0-04-json-schema-source.md) | `BLOCKED_BY_DOCUMENTATION_GAP` | `W0-02,W0-03` | `W0-G3` | `HIGH` |
+| `W0-04` | [JSON Schema Source](W0-04-json-schema-source.md) | `READY` | `W0-02,W0-03` | `W0-G3` | `HIGH` |
 | `W0-05` | [Golden Case 回归资产](W0-05-golden-case-regression.md) | `BLOCKED_BY_DEPENDENCY` | `W0-01,W0-04` | `W0-G4` | `HIGH` |
 | `W0-06` | [页面与 Renderer 契约](W0-06-ui-renderer-contracts.md) | `DONE` | `W0-02` | `W0-G4A` | `MEDIUM` |
 | `W0-07` | [测试与 CI 基线](W0-07-test-and-ci.md) | `BLOCKED_BY_DEPENDENCY` | `W0-03,W0-04,W0-05,W0-06` | `W0-G5` | `HIGH` |
 | `W0-08` | [固定提交复核与 Wave 1 准入](W0-08-fixed-commit-review.md) | `BLOCKED_BY_DEPENDENCY` | `W0-07` | `W0-G6` | `HIGH` |
 
-`W0-03` 与 `W0-06` 均已完成，`W0-G2A`、`W0-G4A` 为 `PASS`。`W0-04`
-仍受 `DOC-GAP-001` 阻断，`W0-05/W0-07/W0-08` 继续受其依赖链阻断；当前没有
-可合法释放的 `READY` 卡。
+`W0-03` 与 `W0-06` 均已完成，`W0-G2A`、`W0-G4A` 为 `PASS`。
+`Cognitura-Schema-Baseline-1.0` 已作为批准的正式字段级工程重基线落地，
+`W0-04` 因而释放为唯一 `READY` 卡。`W0-05/W0-07/W0-08` 继续受其依赖链
+阻断。
 
 ## 2. 状态模型
 
@@ -84,6 +85,6 @@ scripts/verify-task-cards --cards-dir docs/task-cards
 TaskCardContractTests = PASS
 TaskCardValidation = PASS
 ExpectedTaskCardCount = 9
-ExpectedTaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP
-ExpectedActiveTaskCard = NONE
+ExpectedTaskCardSetStatus = READY_FOR_EXECUTION
+ExpectedActiveTaskCard = W0-04
 ```

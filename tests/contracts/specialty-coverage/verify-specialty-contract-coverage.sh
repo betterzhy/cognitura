@@ -41,6 +41,8 @@ expect_failure() {
 
 [[ -x "${verifier}" ]] || fail "specialty coverage verifier is missing or not executable"
 [[ -f "${coverage_doc}" ]] || fail "specialty coverage document is missing"
+[[ -f "${repo_root}/docs/design/cognitura-schema-baseline-1.0.md" ]] ||
+  fail "approved Schema rebaseline document is missing"
 
 if ! valid_output="$("${verifier}" "${coverage_doc}" 2>&1)"; then
   fail "canonical specialty coverage was rejected: ${valid_output}"
@@ -51,7 +53,10 @@ for expected_line in \
   "MigrationRecordCount = 26" \
   "ContractCoverageCount = 19" \
   "DocumentationGapCount = 2" \
-  "EvidenceLimitCount = 1"; do
+  "EvidenceLimitCount = 1" \
+  "SchemaRebaselineApprovalCount = 1" \
+  "SchemaRebaselineSourceValidation = PASS" \
+  "W0-G3 JsonSchemaValidation = READY"; do
   if [[ "${valid_output}" != *"${expected_line}"* ]]; then
     fail "canonical validation did not report '${expected_line}'"
   fi
@@ -111,7 +116,25 @@ sed -i.bak \
 rm "${invalid_disposition}.bak"
 expect_failure "${invalid_disposition}" "INVALID_GAP_DISPOSITION: DOC-GAP-001"
 
+missing_rebaseline_approval="$(make_fixture "missing-rebaseline-approval")"
+sed -i.bak \
+  '/^SchemaRebaselineApprovalRecord = /d' \
+  "${missing_rebaseline_approval}"
+rm "${missing_rebaseline_approval}.bak"
+expect_failure \
+  "${missing_rebaseline_approval}" \
+  "MISSING_SCHEMA_REBASELINE_APPROVAL: DOC-GAP-001"
+
+invalid_rebaseline_status="$(make_fixture "invalid-rebaseline-status")"
+sed -i.bak \
+  's/|APPROVED|W0-04_READY$/|PROPOSED|W0-04_READY/' \
+  "${invalid_rebaseline_status}"
+rm "${invalid_rebaseline_status}.bak"
+expect_failure \
+  "${invalid_rebaseline_status}" \
+  "INVALID_SCHEMA_REBASELINE_APPROVAL: DOC-GAP-001"
+
 printf '%s\n' \
   "SpecialtyContractCoverageTests = PASS" \
   "PositiveCoverageDocument = 1" \
-  "NegativeCases = 8"
+  "NegativeCases = 10"
