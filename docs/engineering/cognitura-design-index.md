@@ -16,7 +16,7 @@ RendererContractBaseline =
   docs/contracts/cognitura-renderer-contract.md
 W0-G4A UiContractValidation = PASS
 SchemaDesignBaseline =
-  docs/design/cognitura-schema-baseline-1.0.md
+  docs/design/cognitura-schema-baseline-2.0.md
 SchemaDesignBaselineStatus = FORMAL_SCHEMA_REBASELINE
 W0-G3 JsonSchemaValidation = READY
 ```
@@ -53,7 +53,7 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 
 | 工程引用名 | 实际路径 | 状态 | 权威边界 |
 |---|---|---|---|
-| `Cognitura-Schema-Baseline-1.0` | `docs/design/cognitura-schema-baseline-1.0.md` | `FORMAL_SCHEMA_REBASELINE` | 从属于总体设计；补足字段级工程裁决；不冒充历史专项正文 |
+| `Cognitura-Schema-Baseline-2.0` | `docs/design/cognitura-schema-baseline-2.0.md` | `FORMAL_SCHEMA_REBASELINE` | 从属于总体设计；按固定审查结果升级并补足字段级工程裁决；不冒充历史专项正文 |
 
 该重基线是 `DOC-GAP-001` 的批准处置证据，使 `W0-04` 可以进入实施；它不自动
 使 `W0-G3` 通过。Schema、Catalog、Evidence Map、结构与语义正反例仍须全部
@@ -91,7 +91,7 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 - `docs/engineering/cognitura-technology-baseline.md`
 - `docs/engineering/cognitura-source-manifest.yaml`
 - `docs/engineering/cognitura-specialty-contract-coverage.md`
-- `docs/design/cognitura-schema-baseline-1.0.md`
+- `docs/design/cognitura-schema-baseline-2.0.md`
 - `docs/contracts/cognitura-page-contracts.md`
 - `docs/contracts/cognitura-renderer-contract.md`
 - `docs/engineering/cognitura-wave-0-plan.md`

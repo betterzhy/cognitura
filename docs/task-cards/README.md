@@ -29,7 +29,7 @@ Wave1FeatureDevelopmentEntry = NO_GO
 | `W0-08` | [固定提交复核与 Wave 1 准入](W0-08-fixed-commit-review.md) | `BLOCKED_BY_DEPENDENCY` | `W0-07` | `W0-G6` | `HIGH` |
 
 `W0-03` 与 `W0-06` 均已完成，`W0-G2A`、`W0-G4A` 为 `PASS`。
-`Cognitura-Schema-Baseline-1.0` 已作为批准的正式字段级工程重基线落地，
+`Cognitura-Schema-Baseline-2.0` 已作为批准的正式字段级工程重基线落地，
 `W0-04` 因而释放为唯一 `READY` 卡。`W0-05/W0-07/W0-08` 继续受其依赖链
 阻断。
 

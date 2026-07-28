@@ -36,14 +36,14 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G2A BuildBaseline` | `PASS` | 精确全栈版本、单部署 server、空 web 入口、模块边界与在线/离线构建验证通过 |
 | `W0-G3 JsonSchemaValidation` | `READY` | 按正式重基线实现 Schema、证据映射和正反例 |
 | `W0-G4 GoldenCaseRegression` | `PARTIAL` | 机器可执行断言与离线回归 |
-| `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 8 个负例通过 |
+| `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 9 个负例通过 |
 | `W0-G5 TestAndCI` | `NOT_STARTED` | 本地和 CI 全绿 |
 | `W0-G6 FixedCommitReview` | `NOT_STARTED` | 固定提交深度审查无 P0/P1/P2 |
 
 ## 4. 当前阻断边界
 
 `DOC-GAP-001` 的历史专项正文缺失事实继续登记，但经用户明确批准的
-`Cognitura-Schema-Baseline-1.0` 已作为正式字段级工程来源落地，W0-04 的执行
+`Cognitura-Schema-Baseline-2.0` 已作为正式字段级工程来源落地，W0-04 的执行
 阻断已经解除。`W0-G3` 尚未通过，`W0-05` 继续等待 Schema、证据映射和正反例
 全部完成。
 
@@ -92,7 +92,7 @@ W0-02 ExecutionStatus = DONE
 W0-G2 SpecialtyContractCoverage = PASS
 W0-03 ExecutionStatus = DONE
 W0-G2A BuildBaseline = PASS
-SchemaRebaseline = Cognitura-Schema-Baseline-1.0
+SchemaRebaseline = Cognitura-Schema-Baseline-2.0
 SchemaRebaselineStatus = FORMAL_SCHEMA_REBASELINE
 W0-04 ExecutionStatus = READY
 W0-06 ExecutionStatus = DONE
@@ -100,5 +100,5 @@ W0-G4A UiContractValidation = PASS
 ```
 
 下一轮只允许处理 W0-04 写集，并严格投影
-`docs/design/cognitura-schema-baseline-1.0.md`。`DOC-GAP-002` 继续保持开放，
+`docs/design/cognitura-schema-baseline-2.0.md`。`DOC-GAP-002` 继续保持开放，
 但不回滚已经验证的非 Schema UI 契约；Wave 1 仍为 `NO_GO`。

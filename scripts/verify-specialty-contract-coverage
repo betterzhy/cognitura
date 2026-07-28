@@ -12,6 +12,14 @@ fail() {
   exit 1
 }
 
+hash_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
 contains_id() {
   local expected="$1"
   shift
@@ -63,6 +71,8 @@ contract_records="${tmp_root}/contract-records"
 gap_records="${tmp_root}/gap-records"
 evidence_limit_records="${tmp_root}/evidence-limit-records"
 schema_rebaseline_approval_records="${tmp_root}/schema-rebaseline-approval-records"
+approved_schema_rebaseline_path=""
+approved_schema_rebaseline_sha256=""
 
 cleanup() {
   rm -rf "${tmp_root}"
@@ -289,15 +299,18 @@ done
   fail "EVIDENCE_LIMIT_COUNT: expected 1, found ${evidence_limit_count}"
 
 while IFS='|' read -r \
-  gap_id baseline_name baseline_path approval_status task_disposition extra; do
+  gap_id baseline_name baseline_path baseline_sha256 \
+  approval_status task_disposition extra; do
   [[ -n "${gap_id}" ]] || continue
 
   [[ "${gap_id}" == "DOC-GAP-001" ]] ||
     fail "UNKNOWN_SCHEMA_REBASELINE_GAP: ${gap_id}"
-  [[ "${baseline_name}" == "Cognitura-Schema-Baseline-1.0" ]] ||
+  [[ "${baseline_name}" == "Cognitura-Schema-Baseline-2.0" ]] ||
     fail "INVALID_SCHEMA_REBASELINE_APPROVAL: ${gap_id}"
   [[ "${baseline_path}" == \
-    "docs/design/cognitura-schema-baseline-1.0.md" ]] ||
+    "docs/design/cognitura-schema-baseline-2.0.md" ]] ||
+    fail "INVALID_SCHEMA_REBASELINE_APPROVAL: ${gap_id}"
+  [[ "${baseline_sha256}" =~ ^[a-f0-9]{64}$ ]] ||
     fail "INVALID_SCHEMA_REBASELINE_APPROVAL: ${gap_id}"
   [[ "${approval_status}" == "APPROVED" ]] ||
     fail "INVALID_SCHEMA_REBASELINE_APPROVAL: ${gap_id}"
@@ -305,13 +318,29 @@ while IFS='|' read -r \
     fail "INVALID_SCHEMA_REBASELINE_APPROVAL: ${gap_id}"
   [[ -z "${extra}" ]] ||
     fail "MALFORMED_SCHEMA_REBASELINE_APPROVAL: ${gap_id}"
+  approved_schema_rebaseline_path="${baseline_path}"
+  approved_schema_rebaseline_sha256="${baseline_sha256}"
 done <"${schema_rebaseline_approval_records}"
 
 [[ "${schema_rebaseline_approval_count}" == "1" ]] ||
   fail "MISSING_SCHEMA_REBASELINE_APPROVAL: DOC-GAP-001"
 
+script_path="$(realpath "${BASH_SOURCE[0]}")"
+repo_root="$(cd "$(dirname "${script_path}")/.." && pwd -P)"
+canonical_schema_rebaseline_path="${repo_root}/${approved_schema_rebaseline_path}"
+[[ -f "${canonical_schema_rebaseline_path}" ]] ||
+  fail "MISSING_SCHEMA_REBASELINE_SOURCE: ${canonical_schema_rebaseline_path}"
+provided_schema_rebaseline_path="$(realpath "${schema_rebaseline_path}")"
+expected_schema_rebaseline_path="$(realpath "${canonical_schema_rebaseline_path}")"
+[[ "${provided_schema_rebaseline_path}" == "${expected_schema_rebaseline_path}" ]] ||
+  fail "NON_CANONICAL_SCHEMA_REBASELINE_SOURCE: ${schema_rebaseline_path}"
+actual_schema_rebaseline_sha256="$(hash_file "${expected_schema_rebaseline_path}")"
+[[ "${actual_schema_rebaseline_sha256}" == \
+  "${approved_schema_rebaseline_sha256}" ]] ||
+  fail "INVALID_SCHEMA_REBASELINE_HASH: DOC-GAP-001"
+
 for required_marker in \
-  'EngineeringReferenceName = Cognitura-Schema-Baseline-1.0' \
+  'EngineeringReferenceName = Cognitura-Schema-Baseline-2.0' \
   'Status = FORMAL_SCHEMA_REBASELINE' \
   'ClaimsHistoricalSpecialtyProvenance = NO' \
   'ImplementationGate = W0-G3 JsonSchemaValidation'; do

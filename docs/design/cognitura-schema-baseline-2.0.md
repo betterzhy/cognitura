@@ -1,12 +1,15 @@
-# Cognitura Schema Baseline 1.0
+# Cognitura Schema Baseline 2.0
 
 ```text
 DecisionDate = 2026-07-28
 CanonicalProjectName = Cognitura
-EngineeringReferenceName = Cognitura-Schema-Baseline-1.0
-BaselineVersion = 1.0.0
+EngineeringReferenceName = Cognitura-Schema-Baseline-2.0
+BaselineVersion = 2.0.0
 Status = FORMAL_SCHEMA_REBASELINE
 AuthorityType = USER_APPROVED_ENGINEERING_REBASELINE
+ApprovalBasis = USER_APPROVED_COMPLETE_DESIGN_AND_LANDING
+PreviousReviewCandidate = Cognitura-Schema-Baseline-1.0@730ce9873b9791baa30e370628cb60a74b05fba1
+MajorVersionReason = FIXED_COMMIT_REVIEW_BREAKING_CONTRACT_HARDENING
 SupersedesOverallDesign = NO
 ClaimsHistoricalSpecialtyProvenance = NO
 ResolvesExecutionDisposition = DOC-GAP-001
@@ -25,7 +28,7 @@ ImplementationGate = W0-G3 JsonSchemaValidation
 
 ```text
 Cognitura-Overall-Design-1.2
-→ Cognitura-Schema-Baseline-1.0
+→ Cognitura-Schema-Baseline-2.0
 → versioned JSON Schema projections
 → runtime storage and rendering projections
 ```
@@ -38,6 +41,10 @@ Cognitura-Overall-Design-1.2
 
 本基线不设计数据库表、API DTO、业务服务、Prompt 正文、页面组件或 Wave 1
 功能，不引入第二棵个性化知识树。
+
+`Cognitura-Schema-Baseline-1.0` 在固定提交审查中被判定为 `NO-GO`，且从未
+生成或发布 JSON Schema。审查要求新增 required、identity 和 relation 约束；
+本文件因此按 `MAJOR` 规则升级为 2.0，而不在 1.0 工程引用和版本下原地漂移。
 
 ## 2. 不可变产品约束
 
@@ -76,11 +83,12 @@ MissingKnowledgeMayBeSilentlyCompleted = NO
 | `RB-009` | Generation Record 保存阶段快照和验证结果，不成为第二个可编辑事实源 |
 | `RB-010` | Renderer Input 只能投影一个已验证 CognitiveModule 的内容；节点和关系不得跨出该 Module |
 | `RB-011` | Page State 与 Generation Status 使用不同 Schema 和枚举 |
-| `RB-012` | 破坏兼容性的变更必须升级 major，不得原地漂移 1.0 语义 |
+| `RB-012` | 破坏兼容性的变更必须升级 major，不得在任一已命名 major 下原地漂移语义 |
 | `RB-013` | 所有校验必须离线运行，禁止通过网络解析 Schema 或来源 |
 | `RB-014` | Schema 验证错误与语义错误使用稳定、可断言的错误分类 |
 | `RB-015` | 来源冲突必须以状态和冲突组显式表达；仅用户可形成解决裁决，且任何裁决都不得删除或隐藏冲突来源 |
 | `RB-016` | 所有 `ArtifactRef` 必须在一个不可变 revision context 内唯一解析，并接受目标类型与作用域校验 |
+| `RB-017` | `KnowledgeSkeleton` 是 L0 `KnowledgeLandscape` 的唯一正式版本化投影；其 `artifactId` 同时承担该 Landscape revision 的父级引用身份 |
 
 ## 4. Schema 包结构
 
@@ -114,11 +122,11 @@ schemas/
 
 ```text
 $schema = https://json-schema.org/draft/2020-12/schema
-$id = urn:cognitura:schema:<domain>:<name>:1.0.0
+$id = urn:cognitura:schema:<domain>:<name>:2.0.0
 ```
 
 十项认知产物、Generation Record 和 Renderer Input 共 12 个对象实例 Schema
-还必须要求实例属性 `schemaVersion = const 1.0.0`。Page State 是第 13 个正式
+还必须要求实例属性 `schemaVersion = const 2.0.0`。Page State 是第 13 个正式
 可实例化 Schema；它的实例是纯字符串枚举，不携带对象属性
 `schemaVersion`。`common.schema.json` 不可实例化，也不要求实例属性。
 
@@ -143,7 +151,7 @@ EvidenceKind =
 
 | 名称 | 类型与约束 | 来源 |
 |---|---|---|
-| `SchemaVersion` | string，常量 `1.0.0` | `RB-004` |
+| `SchemaVersion` | string，常量 `2.0.0` | `RB-004` |
 | `ArtifactId` | string，长度 1–128，模式 `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$` | `RB-004` |
 | `RevisionId` | 与 `ArtifactId` 相同约束 | 总体设计 §18、`RB-004` |
 | `ArtifactRef` | 与 `ArtifactId` 相同约束 | `RB-008` |
@@ -153,7 +161,9 @@ EvidenceKind =
 `revision context` 是一次语义验证调用所使用的不可变对象快照：同一
 `artifactId` 在该快照内最多解析到一个 `revisionId`，所有 `ArtifactRef`
 都只能由该快照的本地对象注册表解析。下文“同一 revision context”均使用此
-定义，不允许退回存储层的任意最新版本。此语义来自 `RB-016`。
+定义，不允许退回存储层的任意最新版本。对象注册表同时索引正式产物 ID 以及
+内嵌 Relation、Gap 等共享对象 ID，并保持 ID 在其 owning revision 内唯一。
+此语义来自 `RB-016`。
 
 ### 5.2 正式枚举
 
@@ -214,31 +224,41 @@ ConflictState =
 
 | 字段 | 类型 | 必填 | 约束 |
 |---|---|---|---|
-| `relationId` | `ArtifactId` | YES | 当前关系集合内唯一 |
+| `relationId` | `ArtifactId` | YES | owning artifact revision 的关系注册表内唯一 |
 | `type` | `RelationType` | YES | 不允许 `RELATED_TO` |
 | `sourceRef` | `ArtifactRef` | YES | 必须可解析 |
 | `targetRef` | `ArtifactRef` | YES | 必须可解析且不得等于 `sourceRef` |
 | `origin` | `SourceKind` | YES | 综合关系必须显式标记 |
 | `riskLevel` | enum | YES | `LOW/MEDIUM/HIGH` |
-| `sourceRefs` | `ArtifactRef[]` | YES | 唯一项；允许为空 |
-| `gapRefs` | `ArtifactRef[]` | YES | 唯一 Gap 引用；允许为空 |
+| `sourceRefs` | `ArtifactRef[]` | YES | 唯一 EvidenceReference 引用；允许为空 |
+| `gapRefs` | `ArtifactRef[]` | YES | 唯一、由 owner 携带的 Gap 引用；允许为空 |
 
 `sourceRefs` 为空时 `gapRefs` 必须非空；`origin = SOURCE_EXPLICIT` 时
 `sourceRefs` 必须非空。
+
+同一 owning artifact revision 的任何关系定义不得复用 `relationId`。在
+CognitiveModule 中，正式 Relation 定义只能存在于 Module 顶层 `relations`；
+KnowledgeElement 只保存对这些定义的引用，不复制 Relation 对象。
 
 `SourceCoverage`：
 
 | 字段 | 类型 | 必填 | 约束 |
 |---|---|---|---|
 | `status` | enum | YES | `COMPLETE/PARTIAL/MISSING` |
-| `evidenceRefs` | `ArtifactRef[]` | YES | 唯一项 |
-| `gapRefs` | `ArtifactRef[]` | YES | 唯一项 |
+| `evidenceRefs` | `ArtifactRef[]` | YES | 唯一 EvidenceReference 引用 |
+| `gapRefs` | `ArtifactRef[]` | YES | 唯一、由当前 owner 携带的 Gap 引用 |
 
 条件约束：
 
 - `status = COMPLETE`：`evidenceRefs` 非空，`gapRefs` 为空；
 - `status = PARTIAL`：`evidenceRefs` 和 `gapRefs` 均非空；
 - `status = MISSING`：`evidenceRefs` 为空，`gapRefs` 非空。
+
+每个 `evidenceRefs` 目标都必须是同一 revision context 内的
+EvidenceReference，且其 `supports` 必须包含携带该 SourceCoverage 的 owner
+身份；任何其他 Artifact 类型不得充当来源覆盖。每个 `gapRefs` 必须解析到
+owner 内嵌 `gaps` 的唯一 Gap。`COMPLETE` 还要求 owner 全部证据承载字段的
+EvidenceReference 并集与 `evidenceRefs` 一致，不能用无关非空引用冒充完整。
 
 `Gap`：
 
@@ -255,7 +275,7 @@ ConflictState =
 |---|---|---|---|
 | `boundaryId` | `ArtifactId` | YES | 当前集合内唯一 |
 | `statement` | `NonBlankText` | YES | 明确条件或适用边界 |
-| `sourceRefs` | `ArtifactRef[]` | YES | `PUBLISHED` Module 中不得为空 |
+| `sourceRefs` | `ArtifactRef[]` | YES | 唯一 EvidenceReference 引用；`PUBLISHED` Module 中不得为空 |
 
 `EvidenceStatement`：
 
@@ -296,6 +316,11 @@ ConflictState =
 
 ## 6. 十项正式认知产物
 
+`KnowledgeSkeleton` 是 L0 `KnowledgeLandscape` 的正式版本化投影，不另建
+第 11 个 KnowledgeLandscape Schema。其 `artifactId` 是当前 Landscape
+revision 的唯一身份；KnowledgeTheme 的父级引用必须解析到该
+KnowledgeSkeleton。此裁决来自 `RB-017`，不会引入第二棵根结构。
+
 ### 6.1 KnowledgeSkeleton
 
 必填字段：
@@ -312,6 +337,7 @@ relations
 understandingRoute
 structureAmbiguityRefs
 sourceCoverage
+gaps
 ```
 
 - `landscapeThesis` 为 string；`PUBLISHED` 时非空。
@@ -322,6 +348,8 @@ sourceCoverage
 - `understandingRoute` 为唯一 `ArtifactRef[]`，至少一项。
 - `structureAmbiguityRefs` 为唯一 `ArtifactRef[]`，允许为空。
 - `sourceCoverage` 为 `SourceCoverage`。
+- `gaps` 为 `Gap[]`，允许为空；必须与 `sourceCoverage.gapRefs` 指向的 Gap
+  集合一致。
 - Skeleton 只能包含候选结构，不得包含 Module 深度正文。
 
 ### 6.2 KnowledgeTheme
@@ -341,24 +369,30 @@ moduleCandidates
 coreModuleRefs
 relations
 sourceCoverage
+gaps
 ```
 
 - `title` 为 `NonBlankText`。
 - `coreQuestions` 为 1–3 个非空字符串。
 - `role` 为 `KnowledgeRole`。
-- `primaryParent` 为唯一 KnowledgeLandscape `ArtifactRef`。
+- `primaryParent` 为 `ArtifactRef`，必须等于当前 revision context 中唯一
+  KnowledgeSkeleton 的 `artifactId`；该 ID 按 `RB-017` 代表
+  KnowledgeLandscape 父级身份。
 - `moduleCandidates` 至少一项，每项必须包含：
   `moduleId`、`title`、1–3 个 `coreQuestions`、`role`、`primaryParent`、
-  `candidateSpine` 和 `sourceCoverage`。
+  `candidateSpine`、`sourceCoverage` 和 `gaps`。
 - `moduleId` 和 `primaryParent` 为 `ArtifactRef`，`title` 为
   `NonBlankText`，`role` 为 `KnowledgeRole`，`sourceCoverage` 为
-  `SourceCoverage`。
+  `SourceCoverage`，`gaps` 为 `Gap[]`。
 - `candidateSpine` 为 0–9 个非空字符串；它不是已确认
   `PrimaryCognitiveSpine`。
 - 每个 Module Candidate 的 `primaryParent` 必须等于当前 Theme ID。
 - `coreModuleRefs` 为唯一 `ArtifactRef[]`，最多 7 项；每项必须指向当前
   `moduleCandidates` 中的 Module Candidate。Published 时必须为 2–7 项。
-- `relations` 只能使用正式 `RelationType`。
+- `relations` 为 `Relation[]`，最多 12 项，只能使用正式 `RelationType`；
+  Draft 时允许为空。
+- Theme 顶层 `gaps` 和每个 Module Candidate 的 `gaps` 都允许为空，并必须
+  分别与同一对象 `sourceCoverage.gapRefs` 指向的 Gap 集合一致。
 
 ### 6.3 CognitiveModule
 
@@ -397,6 +431,8 @@ qualityAssessment
 - Facet 的 `facetId` 为 `ArtifactId`，`title` 为 `NonBlankText`，
   `summary` 为 string，`elementRefs` 和 `sourceRefs` 为唯一
   `ArtifactRef[]`。
+- Facet 的 `elementRefs` 只能指向 owning Module 的 KnowledgeElement，
+  `sourceRefs` 只能指向支持该 Module 的 EvidenceReference。
 - `knowledgeElements` 为 `KnowledgeElement[]`。
 - `keyTakeaways` 为 `EvidenceStatement[]`，最多 7 项；Published 时必须为
   3–7 项。
@@ -427,7 +463,8 @@ steps
 - `steps` 为 4–9 个有序严格对象。
 - 每个 Step 包含 `stepId`、从 1 开始的 `order`、`statement` 和
   `sourceRefs`。
-- Step ID 和 order 在当前 Spine 内唯一且连续。
+- `stepId` 为 `ArtifactId`，`statement` 为 `NonBlankText`，`sourceRefs`
+  为唯一 EvidenceReference 引用；Step ID 和 order 在当前 Spine 内唯一且连续。
 - Published Spine 的每个 Step 都必须至少有一个 EvidenceReference。
 - 同一 Module Revision 只能解析到一个 PrimaryCognitiveSpine。
 
@@ -453,9 +490,11 @@ relations
 - `title` 为 `NonBlankText`。
 - `content` 为 string；Published 时非空。
 - `sourceRefs` 为唯一 EvidenceReference 引用；Published 时非空。
-- `relations` 为 `Relation[]`，最多 5 项；关系两端只能指向当前 Module
-  或归属于当前 Module 的 KnowledgeElement。Draft 时允许为空，Published
-  时是否非空由 Module 层关系与认知内容共同决定，不另行强制。
+- `relations` 为唯一 `ArtifactRef[]`，最多 5 项；每项必须解析到 owning
+  CognitiveModule 顶层 `relations` 中的唯一 Relation，且 `sourceRef` 或
+  `targetRef` 至少一端必须等于当前 KnowledgeElement 的 `artifactId`。
+  Draft 时允许为空，Published 时是否非空由 Module 层关系与认知内容共同
+  决定，不另行强制。
 - KnowledgeElement 不携带主导航位置，也不能声明第二个 Module 主归属。
 
 ### 6.6 ThemeClosure
@@ -490,11 +529,15 @@ gaps
   Theme 下的 Module；Published 时至少一项。
 - `criticalDistinctions`、`boundaries` 为 `EvidenceStatement[]`；
   Published 时均至少一项。
-- `relatedThemes` 为 `Relation[]`，只能连接 Theme。
+- `relatedThemes` 为 `Relation[]`，最多 12 项，只能连接 Theme。
 - `sourceCoverage` 为 `SourceCoverage`，适用 §5.3 的
   `COMPLETE/PARTIAL/MISSING` 条件；Published 时同样不得违反这些条件。
 - `gaps` 为 `Gap[]`，允许为空；必须与 `sourceCoverage.gapRefs` 指向的 Gap
   集合一致。
+- `sourceCoverage.evidenceRefs` 必须等于 `moduleCooperation`、
+  `themeSpine`、`criticalDistinctions`、`boundaries` 和 `relatedThemes`
+  中所有 `sourceRefs` 的并集；每个 EvidenceReference 的 `supports` 必须
+  包含当前 ThemeClosure 的 `artifactId`。
 
 ### 6.7 LandscapeClosure
 
@@ -522,7 +565,7 @@ gaps
   EvidenceReference 引用；最多 9 项，Published 时必须为 3–9 项。
 - `crossThemeSpine` 为 `OrderedArtifactStep[]`，其中 `artifactRef` 只能
   指向 Theme；Published 时至少一项。
-- `keyDependencies` 为 `Relation[]`，只能连接 Theme。
+- `keyDependencies` 为 `Relation[]`，最多 12 项，只能连接 Theme。
 - `globalBoundaries` 为 `EvidenceStatement[]`；Published 时至少一项。
 - `understandingRoute` 为唯一 Theme/Module `ArtifactRef[]`；Published 时至少
   一项。
@@ -530,6 +573,10 @@ gaps
   `COMPLETE/PARTIAL/MISSING` 条件；Published 时同样不得违反这些条件。
 - `gaps` 为 `Gap[]`，允许为空；必须与 `sourceCoverage.gapRefs` 指向的 Gap
   集合一致。
+- `sourceCoverage.evidenceRefs` 必须等于 `coreThemes`、
+  `crossThemeSpine`、`keyDependencies` 和 `globalBoundaries` 中所有
+  `sourceRefs` 的并集；每个 EvidenceReference 的 `supports` 必须包含当前
+  LandscapeClosure 的 `artifactId`。
 - Route 是派生认知顺序，不得形成第二棵层级树。
 
 ### 6.8 EvidenceReference
@@ -602,12 +649,19 @@ gapRefs
 ```
 
 - `locationRef` 指向歧义所在 Theme、Module 或 Element。
-- `recommendedStructure` 包含 `summary` 和唯一 `affectedRefs`。
-- `alternatives` 至少一项，每项包含 `alternativeId`、`summary`、
-  `affectedRefs` 和 `riskLevel`。
+- `recommendedStructure` 是严格对象，包含 `summary` 和唯一
+  `affectedRefs`；`summary` 为 `NonBlankText`，`affectedRefs` 为至少一项的
+  `ArtifactRef[]`。
+- `alternatives` 至少一项，每项是严格对象，包含 `alternativeId`、
+  `summary`、`affectedRefs` 和 `riskLevel`；`alternativeId` 为
+  `ArtifactId` 且集合内唯一，`summary` 为 `NonBlankText`，
+  `affectedRefs` 为至少一项的唯一 `ArtifactRef[]`，`riskLevel` 限于
+  `LOW/MEDIUM/HIGH`。
 - `rationale` 为 `NonBlankText`。
-- `closureImpacts` 至少一项，每项包含 `scopeRef`、`impact` 和
-  `riskLevel`。
+- `closureImpacts` 至少一项，每项是严格对象，包含 `scopeRef`、`impact` 和
+  `riskLevel`；`scopeRef` 为指向 Theme、Module、ThemeClosure 或
+  LandscapeClosure 的 `ArtifactRef`，`impact` 为 `NonBlankText`，
+  `riskLevel` 限于 `LOW/MEDIUM/HIGH`。
 - `sourceRefs` 为唯一 EvidenceReference 引用，允许为空。
 - `gapRefs` 为唯一 Gap 引用；`sourceRefs` 为空时必须非空。
 - 一个实例只描述局部备选，不允许携带多棵完整候选树。

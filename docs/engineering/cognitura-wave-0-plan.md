@@ -176,7 +176,7 @@ W0-G2A BuildBaseline = PASS
 
 **Produces:** 版本化、可引用、可验证的 Cognitura 正式 Schema 集。
 
-- [x] **Step 1:** 以批准并落地的 `Cognitura-Schema-Baseline-1.0` 解除执行
+- [x] **Step 1:** 以批准并落地的 `Cognitura-Schema-Baseline-2.0` 解除执行
   阻断，不从总体摘要或常识继续猜测字段。
 - [ ] **Step 2:** 为十项正式认知产物逐一写缺失 required 字段、非法枚举和非法关系类型的失败样例。
 - [ ] **Step 3:** 实现 `KnowledgeSkeleton`、`KnowledgeTheme`、`CognitiveModule`、`PrimaryCognitiveSpine`、`KnowledgeElement`、`ThemeClosure`、`LandscapeClosure`、`EvidenceReference`、`StructureAmbiguity`、`QualityAssessment` Schema。
@@ -289,5 +289,5 @@ W0-00 → W0-01 → W0-02 → W0-03
 ```
 
 `W0-06` 已在等待字段级来源期间完成。现在
-`Cognitura-Schema-Baseline-1.0` 已批准并落地，`W0-04` 是唯一 `READY` 卡；
+`Cognitura-Schema-Baseline-2.0` 已批准并落地，`W0-04` 是唯一 `READY` 卡；
 `W0-05/W0-07/W0-08` 继续受其依赖链阻断。`W0-08` 必须最后执行。

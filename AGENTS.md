@@ -30,8 +30,8 @@ Wave 0 只允许建立 Repository、设计索引、专项契约覆盖、JSON Sch
 按以下优先级读取，不得凭对话记忆补写：
 
 1. `cognitive-knowledge-atlas-overall-design-1.2.md`：当前总体正式基线；工程引用名 `Cognitura-Overall-Design-1.2`。
-2. `docs/design/cognitura-schema-baseline-1.0.md`：经用户明确批准的字段级
-   工程重基线；工程引用名 `Cognitura-Schema-Baseline-1.0`。它从属于总体设计，
+2. `docs/design/cognitura-schema-baseline-2.0.md`：经用户明确批准的字段级
+   工程重基线；工程引用名 `Cognitura-Schema-Baseline-2.0`。它从属于总体设计，
    不冒充或替代历史专项正文。
 3. 后续实际落地且通过来源校验的专项设计正文：
    - `Cognitive-Knowledge-System-Construction-Design-1.0`
@@ -46,7 +46,7 @@ Wave 0 只允许建立 Repository、设计索引、专项契约覆盖、JSON Sch
 子模块中另行选择 Java、Spring Boot、数据库或数据访问框架版本。
 
 专项正文缺失时，使用总体设计中已经回迁的正式契约继续 Wave 0 非 Schema 工作；
-字段级 JSON Schema 必须服从 `Cognitura-Schema-Baseline-1.0`，不得从常识或提示词
+字段级 JSON Schema 必须服从 `Cognitura-Schema-Baseline-2.0`，不得从常识或提示词
 继续扩写。缺口必须记录为 `DocumentationGap`，直到权威来源落地或形成明确的
 工程裁决。
 

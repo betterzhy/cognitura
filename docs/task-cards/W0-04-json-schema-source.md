@@ -18,9 +18,9 @@ JSON Schema，使生成、存储和展示共享同一机器契约。
 
 - `W0-G2 SpecialtyContractCoverage = PASS`
 - `W0-G2A BuildBaseline = PASS`
-- `Cognitura-Schema-Baseline-1.0 = FORMAL_SCHEMA_REBASELINE`
+- `Cognitura-Schema-Baseline-2.0 = FORMAL_SCHEMA_REBASELINE`
 - Schema 重基线来源：
-  `docs/design/cognitura-schema-baseline-1.0.md`
+  `docs/design/cognitura-schema-baseline-2.0.md`
 - 文档缺口处置：
 
 ```text
@@ -31,7 +31,7 @@ DependencyState = SATISFIED
 ```
 
 总体设计摘要本身仍不足以生成字段级 Schema；本卡只能实现已经批准的
-`Cognitura-Schema-Baseline-1.0`，不得继续补写未裁决语义。
+`Cognitura-Schema-Baseline-2.0`，不得继续补写未裁决语义。
 
 ## 3. 写集
 
@@ -56,7 +56,7 @@ DependencyState = SATISFIED
 ## 4. 执行步骤
 
 - [x] 解除 `DOC-GAP-001` 执行阻断，记录批准的
-  `Cognitura-Schema-Baseline-1.0`。
+  `Cognitura-Schema-Baseline-2.0`。
 - [ ] 为十项正式认知产物编写缺少 required、非法枚举和非法关系的失败样例。
 - [ ] 为生成阶段记录和 Renderer 输入编写失败样例。
 - [ ] 运行测试并确认 Schema 未实现时失败。

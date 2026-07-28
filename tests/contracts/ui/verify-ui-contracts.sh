@@ -122,7 +122,7 @@ expect_failure "${invented_schema_semantics}" "SCHEMA_SEMANTICS_FORBIDDEN: TITLE
 
 missing_schema_authority="$(make_fixture "missing-schema-authority")"
 sed -i.bak \
-  's/^FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-1.0$/FieldLevelSchemaAuthority = NOT_PROVIDED/' \
+  's/^FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-2.0$/FieldLevelSchemaAuthority = NOT_PROVIDED/' \
   "${missing_schema_authority}/page-contracts.md"
 rm "${missing_schema_authority}/page-contracts.md.bak"
 expect_failure \

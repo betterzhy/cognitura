@@ -45,7 +45,7 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 ## 正式输入
 
 - [总体设计 1.2](cognitive-knowledge-atlas-overall-design-1.2.md)：历史文件名保留，工程引用名为 `Cognitura-Overall-Design-1.2`。
-- [Schema Baseline 1.0](docs/design/cognitura-schema-baseline-1.0.md)：经批准的字段级工程重基线，不冒充历史专项正文。
+- [Schema Baseline 2.0](docs/design/cognitura-schema-baseline-2.0.md)：经批准并按固定审查结果升级的字段级工程重基线，不冒充历史专项正文。
 - [MySQL Golden Case](raw/11-MySQL数据库.docx)
 - [Redis Golden Case](raw/12-Redis中间件.docx)
 - [英语学习 Golden Case](raw/40-英语学习.docx)
@@ -76,7 +76,7 @@ DirectFullImplementationStart = NO
 
 `W0-G0 RepositoryBaseline = PASS`，`W0-G1 DesignSourceRegistry = PASS`，
 `W0-G2 SpecialtyContractCoverage = PASS`，`W0-G2A BuildBaseline = PASS`，
-`W0-G4A UiContractValidation = PASS`。`Cognitura-Schema-Baseline-1.0`
+`W0-G4A UiContractValidation = PASS`。`Cognitura-Schema-Baseline-2.0`
 已经获得批准并落地，`W0-04` 现为唯一 `READY` 卡；`W0-G3` 仍须等待 Schema、
 证据映射和正反例全部实现后才能标记 `PASS`。在其余 Wave 0 门禁全部通过前，
 不进入 Wave 1 业务功能开发。

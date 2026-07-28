@@ -5,7 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-specialty-contract-coverage"
 coverage_doc="${repo_root}/docs/engineering/cognitura-specialty-contract-coverage.md"
-schema_rebaseline="${repo_root}/docs/design/cognitura-schema-baseline-1.0.md"
+schema_rebaseline="${repo_root}/docs/design/cognitura-schema-baseline-2.0.md"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-specialty-coverage.XXXXXX")"
 
 cleanup() {
@@ -139,6 +139,15 @@ expect_failure \
   "${invalid_rebaseline_status}" \
   "INVALID_SCHEMA_REBASELINE_APPROVAL: DOC-GAP-001"
 
+invalid_rebaseline_hash="$(make_fixture "invalid-rebaseline-hash")"
+sed -i.bak \
+  's/|[a-f0-9]\{64\}|APPROVED|W0-04_READY$/|0000000000000000000000000000000000000000000000000000000000000000|APPROVED|W0-04_READY/' \
+  "${invalid_rebaseline_hash}"
+rm "${invalid_rebaseline_hash}.bak"
+expect_failure \
+  "${invalid_rebaseline_hash}" \
+  "INVALID_SCHEMA_REBASELINE_HASH: DOC-GAP-001"
+
 missing_schema_rebaseline="${test_tmp_root}/missing-schema-rebaseline.md"
 if output="$(
   "${verifier}" "${coverage_doc}" "${missing_schema_rebaseline}" 2>&1
@@ -149,22 +158,18 @@ if [[ "${output}" != *"MISSING_SCHEMA_REBASELINE_SOURCE"* ]]; then
   fail "missing Schema rebaseline source returned wrong error: ${output}"
 fi
 
-invalid_schema_rebaseline="${test_tmp_root}/invalid-schema-rebaseline.md"
-cp "${schema_rebaseline}" "${invalid_schema_rebaseline}"
-sed -i.bak \
-  's/^Status = FORMAL_SCHEMA_REBASELINE$/Status = DRAFT/' \
-  "${invalid_schema_rebaseline}"
-rm "${invalid_schema_rebaseline}.bak"
+noncanonical_schema_rebaseline="${test_tmp_root}/cognitura-schema-baseline-2.0.md"
+cp "${schema_rebaseline}" "${noncanonical_schema_rebaseline}"
 if output="$(
-  "${verifier}" "${coverage_doc}" "${invalid_schema_rebaseline}" 2>&1
+  "${verifier}" "${coverage_doc}" "${noncanonical_schema_rebaseline}" 2>&1
 )"; then
-  fail "invalid Schema rebaseline source unexpectedly passed"
+  fail "non-canonical Schema rebaseline source unexpectedly passed"
 fi
-if [[ "${output}" != *"INVALID_SCHEMA_REBASELINE_SOURCE"* ]]; then
-  fail "invalid Schema rebaseline source returned wrong error: ${output}"
+if [[ "${output}" != *"NON_CANONICAL_SCHEMA_REBASELINE_SOURCE"* ]]; then
+  fail "non-canonical Schema rebaseline source returned wrong error: ${output}"
 fi
 
 printf '%s\n' \
   "SpecialtyContractCoverageTests = PASS" \
   "PositiveCoverageDocument = 1" \
-  "NegativeCases = 12"
+  "NegativeCases = 13"

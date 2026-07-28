@@ -7,13 +7,13 @@ ContractScope = W0-06_NON_SCHEMA_PAGE_CONTRACTS
 AuthoritativeSource = Cognitura-Overall-Design-1.2§20.1-20.11
 UIUXSpecialtyBody = MISSING
 DocumentationGap = DOC-GAP-002:OPEN
-FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-1.0
+FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-2.0
 ```
 
 本文件从总体设计已经回迁的正式内容提取 Desktop Web 页面验收契约，不重写
 产品设计，也不自行补写字段类型、必填性、枚举或 JSON Schema。缺失的历史
 UIUX 专项正文仍记录为 `DOC-GAP-002`；W0-04 的 Page State 与 Renderer Input
-字段权威现由用户批准的 `Cognitura-Schema-Baseline-1.0` 提供。
+字段权威现由用户批准的 `Cognitura-Schema-Baseline-2.0` 提供。
 
 ## 1. 页面地图与职责
 
