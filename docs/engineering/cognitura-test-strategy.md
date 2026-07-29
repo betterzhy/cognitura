@@ -11,8 +11,10 @@ ProductionCredentialAccess = FORBIDDEN
 ProductionDatabaseWrite = FORBIDDEN
 RedisLegacyLinkAccess = FORBIDDEN
 LocalWave0Verification = PASS
-FixedCommitCI = NOT_RUN
-W0-G5 TestAndCI = IN_PROGRESS
+FixedCommit = a332092ee1298c795d13de4af1fcab2e908aed9f
+FixedCommitCI = PASS
+CIURL = https://github.com/betterzhy/cognitura/actions/runs/30454379223
+W0-G5 TestAndCI = PASS
 ```
 
 本策略将已通过的 Wave 0 校验收敛到一个本地与 CI 共用的入口。它只建立质量
@@ -96,5 +98,6 @@ W0-G5 只有在以下证据同时存在时才可改为 `PASS`：
 4. 固定提交的 GitHub Actions 运行成功；
 5. 任务卡记录可访问的固定提交 CI URL。
 
-当前 Repository 尚未配置 remote，因而没有固定提交 CI URL；在真实 CI 成功前，
-本策略不把 `W0-G5 TestAndCI` 标记为 `PASS`。
+固定提交 `a332092ee1298c795d13de4af1fcab2e908aed9f` 已通过 GitHub Actions
+[run #1](https://github.com/betterzhy/cognitura/actions/runs/30454379223)，且本地
+七阶段入口保持通过，因此 `W0-G5 TestAndCI = PASS`。

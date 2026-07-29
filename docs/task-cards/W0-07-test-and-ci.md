@@ -2,16 +2,17 @@
 
 ```text
 TaskCardID = W0-07
-Status = READY
+Status = DONE
 Gate = W0-G5 TestAndCI
 Risk = HIGH
 DependsOn = W0-03,W0-04,W0-05,W0-06
 ReviewRoute = MAIN_AGENT_GATE
-ExecutionStatus = IN_PROGRESS
+ExecutionStatus = DONE
 CIProvider = GITHUB_ACTIONS
 LocalVerification = PASS
-FixedCommitCI = NOT_RUN
-CIURL = NOT_AVAILABLE
+FixedCommit = a332092ee1298c795d13de4af1fcab2e908aed9f
+FixedCommitCI = PASS
+CIURL = https://github.com/betterzhy/cognitura/actions/runs/30454379223
 ```
 
 ## 1. 目标
@@ -42,6 +43,7 @@ CI Provider 必须在本卡执行时形成明确工程裁决，且不得获得�
 - Modify: `docs/task-cards/W0-08-fixed-commit-review.md`
 - Modify: `docs/engineering/cognitura-wave-0-plan.md`
 - Modify: `docs/engineering/cognitura-wave-0-entry-decision.md`
+- Modify: `AGENTS.md`（用户于 2026-07-29 批准的状态同步写集修复）
 
 不得在 CI 中配置正式数据库、生产对象存储或发布凭据。
 
@@ -55,8 +57,8 @@ CI Provider 必须在本卡执行时形成明确工程裁决，且不得获得�
 - [x] 配置 PostgreSQL 18 临时测试容器，不连接正式数据库。
 - [x] 验证 workflow 不修改 `raw/`、不访问 Redis 遗留链接、不执行正式数据库写入。
 - [x] 运行本地完整入口并核对日志和失败传播。
-- [ ] 将候选提交推送到关联 remote，取得固定提交 CI 成功结果和可追溯 URL。
-- [ ] 在真实 CI 通过后更新 Gate、关闭本卡并形成独立状态提交。
+- [x] 将候选提交推送到关联 remote，取得固定提交 CI 成功结果和可追溯 URL。
+- [x] 在真实 CI 通过后更新 Gate、关闭本卡并形成独立状态提交。
 
 ## 5. 验证命令
 
@@ -86,9 +88,10 @@ CiContractTests = PASS
 SourceFailurePropagation = PASS
 Wave0Verification = PASS
 ExecutedStageCount = 7
-W0-G5 TestAndCI = IN_PROGRESS
-FixedCommitCI = NOT_RUN
-CIURL = NOT_AVAILABLE
+FixedCommit = a332092ee1298c795d13de4af1fcab2e908aed9f
+W0-G5 TestAndCI = PASS
+FixedCommitCI = PASS
+CIURL = https://github.com/betterzhy/cognitura/actions/runs/30454379223
 ```
 
 本地通过不构成 Gate 关闭。只有固定提交 CI 成功并记录可访问 URL 后，才允许
@@ -102,8 +105,9 @@ W0-G5 TestAndCI = PASS
 
 ```text
 CommitMessage = ci: establish Cognitura Wave 0 quality gates
+StateCommitMessage = docs: close Cognitura W0-07 CI gate
 CommitReview = MAIN_AGENT_GATE
 NextTaskCardOnPass = W0-08
 ```
 
-CI 未实际运行或缺少可追溯 URL 时不得标记本卡完成。
+固定提交 CI 已实际成功且可追溯 URL 已记录，本卡完成定义已满足。

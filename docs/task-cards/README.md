@@ -4,7 +4,7 @@
 CanonicalProjectName = Cognitura
 TaskCardSet = WAVE0
 TaskCardCount = 9
-ActiveTaskCard = W0-07
+ActiveTaskCard = W0-08
 TaskCardSetStatus = READY_FOR_EXECUTION
 Wave1FeatureDevelopmentEntry = NO_GO
 ```
@@ -25,15 +25,15 @@ Wave1FeatureDevelopmentEntry = NO_GO
 | `W0-04` | [JSON Schema Source](W0-04-json-schema-source.md) | `DONE` | `W0-02,W0-03` | `W0-G3` | `HIGH` |
 | `W0-05` | [Golden Case 回归资产](W0-05-golden-case-regression.md) | `DONE` | `W0-01,W0-04` | `W0-G4` | `HIGH` |
 | `W0-06` | [页面与 Renderer 契约](W0-06-ui-renderer-contracts.md) | `DONE` | `W0-02` | `W0-G4A` | `MEDIUM` |
-| `W0-07` | [测试与 CI 基线](W0-07-test-and-ci.md) | `READY` | `W0-03,W0-04,W0-05,W0-06` | `W0-G5` | `HIGH` |
-| `W0-08` | [固定提交复核与 Wave 1 准入](W0-08-fixed-commit-review.md) | `BLOCKED_BY_DEPENDENCY` | `W0-07` | `W0-G6` | `HIGH` |
+| `W0-07` | [测试与 CI 基线](W0-07-test-and-ci.md) | `DONE` | `W0-03,W0-04,W0-05,W0-06` | `W0-G5` | `HIGH` |
+| `W0-08` | [固定提交复核与 Wave 1 准入](W0-08-fixed-commit-review.md) | `READY` | `W0-07` | `W0-G6` | `HIGH` |
 
 `W0-03`、`W0-04`、`W0-05` 与 `W0-06` 已完成，`W0-G2A`、`W0-G3`、
 `W0-G4`、`W0-G4A` 均为 `PASS`。W0-05 固定候选 `608a98c` 深审为
-`GO / P0=0 / P1=0 / P2=0`；W0-07 已解除全部依赖并成为唯一 `READY` 卡，
-其本地七阶段统一验证和 CI 契约测试已经通过。由于 Repository 尚无 remote，
-固定提交 CI 与可追溯 URL 仍缺失，`W0-G5` 保持 `IN_PROGRESS`，W0-08 继续受
-依赖阻断。
+`GO / P0=0 / P1=0 / P2=0`；W0-07 的本地七阶段统一验证和 CI 契约测试已经
+通过，固定提交 `a332092ee1298c795d13de4af1fcab2e908aed9f` 的 GitHub Actions
+[run #1](https://github.com/betterzhy/cognitura/actions/runs/30454379223)
+也已成功，因此 `W0-G5 = PASS`。W0-07 已关闭，W0-08 已成为唯一 `READY` 卡。
 
 ## 2. 状态模型
 
@@ -88,5 +88,5 @@ TaskCardContractTests = PASS
 TaskCardValidation = PASS
 ExpectedTaskCardCount = 9
 ExpectedTaskCardSetStatus = READY_FOR_EXECUTION
-ExpectedActiveTaskCard = W0-07
+ExpectedActiveTaskCard = W0-08
 ```

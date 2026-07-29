@@ -2,12 +2,15 @@
 
 ```text
 TaskCardID = W0-08
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W0-G6 FixedCommitReview
 Risk = HIGH
 DependsOn = W0-07
 ReviewRoute = DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER
-CurrentBlocker = W0_G5_FIXED_COMMIT_CI_URL_MISSING
+ExecutionStatus = NOT_STARTED
+CurrentBlocker = NONE
+FixedCommitCI = PASS
+CIURL = https://github.com/betterzhy/cognitura/actions/runs/30454379223
 ```
 
 ## 1. 目标
@@ -25,9 +28,10 @@ CurrentBlocker = W0_G5_FIXED_COMMIT_CI_URL_MISSING
 
 任一前置 Gate 未通过时，本卡不得开始。
 
-当前 `W0-G5` 只有本地七阶段 PASS；Repository 尚无 remote，固定提交 CI 与
-可访问 URL 尚不存在。因此本卡继续保持 `BLOCKED_BY_DEPENDENCY`，不得提前进入
-固定候选审查。
+当前 `W0-G5 = PASS`；本地七阶段验证与固定提交
+`a332092ee1298c795d13de4af1fcab2e908aed9f` 的 GitHub Actions
+[run #1](https://github.com/betterzhy/cognitura/actions/runs/30454379223)
+均已成功。本卡已解除依赖并成为唯一 `READY` 卡，但尚未开始固定候选审查。
 
 ## 3. 写集
 

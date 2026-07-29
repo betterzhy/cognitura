@@ -43,7 +43,7 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-07
+ActiveTaskCard = W0-08
 ActiveTaskCardStatus = READY
 ```
 
@@ -249,7 +249,7 @@ W0-G4A UiContractValidation = PASS
 - [x] **Step 2:** 将 source manifest、task-card、Markdown 链接、Schema 正反例、Golden Case、页面契约、server、web 七阶段接入同一入口和 GitHub Actions job。
 - [x] **Step 3:** 固定 Action 到完整提交，并将 Maven/pnpm 缓存输入绑定 pom、wrapper 和 lockfile。
 - [x] **Step 4:** 通过 CI 契约测试确认 workflow 不访问 Redis 遗留本地链接、不修改 `raw/`，不执行正式数据库写入。
-- [ ] **Step 5:** 本地等价命令已七阶段通过；等待关联 remote、固定提交 CI 成功和可追溯 URL 后标记：
+- [x] **Step 5:** 本地等价命令与固定提交 CI 已通过，并记录可追溯 URL：
 
 ```text
 W0-G5 TestAndCI = PASS
@@ -258,12 +258,13 @@ W0-G5 TestAndCI = PASS
 当前状态：
 
 ```text
-W0-07 ExecutionStatus = IN_PROGRESS
+W0-07 ExecutionStatus = DONE
 CIProvider = GITHUB_ACTIONS
 LocalWave0Verification = PASS
-FixedCommitCI = NOT_RUN
-CIURL = NOT_AVAILABLE
-W0-G5 TestAndCI = IN_PROGRESS
+FixedCommit = a332092ee1298c795d13de4af1fcab2e908aed9f
+FixedCommitCI = PASS
+CIURL = https://github.com/betterzhy/cognitura/actions/runs/30454379223
+W0-G5 TestAndCI = PASS
 ```
 
 ## Task W0-08：固定提交复核与 Wave 1 准入
@@ -298,14 +299,15 @@ Wave1FeatureDevelopmentEntry = NO_GO
 W0-00 → W0-01 → W0-02 → W0-03
                        ├→ W0-04 [DONE/PASS] → W0-05 [DONE/PASS] ──────┐
                        └→ W0-06 [DONE] ─────────────────────────┤
-                                                               └→ W0-07 [READY] → W0-08
+                                                               └→ W0-07 [DONE/PASS] → W0-08 [READY]
 ```
 
 `W0-06` 已在等待字段级来源期间完成。`Cognitura-Schema-Baseline-2.0`
 已经投影为机器 Schema，W0-04 固定候选 `72b5ce7` 通过本地 Gate 与深审，
 `W0-G3 = PASS`；W0-05 的 3 个原件正例、3 个结果正例、22 个负例和 24 组
 结果断言已经通过，固定候选 `608a98c` 深审为 `GO / P0=0 / P1=0 / P2=0`，
-因此 `W0-G4 = PASS`。W0-07 已释放为唯一 `READY` 卡，本地七阶段统一入口已
-通过；固定提交 CI 和可追溯 URL 尚缺失，`W0-G5` 保持 `IN_PROGRESS`，
-W0-08 继续受依赖阻断。
+因此 `W0-G4 = PASS`。W0-07 的本地七阶段统一入口与固定提交
+`a332092ee1298c795d13de4af1fcab2e908aed9f` 的 GitHub Actions
+[run #1](https://github.com/betterzhy/cognitura/actions/runs/30454379223)
+均已通过，`W0-G5 = PASS`。W0-07 已关闭，W0-08 已成为唯一 `READY` 卡。
 `W0-08` 必须最后执行。
