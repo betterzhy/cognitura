@@ -8,10 +8,10 @@ Risk = HIGH
 DependsOn = W0-07
 ReviewRoute = SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE
 ExecutionStatus = IN_PROGRESS
-CurrentBlocker = P1_REMEDIATION_IN_PROGRESS
-ReviewedCommit = 311b04093531f5c1032b08e42b50e6f04edb6f1a
+CurrentBlocker = P1_FIXTURE_REMEDIATION_IN_PROGRESS
+ReviewedCommit = 5559243910c5613bc69b477d8e3f25fe32f5908c
 FixedCommitCI = PASS
-CIURL = https://github.com/betterzhy/cognitura/actions/runs/30459392177
+CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495053506
 ```
 
 ## 1. 目标
@@ -29,11 +29,11 @@ CIURL = https://github.com/betterzhy/cognitura/actions/runs/30459392177
 
 任一前置 Gate 未通过时，本卡不得开始。
 
-当前 `W0-G5 = PASS`；本地七阶段验证与固定候选
-`311b04093531f5c1032b08e42b50e6f04edb6f1a` 的 GitHub Actions
-[run #2](https://github.com/betterzhy/cognitura/actions/runs/30459392177)
-均已成功。本卡已解除依赖并成为唯一 `READY` 卡，第一轮一般审查已完成并进入
-P1 修复循环。
+当前 `W0-G5 = PASS`；修复候选
+`5559243910c5613bc69b477d8e3f25fe32f5908c` 的本地七阶段验证与 GitHub Actions
+[run #3](https://github.com/betterzhy/cognitura/actions/runs/30495053506)
+均已成功。本卡保持唯一 `READY`；第二轮一般审查发现 COMPLETE canonical
+状态下的测试夹具缺口，已再次退出准入并进入 P1 修复循环。
 
 ## 3. 写集
 
@@ -93,6 +93,25 @@ P2 = 0
 - `P1-2`：原写集未覆盖 `AGENTS.md`、Wave 0 计划以及成功终态校验器和测试。
 - 处理：退出准入流程；扩展写集获批后以独立提交修复，并重新固定候选、运行
   全量 Gate 与 CI。
+
+### 第二轮一般审查记录
+
+```text
+ReviewDate = 2026-07-30
+ReviewModel = gpt-5.6-sol
+ReviewReasoningEffort = high
+ReviewedCommit = 5559243910c5613bc69b477d8e3f25fe32f5908c
+GeneralReviewVerdict = NOT_READY
+P0 = 0
+P1 = 1
+P2 = 0
+```
+
+- `P1-1`：契约测试从 canonical 状态直接派生 `QUEUED` 夹具，只在
+  `READY_FOR_EXECUTION` 下合法；真实 `COMPLETE` canonical 状态会使测试脚本
+  自身失败。
+- 处理：从固定的合法 READY 基准派生全部变体，并分别在 READY 与 COMPLETE
+  canonical 状态下执行同一契约测试。
 
 ## 6. Gate 与完成定义
 

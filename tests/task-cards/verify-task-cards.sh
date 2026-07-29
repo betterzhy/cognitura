@@ -59,10 +59,26 @@ if [[ "${valid_output}" != *"TaskCardValidation = PASS"* ]]; then
   fail "canonical validation did not report PASS: ${valid_output}"
 fi
 
-active_task_card="$(field_value "${cards_dir}/README.md" "ActiveTaskCard")"
-task_card_set_status="$(field_value "${cards_dir}/README.md" "TaskCardSetStatus")"
+ready_baseline_dir="${test_tmp_root}/ready-baseline"
+cp -R "${cards_dir}" "${ready_baseline_dir}"
+active_task_card="W0-08"
+ready_active_file=("${ready_baseline_dir}/${active_task_card}-"*.md)
+[[ "${#ready_active_file[@]}" -eq 1 ]] ||
+  fail "could not resolve READY baseline card: ${active_task_card}"
+sed -i.bak \
+  -E 's/^Status = (DONE|READY|QUEUED|BLOCKED_BY_DEPENDENCY|BLOCKED_BY_DOCUMENTATION_GAP)$/Status = READY/' \
+  "${ready_active_file[0]}"
+rm "${ready_active_file[0]}.bak"
+sed -i.bak \
+  -e "s/^ActiveTaskCard = .*$/ActiveTaskCard = ${active_task_card}/" \
+  -e 's/^TaskCardSetStatus = .*$/TaskCardSetStatus = READY_FOR_EXECUTION/' \
+  "${ready_baseline_dir}/README.md"
+rm "${ready_baseline_dir}/README.md.bak"
+expect_success "${ready_baseline_dir}"
+
+task_card_set_status="READY_FOR_EXECUTION"
 inactive_card_file=""
-for card_file in "${cards_dir}"/W0-*.md; do
+for card_file in "${ready_baseline_dir}"/W0-*.md; do
   if [[ "$(field_value "${card_file}" "TaskCardID")" != "${active_task_card}" ]]; then
     inactive_card_file="${card_file}"
     break
@@ -74,7 +90,7 @@ inactive_task_card="$(field_value "${inactive_card_file}" "TaskCardID")"
 inactive_status="$(field_value "${inactive_card_file}" "Status")"
 
 queued_card_dir="${test_tmp_root}/queued-card"
-cp -R "${cards_dir}" "${queued_card_dir}"
+cp -R "${ready_baseline_dir}" "${queued_card_dir}"
 sed -i.bak \
   "s/^Status = ${inactive_status}$/Status = QUEUED/" \
   "${queued_card_dir}/$(basename "${inactive_card_file}")"
@@ -82,13 +98,13 @@ rm "${queued_card_dir}/$(basename "${inactive_card_file}").bak"
 expect_success "${queued_card_dir}"
 
 missing_field_dir="${test_tmp_root}/missing-field"
-cp -R "${cards_dir}" "${missing_field_dir}"
+cp -R "${ready_baseline_dir}" "${missing_field_dir}"
 sed -i.bak '/^Gate = /d' "${missing_field_dir}/W0-02-specialty-contract-coverage.md"
 rm "${missing_field_dir}/W0-02-specialty-contract-coverage.md.bak"
 expect_failure "${missing_field_dir}" "missing required field: Gate"
 
 duplicate_id_dir="${test_tmp_root}/duplicate-id"
-cp -R "${cards_dir}" "${duplicate_id_dir}"
+cp -R "${ready_baseline_dir}" "${duplicate_id_dir}"
 sed -i.bak \
   's/^TaskCardID = W0-02$/TaskCardID = W0-01/' \
   "${duplicate_id_dir}/W0-02-specialty-contract-coverage.md"
@@ -96,7 +112,7 @@ rm "${duplicate_id_dir}/W0-02-specialty-contract-coverage.md.bak"
 expect_failure "${duplicate_id_dir}" "duplicate TaskCardID: W0-01"
 
 second_ready_dir="${test_tmp_root}/second-ready"
-cp -R "${cards_dir}" "${second_ready_dir}"
+cp -R "${ready_baseline_dir}" "${second_ready_dir}"
 sed -i.bak \
   "s/^Status = ${inactive_status}$/Status = READY/" \
   "${second_ready_dir}/$(basename "${inactive_card_file}")"
@@ -110,7 +126,7 @@ else
 fi
 
 unknown_dependency_dir="${test_tmp_root}/unknown-dependency"
-cp -R "${cards_dir}" "${unknown_dependency_dir}"
+cp -R "${ready_baseline_dir}" "${unknown_dependency_dir}"
 sed -i.bak \
   's/^DependsOn = W0-01$/DependsOn = W0-99/' \
   "${unknown_dependency_dir}/W0-02-specialty-contract-coverage.md"
@@ -118,7 +134,7 @@ rm "${unknown_dependency_dir}/W0-02-specialty-contract-coverage.md.bak"
 expect_failure "${unknown_dependency_dir}" "unknown dependency W0-99"
 
 sol_high_review_route_dir="${test_tmp_root}/sol-high-review-route"
-cp -R "${cards_dir}" "${sol_high_review_route_dir}"
+cp -R "${ready_baseline_dir}" "${sol_high_review_route_dir}"
 sed -i.bak \
   's/^ReviewRoute = DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER$/ReviewRoute = SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE/' \
   "${sol_high_review_route_dir}/W0-08-fixed-commit-review.md"
@@ -126,7 +142,7 @@ rm "${sol_high_review_route_dir}/W0-08-fixed-commit-review.md.bak"
 expect_success "${sol_high_review_route_dir}"
 
 missing_section_dir="${test_tmp_root}/missing-section"
-cp -R "${cards_dir}" "${missing_section_dir}"
+cp -R "${ready_baseline_dir}" "${missing_section_dir}"
 sed -i.bak \
   '/^## 4[.] 执行步骤$/d' \
   "${missing_section_dir}/W0-02-specialty-contract-coverage.md"
@@ -134,12 +150,12 @@ rm "${missing_section_dir}/W0-02-specialty-contract-coverage.md.bak"
 expect_failure "${missing_section_dir}" "missing required section: ## 4. 执行步骤"
 
 missing_card_dir="${test_tmp_root}/missing-card"
-cp -R "${cards_dir}" "${missing_card_dir}"
+cp -R "${ready_baseline_dir}" "${missing_card_dir}"
 rm "${missing_card_dir}/W0-08-fixed-commit-review.md"
 expect_failure "${missing_card_dir}" "expected 9 task cards"
 
 active_mismatch_dir="${test_tmp_root}/active-mismatch"
-cp -R "${cards_dir}" "${active_mismatch_dir}"
+cp -R "${ready_baseline_dir}" "${active_mismatch_dir}"
 sed -i.bak \
   "s/^ActiveTaskCard = ${active_task_card}$/ActiveTaskCard = ${inactive_task_card}/" \
   "${active_mismatch_dir}/README.md"
@@ -155,7 +171,7 @@ else
 fi
 
 blocked_terminal_dir="${test_tmp_root}/blocked-terminal"
-cp -R "${cards_dir}" "${blocked_terminal_dir}"
+cp -R "${ready_baseline_dir}" "${blocked_terminal_dir}"
 blocked_active_file=("${blocked_terminal_dir}/${active_task_card}-"*.md)
 [[ "${#blocked_active_file[@]}" -eq 1 ]] ||
   fail "could not resolve active task card fixture: ${active_task_card}"
@@ -184,7 +200,7 @@ expect_failure \
   "blocked task card set must have zero READY task cards"
 
 complete_terminal_dir="${test_tmp_root}/complete-terminal"
-cp -R "${cards_dir}" "${complete_terminal_dir}"
+cp -R "${ready_baseline_dir}" "${complete_terminal_dir}"
 complete_active_file=("${complete_terminal_dir}/${active_task_card}-"*.md)
 [[ "${#complete_active_file[@]}" -eq 1 ]] ||
   fail "could not resolve active task card fixture: ${active_task_card}"
@@ -200,7 +216,7 @@ rm "${complete_terminal_dir}/README.md.bak"
 expect_success "${complete_terminal_dir}"
 
 complete_with_ready_dir="${test_tmp_root}/complete-with-ready"
-cp -R "${cards_dir}" "${complete_with_ready_dir}"
+cp -R "${ready_baseline_dir}" "${complete_with_ready_dir}"
 sed -i.bak \
   's/^TaskCardSetStatus = .*$/TaskCardSetStatus = COMPLETE/' \
   "${complete_with_ready_dir}/README.md"
@@ -210,7 +226,7 @@ expect_failure \
   "complete task card set must have zero READY task cards"
 
 complete_with_queued_dir="${test_tmp_root}/complete-with-queued"
-cp -R "${cards_dir}" "${complete_with_queued_dir}"
+cp -R "${ready_baseline_dir}" "${complete_with_queued_dir}"
 complete_queued_active_file=("${complete_with_queued_dir}/${active_task_card}-"*.md)
 [[ "${#complete_queued_active_file[@]}" -eq 1 ]] ||
   fail "could not resolve active task card fixture: ${active_task_card}"

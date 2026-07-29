@@ -287,7 +287,8 @@ W0-G5 TestAndCI = PASS
   全部 Gate 结果和成功的 GitHub Actions
   [run #2](https://github.com/betterzhy/cognitura/actions/runs/30459392177)。
 - [x] **Step 2:** 使用 `gpt-5.6-sol/high` 对固定提交做一般深度审查；第一轮结果为
-  `NOT_READY / P0=0 / P1=2 / P2=0`，已退出准入流程。
+  `311b040: NOT_READY / P0=0 / P1=2 / P2=0`；修复候选 `5559243` 的第二轮
+  结果为 `NOT_READY / P0=0 / P1=1 / P2=0`，两次均已退出准入流程。
 - [ ] **Step 3:** 修复并重新验证一般深度审查发现；在新的固定候选提交上复核历史设计未被改写、原件哈希未漂移、Schema 来源可追溯、Golden Case 断言完整、CI 可复现。
 - [ ] **Step 4:** 一般审查清零后，使用独立 `gpt-5.6-sol/high` 对最终固定候选做
   Wave 1 GO/NO-GO 门禁复核。
