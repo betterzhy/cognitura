@@ -2,16 +2,16 @@
 
 ```text
 TaskCardID = W0-08
-Status = READY
+Status = DONE
 Gate = W0-G6 FixedCommitReview
 Risk = HIGH
 DependsOn = W0-07
 ReviewRoute = SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE
-ExecutionStatus = IN_PROGRESS
-CurrentBlocker = P1_FIXTURE_REMEDIATION_IN_PROGRESS
-ReviewedCommit = 5559243910c5613bc69b477d8e3f25fe32f5908c
+ExecutionStatus = DONE
+CurrentBlocker = NONE
+ReviewedCommit = 08ddc00907a6ead84a526c71a2c0802f363fe614
 FixedCommitCI = PASS
-CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495053506
+CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
 ```
 
 ## 1. 目标
@@ -29,11 +29,10 @@ CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495053506
 
 任一前置 Gate 未通过时，本卡不得开始。
 
-当前 `W0-G5 = PASS`；修复候选
-`5559243910c5613bc69b477d8e3f25fe32f5908c` 的本地七阶段验证与 GitHub Actions
-[run #3](https://github.com/betterzhy/cognitura/actions/runs/30495053506)
-均已成功。本卡保持唯一 `READY`；第二轮一般审查发现 COMPLETE canonical
-状态下的测试夹具缺口，已再次退出准入并进入 P1 修复循环。
+最终固定候选 `08ddc00907a6ead84a526c71a2c0802f363fe614` 的本地七阶段验证与
+GitHub Actions
+[run #4](https://github.com/betterzhy/cognitura/actions/runs/30495773273)
+均已成功；第三轮一般审查达到 `P0=0/P1=0/P2=0`，独立最终门禁裁决为 GO。
 
 ## 3. 写集
 
@@ -56,12 +55,12 @@ CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495053506
 - [x] 确认干净审查工作树，将候选 commit 交给 `gpt-5.6-sol/high`
   做一般深度审查。
 - [x] 将 P0/P1/P2 发现写入复核记录；存在发现时退出准入流程。
-- [ ] 在独立提交修复发现，重新运行全部 Gate 并生成新的固定候选。
-- [ ] 一般深度审查达到 `P0=0/P1=0/P2=0` 后，交给独立
+- [x] 在独立提交修复发现，重新运行全部 Gate 并生成新的固定候选。
+- [x] 一般深度审查达到 `P0=0/P1=0/P2=0` 后，交给独立
   `gpt-5.6-sol/high` 最终门禁。
-- [ ] 最终复核历史设计未改写、原件哈希未漂移、Schema 来源可追溯、回归和 CI 可复现。
-- [ ] 根据最终门禁结果创建 Wave 1 准入裁决。
-- [ ] 只有最终结果为 GO 时更新本卡和 Repository 的 Wave 1 状态。
+- [x] 最终复核历史设计未改写、原件哈希未漂移、Schema 来源可追溯、回归和 CI 可复现。
+- [x] 根据最终门禁结果创建 Wave 1 准入裁决。
+- [x] 最终结果为 GO，更新本卡和 Repository 的 Wave 1 准入状态。
 
 ## 5. 验证命令
 
@@ -112,6 +111,41 @@ P2 = 0
   自身失败。
 - 处理：从固定的合法 READY 基准派生全部变体，并分别在 READY 与 COMPLETE
   canonical 状态下执行同一契约测试。
+
+### 第三轮一般审查记录
+
+```text
+ReviewDate = 2026-07-30
+ReviewModel = gpt-5.6-sol
+ReviewReasoningEffort = high
+ReviewedCommit = 08ddc00907a6ead84a526c71a2c0802f363fe614
+GeneralReviewVerdict = READY
+P0 = 0
+P1 = 0
+P2 = 0
+```
+
+第三轮审查确认 READY、COMPLETE 与 BLOCKED 三种 canonical 状态均可运行同一
+任务卡契约测试，允许进入独立最终门禁。
+
+### 最终门禁记录
+
+```text
+GateDate = 2026-07-30
+GateModel = gpt-5.6-sol
+GateReasoningEffort = high
+ReviewedCommit = 08ddc00907a6ead84a526c71a2c0802f363fe614
+FinalGateVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
+CIJobURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273/job/90724096530
+```
+
+最终门禁独立重跑 `scripts/verify-wave0` 与 W0-G2 专项契约验证，确认全部执行
+Gate、正式来源哈希、Schema 来源、Golden Case、UI/Renderer、CI 与远端 SHA
+一致，且不存在提前实现的 Wave 1 功能。
 
 ## 6. Gate 与完成定义
 

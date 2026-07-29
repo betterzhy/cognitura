@@ -15,17 +15,22 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  WAVE0_EXECUTION
+  WAVE1_ENTRY_APPROVED
 
-Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = W0-08
-ActiveTaskCardStatus = READY
+Wave0ExecutionStatus = COMPLETE
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = NONE
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
 W0G5Status = PASS
 W0G5LocalVerification = PASS
 W0G5FixedCommitCI = PASS
 W0G5CIURL = https://github.com/betterzhy/cognitura/actions/runs/30454379223
+W0G6ReviewStatus = PASS
+W0G6ReviewedCommit = 08ddc00907a6ead84a526c71a2c0802f363fe614
+W0G6CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
+Wave1FeatureDevelopmentEntry = GO
+DirectFullImplementationStart = NO
 ```
 
 当前 Repository 已在 `main` 建立 Git 基线，已落地总体设计 1.2 和 MySQL、Redis、
@@ -35,7 +40,9 @@ W0G5CIURL = https://github.com/betterzhy/cognitura/actions/runs/30454379223
 本地七阶段验证以及固定提交
 `a332092ee1298c795d13de4af1fcab2e908aed9f` 的 GitHub Actions
 [run #1](https://github.com/betterzhy/cognitura/actions/runs/30454379223)
-均已通过，`W0-G5 = PASS`。W0-07 已关闭，W0-08 已释放为唯一 `READY` 卡。
+均已通过，`W0-G5 = PASS`。W0-08 的固定候选
+`08ddc00907a6ead84a526c71a2c0802f363fe614` 已通过一般审查和独立最终门禁，
+两阶段均为 `P0=0/P1=0/P2=0`，因此 `W0-G6 = PASS`，Wave 0 已关闭。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
@@ -82,13 +89,14 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [Wave 0 实施计划](docs/engineering/cognitura-wave-0-plan.md)
 - [Wave 0 任务卡索引](docs/task-cards/README.md)
 - [Wave 0 开发准入裁决](docs/engineering/cognitura-wave-0-entry-decision.md)
+- [Wave 1 准入裁决](docs/engineering/cognitura-wave-1-entry-decision.md)
 
 ## 当前准入
 
 ```text
 Wave0ExecutionEntry = GO_WITH_GATES
-Wave0ExecutionStatus = IN_PROGRESS
-Wave1FeatureDevelopmentEntry = NO_GO
+Wave0ExecutionStatus = COMPLETE
+Wave1FeatureDevelopmentEntry = GO
 DirectFullImplementationStart = NO
 ```
 
@@ -102,5 +110,9 @@ DirectFullImplementationStart = NO
 W0-05 已关闭且 `W0-G4 = PASS`；W0-07 的本地统一入口已执行 source、
 task-card、Schema、Golden Case、UI、server、web 七阶段并通过，固定提交
 `a332092ee1298c795d13de4af1fcab2e908aed9f` 的 CI 也已成功并记录可追溯 URL，
-因此 `W0-G5 = PASS`。W0-08 现为唯一 `READY` 卡；在固定提交深审和最终门禁
-完成前，Wave 1 仍为 `NO_GO`。
+因此 `W0-G5 = PASS`。W0-08 最终固定候选
+`08ddc00907a6ead84a526c71a2c0802f363fe614` 的
+[CI run #4](https://github.com/betterzhy/cognitura/actions/runs/30495773273)
+成功，一般审查与最终门禁均清零并裁决 GO，故
+`W0-G6 FixedCommitReview = PASS`、`Wave1FeatureDevelopmentEntry = GO`。
+该 GO 仅开放后续受控任务卡，不授权直接实现 Wave 1。

@@ -43,8 +43,10 @@ DirectFullImplementationStart = NO
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-08
-ActiveTaskCardStatus = READY
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = NONE
+TaskCardSetStatus = COMPLETE
+Wave0ExecutionStatus = COMPLETE
 ```
 
 ## 0. 工作项与 Gate
@@ -289,17 +291,19 @@ W0-G5 TestAndCI = PASS
 - [x] **Step 2:** 使用 `gpt-5.6-sol/high` 对固定提交做一般深度审查；第一轮结果为
   `311b040: NOT_READY / P0=0 / P1=2 / P2=0`；修复候选 `5559243` 的第二轮
   结果为 `NOT_READY / P0=0 / P1=1 / P2=0`，两次均已退出准入流程。
-- [ ] **Step 3:** 修复并重新验证一般深度审查发现；在新的固定候选提交上复核历史设计未被改写、原件哈希未漂移、Schema 来源可追溯、Golden Case 断言完整、CI 可复现。
-- [ ] **Step 4:** 一般审查清零后，使用独立 `gpt-5.6-sol/high` 对最终固定候选做
+- [x] **Step 3:** 修复并重新验证一般深度审查发现；最终固定候选
+  `08ddc00907a6ead84a526c71a2c0802f363fe614` 已确认历史设计未改写、原件哈希
+  未漂移、Schema 来源可追溯、Golden Case 断言完整且 CI 可复现。
+- [x] **Step 4:** 一般审查清零后，使用独立 `gpt-5.6-sol/high` 对最终固定候选做
   Wave 1 GO/NO-GO 门禁复核。
-- [ ] **Step 5:** 只有 `W0-G0`、`W0-G1`、`W0-G2`、`W0-G2A`、`W0-G3`、`W0-G4`、`W0-G4A`、`W0-G5` 全部 `PASS`，且最终门禁结果为 GO 时，标记：
+- [x] **Step 5:** `W0-G0`、`W0-G1`、`W0-G2`、`W0-G2A`、`W0-G3`、`W0-G4`、`W0-G4A`、`W0-G5` 全部 `PASS`，且最终门禁结果为 GO，标记：
 
 ```text
 W0-G6 FixedCommitReview = PASS
 Wave1FeatureDevelopmentEntry = GO
 ```
 
-- [ ] **Step 6:** 任一 Gate 未通过或最终门禁为 NO-GO 时保持：
+- [x] **Step 6:** 已确认不存在未通过 Gate 或最终 NO-GO；以下保守分支未触发：
 
 ```text
 Wave1FeatureDevelopmentEntry = NO_GO
@@ -311,7 +315,7 @@ Wave1FeatureDevelopmentEntry = NO_GO
 W0-00 → W0-01 → W0-02 → W0-03
                        ├→ W0-04 [DONE/PASS] → W0-05 [DONE/PASS] ──────┐
                        └→ W0-06 [DONE] ─────────────────────────┤
-                                                               └→ W0-07 [DONE/PASS] → W0-08 [READY]
+                                                               └→ W0-07 [DONE/PASS] → W0-08 [DONE/PASS]
 ```
 
 `W0-06` 已在等待字段级来源期间完成。`Cognitura-Schema-Baseline-2.0`
@@ -321,5 +325,7 @@ W0-00 → W0-01 → W0-02 → W0-03
 因此 `W0-G4 = PASS`。W0-07 的本地七阶段统一入口与固定提交
 `a332092ee1298c795d13de4af1fcab2e908aed9f` 的 GitHub Actions
 [run #1](https://github.com/betterzhy/cognitura/actions/runs/30454379223)
-均已通过，`W0-G5 = PASS`。W0-07 已关闭，W0-08 已成为唯一 `READY` 卡。
-`W0-08` 必须最后执行。
+均已通过，`W0-G5 = PASS`。W0-08 最终候选 `08ddc00` 的本地七阶段验证和
+[CI run #4](https://github.com/betterzhy/cognitura/actions/runs/30495773273)
+成功，一般审查与独立最终门禁均为 `P0=0/P1=0/P2=0`，最终裁决为 GO。
+`W0-G6 = PASS`，Wave 0 全部任务已完成；Wave 1 只允许按后续任务卡受控推进。

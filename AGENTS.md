@@ -14,21 +14,23 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  WAVE0_EXECUTION
+  WAVE1_ENTRY_APPROVED
 
 Wave0ExecutionEntry = GO_WITH_GATES
-Wave0ExecutionStatus = IN_PROGRESS
-ActiveTaskCard = W0-08
-ActiveTaskCardStatus = READY
+Wave0ExecutionStatus = COMPLETE
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = NONE
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
 W0G5Status = PASS
-W0G6ReviewStatus = IN_PROGRESS
-Wave1FeatureDevelopmentEntry = NO_GO
+W0G6ReviewStatus = PASS
+Wave1FeatureDevelopmentEntry = GO
 DirectFullImplementationStart = NO
 ```
 
-Wave 0 只允许建立 Repository、设计索引、专项契约覆盖、JSON Schema、Golden Case 回归资产、测试和 CI 基线以及页面/Renderer 契约。不得提前实现完整业务功能。
+Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、Golden Case
+回归资产、测试和 CI 基线以及页面/Renderer 契约。Wave 1 准入 GO 只允许按后续
+任务卡受控推进，不授权直接开始完整业务实现。
 
 ## 3. 正式事实来源
 

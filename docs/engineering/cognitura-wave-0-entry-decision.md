@@ -3,11 +3,11 @@
 ```text
 DecisionDate = 2026-07-28
 CurrentStage =
-  WAVE0_EXECUTION
+  WAVE1_ENTRY_APPROVED
 
 Wave0ExecutionEntry = GO_WITH_GATES
-Wave0ExecutionStatus = IN_PROGRESS
-Wave1FeatureDevelopmentEntry = NO_GO
+Wave0ExecutionStatus = COMPLETE
+Wave1FeatureDevelopmentEntry = GO
 DirectFullImplementationStart = NO
 ```
 
@@ -15,7 +15,9 @@ DirectFullImplementationStart = NO
 
 Cognitura 可以进入 Wave 0 执行。
 
-这里的 `GO_WITH_GATES` 只授权按 `cognitura-wave-0-plan.md` 建立工程基线，不代表业务功能开发已经准入。Wave 1、完整业务实现、正式数据库写入和产品发布均保持 `NO_GO`。
+这里的 `GO_WITH_GATES` 已按 `cognitura-wave-0-plan.md` 完成全部工程基线。
+Wave 1 准入已由 W0-G6 独立门禁裁决为 GO，但完整业务实现、正式数据库写入和
+产品发布仍不因本文件自动获得授权。
 
 ## 2. GO 依据
 
@@ -38,7 +40,7 @@ Cognitura 可以进入 Wave 0 执行。
 | `W0-G4 GoldenCaseRegression` | `PASS` | 3 个原件正例、3 个结果契约正例、22 个隔离负例、24 组结果断言、结构/分页/外链目标指纹与 I/O Guard 通过；固定候选 `608a98c` 深审 GO |
 | `W0-G4A UiContractValidation` | `PASS` | 12 页面、6 结构操作、9 Renderer、12 页面状态与 9 个负例通过 |
 | `W0-G5 TestAndCI` | `PASS` | 本地七阶段通过；固定提交 `a332092` 的 GitHub Actions [run #1](https://github.com/betterzhy/cognitura/actions/runs/30454379223) 成功 |
-| `W0-G6 FixedCommitReview` | `NOT_STARTED` | 固定提交深度审查无 P0/P1/P2 |
+| `W0-G6 FixedCommitReview` | `PASS` | 固定候选 `08ddc00` 的一般审查和独立最终门禁均为 `P0=0/P1=0/P2=0`；[CI run #4](https://github.com/betterzhy/cognitura/actions/runs/30495773273) 成功 |
 
 ## 4. 当前阻断边界
 
@@ -76,8 +78,9 @@ PostgreSQL 18.4 容器 tag/digest、Spring Boot BOM 实际解析版本、后端�
 ```text
 TaskCardBreakdown = COMPLETE
 TaskCardCount = 9
-ActiveTaskCard = W0-08
-ActiveTaskCardStatus = READY
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = NONE
+TaskCardSetStatus = COMPLETE
 TaskCardIndex = docs/task-cards/README.md
 ```
 
@@ -86,12 +89,14 @@ TaskCardIndex = docs/task-cards/README.md
 `GO / P0=0 / P1=0 / P2=0`，`W0-G4 = PASS`。W0-07 的本地七阶段入口与固定
 提交 `a332092ee1298c795d13de4af1fcab2e908aed9f` 的 GitHub Actions
 [run #1](https://github.com/betterzhy/cognitura/actions/runs/30454379223)
-均已通过，`W0-G5 = PASS`。W0-07 已关闭，W0-08 已成为唯一 `READY` 卡。
+均已通过，`W0-G5 = PASS`。W0-08 最终固定候选 `08ddc00` 已通过
+`gpt-5.6-sol/high` 一般审查和独立最终门禁，`W0-G6 = PASS`，九张卡全部
+`DONE`。
 
 ## 7. 下一动作
 
 ```text
-NextAction = EXECUTE_W0_08_FIXED_COMMIT_REVIEW
+NextAction = PREPARE_WAVE1_TASK_CARDS
 W0-01 ExecutionStatus = DONE
 W0-G1 DesignSourceRegistry = PASS
 W0-02 ExecutionStatus = DONE
@@ -113,9 +118,15 @@ W0-07 FixedCommit = a332092ee1298c795d13de4af1fcab2e908aed9f
 W0-07 FixedCommitCI = PASS
 W0-07 CIURL = https://github.com/betterzhy/cognitura/actions/runs/30454379223
 W0-G5 TestAndCI = PASS
+W0-08 ExecutionStatus = DONE
+W0-08 FixedCommit = 08ddc00907a6ead84a526c71a2c0802f363fe614
+W0-08 FixedCommitCI = PASS
+W0-08 CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
+W0-08 GeneralReview = READY_P0_0_P1_0_P2_0
+W0-08 FinalGate = GO_P0_0_P1_0_P2_0
+W0-G6 FixedCommitReview = PASS
 ```
 
-下一步只允许执行 W0-08 的固定候选深度审查与最终高风险准入复核；三份只读
-Golden Case 原件继续保持不变。W0-G6 未通过前不得开放 Wave 1。
-`DOC-GAP-002` 继续保持开放，但不回滚已经验证的非 Schema UI 契约；
-Wave 1 仍为 `NO_GO`。
+下一步只允许为 Wave 1 建立受控任务卡、写集、测试和 Gate；本裁决不授权直接
+实现 Wave 1。三份只读 Golden Case 原件继续保持不变。`DOC-GAP-002` 继续保持
+开放，但不回滚已经验证的非 Schema UI 契约。
