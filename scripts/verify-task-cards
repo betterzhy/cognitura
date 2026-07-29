@@ -60,6 +60,7 @@ required_sections=(
 card_ids=()
 card_dependencies=()
 ready_count=0
+done_count=0
 
 field_value() {
   local file="$1"
@@ -131,6 +132,9 @@ for file in "${card_files[@]}"; do
   if [[ "${status}" == "READY" ]]; then
     ready_count=$((ready_count + 1))
   fi
+  if [[ "${status}" == "DONE" ]]; then
+    done_count=$((done_count + 1))
+  fi
 
   case "${risk}" in
     LOW|MEDIUM|HIGH)
@@ -141,7 +145,7 @@ for file in "${card_files[@]}"; do
   esac
 
   case "${review_route}" in
-    MAIN_AGENT_GATE|DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER)
+    MAIN_AGENT_GATE|DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER|SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE)
       ;;
     *)
       fail "${filename}: invalid ReviewRoute: ${review_route}"
@@ -184,6 +188,14 @@ case "${task_card_set_status}" in
     [[ "${documentation_gap_count}" -gt 0 ]] ||
       fail "blocked task card set has no documentation-gap card"
     ;;
+  COMPLETE)
+    if [[ "${ready_count}" -ne 0 ]]; then
+      fail "complete task card set must have zero READY task cards"
+    fi
+    if [[ "${done_count}" -ne "${#card_files[@]}" ]]; then
+      fail "complete task card set must have all task cards DONE"
+    fi
+    ;;
   *)
     fail "README.md: invalid TaskCardSetStatus ${task_card_set_status}"
     ;;
@@ -218,6 +230,9 @@ active_task_card="$(field_value "${cards_dir}/README.md" "ActiveTaskCard")"
 if [[ "${task_card_set_status}" == "BLOCKED_BY_DOCUMENTATION_GAP" ]]; then
   [[ "${active_task_card}" == "NONE" ]] ||
     fail "blocked task card set must use ActiveTaskCard NONE"
+elif [[ "${task_card_set_status}" == "COMPLETE" ]]; then
+  [[ "${active_task_card}" == "NONE" ]] ||
+    fail "complete task card set must use ActiveTaskCard NONE"
 else
   if ! contains_id "${active_task_card}"; then
     fail "README.md: unknown ActiveTaskCard ${active_task_card}"

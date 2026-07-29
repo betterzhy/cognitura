@@ -23,7 +23,7 @@ ActiveTaskCardStatus = READY
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
 W0G5Status = PASS
-W0G6ReviewStatus = NOT_STARTED
+W0G6ReviewStatus = IN_PROGRESS
 Wave1FeatureDevelopmentEntry = NO_GO
 DirectFullImplementationStart = NO
 ```
@@ -121,8 +121,11 @@ V1Architecture = MODULAR_MONOLITH
 
 - 主 Agent 负责共享写集、实现决策、最终整合与用户授权边界。
 - 只读代码搜索、大文件扫描、日志与测试输出归纳使用 `fast_explorer`。
-- 固定提交的一般深度审查使用 `deep_reviewer`。
-- 只有固定候选最终 GO/NO-GO、正式数据库写入前复核或同等级高风险门禁使用 `ultra_gatekeeper`。
+- 固定提交的一般深度审查默认使用 `deep_reviewer`。
+- 固定候选最终 GO/NO-GO、正式数据库写入前复核或同等级高风险门禁默认使用
+  `ultra_gatekeeper`。
+- W0-08 采用用户于 `2026-07-30` 明确指定的例外：一般审查与最终门禁均使用
+  `gpt-5.6-sol/high`，不使用 ultra 模型，但必须保持两个独立审查阶段。
 - 没有独立、边界清晰的子任务时保持 Solo。
 
 ## 9. 准入门禁
@@ -139,4 +142,6 @@ W0-G5 TestAndCI
 W0-G6 FixedCommitReview
 ```
 
-只有以上 Gate 全部为 `PASS`，且固定候选提交通过 `ultra_gatekeeper` 最终准入复核，才允许把 `Wave1FeatureDevelopmentEntry` 改为 `GO`。
+只有以上 Gate 全部为 `PASS`，且固定候选提交通过适用的独立最终准入复核，
+才允许把 `Wave1FeatureDevelopmentEntry` 改为 `GO`。W0-08 的适用模型例外
+以第 8 节为准。

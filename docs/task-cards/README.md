@@ -56,7 +56,8 @@ BLOCKED_BY_DOCUMENTATION_GAP
 - `BLOCKED_BY_DOCUMENTATION_GAP`：除依赖外还有明确文档缺口，禁止猜测补齐。
 - `TaskCardSetStatus = READY_FOR_EXECUTION` 时必须恰有一张卡为 `READY`；
   `TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP` 时必须没有 `READY` 卡，
-  且 `ActiveTaskCard = NONE`。
+  且 `ActiveTaskCard = NONE`；`TaskCardSetStatus = COMPLETE` 时必须九张卡
+  全部为 `DONE`，没有 `READY` 卡，且 `ActiveTaskCard = NONE`。
 - 进入实际写入后在执行记录中标记 `IN_PROGRESS`，但 Repository 卡片状态直到
   Gate 封口前保持 `READY`。
 
@@ -69,8 +70,9 @@ BLOCKED_BY_DOCUMENTATION_GAP
 5. 每张卡形成独立提交；提交前运行卡片验证、任务卡集合校验和
    `git diff --check`。
 6. 完成当前卡后更新本索引、Wave 0 计划和准入记录，再释放下一张卡。
-7. `W0-08` 必须按固定候选提交依次经过 `deep_reviewer` 和
-   `ultra_gatekeeper`；其他卡默认由主 Agent 完成 Gate 验证。
+7. `W0-08` 必须按固定候选提交依次经过两次独立审查；根据用户
+   `2026-07-30` 的明确模型裁决，两阶段均使用 `gpt-5.6-sol/high`，
+   不使用 ultra 模型；其他卡默认由主 Agent 完成 Gate 验证。
 8. 自驱循环遇到名义下一卡受真实 Gate 阻断时，可以选择另一张依赖已满足的卡，
    但必须保持唯一 `READY`，不得解除文档缺口或扩大写集。
 

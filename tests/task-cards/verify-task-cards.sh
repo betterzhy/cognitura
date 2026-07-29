@@ -117,6 +117,14 @@ sed -i.bak \
 rm "${unknown_dependency_dir}/W0-02-specialty-contract-coverage.md.bak"
 expect_failure "${unknown_dependency_dir}" "unknown dependency W0-99"
 
+sol_high_review_route_dir="${test_tmp_root}/sol-high-review-route"
+cp -R "${cards_dir}" "${sol_high_review_route_dir}"
+sed -i.bak \
+  's/^ReviewRoute = DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER$/ReviewRoute = SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE/' \
+  "${sol_high_review_route_dir}/W0-08-fixed-commit-review.md"
+rm "${sol_high_review_route_dir}/W0-08-fixed-commit-review.md.bak"
+expect_success "${sol_high_review_route_dir}"
+
 missing_section_dir="${test_tmp_root}/missing-section"
 cp -R "${cards_dir}" "${missing_section_dir}"
 sed -i.bak \
@@ -175,7 +183,63 @@ expect_failure \
   "${blocked_with_ready_dir}" \
   "blocked task card set must have zero READY task cards"
 
+complete_terminal_dir="${test_tmp_root}/complete-terminal"
+cp -R "${cards_dir}" "${complete_terminal_dir}"
+complete_active_file=("${complete_terminal_dir}/${active_task_card}-"*.md)
+[[ "${#complete_active_file[@]}" -eq 1 ]] ||
+  fail "could not resolve active task card fixture: ${active_task_card}"
+sed -i.bak \
+  's/^Status = READY$/Status = DONE/' \
+  "${complete_active_file[0]}"
+rm "${complete_active_file[0]}.bak"
+sed -i.bak \
+  -e 's/^ActiveTaskCard = .*$/ActiveTaskCard = NONE/' \
+  -e 's/^TaskCardSetStatus = .*$/TaskCardSetStatus = COMPLETE/' \
+  "${complete_terminal_dir}/README.md"
+rm "${complete_terminal_dir}/README.md.bak"
+expect_success "${complete_terminal_dir}"
+
+complete_with_ready_dir="${test_tmp_root}/complete-with-ready"
+cp -R "${cards_dir}" "${complete_with_ready_dir}"
+sed -i.bak \
+  's/^TaskCardSetStatus = .*$/TaskCardSetStatus = COMPLETE/' \
+  "${complete_with_ready_dir}/README.md"
+rm "${complete_with_ready_dir}/README.md.bak"
+expect_failure \
+  "${complete_with_ready_dir}" \
+  "complete task card set must have zero READY task cards"
+
+complete_with_queued_dir="${test_tmp_root}/complete-with-queued"
+cp -R "${cards_dir}" "${complete_with_queued_dir}"
+complete_queued_active_file=("${complete_with_queued_dir}/${active_task_card}-"*.md)
+[[ "${#complete_queued_active_file[@]}" -eq 1 ]] ||
+  fail "could not resolve active task card fixture: ${active_task_card}"
+sed -i.bak \
+  's/^Status = READY$/Status = QUEUED/' \
+  "${complete_queued_active_file[0]}"
+rm "${complete_queued_active_file[0]}.bak"
+sed -i.bak \
+  -e 's/^ActiveTaskCard = .*$/ActiveTaskCard = NONE/' \
+  -e 's/^TaskCardSetStatus = .*$/TaskCardSetStatus = COMPLETE/' \
+  "${complete_with_queued_dir}/README.md"
+rm "${complete_with_queued_dir}/README.md.bak"
+expect_failure \
+  "${complete_with_queued_dir}" \
+  "complete task card set must have all task cards DONE"
+
+complete_with_active_dir="${test_tmp_root}/complete-with-active"
+cp -R "${complete_terminal_dir}" "${complete_with_active_dir}"
+sed -i.bak \
+  "s/^ActiveTaskCard = NONE$/ActiveTaskCard = ${active_task_card}/" \
+  "${complete_with_active_dir}/README.md"
+rm "${complete_with_active_dir}/README.md.bak"
+expect_failure \
+  "${complete_with_active_dir}" \
+  "complete task card set must use ActiveTaskCard NONE"
+
 printf '%s\n' \
   "TaskCardContractTests = PASS" \
-  "NegativeCases = 8" \
-  "BlockedTerminalCases = 1"
+  "NegativeCases = 11" \
+  "BlockedTerminalCases = 1" \
+  "CompleteTerminalCases = 1" \
+  "SolHighReviewRouteCases = 1"

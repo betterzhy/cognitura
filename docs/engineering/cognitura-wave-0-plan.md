@@ -273,13 +273,24 @@ W0-G5 TestAndCI = PASS
 
 - Modify: `docs/engineering/cognitura-wave-0-entry-decision.md`
 - Create: `docs/engineering/cognitura-wave-1-entry-decision.md`
+- Modify: `docs/task-cards/README.md`
+- Modify: `docs/task-cards/W0-08-fixed-commit-review.md`
+- Modify: `README.md`
+- Modify: `AGENTS.md`
+- Modify: `docs/engineering/cognitura-wave-0-plan.md`
+- Modify: `scripts/verify-task-cards`
+- Modify: `tests/task-cards/verify-task-cards.sh`
 
 **Produces:** 绑定固定 commit 的独立审查和明确 GO/NO-GO。
 
-- [ ] **Step 1:** 在干净工作树记录固定候选 commit、全部 Gate 结果和 CI URL。
-- [ ] **Step 2:** 使用 `deep_reviewer` 对固定提交做一般深度审查，要求 P0/P1/P2 全部为 0。
+- [x] **Step 1:** 在干净工作树记录固定候选 `311b04093531f5c1032b08e42b50e6f04edb6f1a`、
+  全部 Gate 结果和成功的 GitHub Actions
+  [run #2](https://github.com/betterzhy/cognitura/actions/runs/30459392177)。
+- [x] **Step 2:** 使用 `gpt-5.6-sol/high` 对固定提交做一般深度审查；第一轮结果为
+  `NOT_READY / P0=0 / P1=2 / P2=0`，已退出准入流程。
 - [ ] **Step 3:** 修复并重新验证一般深度审查发现；在新的固定候选提交上复核历史设计未被改写、原件哈希未漂移、Schema 来源可追溯、Golden Case 断言完整、CI 可复现。
-- [ ] **Step 4:** 使用 `ultra_gatekeeper` 对最终固定候选做 Wave 1 GO/NO-GO 门禁复核。
+- [ ] **Step 4:** 一般审查清零后，使用独立 `gpt-5.6-sol/high` 对最终固定候选做
+  Wave 1 GO/NO-GO 门禁复核。
 - [ ] **Step 5:** 只有 `W0-G0`、`W0-G1`、`W0-G2`、`W0-G2A`、`W0-G3`、`W0-G4`、`W0-G4A`、`W0-G5` 全部 `PASS`，且最终门禁结果为 GO 时，标记：
 
 ```text
