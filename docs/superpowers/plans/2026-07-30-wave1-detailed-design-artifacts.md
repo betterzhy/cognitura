@@ -108,13 +108,15 @@ Run:
 ```bash
 git status --short --branch
 git log -3 --oneline --decorate
-test "$(git rev-parse HEAD)" = "f378f044311d6b8a276ced77b7173385c5679dd4"
+git cat-file -e 652675208195e0db01c3b01138c5547e4afd4a60^{commit}
+git merge-base --is-ancestor 652675208195e0db01c3b01138c5547e4afd4a60 HEAD
 ```
 
 Expected:
 
 - 分支为 `main`；
-- `HEAD` 以 `f378f04` 开头；
+- 已批准的计划提交 `652675208195e0db01c3b01138c5547e4afd4a60` 是当前
+  `HEAD` 的祖先；
 - 除 `.idea/` 外没有未提交用户修改。
 
 如果 `HEAD` 已变化，重新读取 `AGENTS.md`、W1-D00 说明和变更文件，按实际固定
