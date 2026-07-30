@@ -154,6 +154,8 @@ REVISION_QUERY_FIELD: sourceProcessingRevisionStatus
 REVISION_QUERY_FIELD: sourceIngestionDisplayStatus
 REVISION_QUERY_FIELD: parseCompleteness
 REVISION_QUERY_FIELD: omissions
+REVISION_QUERY_FIELD: publishedBlockSetDigest
+REVISION_QUERY_FIELD: omissionsDigest
 REVISION_QUERY_FIELD: partialAcceptanceStatus
 REVISION_QUERY_FIELD: failureCode
 REVISION_QUERY_FIELD: failureDetail
@@ -162,7 +164,10 @@ REVISION_QUERY_FIELD: completedAt
 ```
 
 `omissions` 只在 partial 时非空；错误细节必须服从 D01 的敏感信息约束。
-查询不能返回 attempt fencing token、lease、存储路径或内部异常。
+在 `PARSING` 或失败状态，`parseCompleteness`、两个 digest 和
+`partialAcceptanceStatus` 均为 null，`omissions=[]`；`PARSED/PREVIEW_READY`
+才按 D01 原子发布结果返回非 null 值。查询不能返回 attempt fencing token、lease、
+存储路径或内部异常。
 
 ### 4.1 Partial 来源确认命令
 
@@ -229,15 +234,20 @@ RendererFactCreation = FORBIDDEN
 每页返回：
 
 ```text
-sourceDocumentId
-sourceProcessingRevisionId
-originalFileName
-parseCompleteness
-incomplete
-omissions
-items[]
-nextCursor
+PREVIEW_RESULT_FIELD: sourceDocumentId
+PREVIEW_RESULT_FIELD: sourceProcessingRevisionId
+PREVIEW_RESULT_FIELD: originalFileName
+PREVIEW_RESULT_FIELD: parseCompleteness
+PREVIEW_RESULT_FIELD: publishedBlockSetDigest
+PREVIEW_RESULT_FIELD: omissionsDigest
+PREVIEW_RESULT_FIELD: incomplete
+PREVIEW_RESULT_FIELD: omissions
+PREVIEW_RESULT_FIELD: items[]
+PREVIEW_RESULT_FIELD: nextCursor
 ```
+
+两个 digest 在同一 exact revision 的所有分页响应中恒定，供 partial acceptance
+命令回传并执行 CAS；客户端不得从单页 `items[]` 或显示文本自行计算完整集合 digest。
 
 `items[]` 是 D01 SourceDocument、D02 envelope/payload 和 D03 immutable alias
 的类型化 Web allowlist 投影，包括
@@ -309,7 +319,7 @@ HTTP: 404_NOT_FOUND -> SOURCE_OR_REVISION_NOT_VISIBLE_IN_WORKSPACE
 HTTP: 409_CONFLICT -> IDEMPOTENCY_CONCURRENT_COMPLETION_PARTIAL_ACCEPTANCE_OR_PREVIEW_STATE_CONFLICT
 HTTP: 413_CONTENT_TOO_LARGE -> RAW_UPLOAD_LIMIT_BEFORE_DOCX_SECURITY_SCAN
 HTTP: 415_UNSUPPORTED_MEDIA_TYPE -> NON_DOCX_INPUT
-HTTP: 422_UNPROCESSABLE_CONTENT -> TERMINAL_FORMAT_SECURITY_OR_EXPANDED_ZIP_LIMIT
+HTTP: 422_UNPROCESSABLE_CONTENT -> EMPTY_HASH_MISMATCH_TERMINAL_FORMAT_SECURITY_OR_EXPANDED_ZIP_LIMIT
 HTTP: 503_SERVICE_UNAVAILABLE -> SOURCE_NOT_ACCEPTED_OR_PROCESSING_COMMAND_NOT_ACCEPTED
 ```
 
@@ -355,9 +365,15 @@ API_ERROR: PARTIAL_ACCEPTANCE_CONFLICT -> 409,false,SOURCE_AND_REVISION_IF_RESOL
 API_ERROR: PREVIEW_NOT_READY -> 409,true,SOURCE_AND_REVISION_IF_RESOLVED
 API_ERROR: SOURCE_SIZE_LIMIT -> 413,false,IDENTITIES_NULL
 API_ERROR: UNSUPPORTED_MEDIA_TYPE -> 415,false,IDENTITIES_NULL
-API_ERROR: DOCX_FORMAT_OR_SECURITY_REJECTED -> 422,false,CREATED_IDENTITIES_ONLY
+API_ERROR: EMPTY_SOURCE_FILE -> 422,false,CREATED_IDENTITIES_ONLY
+API_ERROR: SOURCE_HASH_MISMATCH -> 422,false,CREATED_IDENTITIES_ONLY
+API_ERROR: DOCX_SECURITY_REJECTED -> 422,false,CREATED_IDENTITIES_ONLY
+API_ERROR: DOCX_FORMAT_INVALID -> 422,false,CREATED_IDENTITIES_ONLY
 API_ERROR: SOURCE_NOT_ACCEPTED_YET -> 503,true,SOURCE_IF_RESOLVED
 API_ERROR: PROCESSING_COMMAND_NOT_ACCEPTED -> 503,true,SOURCE_IF_RESOLVED
+API_STATUS_FAILURE: PARSER_RETRYABLE_FAILURE -> 200,true,SOURCE_AND_REVISION
+API_STATUS_FAILURE: PARSER_TERMINAL_FAILURE -> 200,false,SOURCE_AND_REVISION
+API_STATUS_FAILURE: DOCX_FORMAT_INVALID -> 200,false,SOURCE_AND_REVISION
 ```
 
 映射第三项决定两个 identity 字段：`IDENTITIES_NULL`/`IDENTITIES_ALWAYS_NULL`
@@ -372,7 +388,9 @@ cursor 篡改、revision mismatch、limit 非法都使用 `PAGINATION_INVALID`�
 `SOURCE_NOT_ACCEPTED_YET/503/retryable=true`；已 `REJECTED` 则使用 422。基础设施
 导致 processing 命令尚未原子接受时返回
 `PROCESSING_COMMAND_NOT_ACCEPTED/503/retryable=true`。已接受 attempt 的后续失败
-仍按第 4 节通过 GET 200 暴露，不回溯成 POST 503。
+仍按第 4 节通过 GET 200 暴露，不回溯成 POST 503。`API_STATUS_FAILURE` 是
+revision 查询 DTO 内的 `failureCode/retryable` 语义，不是非 2xx error body；
+解析阶段的 `DOCX_FORMAT_INVALID` 因而与接入校验阶段的同码 422 保持阶段可区分。
 
 ## 8. Desktop Web 状态投影
 

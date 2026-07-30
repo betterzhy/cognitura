@@ -107,6 +107,7 @@ sourceProcessingRevisionStatus
 activeAttemptId
 currentAttemptGeneration
 publishedBlockSetDigest
+omissionsDigest
 parseCompleteness
 partialAcceptanceStatus
 partialAcceptedAt
@@ -166,7 +167,7 @@ SourceParsingNoModelProjection = PROMPT_VERSION_NOT_APPLICABLE_AND_MODEL_NOT_APP
 STAGE_RECORD_MAP: schemaVersion -> GENERATION_STAGE_RECORD_SCHEMA_VERSION
 STAGE_RECORD_MAP: runId -> SOURCE_PROCESSING_ATTEMPT_ID
 STAGE_RECORD_MAP: stage -> SOURCE_PARSING
-STAGE_RECORD_MAP: inputHash -> SHA256_RAW_BYTES_PLUS_PARSER_PROFILE
+STAGE_RECORD_MAP: inputHash -> SOURCE_DOCUMENT_ID_PLUS_SHA256_RAW_BYTES_PLUS_PARSER_PROFILE
 STAGE_RECORD_MAP: promptVersion -> NOT_APPLICABLE
 STAGE_RECORD_MAP: model -> NOT_APPLICABLE
 STAGE_RECORD_MAP: sourceBlockRefs -> EMPTY_BEFORE_SOURCE_PARSING
@@ -181,8 +182,10 @@ STAGE_RECORD_MAP: retryScopeRefs -> SOURCE_PROCESSING_REVISION_REF_ON_RETRYABLE_
 STAGE_RECORD_MAP: failure -> NULL_ON_SUCCESS_OR_MAPPED_FAILURE_OBJECT
 ```
 
-`inputHash` 对原始字节 SHA-256、parser profile identity 和固定编码版本做 domain
-separated SHA-256；不得包含文件名或本地路径。来源解析前尚无 block，
+`inputHash` 对 `sourceDocumentId`、原始字节 SHA-256、parser profile identity
+和固定编码版本做 domain-separated SHA-256；不得包含文件名或本地路径。逻辑上传
+身份必须参与 hash，避免相同字节的不同 SourceDocument 被 Schema Baseline §7
+成功去重键错误合并；同一 revision 的 retry 仍保持同 inputHash。来源解析前尚无 block，
 `sourceBlockRefs=[]` 是真实空输入而不是缺失字段。成功记录的 `structuredOutput`
 只保存不可变 block-set reference，`outputKind=INTERMEDIATE` 且 `outputHash`
 复制发布 digest；失败记录使用 `outputKind=NONE`，三个 output 字段按 Schema
@@ -222,6 +225,7 @@ PartialAcceptanceFactOwner = SOURCE_PROCESSING_REVISION
 PartialAcceptanceBinding = PROCESSING_REVISION_ID_BLOCK_SET_DIGEST_AND_OMISSIONS_DIGEST
 PartialAcceptanceActor = TRUSTED_WORKSPACE_ACTOR
 PartialAcceptanceRevocation = FORBIDDEN
+RevisionParseResultFieldsBeforeSuccessfulPublish = ALL_NULL
 ```
 
 - `sourceDocumentValidationStatus` 只属于 `SourceDocument`，描述上传接入校验。
@@ -237,6 +241,9 @@ PartialAcceptanceRevocation = FORBIDDEN
   W1-D04 的受信 Workspace actor 对 exact revision、`publishedBlockSetDigest`
   和 omissions digest 执行幂等确认后，才可不可逆地进入 `ACCEPTED`。
   确认不修改块、omission 或解析状态，也不能迁移到另一 revision。
+- `publishedBlockSetDigest`、`omissionsDigest`、`parseCompleteness` 和
+  `partialAcceptanceStatus` 在成功发布前全部为 null；失败 revision 也保持 null。
+  它们只能由成功完成事务一起设置，不能从 staging 或分页结果提前推断。
 
 ### 5.2 合法迁移
 
@@ -289,6 +296,7 @@ AttemptCompletionTransaction = ATOMIC_ATTEMPT_REVISION_BLOCK_SET_STAGE_RECORD_AC
 BlockSetStagingScope = SOURCE_PROCESSING_ATTEMPT
 StagedBlockSetVisibility = PRIVATE_TO_ACTIVE_ATTEMPT
 PublishedBlockSetCardinality = EXACTLY_ONE_PER_PARSED_REVISION
+RevisionPartialConfirmationDigestFields = PUBLISHED_BLOCK_SET_DIGEST_AND_OMISSIONS_DIGEST
 BlockSetPublicationCAS = ACTIVE_ATTEMPT_ID_AND_ATTEMPT_GENERATION_MATCH
 BlockSetPublicationTransaction = ATOMIC_WITH_SUCCEEDED_ATTEMPT_PARSED_REVISION_AND_STAGE_RECORD
 PreviewReadyRequiresPublishedBlockSet = YES
@@ -350,6 +358,9 @@ FINALIZE: FAILED_TERMINAL -> WRITE_SOURCE_PARSING_STAGE_RECORD,FAILED_TERMINAL,C
   `PARSED`、设置 `publishedBlockSetDigest`、清除活动身份并写入完成时间。
   任一步失败则全部不可见，因此不得出现 `revision=PARSED` 但块集缺失、块集已
   可见但 attempt 未成功，或 stage record 指向未发布集合的分裂事实。
+- 成功事务同时保存 omissions canonical list 的 SHA-256。完整解析使用固定空列表
+  digest；partial 使用完整 omissions 排序编码 digest。两个 digest 都属于 exact
+  revision，不得由分页客户端推算，也不得在确认后变化。
 - 失败路径在同一事务中写入失败 stage record、更新 attempt/revision 终态并清除
   活动身份；其 staged block set 永不发布，可由异步回收器按 attempt 身份清理。
 - 第一条完成全部块校验并成功 CAS 的 attempt 成为该 revision 唯一

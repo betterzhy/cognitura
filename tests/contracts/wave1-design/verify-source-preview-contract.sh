@@ -152,6 +152,8 @@ validate_contract() {
     "REVISION_QUERY_FIELD: sourceIngestionDisplayStatus" \
     "REVISION_QUERY_FIELD: parseCompleteness" \
     "REVISION_QUERY_FIELD: omissions" \
+    "REVISION_QUERY_FIELD: publishedBlockSetDigest" \
+    "REVISION_QUERY_FIELD: omissionsDigest" \
     "REVISION_QUERY_FIELD: partialAcceptanceStatus" \
     "REVISION_QUERY_FIELD: failureCode" \
     "REVISION_QUERY_FIELD: failureDetail" \
@@ -190,6 +192,20 @@ validate_contract() {
 
   require_exact_prefixed_set \
     "${file}" \
+    "PREVIEW_RESULT_FIELD:" \
+    "PREVIEW_RESULT_FIELD: sourceDocumentId" \
+    "PREVIEW_RESULT_FIELD: sourceProcessingRevisionId" \
+    "PREVIEW_RESULT_FIELD: originalFileName" \
+    "PREVIEW_RESULT_FIELD: parseCompleteness" \
+    "PREVIEW_RESULT_FIELD: publishedBlockSetDigest" \
+    "PREVIEW_RESULT_FIELD: omissionsDigest" \
+    "PREVIEW_RESULT_FIELD: incomplete" \
+    "PREVIEW_RESULT_FIELD: omissions" \
+    "PREVIEW_RESULT_FIELD: items[]" \
+    "PREVIEW_RESULT_FIELD: nextCursor"
+
+  require_exact_prefixed_set \
+    "${file}" \
     "PROCESSING_HTTP:" \
     "PROCESSING_HTTP: NEW_REVISION_OR_RETRY_ATTEMPT -> 202_ACCEPTED_WITH_EXACT_REVISION_AND_POLL_LOCATION" \
     "PROCESSING_HTTP: EXISTING_SUCCESS_OR_TERMINAL -> 200_OK_WITH_EXACT_REVISION_AND_POLL_LOCATION" \
@@ -207,7 +223,7 @@ validate_contract() {
     "HTTP: 409_CONFLICT -> IDEMPOTENCY_CONCURRENT_COMPLETION_PARTIAL_ACCEPTANCE_OR_PREVIEW_STATE_CONFLICT" \
     "HTTP: 413_CONTENT_TOO_LARGE -> RAW_UPLOAD_LIMIT_BEFORE_DOCX_SECURITY_SCAN" \
     "HTTP: 415_UNSUPPORTED_MEDIA_TYPE -> NON_DOCX_INPUT" \
-    "HTTP: 422_UNPROCESSABLE_CONTENT -> TERMINAL_FORMAT_SECURITY_OR_EXPANDED_ZIP_LIMIT" \
+    "HTTP: 422_UNPROCESSABLE_CONTENT -> EMPTY_HASH_MISMATCH_TERMINAL_FORMAT_SECURITY_OR_EXPANDED_ZIP_LIMIT" \
     "HTTP: 503_SERVICE_UNAVAILABLE -> SOURCE_NOT_ACCEPTED_OR_PROCESSING_COMMAND_NOT_ACCEPTED"
 
   require_exact_prefixed_set \
@@ -231,9 +247,19 @@ validate_contract() {
     "API_ERROR: PREVIEW_NOT_READY -> 409,true,SOURCE_AND_REVISION_IF_RESOLVED" \
     "API_ERROR: SOURCE_SIZE_LIMIT -> 413,false,IDENTITIES_NULL" \
     "API_ERROR: UNSUPPORTED_MEDIA_TYPE -> 415,false,IDENTITIES_NULL" \
-    "API_ERROR: DOCX_FORMAT_OR_SECURITY_REJECTED -> 422,false,CREATED_IDENTITIES_ONLY" \
+    "API_ERROR: EMPTY_SOURCE_FILE -> 422,false,CREATED_IDENTITIES_ONLY" \
+    "API_ERROR: SOURCE_HASH_MISMATCH -> 422,false,CREATED_IDENTITIES_ONLY" \
+    "API_ERROR: DOCX_SECURITY_REJECTED -> 422,false,CREATED_IDENTITIES_ONLY" \
+    "API_ERROR: DOCX_FORMAT_INVALID -> 422,false,CREATED_IDENTITIES_ONLY" \
     "API_ERROR: SOURCE_NOT_ACCEPTED_YET -> 503,true,SOURCE_IF_RESOLVED" \
     "API_ERROR: PROCESSING_COMMAND_NOT_ACCEPTED -> 503,true,SOURCE_IF_RESOLVED"
+
+  require_exact_prefixed_set \
+    "${file}" \
+    "API_STATUS_FAILURE:" \
+    "API_STATUS_FAILURE: PARSER_RETRYABLE_FAILURE -> 200,true,SOURCE_AND_REVISION" \
+    "API_STATUS_FAILURE: PARSER_TERMINAL_FAILURE -> 200,false,SOURCE_AND_REVISION" \
+    "API_STATUS_FAILURE: DOCX_FORMAT_INVALID -> 200,false,SOURCE_AND_REVISION"
 
   require_exact_prefixed_set \
     "${file}" \
@@ -375,7 +401,7 @@ expect_failure "${processing_missing_location}" "PROCESSING_RESULT_FIELD: contra
 
 expanded_zip_as_413="${test_tmp_root}/expanded-zip-as-413.md"
 cp "${contract_file}" "${expanded_zip_as_413}"
-sed -i.bak 's/^HTTP: 422_UNPROCESSABLE_CONTENT -> TERMINAL_FORMAT_SECURITY_OR_EXPANDED_ZIP_LIMIT$/HTTP: 422_UNPROCESSABLE_CONTENT -> TERMINAL_FORMAT_OR_SECURITY/' "${expanded_zip_as_413}"
+sed -i.bak 's/^HTTP: 422_UNPROCESSABLE_CONTENT -> EMPTY_HASH_MISMATCH_TERMINAL_FORMAT_SECURITY_OR_EXPANDED_ZIP_LIMIT$/HTTP: 422_UNPROCESSABLE_CONTENT -> TERMINAL_FORMAT_OR_SECURITY/' "${expanded_zip_as_413}"
 expect_failure "${expanded_zip_as_413}" "HTTP: contract set does not match"
 
 accepted_failure_as_503="${test_tmp_root}/accepted-failure-as-503.md"
@@ -428,6 +454,21 @@ cp "${contract_file}" "${alias_created_after_preview}"
 sed -i.bak 's/^PreviewAliasCreation = BEFORE_PREVIEW_READY$/PreviewAliasCreation = ON_PREVIEW_READ/' "${alias_created_after_preview}"
 expect_failure "${alias_created_after_preview}" "missing required contract line: PreviewAliasCreation = BEFORE_PREVIEW_READY"
 
+revision_digest_missing="${test_tmp_root}/revision-digest-missing.md"
+cp "${contract_file}" "${revision_digest_missing}"
+sed -i.bak '/^REVISION_QUERY_FIELD: omissionsDigest$/d' "${revision_digest_missing}"
+expect_failure "${revision_digest_missing}" "REVISION_QUERY_FIELD: contract set does not match"
+
+preview_digest_missing="${test_tmp_root}/preview-digest-missing.md"
+cp "${contract_file}" "${preview_digest_missing}"
+sed -i.bak '/^PREVIEW_RESULT_FIELD: publishedBlockSetDigest$/d' "${preview_digest_missing}"
+expect_failure "${preview_digest_missing}" "PREVIEW_RESULT_FIELD: contract set does not match"
+
+empty_source_error_missing="${test_tmp_root}/empty-source-error-missing.md"
+cp "${contract_file}" "${empty_source_error_missing}"
+sed -i.bak '/^API_ERROR: EMPTY_SOURCE_FILE -> /d' "${empty_source_error_missing}"
+expect_failure "${empty_source_error_missing}" "API_ERROR: contract set does not match"
+
 printf '%s\n' \
   "SourcePreviewContractValidation = PASS" \
-  "NegativeCases = 25"
+  "NegativeCases = 28"

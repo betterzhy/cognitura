@@ -84,6 +84,8 @@ validate_contract() {
     "BlockSetStagingScope = SOURCE_PROCESSING_ATTEMPT" \
     "StagedBlockSetVisibility = PRIVATE_TO_ACTIVE_ATTEMPT" \
     "PublishedBlockSetCardinality = EXACTLY_ONE_PER_PARSED_REVISION" \
+    "RevisionPartialConfirmationDigestFields = PUBLISHED_BLOCK_SET_DIGEST_AND_OMISSIONS_DIGEST" \
+    "RevisionParseResultFieldsBeforeSuccessfulPublish = ALL_NULL" \
     "BlockSetPublicationCAS = ACTIVE_ATTEMPT_ID_AND_ATTEMPT_GENERATION_MATCH" \
     "BlockSetPublicationTransaction = ATOMIC_WITH_SUCCEEDED_ATTEMPT_PARSED_REVISION_AND_STAGE_RECORD" \
     "PreviewReadyRequiresPublishedBlockSet = YES" \
@@ -142,7 +144,7 @@ validate_contract() {
     "STAGE_RECORD_MAP: schemaVersion -> GENERATION_STAGE_RECORD_SCHEMA_VERSION" \
     "STAGE_RECORD_MAP: runId -> SOURCE_PROCESSING_ATTEMPT_ID" \
     "STAGE_RECORD_MAP: stage -> SOURCE_PARSING" \
-    "STAGE_RECORD_MAP: inputHash -> SHA256_RAW_BYTES_PLUS_PARSER_PROFILE" \
+    "STAGE_RECORD_MAP: inputHash -> SOURCE_DOCUMENT_ID_PLUS_SHA256_RAW_BYTES_PLUS_PARSER_PROFILE" \
     "STAGE_RECORD_MAP: promptVersion -> NOT_APPLICABLE" \
     "STAGE_RECORD_MAP: model -> NOT_APPLICABLE" \
     "STAGE_RECORD_MAP: sourceBlockRefs -> EMPTY_BEFORE_SOURCE_PARSING" \
@@ -404,6 +406,24 @@ expect_failure \
   "${non_atomic_block_set_publication}" \
   "missing required contract line: BlockSetPublicationTransaction"
 
+input_hash_without_source_identity="${test_tmp_root}/input-hash-without-source-identity.md"
+cp "${contract_file}" "${input_hash_without_source_identity}"
+sed -i.bak \
+  's/^STAGE_RECORD_MAP: inputHash -> SOURCE_DOCUMENT_ID_PLUS_SHA256_RAW_BYTES_PLUS_PARSER_PROFILE$/STAGE_RECORD_MAP: inputHash -> SHA256_RAW_BYTES_PLUS_PARSER_PROFILE/' \
+  "${input_hash_without_source_identity}"
+expect_failure \
+  "${input_hash_without_source_identity}" \
+  "STAGE_RECORD_MAP: contract set does not match"
+
+missing_omissions_digest_fact="${test_tmp_root}/missing-omissions-digest-fact.md"
+cp "${contract_file}" "${missing_omissions_digest_fact}"
+sed -i.bak \
+  's/^RevisionPartialConfirmationDigestFields = PUBLISHED_BLOCK_SET_DIGEST_AND_OMISSIONS_DIGEST$/RevisionPartialConfirmationDigestFields = PUBLISHED_BLOCK_SET_DIGEST_ONLY/' \
+  "${missing_omissions_digest_fact}"
+expect_failure \
+  "${missing_omissions_digest_fact}" \
+  "missing required contract line: RevisionPartialConfirmationDigestFields"
+
 printf '%s\n' \
   "SourceDocumentContractValidation = PASS" \
-  "NegativeCases = 21"
+  "NegativeCases = 23"

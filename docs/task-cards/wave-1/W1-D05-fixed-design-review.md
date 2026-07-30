@@ -97,3 +97,30 @@ SourcePreviewContractNegativeCases = 25
 
 修复完成后必须形成新的本地固定提交，重新运行全量验证，并从一般审查重新开始；
 第一轮结论不得作为最终门禁证据。
+
+第二轮固定候选：
+
+```text
+GeneralReviewModel = gpt-5.6-sol
+GeneralReviewReasoningEffort = high
+GeneralReviewVerdict = NOT_READY
+GeneralReviewP0 = 0
+GeneralReviewP1 = 3
+GeneralReviewP2 = 0
+ReviewedCandidate = 82715141fe6900ec88c96d8977a4a20fb22c4909
+FinalGateStarted = NO
+```
+
+第二轮发现要求：`SOURCE_PARSING.inputHash` 纳入逻辑 SourceDocument identity；
+revision/preview DTO 公开 exact block-set/omissions digest 以构造 partial confirmation；
+稳定 API 闭集覆盖 `EMPTY_SOURCE_FILE` 和 `SOURCE_HASH_MISMATCH`。第二轮修复后的
+验证负例目标为：
+
+```text
+SourceDocumentContractNegativeCases = 23
+DocumentBlockContractNegativeCases = 24
+ReparseReferenceContractNegativeCases = 25
+SourcePreviewContractNegativeCases = 28
+```
+
+第二轮结论同样不得作为最终门禁证据；必须再次形成新固定提交并从一般审查开始。
