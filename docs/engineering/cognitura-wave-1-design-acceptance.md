@@ -17,7 +17,9 @@ W1-DG3 ReparseAndReferenceCompatibility = PASS
 W1-DG4 SourcePreviewAndAcceptance = PASS
 W1-DG5 FixedDesignReview = PASS
 Wave1DesignStatus = USER_APPROVED
-ImplementationSlicingStatus = SPEC_AWAITING_USER_REVIEW
+ImplementationSlicingStatus = USER_APPROVED
+ImplementationSlicingApprovalDate = 2026-07-30
+ImplementationTaskCardPlanStatus = READY_AWAITING_EXECUTION_CHOICE
 BusinessImplementation = NOT_AUTHORIZED
 Wave1ImplementationTaskCardSet = NOT_CREATED
 DirectFullImplementationStart = NO
@@ -155,7 +157,8 @@ UltraModel = NOT_USED
 ## 7. 停止边界
 
 用户已于 `2026-07-30` 明确批准本记录绑定的完整 Wave 1 书面设计候选，并批准
-采用 14 张中细粒度任务卡方向。当前下一状态是审阅
-[`Wave 1 实现切片设计`](../superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md)；
-该书面规格再次获批前，不创建 `W1-Ixx`、不编制实现计划、不写业务代码或正式
-数据库、不选择 Parser/Object Storage Provider，也不部署或远程推送。
+采用 14 张中细粒度任务卡方向，并已批准
+[`Wave 1 实现切片设计`](../superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md)。
+任务卡 bootstrap 计划已准备完成；计划执行只允许创建卡集并完成治理卡 I00，
+不授权 W1-I01 业务代码、正式数据库、Parser/Object Storage Provider、部署或
+远程推送。

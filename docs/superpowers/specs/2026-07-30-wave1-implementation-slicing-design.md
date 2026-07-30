@@ -8,7 +8,11 @@ ApprovedDesignCandidate = 17dabff23b029e1a6fc7f47155f552ed3f16d775
 CompleteWrittenDesignApproval = APPROVED_BY_USER
 SlicingApproach = MEDIUM_FINE_GRAINED_RISK_SLICES
 ProposedTaskCardCount = 14
-SpecificationStatus = AWAITING_USER_WRITTEN_REVIEW
+SpecificationStatus = USER_APPROVED
+UserWrittenReviewApprovalDate = 2026-07-30
+ImplementationPlan =
+  docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md
+ImplementationPlanStatus = READY_AWAITING_EXECUTION_CHOICE
 Wave1ImplementationTaskCardSet = NOT_CREATED
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -87,9 +91,9 @@ DependsOn = USER_APPROVED_WRITTEN_SLICING_SPEC
 BusinessCode = FORBIDDEN
 ```
 
-创建实现卡索引、实现卡 validator、负例夹具、统一验证入口和 Gate 映射。它是
-任务卡集合创建后唯一允许为 `READY` 的卡，不修改 `server/`、`web/`、migration
-或 `raw/`。
+经批准的 bootstrap 只创建实现卡索引和 14 张卡片文档，使 I00 成为唯一
+`READY`。I00 随后负责完成实现卡 validator、负例夹具、统一验证入口、Gate
+映射并复核 bootstrap 索引。它不修改 `server/`、`web/`、migration 或 `raw/`。
 
 ### W1-I01：来源接入领域内核
 
@@ -237,7 +241,8 @@ DependsOn = W1-I00,W1-I01,W1-I02,W1-I03,W1-I04,W1-I05,W1-I06,W1-I07,W1-I08,W1-I0
 ## 5. 依赖与释放规则
 
 1. 书面规格经用户审阅批准后，才允许编制实现计划。
-2. 实现计划通过后创建 `W1-I00` 至 `W1-I13`，仅 `W1-I00` 为 `READY`。
+2. 实现计划通过后先 bootstrap `W1-I00` 至 `W1-I13` 的卡片文档和索引，仅
+   `W1-I00` 为 `READY`；bootstrap 本身不实现 validator 或业务代码。
 3. `W1-I00` 完成只证明卡集可执行；`W1-I01` 变为 `READY` 前必须取得用户对
    业务实现的明确授权。
 4. `W1-I02` 变为 `READY` 前必须单独通过数据库 Gate；隔离临时测试库不等于
@@ -328,5 +333,5 @@ git diff --check
 git status --short
 ```
 
-用户审阅并批准本书面规格后，下一步只能调用 `writing-plans` 编制实现任务卡创建
-计划；仍不得直接创建业务代码。
+用户已审阅并批准本书面规格。下一步只能按已落盘的 `writing-plans` 计划选择执行
+方式，bootstrap 任务卡并完成治理卡 I00；仍不得直接创建业务代码。

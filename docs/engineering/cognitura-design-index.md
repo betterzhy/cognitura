@@ -28,7 +28,9 @@ Wave1DesignPlan =
 Wave1ImplementationSlicingDesign =
   docs/superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md
 Wave1DesignStatus = USER_APPROVED
-Wave1ImplementationPlanningStatus = SLICING_SPEC_AWAITING_USER_REVIEW
+Wave1ImplementationTaskCardPlan =
+  docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md
+Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 ActiveDesignTaskCard = NONE
 BusinessImplementation = NOT_AUTHORIZED
 ```
@@ -119,6 +121,7 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 - `docs/engineering/cognitura-wave-1-design-acceptance.md`
 - `docs/task-cards/wave-1/README.md`
 - `docs/superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md`
+- `docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md`
 
 这些工程记录只描述当前落地事实、缺口、计划和门禁，不替代正式设计。
 
@@ -135,5 +138,6 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 
 W1-D00 治理说明、W1-D01 至 W1-D04 四份来源设计契约和验收记录均已落地。
 修复固定候选 `17dabff23b029e1a6fc7f47155f552ed3f16d775` 已通过两个独立
-`gpt-5.6-sol/high` 阶段，`W1-DG5 = PASS`，且完整设计已获用户批准。当前等待
-用户审阅 14 张中细粒度实现切片书面规格，业务实现仍未授权。
+`gpt-5.6-sol/high` 阶段，`W1-DG5 = PASS`，且完整设计与 14 张中细粒度实现
+切片书面规格均已获用户批准。任务卡 bootstrap 计划已准备完成，业务实现仍未
+授权。

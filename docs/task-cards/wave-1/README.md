@@ -8,14 +8,14 @@ TaskCardCount = 6
 ActiveTaskCard = NONE
 TaskCardSetStatus = COMPLETE
 Wave1DesignStatus = USER_APPROVED
-Wave1ImplementationPlanningStatus = SLICING_SPEC_AWAITING_USER_REVIEW
+Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
 本集合只完成 Wave 1 书面详细设计、设计验证和固定候选复核。复审修复候选已
 通过两个独立 `gpt-5.6-sol/high` 阶段，六张设计卡均已完成且完整设计已获用户
-批准；当前仍须完成实现切片书面规格审阅，不授权创建 `W1-Ixx` 实现卡或业务
-实现计划。
+批准，实现切片书面规格也已获用户批准。当前等待选择 bootstrap 计划执行方式；
+计划执行只创建实现卡集并完成 I00，不授权 W1-I01 业务代码。
 
 ## 1. 任务卡清单
 

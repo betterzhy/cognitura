@@ -2,9 +2,9 @@
 
 ```text
 DecisionDate = 2026-07-30
-CurrentStage = WAVE1_IMPLEMENTATION_SLICING_SPEC_AWAITING_USER_REVIEW
+CurrentStage = WAVE1_IMPLEMENTATION_TASK_CARD_PLAN_AWAITING_EXECUTION_CHOICE
 Wave1DesignStatus = USER_APPROVED
-Wave1ImplementationPlanningStatus = SLICING_SPEC_AWAITING_USER_REVIEW
+Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 ActiveDesignTaskCard = NONE
 Wave1ImplementationTaskCardSet = NOT_CREATED
 BusinessImplementation = NOT_AUTHORIZED
@@ -53,6 +53,6 @@ W1-D00 至 W1-D04 均使用 `gpt-5.6-sol/high` 设计 Gate；W1-D05 使用两个
 - 正式数据库、远程推送、部署与发布均不在本计划授权内。
 
 修复固定候选 `17dabff23b029e1a6fc7f47155f552ed3f16d775` 已重新通过两个
-独立 `gpt-5.6-sol/high` 阶段并获得用户完整设计批准。当前停止在实现切片书面
-规格审阅点；完整证据记录在
+独立 `gpt-5.6-sol/high` 阶段并获得用户完整设计批准，实现切片书面规格也已获
+批准。当前停止在任务卡 bootstrap 计划执行方式选择点；完整证据记录在
 [`cognitura-wave-1-design-acceptance.md`](cognitura-wave-1-design-acceptance.md)。
