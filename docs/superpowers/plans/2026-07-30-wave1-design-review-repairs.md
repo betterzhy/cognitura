@@ -117,6 +117,10 @@ Expected: PASS.
 - [x] **Step 1: Run `scripts/verify-wave1-design`, `scripts/verify-wave0`, `git diff --check` and inspect `git status --short`.**
 - [ ] **Step 2: Commit the repair candidate locally without `.idea/`.**
 - [ ] **Step 3: Run an independent `gpt-5.6-sol/high` general review on the exact commit.**
+
+Candidate `b1d4f78ed98fbe108358a8b07cc7681bea9ffd69` returned
+`NOT_READY / P1=1`; the final Gate did not start. The next candidate must bind lease expiry
+CAS to the observed attempt status and lease value, then restart this step.
 - [ ] **Step 4: If and only if the general review is zero-finding, run a separate `gpt-5.6-sol/high` final Gate.**
 - [ ] **Step 5: Synchronize W1-DG5 and all status projections to the actual result, rerun all verification and create a local closure commit.**
 - [ ] **Step 6: Confirm no remote push occurred and report exact SHAs, Gate evidence and remaining authorization boundary.**

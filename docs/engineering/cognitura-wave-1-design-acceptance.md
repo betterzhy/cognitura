@@ -4,6 +4,7 @@
 DecisionDate = 2026-07-30
 ReviewedCandidate = PENDING_NEW_FIXED_CANDIDATE
 PriorReviewedCandidate = 3efe89fa532b7d58d7915dc891732dfdf5f4ee55
+SupersededRepairCandidate = b1d4f78ed98fbe108358a8b07cc7681bea9ffd69
 AcceptanceStatus = SUPERSEDED_BY_USER_REVIEW_FINDINGS
 Wave1DesignVerification = PASS
 Wave0Regression = PASS
@@ -93,7 +94,7 @@ git diff --check = PASS
 
 ```text
 scripts/verify-wave1-design = PASS
-SourceDocumentContractNegativeCases = 25
+SourceDocumentContractNegativeCases = 26
 DocumentBlockContractNegativeCases = 24
 ReparseReferenceContractNegativeCases = 27
 SourcePreviewContractNegativeCases = 28
@@ -107,7 +108,27 @@ git diff --check = PASS
 
 该验证只允许形成新的固定候选，不等于一般深审或最终门禁已经通过。
 
-## 6. 停止边界
+## 6. 修复候选审查循环
+
+第一份修复候选的一般审查结果：
+
+```text
+ReviewedCandidate = b1d4f78ed98fbe108358a8b07cc7681bea9ffd69
+GeneralReviewModel = gpt-5.6-sol
+GeneralReviewReasoningEffort = high
+GeneralReviewVerdict = NOT_READY
+GeneralReviewP0 = 0
+GeneralReviewP1 = 1
+GeneralReviewP2 = 0
+FinalGateStarted = NO
+```
+
+发现要求 lease expiry CAS 同时绑定 active attempt identity、generation、观察到的
+attempt status 和 `leaseExpiresAt`；worker claim 或 heartbeat 改变 status/lease
+后，旧超时决定必须失败并重新读取。该发现已进入下一修复候选，旧候选不得进入
+最终 Gate。
+
+## 7. 停止边界
 
 本记录只关闭 Wave 1 书面详细设计 Gate。下一状态是用户审阅完整书面设计；
 在用户再次明确批准前，不创建 `W1-Ixx`、不编制实现计划、不写业务代码或正式

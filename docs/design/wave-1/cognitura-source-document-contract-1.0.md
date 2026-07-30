@@ -313,6 +313,8 @@ PreviewReadyRequiresPublishedBlockSet = YES
 PublishedBlockSetMutation = FORBIDDEN
 LeaseExpiredAttemptStatus = FAILED_RETRYABLE
 PendingAttemptTimeout = ATOMIC_FAILED_RETRYABLE_WITH_REVISION
+LeaseExpiryCAS = ACTIVE_ATTEMPT_ID+ATTEMPT_GENERATION+EXPECTED_ATTEMPT_STATUS+OBSERVED_LEASE_EXPIRES_AT
+LeaseExpiryStaleObservation = REJECT_AND_REREAD
 LateCompletionAudit = APPEND_ONLY_RESULT_REJECTED_STALE_EVENT
 LateCompletionAttemptMutation = FORBIDDEN
 ```
@@ -358,13 +360,18 @@ FINALIZE: FAILED_TERMINAL -> WRITE_SOURCE_PARSING_STAGE_RECORD,FAILED_TERMINAL,C
   `PENDING` 与 `RUNNING` 均属于活动状态，同一 revision 最多一个活动 attempt。
 - `PENDING` attempt 创建时必须设置 `leaseExpiresAt` 作为 worker claim deadline；
   它不能发送 heartbeat。worker 只能在 `activeAttemptId + attemptGeneration`
-  同时匹配且 claim deadline 未过期时，以 CAS 将 attempt 迁移到 `RUNNING`，并把
+  同时匹配、attempt 当前仍为 `PENDING`、当前 `leaseExpiresAt` 等于 worker
+  读取的 claim deadline 且未过期时，以 CAS 将 attempt 迁移到 `RUNNING`，并把
   `leaseExpiresAt` 切换为运行 lease。
-- `RUNNING` attempt 的心跳只可在相同活动身份匹配且 lease 未过期时延长
-  `leaseExpiresAt`。监督器发现 `PENDING` claim deadline 或 `RUNNING` lease
-  过期后，必须以相同 CAS 在同一事务中将 attempt 和 revision 都标记为
-  `FAILED_RETRYABLE`、清除 revision 的活动身份并设置完成时间，之后才能创建
-  下一 attempt；不能先并行启动替代 attempt。
+- `RUNNING` attempt 的心跳只可在相同活动身份、当前状态为 `RUNNING`、当前
+  `leaseExpiresAt` 等于 heartbeat 读取值且未过期时延长 lease。监督器发现
+  `PENDING` claim deadline 或 `RUNNING` lease 过期后，超时 CAS 必须同时匹配
+  `activeAttemptId + attemptGeneration + expectedAttemptStatus +
+  observedLeaseExpiresAt`，再在同一事务中将 attempt 和 revision 都标记为
+  `FAILED_RETRYABLE`、清除 revision 的活动身份并设置完成时间。worker claim、
+  heartbeat 或其他合法迁移只要已经改变 status 或 lease，旧超时观察就必须 CAS
+  失败并重新读取，不得终结新状态；超时事务成功后才能创建下一 attempt，不能先
+  并行启动替代 attempt。
 - 每个 attempt 只可在自己的 staging scope 写候选 block set；staging 内容对
   查询、预览、alias 解析和 consumer 全部不可见。候选集必须先通过 D02 的
   envelope、payload、连续顺序、完整性和 digest 验证。

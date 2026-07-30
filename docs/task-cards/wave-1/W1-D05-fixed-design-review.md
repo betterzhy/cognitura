@@ -212,3 +212,22 @@ Wave1ImplementationTaskCardSet = NOT_CREATED
 3. D00 删除在完整设计用户批准前产生实现任务卡建议清单的过早要求。
 
 修复必须先增加可观察失败的契约负例，再形成新固定候选，并从一般审查重新开始。
+
+第六轮修复候选一般审查：
+
+```text
+ReviewedCandidate = b1d4f78ed98fbe108358a8b07cc7681bea9ffd69
+GeneralReviewModel = gpt-5.6-sol
+GeneralReviewReasoningEffort = high
+GeneralReviewVerdict = NOT_READY
+GeneralReviewP0 = 0
+GeneralReviewP1 = 1
+GeneralReviewP2 = 0
+FinalGateStarted = NO
+W1-DG5 FixedDesignReview = IN_PROGRESS
+```
+
+一般审查发现 lease 超时监督只绑定 active identity/generation，无法拒绝 worker
+claim 或 heartbeat 后的 stale expiry observation。修复必须把
+`expectedAttemptStatus + observedLeaseExpiresAt` 纳入超时 CAS，并新增
+identity-only 退化负例；随后形成新固定候选并从一般审查重新开始。

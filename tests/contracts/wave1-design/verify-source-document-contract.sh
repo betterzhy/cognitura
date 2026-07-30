@@ -102,6 +102,8 @@ validate_contract() {
     "SourceParsingNoModelProjection = PROMPT_VERSION_NOT_APPLICABLE_AND_MODEL_NOT_APPLICABLE" \
     "PendingAttemptTimeout = ATOMIC_FAILED_RETRYABLE_WITH_REVISION" \
     "LeaseExpiredAttemptStatus = FAILED_RETRYABLE" \
+    "LeaseExpiryCAS = ACTIVE_ATTEMPT_ID+ATTEMPT_GENERATION+EXPECTED_ATTEMPT_STATUS+OBSERVED_LEASE_EXPIRES_AT" \
+    "LeaseExpiryStaleObservation = REJECT_AND_REREAD" \
     "LateCompletionAudit = APPEND_ONLY_RESULT_REJECTED_STALE_EVENT" \
     "LateCompletionAttemptMutation = FORBIDDEN"; do
     require_line "${file}" "${required_line}"
@@ -450,6 +452,15 @@ expect_failure \
   "${pending_attempt_has_no_timeout_exit}" \
   "ATTEMPT: contract set does not match"
 
+lease_expiry_uses_stale_identity_only="${test_tmp_root}/lease-expiry-uses-stale-identity-only.md"
+cp "${contract_file}" "${lease_expiry_uses_stale_identity_only}"
+sed -i.bak \
+  's/^LeaseExpiryCAS = ACTIVE_ATTEMPT_ID+ATTEMPT_GENERATION+EXPECTED_ATTEMPT_STATUS+OBSERVED_LEASE_EXPIRES_AT$/LeaseExpiryCAS = ACTIVE_ATTEMPT_ID+ATTEMPT_GENERATION/' \
+  "${lease_expiry_uses_stale_identity_only}"
+expect_failure \
+  "${lease_expiry_uses_stale_identity_only}" \
+  "missing required contract line: LeaseExpiryCAS = ACTIVE_ATTEMPT_ID+ATTEMPT_GENERATION+EXPECTED_ATTEMPT_STATUS+OBSERVED_LEASE_EXPIRES_AT"
+
 printf '%s\n' \
   "SourceDocumentContractValidation = PASS" \
-  "NegativeCases = 25"
+  "NegativeCases = 26"
