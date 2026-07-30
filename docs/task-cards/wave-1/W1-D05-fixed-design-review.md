@@ -3,11 +3,12 @@
 ```text
 TaskCardID = W1-D05
 CardKind = DESIGN
-Status = DONE
+Status = READY
 Gate = W1-DG5 FixedDesignReview
 Risk = HIGH
 DependsOn = W1-D04
 ReviewRoute = SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE
+ImplementationSlicing = AFTER_EXPLICIT_USER_APPROVAL
 ```
 
 ## 1. 目标
@@ -39,6 +40,10 @@ ReviewRoute = SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE
 - Modify: `tests/contracts/wave1-design/verify-reparse-reference-contract.sh`
 - Modify: `tests/contracts/wave1-design/verify-source-preview-contract.sh`
 - Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
+- Modify: `docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md`
+- Create: `docs/superpowers/plans/2026-07-30-wave1-design-review-repairs.md`
+- Modify: `tests/task-cards/verify-wave1-design-cards.sh`
+- Modify: `scripts/verify-wave1-design-cards`
 
 以上附加写集只用于修复固定候选审查发现；不得借此扩展产品范围或创建实现资产。
 
@@ -182,3 +187,28 @@ Wave1ImplementationTaskCardSet = NOT_CREATED
 两个 reviewer 相互独立并绑定同一固定候选；最终 reviewer 未使用一般审查结论
 作为证据。完整验收记录见
 [`cognitura-wave-1-design-acceptance.md`](../../engineering/cognitura-wave-1-design-acceptance.md)。
+
+第五轮用户审阅修复循环：
+
+```text
+ReviewSource = USER_APPROVED_DESIGN_OPTIMIZATION_REVIEW
+ReviewedCandidate = 3efe89fa532b7d58d7915dc891732dfdf5f4ee55
+ReviewVerdict = NOT_READY
+ReviewP0 = 0
+ReviewP1 = 3
+ReviewP2 = 0
+W1-DG5 FixedDesignReview = IN_PROGRESS
+GeneralReviewStarted = NO
+FinalGateStarted = NO
+BusinessImplementation = NOT_AUTHORIZED
+Wave1ImplementationTaskCardSet = NOT_CREATED
+```
+
+三个发现仅允许以下最小修复：
+
+1. D03 的 Wave 2 消费边界允许显式 `DocumentSectionScope`，不再强制从
+   `sourceOrder=0` 消费整份 revision。
+2. D01 为未被 worker claim 的 `PENDING` attempt 补充合法的超时失败出口。
+3. D00 删除在完整设计用户批准前产生实现任务卡建议清单的过早要求。
+
+修复必须先增加可观察失败的契约负例，再形成新固定候选，并从一般审查重新开始。

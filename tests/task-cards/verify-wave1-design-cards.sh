@@ -211,7 +211,17 @@ expect_failure \
   "${complete_with_implementation_dir}" \
   "implementation card is forbidden before explicit post-design user approval"
 
+premature_implementation_slicing_dir="${test_tmp_root}/premature-implementation-slicing"
+cp -R "${ready_baseline_dir}" "${premature_implementation_slicing_dir}"
+sed -i.bak \
+  's/^ImplementationSlicing = AFTER_EXPLICIT_USER_APPROVAL$/ImplementationSlicing = BEFORE_USER_APPROVAL/' \
+  "${premature_implementation_slicing_dir}/W1-D05-fixed-design-review.md"
+rm "${premature_implementation_slicing_dir}/W1-D05-fixed-design-review.md.bak"
+expect_failure \
+  "${premature_implementation_slicing_dir}" \
+  "W1-D05-fixed-design-review.md: ImplementationSlicing must be AFTER_EXPLICIT_USER_APPROVAL"
+
 printf '%s\n' \
   "Wave1DesignTaskCardContractTests = PASS" \
-  "NegativeCases = 11" \
+  "NegativeCases = 12" \
   "CompleteTerminalCases = 1"

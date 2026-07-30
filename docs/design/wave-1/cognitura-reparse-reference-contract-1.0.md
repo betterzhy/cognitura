@@ -215,21 +215,26 @@ LINEAGE_CARDINALITY: AMBIGUOUS -> ONE_OR_MORE_FROM,ONE_OR_MORE_TO
 Wave1BlocksMutableByConsumers = NO
 Wave2RevisionSelector = EXPLICIT_NOT_ACTIVE
 Wave2BlockRefScope = SAME_PROCESSING_REVISION
-Wave2BlockOrder = EXACT_CONTIGUOUS_SOURCE_ORDER
+Wave2ConsumptionScope = EXPLICIT_DOCUMENT_SECTION
+Wave2BlockOrder = CONTIGUOUS_SOURCE_ORDER_WITHIN_SECTION_SCOPE
+Wave2SectionStartOrder = MAY_BE_NON_ZERO
 Wave2DuplicateRefs = FORBIDDEN
 Wave2PartialConsumptionGate = PARTIAL_ACCEPTANCE_STATUS_ACCEPTED
 Wave2CompleteConsumptionGate = PARSE_COMPLETENESS_COMPLETE
 EvidenceFullSourceCopy = FORBIDDEN
 EvidenceSourceKindFromD02OtherPayload = FORBIDDEN
 EvidenceSourceKind = SOURCE_EXPLICIT_OR_SOURCE_SYNTHESIZED_ONLY
-CONSUMER: WAVE2_SECTION_UNDERSTANDING -> PROCESSING_REVISION_ID+ORDERED_DOCUMENT_BLOCK_REFS
+CONSUMER: WAVE2_SECTION_UNDERSTANDING -> PROCESSING_REVISION_ID+DOCUMENT_SECTION_SCOPE+ORDERED_DOCUMENT_BLOCK_REFS
 CONSUMER: WAVE3_EVIDENCE_REFERENCE -> IMMUTABLE_SOURCE_AND_BLOCK_ALIASES+SOURCE_METADATA
 ```
 
-Wave 2 只能提交显式 `sourceProcessingRevisionId` 和按 D02 `sourceOrder` 排序的
-`DocumentBlockRef[]`。列表中所有 ref 必须属于同一 revision、无重复且 order
-从 0 连续；不得使用 active selector、混合 revision、按 consumer 偏好重排或
-跳过块。消费入口必须读取 D01 的 exact revision：`COMPLETE` 可直接进入；
+Wave 2 只能提交显式 `sourceProcessingRevisionId`、显式 `DocumentSectionScope`
+和按 D02 `sourceOrder` 排序的 `DocumentBlockRef[]`。列表中所有 ref 必须属于
+同一 revision、无重复，并在所声明 section scope 内按 sourceOrder 连续；section
+起点可以大于 0，不得被强制扩展为整份 revision。section 边界的推导、覆盖和重叠
+裁决属于 Wave 2 `SectionUnderstanding` 详细设计，Wave 1 不提前发明。不得使用
+active selector、混合 revision、按 consumer 偏好重排或在已声明 scope 内跳块。
+消费入口必须读取 D01 的 exact revision：`COMPLETE` 可直接进入；
 `PARTIAL` 只有 `partialAcceptanceStatus=ACCEPTED` 且确认绑定的 block-set/omissions
 digest 仍精确匹配时才可进入。`PENDING`、digest 不匹配或其他状态一律拒绝为
 `PARTIAL_ACCEPTANCE_REQUIRED`。消费过程不得写回 block、alias 或 lineage。

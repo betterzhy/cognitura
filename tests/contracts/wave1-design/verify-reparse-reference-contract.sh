@@ -93,7 +93,9 @@ validate_contract() {
     "Wave1BlocksMutableByConsumers = NO" \
     "Wave2RevisionSelector = EXPLICIT_NOT_ACTIVE" \
     "Wave2BlockRefScope = SAME_PROCESSING_REVISION" \
-    "Wave2BlockOrder = EXACT_CONTIGUOUS_SOURCE_ORDER" \
+    "Wave2ConsumptionScope = EXPLICIT_DOCUMENT_SECTION" \
+    "Wave2BlockOrder = CONTIGUOUS_SOURCE_ORDER_WITHIN_SECTION_SCOPE" \
+    "Wave2SectionStartOrder = MAY_BE_NON_ZERO" \
     "Wave2DuplicateRefs = FORBIDDEN" \
     "Wave2PartialConsumptionGate = PARTIAL_ACCEPTANCE_STATUS_ACCEPTED" \
     "Wave2CompleteConsumptionGate = PARSE_COMPLETENESS_COMPLETE" \
@@ -170,7 +172,7 @@ validate_contract() {
   require_exact_prefixed_set \
     "${file}" \
     "CONSUMER:" \
-    "CONSUMER: WAVE2_SECTION_UNDERSTANDING -> PROCESSING_REVISION_ID+ORDERED_DOCUMENT_BLOCK_REFS" \
+    "CONSUMER: WAVE2_SECTION_UNDERSTANDING -> PROCESSING_REVISION_ID+DOCUMENT_SECTION_SCOPE+ORDERED_DOCUMENT_BLOCK_REFS" \
     "CONSUMER: WAVE3_EVIDENCE_REFERENCE -> IMMUTABLE_SOURCE_AND_BLOCK_ALIASES+SOURCE_METADATA"
 }
 
@@ -359,14 +361,32 @@ expect_failure \
   "${wave2_cross_revision}" \
   "missing required contract line: Wave2BlockRefScope"
 
+wave2_requires_full_revision="${test_tmp_root}/wave2-requires-full-revision.md"
+cp "${contract_file}" "${wave2_requires_full_revision}"
+sed -i.bak \
+  's/^Wave2ConsumptionScope = EXPLICIT_DOCUMENT_SECTION$/Wave2ConsumptionScope = FULL_PROCESSING_REVISION/' \
+  "${wave2_requires_full_revision}"
+expect_failure \
+  "${wave2_requires_full_revision}" \
+  "missing required contract line: Wave2ConsumptionScope = EXPLICIT_DOCUMENT_SECTION"
+
 wave2_reorders="${test_tmp_root}/wave2-reorders.md"
 cp "${contract_file}" "${wave2_reorders}"
 sed -i.bak \
-  's/^Wave2BlockOrder = EXACT_CONTIGUOUS_SOURCE_ORDER$/Wave2BlockOrder = CONSUMER_SELECTED/' \
+  's/^Wave2BlockOrder = CONTIGUOUS_SOURCE_ORDER_WITHIN_SECTION_SCOPE$/Wave2BlockOrder = CONSUMER_SELECTED/' \
   "${wave2_reorders}"
 expect_failure \
   "${wave2_reorders}" \
   "missing required contract line: Wave2BlockOrder"
+
+wave2_requires_zero_start="${test_tmp_root}/wave2-requires-zero-start.md"
+cp "${contract_file}" "${wave2_requires_zero_start}"
+sed -i.bak \
+  's/^Wave2SectionStartOrder = MAY_BE_NON_ZERO$/Wave2SectionStartOrder = MUST_BE_ZERO/' \
+  "${wave2_requires_zero_start}"
+expect_failure \
+  "${wave2_requires_zero_start}" \
+  "missing required contract line: Wave2SectionStartOrder = MAY_BE_NON_ZERO"
 
 other_source_kind_copied="${test_tmp_root}/other-source-kind-copied.md"
 cp "${contract_file}" "${other_source_kind_copied}"
@@ -415,4 +435,4 @@ expect_failure \
 
 printf '%s\n' \
   "ReparseReferenceContractValidation = PASS" \
-  "NegativeCases = 25"
+  "NegativeCases = 27"

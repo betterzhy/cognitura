@@ -191,6 +191,16 @@ for declared_id in "${declared_ids[@]}"; do
   [[ "${card_kind}" == "DESIGN" ]] ||
     fail "${filename}: CardKind must be DESIGN"
 
+  if [[ "${task_id}" == "W1-D05" ]]; then
+    implementation_slicing_count="$(
+      grep -c '^ImplementationSlicing = ' "${file}" || true
+    )"
+    [[ "${implementation_slicing_count}" -eq 1 ]] ||
+      fail "${filename}: ImplementationSlicing must be AFTER_EXPLICIT_USER_APPROVAL"
+    [[ "$(field_value "${file}" "ImplementationSlicing")" == "AFTER_EXPLICIT_USER_APPROVAL" ]] ||
+      fail "${filename}: ImplementationSlicing must be AFTER_EXPLICIT_USER_APPROVAL"
+  fi
+
   case "${status}" in
     DONE|READY|QUEUED|BLOCKED_BY_DEPENDENCY|BLOCKED_BY_DOCUMENTATION_GAP)
       ;;

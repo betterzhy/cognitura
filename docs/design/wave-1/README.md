@@ -2,8 +2,8 @@
 
 ```text
 CanonicalProjectName = Cognitura
-Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
-ActiveDesignTaskCard = NONE
+Wave1DesignStatus = REVIEW_REPAIR_IN_PROGRESS
+ActiveDesignTaskCard = W1-D05
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -15,9 +15,9 @@ BusinessImplementation = NOT_AUTHORIZED
 
 | 设计切片 | 文档 | 状态 | Gate |
 |---|---|---|---|
-| `W1-D01` | [SourceDocument 身份与生命周期](cognitura-source-document-contract-1.0.md) | `DONE` | `W1-DG1 PASS` |
+| `W1-D01` | [SourceDocument 身份与生命周期](cognitura-source-document-contract-1.0.md) | `DONE` | `REPAIR_CANDIDATE_AWAITING_FIXED_REVIEW` |
 | `W1-D02` | [DocumentBlock 保真与安全](cognitura-document-block-contract-1.0.md) | `DONE` | `W1-DG2 PASS` |
-| `W1-D03` | [重解析与稳定引用](cognitura-reparse-reference-contract-1.0.md) | `DONE` | `W1-DG3 PASS` |
+| `W1-D03` | [重解析与稳定引用](cognitura-reparse-reference-contract-1.0.md) | `DONE` | `REPAIR_CANDIDATE_AWAITING_FIXED_REVIEW` |
 | `W1-D04` | [来源预览与验收](cognitura-source-preview-contract-1.0.md) | `DONE` | `W1-DG4 PASS` |
 
 固定候选验收记录：
@@ -29,5 +29,5 @@ BusinessImplementation = NOT_AUTHORIZED
 - 不读取或改写 `raw/` 原件，不访问 Redis 遗留链接目标。
 - Wave 1 不使用 LLM。
 - 每份契约通过对应 sol/high Gate 后才成为后续设计切片的正式输入。
-- W1-DG5 已由两个独立 `gpt-5.6-sol/high` 阶段清零通过；当前停止在用户完整
-  书面设计审阅 Gate。
+- 历史 W1-DG5 结论已由用户审阅发现取代；W1-D05 正在修复并将重新执行两个
+  独立 `gpt-5.6-sol/high` 阶段。

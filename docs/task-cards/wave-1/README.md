@@ -5,14 +5,15 @@ CanonicalProjectName = Cognitura
 TaskCardSet = WAVE1_DESIGN
 TaskCardIDs = W1-D00,W1-D01,W1-D02,W1-D03,W1-D04,W1-D05
 TaskCardCount = 6
-ActiveTaskCard = NONE
-TaskCardSetStatus = COMPLETE
-Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+ActiveTaskCard = W1-D05
+TaskCardSetStatus = READY_FOR_EXECUTION
+Wave1DesignStatus = REVIEW_REPAIR_IN_PROGRESS
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
-本集合只完成 Wave 1 书面详细设计、设计验证和固定候选复核。设计卡关闭不等于
-业务实现获准；W1-D05 已完成，但在再次取得用户批准前不得创建 `W1-Ixx` 实现卡。
+本集合只完成 Wave 1 书面详细设计、设计验证和固定候选复核。用户已批准修复
+完整设计审阅发现，W1-D05 因此重新成为唯一 `READY` 卡；这不授权创建
+`W1-Ixx` 实现卡或业务实现计划。
 
 ## 1. 任务卡清单
 
@@ -23,7 +24,7 @@ BusinessImplementation = NOT_AUTHORIZED
 | `W1-D02` | [DocumentBlock 契约](W1-D02-document-block-contract.md) | `DONE` | `W1-D01` | `W1-DG2` | `HIGH` |
 | `W1-D03` | [重解析与稳定引用](W1-D03-reparse-reference-contract.md) | `DONE` | `W1-D02` | `W1-DG3` | `HIGH` |
 | `W1-D04` | [来源预览与验收](W1-D04-source-preview-acceptance.md) | `DONE` | `W1-D03` | `W1-DG4` | `HIGH` |
-| `W1-D05` | [固定设计候选复核](W1-D05-fixed-design-review.md) | `DONE` | `W1-D04` | `W1-DG5` | `HIGH` |
+| `W1-D05` | [固定设计候选复核](W1-D05-fixed-design-review.md) | `READY` | `W1-D04` | `W1-DG5` | `HIGH` |
 
 ## 2. 状态模型
 
@@ -69,6 +70,6 @@ scripts/verify-wave1-design-cards --cards-dir docs/task-cards/wave-1
 ExpectedWave1DesignTaskCardContractTests = PASS
 ExpectedWave1DesignTaskCardValidation = PASS
 ExpectedTaskCardCount = 6
-ExpectedTaskCardSetStatus = COMPLETE
-ExpectedActiveTaskCard = NONE
+ExpectedTaskCardSetStatus = READY_FOR_EXECUTION
+ExpectedActiveTaskCard = W1-D05
 ```

@@ -100,6 +100,7 @@ validate_contract() {
     "SourceParsingStageRecordPersistence = NO_SECOND_WRITABLE_FACT" \
     "SourceParsingStageName = SOURCE_PARSING" \
     "SourceParsingNoModelProjection = PROMPT_VERSION_NOT_APPLICABLE_AND_MODEL_NOT_APPLICABLE" \
+    "PendingAttemptTimeout = ATOMIC_FAILED_RETRYABLE_WITH_REVISION" \
     "LeaseExpiredAttemptStatus = FAILED_RETRYABLE" \
     "LateCompletionAudit = APPEND_ONLY_RESULT_REJECTED_STALE_EVENT" \
     "LateCompletionAttemptMutation = FORBIDDEN"; do
@@ -126,6 +127,7 @@ validate_contract() {
     "${file}" \
     "ATTEMPT:" \
     "ATTEMPT: PENDING -> RUNNING" \
+    "ATTEMPT: PENDING -> FAILED_RETRYABLE" \
     "ATTEMPT: RUNNING -> SUCCEEDED" \
     "ATTEMPT: RUNNING -> FAILED_RETRYABLE" \
     "ATTEMPT: RUNNING -> FAILED_TERMINAL"
@@ -439,6 +441,15 @@ expect_failure \
   "${pre_registration_rejection_creates_identity}" \
   "missing required contract line: PreRegistrationRejectionCreatesSourceDocument = NO"
 
+pending_attempt_has_no_timeout_exit="${test_tmp_root}/pending-attempt-has-no-timeout-exit.md"
+cp "${contract_file}" "${pending_attempt_has_no_timeout_exit}"
+sed -i.bak \
+  '/^ATTEMPT: PENDING -> FAILED_RETRYABLE$/d' \
+  "${pending_attempt_has_no_timeout_exit}"
+expect_failure \
+  "${pending_attempt_has_no_timeout_exit}" \
+  "ATTEMPT: contract set does not match"
+
 printf '%s\n' \
   "SourceDocumentContractValidation = PASS" \
-  "NegativeCases = 24"
+  "NegativeCases = 25"

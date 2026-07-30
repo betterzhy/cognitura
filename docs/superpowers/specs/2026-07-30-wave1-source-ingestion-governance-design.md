@@ -217,7 +217,16 @@ W1-DG4 SourcePreviewAndAcceptance = PASS
 - 设计来源映射；
 - 设计验证命令及正反例；
 - 无占位符、无未登记冲突、无隐式实现授权的证据；
-- W1 实现任务卡建议清单，但不得把任何实现卡标为 `READY`。
+- 用户可审阅的设计变化与仍未授权范围说明。
+
+```text
+ImplementationSlicing = AFTER_EXPLICIT_USER_APPROVAL
+ImplementationTaskCardRecommendationsInFixedDesignCandidate = FORBIDDEN
+```
+
+固定候选不得提前列出 `W1-Ixx`、实现切片、Provider 选择或写集建议。只有完整书面
+设计通过本 Gate 且取得用户明确批准后，才允许另行编制实现计划并释放一张最小
+实现卡。
 
 审查路线固定为两个独立阶段：
 
