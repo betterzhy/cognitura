@@ -616,6 +616,7 @@ Do not push.
 - Modify: `docs/task-cards/wave-1/README.md`
 - Modify: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 - Test: `tests/contracts/wave1-design/verify-document-block-contract.sh`
@@ -626,7 +627,7 @@ Do not push.
 - Produces: `DocumentBlockContractVersion = 1.0`、块类型 union、顺序/页码规则、
   DOCX 安全分类；W1-D03 只引用这些字段名。
 
-- [ ] **Step 1: 先写缺失契约的失败验证**
+- [x] **Step 1: 先写缺失契约的失败验证**
 
 The test must require:
 
@@ -659,7 +660,7 @@ OTHER
 负例至少删除一种 block type、把 `PageNumberDefault` 改为 `1`、允许外链读取、
 放宽一个 ZIP 限额。
 
-- [ ] **Step 2: 运行验证并观察预期失败**
+- [x] **Step 2: 运行验证并观察预期失败**
 
 Run:
 
@@ -669,7 +670,7 @@ bash tests/contracts/wave1-design/verify-document-block-contract.sh
 
 Expected: FAIL because the D02 contract is missing.
 
-- [ ] **Step 3: 定义公共 DocumentBlock envelope**
+- [x] **Step 3: 定义公共 DocumentBlock envelope**
 
 Every block must contain:
 
@@ -697,7 +698,7 @@ Exact rules:
 - `sourcePart + sourceElementIndex` is provenance, not a public stable reference.
 - `contentHash` hashes the canonical payload and never replaces `documentBlockId`.
 
-- [ ] **Step 4: Define each payload exactly**
+- [x] **Step 4: Define each payload exactly**
 
 The contract must define:
 
@@ -722,7 +723,7 @@ Rules:
   disclosure; target content is never read.
 - Captions are separate blocks linked to an image; no caption text is invented.
 
-- [ ] **Step 5: Define deterministic safety rejection**
+- [x] **Step 5: Define deterministic safety rejection**
 
 Reuse the existing Golden Case guard limits:
 
@@ -748,7 +749,7 @@ PARSE_FAILED_TERMINAL
 `PARTIAL_PARSE` is only legal when all omitted components and error locations are explicit;
 it cannot become `PREVIEW_READY` without an explicit user-visible incomplete marker.
 
-- [ ] **Step 6: Run focused verification**
+- [x] **Step 6: Run focused verification**
 
 Run:
 
@@ -762,7 +763,7 @@ git diff --check
 
 Expected: all PASS.
 
-- [ ] **Step 7: Sol/high review, state transition, and local commit**
+- [x] **Step 7: Sol/high review, state transition, and local commit**
 
 Review with `gpt-5.6-sol/high`, require P0/P1/P2 = 0, then update:
 
@@ -783,6 +784,7 @@ git add \
   docs/design/wave-1/cognitura-document-block-contract-1.0.md \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-wave-1-design-plan.md \
+  docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md \
   docs/task-cards/wave-1 \
   tests/contracts/wave1-design/verify-document-block-contract.sh
 git diff --cached --check

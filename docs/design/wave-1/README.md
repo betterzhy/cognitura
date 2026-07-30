@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 Wave1DesignStatus = IN_PROGRESS
-ActiveDesignTaskCard = W1-D02
+ActiveDesignTaskCard = W1-D03
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -16,7 +16,7 @@ BusinessImplementation = NOT_AUTHORIZED
 | 设计切片 | 文档 | 状态 | Gate |
 |---|---|---|---|
 | `W1-D01` | [SourceDocument 身份与生命周期](cognitura-source-document-contract-1.0.md) | `DONE` | `W1-DG1 PASS` |
-| `W1-D02` | `cognitura-document-block-contract-1.0.md` | `NOT_CREATED` | `W1-DG2 PENDING` |
+| `W1-D02` | [DocumentBlock 保真与安全](cognitura-document-block-contract-1.0.md) | `DONE` | `W1-DG2 PASS` |
 | `W1-D03` | `cognitura-reparse-reference-contract-1.0.md` | `NOT_CREATED` | `W1-DG3 PENDING` |
 | `W1-D04` | `cognitura-source-preview-contract-1.0.md` | `NOT_CREATED` | `W1-DG4 PENDING` |
 

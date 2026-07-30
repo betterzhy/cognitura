@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-D02
 CardKind = DESIGN
-Status = READY
+Status = DONE
 Gate = W1-DG2 DocumentBlockFidelityAndSafety
 Risk = HIGH
 DependsOn = W1-D01
@@ -30,6 +30,7 @@ ReviewRoute = SOL_HIGH_DESIGN_GATE
 - Modify: `docs/task-cards/wave-1/README.md`
 - Modify: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 
@@ -57,3 +58,19 @@ git diff --check
 ## 7. 提交与审查
 
 使用 `gpt-5.6-sol/high` 进行设计 Gate；形成独立本地提交，不推送。
+
+```text
+ReviewDate = 2026-07-30
+ReviewModel = gpt-5.6-sol
+ReviewReasoningEffort = high
+ReviewVerdict = READY
+ReviewP0 = 0
+ReviewP1 = 0
+ReviewP2 = 0
+DocumentBlockContractValidation = PASS
+DocumentBlockContractNegativeCases = 22
+RemotePush = NOT_PERFORMED
+```
+
+复审确认块内图片双射锚点、external target digest 零访问传播、页码证据、
+表格/图片/图注保真、ZIP/XML 安全和 partial/terminal 边界均闭合。

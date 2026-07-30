@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-D03
 CardKind = DESIGN
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W1-DG3 ReparseAndReferenceCompatibility
 Risk = HIGH
 DependsOn = W1-D02
