@@ -25,8 +25,8 @@ Wave1DesignGovernance =
   docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md
 Wave1DesignPlan =
   docs/engineering/cognitura-wave-1-design-plan.md
-Wave1DesignStatus = IN_PROGRESS
-ActiveDesignTaskCard = W1-D05
+Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+ActiveDesignTaskCard = NONE
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -113,6 +113,7 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 - `docs/task-cards/README.md`
 - `docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md`
 - `docs/engineering/cognitura-wave-1-design-plan.md`
+- `docs/engineering/cognitura-wave-1-design-acceptance.md`
 - `docs/task-cards/wave-1/README.md`
 
 这些工程记录只描述当前落地事实、缺口、计划和门禁，不替代正式设计。
@@ -126,8 +127,8 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 | `W1-D02` | `docs/design/wave-1/cognitura-document-block-contract-1.0.md` | `DONE` | `W1-DG2 PASS` |
 | `W1-D03` | `docs/design/wave-1/cognitura-reparse-reference-contract-1.0.md` | `DONE` | `W1-DG3 PASS` |
 | `W1-D04` | `docs/design/wave-1/cognitura-source-preview-contract-1.0.md` | `DONE` | `W1-DG4 PASS` |
-| `W1-D05` | `docs/engineering/cognitura-wave-1-design-acceptance.md` | `READY` | `W1-DG5 PENDING` |
+| `W1-D05` | `docs/engineering/cognitura-wave-1-design-acceptance.md` | `DONE` | `W1-DG5 PASS` |
 
-未落地的 W1-D05 acceptance 路径是已批准设计计划中的目标产物，不得作为已存在
-的正式设计引用。当前 W1-D00 治理说明及 W1-D01 至 W1-D04 四份来源设计契约已
-通过各自 Gate。
+W1-D00 治理说明、W1-D01 至 W1-D04 四份来源设计契约及固定候选验收记录均已
+落地并通过 W1-DG0 至 W1-DG5。当前停止在用户完整书面设计审阅 Gate；业务实现
+仍未授权。

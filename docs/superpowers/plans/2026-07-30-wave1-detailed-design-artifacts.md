@@ -1283,7 +1283,7 @@ Do not create the acceptance record before the reviews. This avoids a self-refer
 the acceptance record will be a later closure artifact that names the already fixed and reviewed
 design candidate.
 
-- [ ] **Step 3: Run independent general review with `gpt-5.6-sol/high`**
+- [x] **Step 3: Run independent general review with `gpt-5.6-sol/high`**
 
 The reviewer receives the exact fixed SHA and reads:
 
@@ -1309,7 +1309,7 @@ ReviewedCandidate = the exact 40-character SHA from Step 2
 Any finding requires a new fix commit, fresh full verification, a new candidate SHA, and a new
 general review.
 
-- [ ] **Step 4: Run independent final gate with a separate `gpt-5.6-sol/high` reviewer**
+- [x] **Step 4: Run independent final gate with a separate `gpt-5.6-sol/high` reviewer**
 
 The final reviewer must not reuse the general review conclusion as evidence. It independently
 checks:
@@ -1337,7 +1337,7 @@ UltraModel = NOT_USED
 
 Any finding repeats the fixed-candidate cycle from Step 1.
 
-- [ ] **Step 5: Create the acceptance record and close W1-D05 without releasing implementation**
+- [x] **Step 5: Create the acceptance record and close W1-D05 without releasing implementation**
 
 After both independent reviews are zero-finding, update:
 
@@ -1373,7 +1373,7 @@ Copy the actual SHA and both complete review outputs; do not write explanatory p
 such as “the literal 40-character SHA” into the artifact. Update
 `AGENTS.md`, `README.md`, design index, Wave 1 design plan, task-card index and D05 card.
 
-- [ ] **Step 6: Run final closure verification**
+- [x] **Step 6: Run final closure verification**
 
 Run:
 
@@ -1396,7 +1396,7 @@ VerifyWave0 = PASS
 
 Only `.idea/` may remain untracked.
 
-- [ ] **Step 7: Commit the design closure**
+- [x] **Step 7: Commit the design closure**
 
 Run:
 
@@ -1408,6 +1408,7 @@ git add \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-wave-1-design-acceptance.md \
   docs/engineering/cognitura-wave-1-design-plan.md \
+  docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md \
   docs/task-cards/wave-1
 git diff --cached --check
 git commit -m "docs: close Wave 1 detailed design gate"
@@ -1416,7 +1417,7 @@ git status --short --branch
 
 Do not push.
 
-- [ ] **Step 8: Stop at the user review gate**
+- [x] **Step 8: Stop at the user review gate**
 
 Report:
 

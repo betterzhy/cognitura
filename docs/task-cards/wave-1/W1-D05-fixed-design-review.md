@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-D05
 CardKind = DESIGN
-Status = READY
+Status = DONE
 Gate = W1-DG5 FixedDesignReview
 Risk = HIGH
 DependsOn = W1-D04
@@ -152,3 +152,33 @@ SourcePreviewContractNegativeCases = 28
 ```
 
 第三轮结论不得作为最终门禁证据；必须形成新固定提交并从一般审查重新开始。
+
+第四轮固定候选与双阶段结论：
+
+```text
+ReviewedCandidate = 3efe89fa532b7d58d7915dc891732dfdf5f4ee55
+GeneralReviewModel = gpt-5.6-sol
+GeneralReviewReasoningEffort = high
+GeneralReviewVerdict = READY
+GeneralReviewP0 = 0
+GeneralReviewP1 = 0
+GeneralReviewP2 = 0
+FinalGateModel = gpt-5.6-sol
+FinalGateReasoningEffort = high
+FinalGateVerdict = GO
+FinalGateP0 = 0
+FinalGateP1 = 0
+FinalGateP2 = 0
+UltraModel = NOT_USED
+Wave1DesignVerification = PASS
+Wave0Regression = PASS
+NodeVersion = 24.18.0
+PnpmVersion = 11.17.0
+W1-DG5 FixedDesignReview = PASS
+BusinessImplementation = NOT_AUTHORIZED
+Wave1ImplementationTaskCardSet = NOT_CREATED
+```
+
+两个 reviewer 相互独立并绑定同一固定候选；最终 reviewer 未使用一般审查结论
+作为证据。完整验收记录见
+[`cognitura-wave-1-design-acceptance.md`](../../engineering/cognitura-wave-1-design-acceptance.md)。

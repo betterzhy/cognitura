@@ -15,11 +15,11 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  WAVE1_DESIGN_IN_PROGRESS
+  WAVE1_DESIGN_FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
 
 Wave0ExecutionStatus = COMPLETE
-ActiveTaskCard = W1-D05
-ActiveTaskCardStatus = READY
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = NONE
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
 W0G5Status = PASS
@@ -30,7 +30,7 @@ W0G6ReviewStatus = PASS
 W0G6ReviewedCommit = 08ddc00907a6ead84a526c71a2c0802f363fe614
 W0G6CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
 Wave1FeatureDevelopmentEntry = GO
-Wave1DesignStatus = IN_PROGRESS
+Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
 Wave1ImplementationTaskCardSet = NOT_CREATED
 BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
@@ -47,10 +47,12 @@ DirectFullImplementationStart = NO
 `08ddc00907a6ead84a526c71a2c0802f363fe614` 已通过一般审查和独立最终门禁，
 两阶段均为 `P0=0/P1=0/P2=0`，因此 `W0-G6 = PASS`，Wave 0 已关闭。
 
-当前进入 Wave 1 详细设计固定候选复核阶段。W1-D00 设计治理及 W1-D01 至
-W1-D04 四份来源设计契约已关闭，`W1-DG1` 至 `W1-DG4 = PASS`；W1-D05 固定
-设计候选复核是唯一 `READY` 卡。该阶段只复核和封口书面设计，不创建解析器、
-页面、数据库对象、LLM 调用或业务实现卡。
+Wave 1 详细设计已完成固定候选复核。W1-D00 设计治理及 W1-D01 至 W1-D04
+四份来源设计契约均已关闭；固定候选
+`3efe89fa532b7d58d7915dc891732dfdf5f4ee55` 通过两个独立
+`gpt-5.6-sol/high` 阶段，均为 `P0=0/P1=0/P2=0`，因此
+`W1-DG0` 至 `W1-DG5 = PASS`。当前停止在用户完整书面设计审阅 Gate，不创建
+解析器、页面、数据库对象、LLM 调用、实现计划或业务实现卡。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
@@ -99,6 +101,7 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [Wave 0 开发准入裁决](docs/engineering/cognitura-wave-0-entry-decision.md)
 - [Wave 1 准入裁决](docs/engineering/cognitura-wave-1-entry-decision.md)
 - [Wave 1 详细设计计划](docs/engineering/cognitura-wave-1-design-plan.md)
+- [Wave 1 详细设计验收](docs/engineering/cognitura-wave-1-design-acceptance.md)
 - [Wave 1 设计任务卡索引](docs/task-cards/wave-1/README.md)
 - [Wave 1 设计治理说明](docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md)
 
@@ -108,7 +111,7 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
 Wave1FeatureDevelopmentEntry = GO
-Wave1DesignStatus = IN_PROGRESS
+Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
 BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
@@ -129,3 +132,5 @@ task-card、Schema、Golden Case、UI、server、web 七阶段并通过，固定
 成功，一般审查与最终门禁均清零并裁决 GO，故
 `W0-G6 FixedCommitReview = PASS`、`Wave1FeatureDevelopmentEntry = GO`。
 该 GO 仅开放后续受控任务卡，不授权直接实现 Wave 1。
+Wave 1 书面详细设计现已通过 `W1-DG5`，但只有用户完成本轮书面设计审阅并再次
+明确批准后，才可建立实现任务卡。
