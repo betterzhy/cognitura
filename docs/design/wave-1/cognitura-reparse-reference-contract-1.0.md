@@ -77,6 +77,13 @@ AliasDigestAlgorithm = SHA256
 AliasCollision = HARD_CONFLICT_NO_LAST_WRITE_WINS
 AliasRegistryInsert = COMPARE_AND_SET_EMPTY_OR_SAME_TARGET
 ReferenceAliasRetargeting = FORBIDDEN
+AliasRegistryScope = SOURCE_DOCUMENT
+AliasRegistryCognitionDependency = NONE
+SourceDocumentAliasCreation = ATOMIC_WITH_SOURCE_DOCUMENT_CREATION
+DocumentBlockAliasCreation = ATOMIC_WITH_BLOCK_SET_PUBLICATION
+AliasCollisionCheck = BEFORE_FACT_PUBLICATION
+AliasAvailability = BEFORE_SOURCE_OR_BLOCK_PREVIEW
+AliasResolutionRequires = WORKSPACE_CONTEXT_SOURCE_DOCUMENT_REVISION_AND_EXACT_TUPLE
 ```
 
 兼容方式：
@@ -92,12 +99,16 @@ ReferenceAliasRetargeting = FORBIDDEN
 - 两类 canonical bytes 使用 SHA-256，alias 保存 64 位小写 hex digest；
   `dbr:`/`sdr:` 加 digest 均为 68 字符，符合 ArtifactRef 约束。domain separation
   保证 source alias 与 block alias 不共享 digest namespace。
-- 不可变 alias registry 在当前 cognition revision context 中把该 alias 精确映射
-  回三段式 tuple。插入必须是 compare-and-set：目标为空则创建，已为同 tuple
-  则幂等返回；同 alias/不同 tuple 是 `REFERENCE_ALIAS_CONFLICT` 硬冲突，
+- 不可变 alias registry 属于 `SourceDocument` scope，不依赖尚未存在的
+  cognition revision。source alias 与 SourceDocument 创建在同一事务写入；
+  block alias 与 D01 block set 发布在同一 fenced transaction 写入。任何碰撞必须
+  在 source/block 事实可见前检查：目标为空则创建，已为同 tuple 则幂等返回；
+  同 alias/不同 tuple 是 `REFERENCE_ALIAS_CONFLICT` 硬冲突，整笔事实发布失败，
   禁止 last-write-wins、覆盖或重新 hash 尝试隐藏碰撞。
 - hash alias 是受限标识，不替代 tuple 的作用域校验；解析必须同时验证 alias
-  类型、registry target 和目标对象存在性。
+  类型、可信 Workspace context、`sourceDocumentId`、exact processing revision、
+  registry target/tuple 和目标对象存在性。alias 必须先于来源/块预览可用，读取
+  预览不得懒创建或修复 registry。
 
 这样保持 `ArtifactRef` 的既有 JSON Schema，不把“当前块”或数据库主键当成
 第二套来源事实。
@@ -206,6 +217,8 @@ Wave2RevisionSelector = EXPLICIT_NOT_ACTIVE
 Wave2BlockRefScope = SAME_PROCESSING_REVISION
 Wave2BlockOrder = EXACT_CONTIGUOUS_SOURCE_ORDER
 Wave2DuplicateRefs = FORBIDDEN
+Wave2PartialConsumptionGate = PARTIAL_ACCEPTANCE_STATUS_ACCEPTED
+Wave2CompleteConsumptionGate = PARSE_COMPLETENESS_COMPLETE
 EvidenceFullSourceCopy = FORBIDDEN
 EvidenceSourceKindFromD02OtherPayload = FORBIDDEN
 EvidenceSourceKind = SOURCE_EXPLICIT_OR_SOURCE_SYNTHESIZED_ONLY
@@ -216,7 +229,10 @@ CONSUMER: WAVE3_EVIDENCE_REFERENCE -> IMMUTABLE_SOURCE_AND_BLOCK_ALIASES+SOURCE_
 Wave 2 只能提交显式 `sourceProcessingRevisionId` 和按 D02 `sourceOrder` 排序的
 `DocumentBlockRef[]`。列表中所有 ref 必须属于同一 revision、无重复且 order
 从 0 连续；不得使用 active selector、混合 revision、按 consumer 偏好重排或
-跳过块。消费过程不得写回 block、alias 或 lineage。
+跳过块。消费入口必须读取 D01 的 exact revision：`COMPLETE` 可直接进入；
+`PARTIAL` 只有 `partialAcceptanceStatus=ACCEPTED` 且确认绑定的 block-set/omissions
+digest 仍精确匹配时才可进入。`PENDING`、digest 不匹配或其他状态一律拒绝为
+`PARTIAL_ACCEPTANCE_REQUIRED`。消费过程不得写回 block、alias 或 lineage。
 
 Wave 3 `EvidenceReference` 映射为：
 
@@ -282,6 +298,7 @@ EvidenceReference `minItems=1`。
 REFERENCE_NOT_FOUND
 REFERENCE_SCOPE_MISMATCH
 REFERENCE_ALIAS_CONFLICT
+PARTIAL_ACCEPTANCE_REQUIRED
 LINEAGE_REVISION_SCOPE_MISMATCH
 LINEAGE_COVERAGE_INVALID
 LINEAGE_CARDINALITY_INVALID

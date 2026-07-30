@@ -50,6 +50,8 @@ validate_contract() {
 
   for required_line in \
     "SourceDocumentContractVersion = 1.0" \
+    "ContractStatus = W1_DG1_PASS" \
+    "BusinessImplementation = NOT_AUTHORIZED" \
     "SourceDocumentIdentity = LOGICAL_UPLOAD" \
     "SourceBinaryIdentity = SHA256_RAW_BYTES" \
     "ProcessingRevisionIdentity = SOURCE_DOCUMENT_HASH_PARSER_PROFILE" \
@@ -78,7 +80,19 @@ validate_contract() {
     "RetryRevisionCurrentFailure = CLEARED" \
     "RetryRevisionCompletedAt = UNSET" \
     "RevisionCompletionCAS = ACTIVE_ATTEMPT_ID_AND_ATTEMPT_GENERATION_MATCH" \
-    "AttemptCompletionTransaction = ATOMIC_ATTEMPT_REVISION_ACTIVE_IDENTITY_AND_COMPLETED_AT" \
+    "AttemptCompletionTransaction = ATOMIC_ATTEMPT_REVISION_BLOCK_SET_STAGE_RECORD_ACTIVE_IDENTITY_AND_COMPLETED_AT" \
+    "BlockSetStagingScope = SOURCE_PROCESSING_ATTEMPT" \
+    "StagedBlockSetVisibility = PRIVATE_TO_ACTIVE_ATTEMPT" \
+    "PublishedBlockSetCardinality = EXACTLY_ONE_PER_PARSED_REVISION" \
+    "BlockSetPublicationCAS = ACTIVE_ATTEMPT_ID_AND_ATTEMPT_GENERATION_MATCH" \
+    "BlockSetPublicationTransaction = ATOMIC_WITH_SUCCEEDED_ATTEMPT_PARSED_REVISION_AND_STAGE_RECORD" \
+    "PreviewReadyRequiresPublishedBlockSet = YES" \
+    "PublishedBlockSetMutation = FORBIDDEN" \
+    "SourceParsingGenerationStageRecord = READ_ONLY_PROJECTION_FROM_SOURCE_FACTS" \
+    "SourceParsingStageRecordFactOwner = SOURCE_INGESTION_AGGREGATE" \
+    "SourceParsingStageRecordPersistence = NO_SECOND_WRITABLE_FACT" \
+    "SourceParsingStageName = SOURCE_PARSING" \
+    "SourceParsingNoModelProjection = PROMPT_VERSION_NOT_APPLICABLE_AND_MODEL_NOT_APPLICABLE" \
     "LeaseExpiredAttemptStatus = FAILED_RETRYABLE" \
     "LateCompletionAudit = APPEND_ONLY_RESULT_REJECTED_STALE_EVENT" \
     "LateCompletionAttemptMutation = FORBIDDEN"; do
@@ -118,9 +132,29 @@ validate_contract() {
   require_exact_prefixed_set \
     "${file}" \
     "FINALIZE:" \
-    "FINALIZE: SUCCEEDED -> PARSED,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT" \
-    "FINALIZE: FAILED_RETRYABLE -> FAILED_RETRYABLE,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT" \
-    "FINALIZE: FAILED_TERMINAL -> FAILED_TERMINAL,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT"
+    "FINALIZE: SUCCEEDED -> VALIDATE_AND_PUBLISH_BLOCK_SET,WRITE_SOURCE_PARSING_STAGE_RECORD,PARSED,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT" \
+    "FINALIZE: FAILED_RETRYABLE -> WRITE_SOURCE_PARSING_STAGE_RECORD,FAILED_RETRYABLE,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT" \
+    "FINALIZE: FAILED_TERMINAL -> WRITE_SOURCE_PARSING_STAGE_RECORD,FAILED_TERMINAL,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT"
+
+  require_exact_prefixed_set \
+    "${file}" \
+    "STAGE_RECORD_MAP:" \
+    "STAGE_RECORD_MAP: schemaVersion -> GENERATION_STAGE_RECORD_SCHEMA_VERSION" \
+    "STAGE_RECORD_MAP: runId -> SOURCE_PROCESSING_ATTEMPT_ID" \
+    "STAGE_RECORD_MAP: stage -> SOURCE_PARSING" \
+    "STAGE_RECORD_MAP: inputHash -> SHA256_RAW_BYTES_PLUS_PARSER_PROFILE" \
+    "STAGE_RECORD_MAP: promptVersion -> NOT_APPLICABLE" \
+    "STAGE_RECORD_MAP: model -> NOT_APPLICABLE" \
+    "STAGE_RECORD_MAP: sourceBlockRefs -> EMPTY_BEFORE_SOURCE_PARSING" \
+    "STAGE_RECORD_MAP: outputKind -> INTERMEDIATE_ON_SUCCESS_NONE_ON_FAILURE" \
+    "STAGE_RECORD_MAP: outputSchemaId -> null" \
+    "STAGE_RECORD_MAP: structuredOutput -> PUBLISHED_BLOCK_SET_REF_OR_NULL_ON_FAILURE" \
+    "STAGE_RECORD_MAP: outputHash -> PUBLISHED_BLOCK_SET_DIGEST_OR_NULL_ON_FAILURE" \
+    "STAGE_RECORD_MAP: validationResult -> BLOCK_SET_VALIDATION_OR_FAILURE_CLASSIFICATION" \
+    "STAGE_RECORD_MAP: generationStatus -> SUCCEEDED_OR_FAILED_FROM_TERMINAL_ATTEMPT" \
+    "STAGE_RECORD_MAP: retryCount -> ATTEMPT_NUMBER_MINUS_ONE" \
+    "STAGE_RECORD_MAP: retryScopeRefs -> SOURCE_PROCESSING_REVISION_REF_ON_RETRYABLE_FAILURE_OR_EMPTY" \
+    "STAGE_RECORD_MAP: failure -> NULL_ON_SUCCESS_OR_MAPPED_FAILURE_OBJECT"
 
   require_exact_prefixed_set \
     "${file}" \
@@ -140,6 +174,7 @@ validate_contract() {
     "SourceBinaryStore" \
     "SourceDocumentStore" \
     "SourceProcessingRevisionStore" \
+    "DocumentBlockSetStore" \
     "SourceIngestionClock" \
     "SourceIdGenerator"; do
     require_line "${file}" "${port_name}"
@@ -333,6 +368,42 @@ expect_failure \
   "${database_authorized}" \
   "missing required contract line: FormalDatabaseWrite = NOT_AUTHORIZED"
 
+contract_status_downgraded="${test_tmp_root}/contract-status-downgraded.md"
+cp "${contract_file}" "${contract_status_downgraded}"
+sed -i.bak \
+  's/^ContractStatus = W1_DG1_PASS$/ContractStatus = CANDIDATE/' \
+  "${contract_status_downgraded}"
+expect_failure \
+  "${contract_status_downgraded}" \
+  "missing required contract line: ContractStatus = W1_DG1_PASS"
+
+business_implementation_authorized="${test_tmp_root}/business-implementation-authorized.md"
+cp "${contract_file}" "${business_implementation_authorized}"
+sed -i.bak \
+  's/^BusinessImplementation = NOT_AUTHORIZED$/BusinessImplementation = AUTHORIZED/' \
+  "${business_implementation_authorized}"
+expect_failure \
+  "${business_implementation_authorized}" \
+  "missing required contract line: BusinessImplementation = NOT_AUTHORIZED"
+
+missing_stage_record_mapping="${test_tmp_root}/missing-stage-record-mapping.md"
+cp "${contract_file}" "${missing_stage_record_mapping}"
+sed -i.bak \
+  '/^STAGE_RECORD_MAP: model -> NOT_APPLICABLE$/d' \
+  "${missing_stage_record_mapping}"
+expect_failure \
+  "${missing_stage_record_mapping}" \
+  "STAGE_RECORD_MAP: contract set does not match"
+
+non_atomic_block_set_publication="${test_tmp_root}/non-atomic-block-set-publication.md"
+cp "${contract_file}" "${non_atomic_block_set_publication}"
+sed -i.bak \
+  's/^BlockSetPublicationTransaction = ATOMIC_WITH_SUCCEEDED_ATTEMPT_PARSED_REVISION_AND_STAGE_RECORD$/BlockSetPublicationTransaction = SEPARATE_WRITE_AFTER_REVISION_PARSED/' \
+  "${non_atomic_block_set_publication}"
+expect_failure \
+  "${non_atomic_block_set_publication}" \
+  "missing required contract line: BlockSetPublicationTransaction"
+
 printf '%s\n' \
   "SourceDocumentContractValidation = PASS" \
-  "NegativeCases = 17"
+  "NegativeCases = 21"

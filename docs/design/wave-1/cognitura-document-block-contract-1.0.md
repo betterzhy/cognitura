@@ -316,6 +316,12 @@ PARSE_RESULT: PARSE_FAILED_RETRYABLE
 PARSE_RESULT: PARSE_FAILED_TERMINAL
 PartialParseOmissions = EXPLICIT_WITH_ERROR_LOCATIONS
 PartialParsePreviewReady = FORBIDDEN_WITHOUT_USER_VISIBLE_INCOMPLETE_MARKER
+DocumentBlockSetCandidateScope = SOURCE_PROCESSING_ATTEMPT
+DocumentBlockSetBeforePublish = INVISIBLE
+DocumentBlockSetPublicationOwner = D01_ATOMIC_FINALIZE
+DocumentBlockSetIntegrity = VALID_ENVELOPES_UNIQUE_CONTIGUOUS_ORDER_AND_SET_DIGEST
+PartialAcceptanceRequired = YES
+PartialAcceptanceFactOwner = SOURCE_PROCESSING_REVISION
 ```
 
 硬失败不得降级为 partial：
@@ -351,6 +357,19 @@ D01_MAPPING: PARSE_FAILED_TERMINAL -> ATTEMPT_AND_REVISION_FAILED_TERMINAL
 无效或 payload 校验失败都不能降级为 partial。partial revision 只有在预览响应
 显式携带 `incomplete=true`、完整 omission 列表和固定警示文案时才可进入
 `PREVIEW_READY`；用户未确认前不得作为后续认知生成的正式来源。
+
+所有候选块先写入 `sourceProcessingAttemptId` 隔离的 staging set。集合完整性验证
+必须覆盖：每个 envelope/payload 合法、`sourceDocumentId`/revision/attempt
+作用域一致、`sourceOrder` 从 0 唯一连续、所有受支持 inline/table image 绑定闭合，
+并对按 `sourceOrder` 排序的 canonical block bytes 计算不可变 block-set digest。
+只有 W1-D01 fenced success transaction 可同时发布该集合、alias、stage record 和
+`PARSED` revision；在此之前任何查询或 consumer 都看不到候选块。
+
+完整集合发布时 `parseCompleteness=COMPLETE`，revision 的
+`partialAcceptanceStatus=NOT_APPLICABLE`。partial 集合发布时
+`parseCompleteness=PARTIAL`、`partialAcceptanceStatus=PENDING`；omissions digest
+与 block-set digest 一起绑定确认事实。W1-D04 只可把 exact revision 从
+`PENDING` 幂等确认为 `ACCEPTED`，不得改写块、omission 或 completeness。
 
 ## 8. 确定性与模型边界
 

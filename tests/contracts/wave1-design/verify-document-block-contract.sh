@@ -55,6 +55,8 @@ validate_contract() {
   for required_line in \
     "DocumentBlockContractVersion = 1.0" \
     "ContractStatus = W1_DG2_PASS" \
+    "BusinessImplementation = NOT_AUTHORIZED" \
+    "ParserLibrary = NOT_SELECTED" \
     "SourceOrderBase = 0" \
     "SourceOrderRule = UNIQUE_CONTIGUOUS_WITHIN_PROCESSING_REVISION" \
     "SupportedFlowTraversal = EXPLICIT_CLOSED_SET" \
@@ -94,6 +96,12 @@ validate_contract() {
     "UnknownZipEntrySize = SECURITY_REJECTED" \
     "PartialParseOmissions = EXPLICIT_WITH_ERROR_LOCATIONS" \
     "PartialParsePreviewReady = FORBIDDEN_WITHOUT_USER_VISIBLE_INCOMPLETE_MARKER" \
+    "DocumentBlockSetCandidateScope = SOURCE_PROCESSING_ATTEMPT" \
+    "DocumentBlockSetBeforePublish = INVISIBLE" \
+    "DocumentBlockSetPublicationOwner = D01_ATOMIC_FINALIZE" \
+    "DocumentBlockSetIntegrity = VALID_ENVELOPES_UNIQUE_CONTIGUOUS_ORDER_AND_SET_DIGEST" \
+    "PartialAcceptanceRequired = YES" \
+    "PartialAcceptanceFactOwner = SOURCE_PROCESSING_REVISION" \
     "LLMUsage = NONE" \
     "FormalDatabaseWrite = NOT_AUTHORIZED"; do
     require_line "${file}" "${required_line}"
@@ -403,6 +411,24 @@ expect_failure \
   "${target_digest_not_propagated}" \
   "missing required contract line: ExternalTargetDigestPropagation"
 
+business_implementation_authorized="${test_tmp_root}/business-implementation-authorized.md"
+cp "${contract_file}" "${business_implementation_authorized}"
+sed -i.bak \
+  's/^BusinessImplementation = NOT_AUTHORIZED$/BusinessImplementation = AUTHORIZED/' \
+  "${business_implementation_authorized}"
+expect_failure \
+  "${business_implementation_authorized}" \
+  "missing required contract line: BusinessImplementation = NOT_AUTHORIZED"
+
+parser_selected="${test_tmp_root}/parser-selected.md"
+cp "${contract_file}" "${parser_selected}"
+sed -i.bak \
+  's/^ParserLibrary = NOT_SELECTED$/ParserLibrary = APACHE_POI/' \
+  "${parser_selected}"
+expect_failure \
+  "${parser_selected}" \
+  "missing required contract line: ParserLibrary = NOT_SELECTED"
+
 printf '%s\n' \
   "DocumentBlockContractValidation = PASS" \
-  "NegativeCases = 22"
+  "NegativeCases = 24"

@@ -106,6 +106,12 @@ parserProfileVersion
 sourceProcessingRevisionStatus
 activeAttemptId
 currentAttemptGeneration
+publishedBlockSetDigest
+parseCompleteness
+partialAcceptanceStatus
+partialAcceptedAt
+partialAcceptedBy
+partialAcceptanceIdempotencyKey
 failureCode
 failureDetail
 startedAt
@@ -144,6 +150,48 @@ completedAt
 时从 revision 原子递增并复制的围栏代次，`fencingToken` 由 revision 身份和该
 代次确定。attempt 是运行记录，不改变 revision 身份。
 
+### 3.5 SOURCE_PARSING 阶段审计投影
+
+总体设计和 Schema Baseline 2.0 把 `SOURCE_PARSING` 列入正式生成生命周期，因此
+每个终态 attempt 都必须提供完整 `GenerationStageRecord` 兼容投影。该投影不创建
+第二个可写状态机；其字段只从本节已定义的 revision、attempt 和已发布块集合事实
+确定性计算：
+
+```text
+SourceParsingGenerationStageRecord = READ_ONLY_PROJECTION_FROM_SOURCE_FACTS
+SourceParsingStageRecordFactOwner = SOURCE_INGESTION_AGGREGATE
+SourceParsingStageRecordPersistence = NO_SECOND_WRITABLE_FACT
+SourceParsingStageName = SOURCE_PARSING
+SourceParsingNoModelProjection = PROMPT_VERSION_NOT_APPLICABLE_AND_MODEL_NOT_APPLICABLE
+STAGE_RECORD_MAP: schemaVersion -> GENERATION_STAGE_RECORD_SCHEMA_VERSION
+STAGE_RECORD_MAP: runId -> SOURCE_PROCESSING_ATTEMPT_ID
+STAGE_RECORD_MAP: stage -> SOURCE_PARSING
+STAGE_RECORD_MAP: inputHash -> SHA256_RAW_BYTES_PLUS_PARSER_PROFILE
+STAGE_RECORD_MAP: promptVersion -> NOT_APPLICABLE
+STAGE_RECORD_MAP: model -> NOT_APPLICABLE
+STAGE_RECORD_MAP: sourceBlockRefs -> EMPTY_BEFORE_SOURCE_PARSING
+STAGE_RECORD_MAP: outputKind -> INTERMEDIATE_ON_SUCCESS_NONE_ON_FAILURE
+STAGE_RECORD_MAP: outputSchemaId -> null
+STAGE_RECORD_MAP: structuredOutput -> PUBLISHED_BLOCK_SET_REF_OR_NULL_ON_FAILURE
+STAGE_RECORD_MAP: outputHash -> PUBLISHED_BLOCK_SET_DIGEST_OR_NULL_ON_FAILURE
+STAGE_RECORD_MAP: validationResult -> BLOCK_SET_VALIDATION_OR_FAILURE_CLASSIFICATION
+STAGE_RECORD_MAP: generationStatus -> SUCCEEDED_OR_FAILED_FROM_TERMINAL_ATTEMPT
+STAGE_RECORD_MAP: retryCount -> ATTEMPT_NUMBER_MINUS_ONE
+STAGE_RECORD_MAP: retryScopeRefs -> SOURCE_PROCESSING_REVISION_REF_ON_RETRYABLE_FAILURE_OR_EMPTY
+STAGE_RECORD_MAP: failure -> NULL_ON_SUCCESS_OR_MAPPED_FAILURE_OBJECT
+```
+
+`inputHash` 对原始字节 SHA-256、parser profile identity 和固定编码版本做 domain
+separated SHA-256；不得包含文件名或本地路径。来源解析前尚无 block，
+`sourceBlockRefs=[]` 是真实空输入而不是缺失字段。成功记录的 `structuredOutput`
+只保存不可变 block-set reference，`outputKind=INTERMEDIATE` 且 `outputHash`
+复制发布 digest；失败记录使用 `outputKind=NONE`，三个 output 字段按 Schema
+Baseline 置 null，不复制原文。`validationResult` 记录 D02 块集校验或失败分类。
+`generationStatus` 把成功 attempt 投影为 `SUCCEEDED`、两种失败投影为 `FAILED`；
+失败对象保留 retryable 和最小 revision scope。运行中进度仍读取 attempt，不伪造
+完成记录。所有非模型解析明确使用 `promptVersion=NOT_APPLICABLE`、
+`model=NOT_APPLICABLE`。
+
 ## 4. 幂等与重复上传
 
 幂等作用域是 `workspaceId + idempotencyKey`：
@@ -169,6 +217,11 @@ SourceProcessingRevisionStatus = PARSING,PARSED,PREVIEW_READY,FAILED_RETRYABLE,F
 SourceIngestionDisplayStatus = READ_ONLY_PROJECTION
 SourceIngestionDisplayStatusWritable = NO
 AcceptedDocumentStartsRevision = CREATE_OR_REUSE_REVISION_IN_PARSING
+PartialAcceptanceStatus = NOT_APPLICABLE,PENDING,ACCEPTED
+PartialAcceptanceFactOwner = SOURCE_PROCESSING_REVISION
+PartialAcceptanceBinding = PROCESSING_REVISION_ID_BLOCK_SET_DIGEST_AND_OMISSIONS_DIGEST
+PartialAcceptanceActor = TRUSTED_WORKSPACE_ACTOR
+PartialAcceptanceRevocation = FORBIDDEN
 ```
 
 - `sourceDocumentValidationStatus` 只属于 `SourceDocument`，描述上传接入校验。
@@ -179,6 +232,11 @@ AcceptedDocumentStartsRevision = CREATE_OR_REUSE_REVISION_IN_PARSING
 - `ACCEPTED` 不是 revision 状态。它只是编排创建或复用 revision 的前置条件；
   新 revision 直接以 `PARSING` 为初始状态，因此不存在跨对象
   `ACCEPTED -> PARSING` 状态迁移。
+- `partialAcceptanceStatus` 是 revision 的来源域事实，不是 Web 本地状态。完整
+  解析固定为 `NOT_APPLICABLE`；partial 块集发布时固定为 `PENDING`。只有
+  W1-D04 的受信 Workspace actor 对 exact revision、`publishedBlockSetDigest`
+  和 omissions digest 执行幂等确认后，才可不可逆地进入 `ACCEPTED`。
+  确认不修改块、omission 或解析状态，也不能迁移到另一 revision。
 
 ### 5.2 合法迁移
 
@@ -227,7 +285,14 @@ RetryFailureHistory = PRESERVED_ON_PRIOR_ATTEMPT
 RetryRevisionCurrentFailure = CLEARED
 RetryRevisionCompletedAt = UNSET
 RevisionCompletionCAS = ACTIVE_ATTEMPT_ID_AND_ATTEMPT_GENERATION_MATCH
-AttemptCompletionTransaction = ATOMIC_ATTEMPT_REVISION_ACTIVE_IDENTITY_AND_COMPLETED_AT
+AttemptCompletionTransaction = ATOMIC_ATTEMPT_REVISION_BLOCK_SET_STAGE_RECORD_ACTIVE_IDENTITY_AND_COMPLETED_AT
+BlockSetStagingScope = SOURCE_PROCESSING_ATTEMPT
+StagedBlockSetVisibility = PRIVATE_TO_ACTIVE_ATTEMPT
+PublishedBlockSetCardinality = EXACTLY_ONE_PER_PARSED_REVISION
+BlockSetPublicationCAS = ACTIVE_ATTEMPT_ID_AND_ATTEMPT_GENERATION_MATCH
+BlockSetPublicationTransaction = ATOMIC_WITH_SUCCEEDED_ATTEMPT_PARSED_REVISION_AND_STAGE_RECORD
+PreviewReadyRequiresPublishedBlockSet = YES
+PublishedBlockSetMutation = FORBIDDEN
 LeaseExpiredAttemptStatus = FAILED_RETRYABLE
 LateCompletionAudit = APPEND_ONLY_RESULT_REJECTED_STALE_EVENT
 LateCompletionAttemptMutation = FORBIDDEN
@@ -252,9 +317,9 @@ BEGIN_ATTEMPT: RETRY_FROM_FAILED_RETRYABLE -> PARSING,CREATE_PENDING_ATTEMPT,INC
 attempt 完成和 revision 迁移必须由同一原子事务提交：
 
 ```text
-FINALIZE: SUCCEEDED -> PARSED,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT
-FINALIZE: FAILED_RETRYABLE -> FAILED_RETRYABLE,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT
-FINALIZE: FAILED_TERMINAL -> FAILED_TERMINAL,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT
+FINALIZE: SUCCEEDED -> VALIDATE_AND_PUBLISH_BLOCK_SET,WRITE_SOURCE_PARSING_STAGE_RECORD,PARSED,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT
+FINALIZE: FAILED_RETRYABLE -> WRITE_SOURCE_PARSING_STAGE_RECORD,FAILED_RETRYABLE,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT
+FINALIZE: FAILED_TERMINAL -> WRITE_SOURCE_PARSING_STAGE_RECORD,FAILED_TERMINAL,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_AT
 ```
 
 - 相同 `(sourceDocumentId, contentSha256, parserProfileVersion)` 已存在成功
@@ -276,15 +341,22 @@ FINALIZE: FAILED_TERMINAL -> FAILED_TERMINAL,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_
   在同一事务中将旧 attempt 和 revision 都标记为 `FAILED_RETRYABLE`、清除
   revision 的活动身份并设置完成时间，之后才能创建下一 attempt；不能先并行
   启动替代 attempt。
+- 每个 attempt 只可在自己的 staging scope 写候选 block set；staging 内容对
+  查询、预览、alias 解析和 consumer 全部不可见。候选集必须先通过 D02 的
+  envelope、payload、连续顺序、完整性和 digest 验证。
 - attempt 完成必须以 `activeAttemptId + attemptGeneration` 双条件 CAS。
-  成功 CAS 必须在同一事务中更新 attempt 终态、revision 对应状态、清除
-  `activeAttemptId` 并写入完成时间：成功映射 `PARSED`，可重试失败映射
-  `FAILED_RETRYABLE`，终止失败映射 `FAILED_TERMINAL`。因此不得出现
-  `attempt=SUCCEEDED` 而 `revision=PARSING` 的分裂事实。
+  成功路径必须在同一事务中发布一个不可变 block set、创建 D03 block aliases、
+  写入 SOURCE_PARSING stage record、更新 attempt 为 `SUCCEEDED`、revision 为
+  `PARSED`、设置 `publishedBlockSetDigest`、清除活动身份并写入完成时间。
+  任一步失败则全部不可见，因此不得出现 `revision=PARSED` 但块集缺失、块集已
+  可见但 attempt 未成功，或 stage record 指向未发布集合的分裂事实。
+- 失败路径在同一事务中写入失败 stage record、更新 attempt/revision 终态并清除
+  活动身份；其 staged block set 永不发布，可由异步回收器按 attempt 身份清理。
 - 第一条完成全部块校验并成功 CAS 的 attempt 成为该 revision 唯一
   `SUCCEEDED` 结果。
 - token 不匹配、lease 已由监督器终结或旧 attempt 迟到时，完成请求不得发布
-  DocumentBlock、不得推进 revision，也不得覆盖当前或旧 attempt 的终态。
+  DocumentBlock/alias/stage record、不得推进 revision，也不得覆盖当前或旧
+  attempt 的终态。staged 候选永不对外可见，可异步回收。
   Store 追加独立的 `RESULT_REJECTED_STALE` completion-rejection 审计事件，
   记录 attempt ID、提交 generation、当前 generation、拒绝时间和原因；该事件
   不属于 attempt 状态机。
@@ -302,6 +374,7 @@ FINALIZE: FAILED_TERMINAL -> FAILED_TERMINAL,CLEAR_ACTIVE_ATTEMPT,SET_COMPLETED_
 SourceBinaryStore
 SourceDocumentStore
 SourceProcessingRevisionStore
+DocumentBlockSetStore
 SourceIngestionClock
 SourceIdGenerator
 ```
@@ -310,6 +383,8 @@ SourceIdGenerator
 - `SourceDocumentStore`：保存和按 Workspace/幂等键读取逻辑上传事实。
 - `SourceProcessingRevisionStore`：原子创建 revision/attempt、执行状态迁移并保证
   成功唯一性。
+- `DocumentBlockSetStore`：按 attempt 隔离候选集，并只接受 D01 完成事务中的
+  fenced publication；发布后块集不可变，读取必须绑定 exact revision 和 digest。
 - `SourceIngestionClock`：提供可测试的 UTC 时间。
 - `SourceIdGenerator`：生成不依赖文件内容、文件名或模型输出的唯一 ID。
 

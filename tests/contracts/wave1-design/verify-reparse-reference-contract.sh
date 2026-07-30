@@ -55,6 +55,7 @@ validate_contract() {
   for required_line in \
     "ReparseReferenceContractVersion = 1.0" \
     "ContractStatus = W1_DG3_PASS" \
+    "BusinessImplementation = NOT_AUTHORIZED" \
     "DocumentBlockRef = SOURCE_DOCUMENT_ID+PROCESSING_REVISION_ID+DOCUMENT_BLOCK_ID" \
     "DocumentBlockRefResolution = EXACT_IMMUTABLE_TUPLE" \
     "HistoricalReferenceRetargeting = FORBIDDEN" \
@@ -68,6 +69,13 @@ validate_contract() {
     "AliasCollision = HARD_CONFLICT_NO_LAST_WRITE_WINS" \
     "AliasRegistryInsert = COMPARE_AND_SET_EMPTY_OR_SAME_TARGET" \
     "ReferenceAliasRetargeting = FORBIDDEN" \
+    "AliasRegistryScope = SOURCE_DOCUMENT" \
+    "AliasRegistryCognitionDependency = NONE" \
+    "SourceDocumentAliasCreation = ATOMIC_WITH_SOURCE_DOCUMENT_CREATION" \
+    "DocumentBlockAliasCreation = ATOMIC_WITH_BLOCK_SET_PUBLICATION" \
+    "AliasCollisionCheck = BEFORE_FACT_PUBLICATION" \
+    "AliasAvailability = BEFORE_SOURCE_OR_BLOCK_PREVIEW" \
+    "AliasResolutionRequires = WORKSPACE_CONTEXT_SOURCE_DOCUMENT_REVISION_AND_EXACT_TUPLE" \
     "SameHashSameParserProfile = REUSE_SUCCESSFUL_REVISION" \
     "SameHashSameParserProfileFailed = RETRY_ATTEMPT_IN_EXISTING_REVISION" \
     "SameHashSameParserProfileTerminal = RETURN_EXISTING_TERMINAL_REQUIRE_NEW_PROFILE" \
@@ -87,6 +95,8 @@ validate_contract() {
     "Wave2BlockRefScope = SAME_PROCESSING_REVISION" \
     "Wave2BlockOrder = EXACT_CONTIGUOUS_SOURCE_ORDER" \
     "Wave2DuplicateRefs = FORBIDDEN" \
+    "Wave2PartialConsumptionGate = PARTIAL_ACCEPTANCE_STATUS_ACCEPTED" \
+    "Wave2CompleteConsumptionGate = PARSE_COMPLETENESS_COMPLETE" \
     "EvidenceFullSourceCopy = FORBIDDEN" \
     "EvidenceSourceKindFromD02OtherPayload = FORBIDDEN" \
     "EvidenceSourceKind = SOURCE_EXPLICIT_OR_SOURCE_SYNTHESIZED_ONLY" \
@@ -376,6 +386,33 @@ expect_failure \
   "${wrong_evidence_revision_owner}" \
   "EVIDENCE_OWNER: contract set does not match"
 
+business_implementation_authorized="${test_tmp_root}/business-implementation-authorized.md"
+cp "${contract_file}" "${business_implementation_authorized}"
+sed -i.bak \
+  's/^BusinessImplementation = NOT_AUTHORIZED$/BusinessImplementation = AUTHORIZED/' \
+  "${business_implementation_authorized}"
+expect_failure \
+  "${business_implementation_authorized}" \
+  "missing required contract line: BusinessImplementation = NOT_AUTHORIZED"
+
+cognition_scoped_alias_registry="${test_tmp_root}/cognition-scoped-alias-registry.md"
+cp "${contract_file}" "${cognition_scoped_alias_registry}"
+sed -i.bak \
+  's/^AliasRegistryScope = SOURCE_DOCUMENT$/AliasRegistryScope = COGNITION_REVISION/' \
+  "${cognition_scoped_alias_registry}"
+expect_failure \
+  "${cognition_scoped_alias_registry}" \
+  "missing required contract line: AliasRegistryScope = SOURCE_DOCUMENT"
+
+partial_without_acceptance_gate="${test_tmp_root}/partial-without-acceptance-gate.md"
+cp "${contract_file}" "${partial_without_acceptance_gate}"
+sed -i.bak \
+  's/^Wave2PartialConsumptionGate = PARTIAL_ACCEPTANCE_STATUS_ACCEPTED$/Wave2PartialConsumptionGate = PREVIEW_READY/' \
+  "${partial_without_acceptance_gate}"
+expect_failure \
+  "${partial_without_acceptance_gate}" \
+  "missing required contract line: Wave2PartialConsumptionGate"
+
 printf '%s\n' \
   "ReparseReferenceContractValidation = PASS" \
-  "NegativeCases = 22"
+  "NegativeCases = 25"

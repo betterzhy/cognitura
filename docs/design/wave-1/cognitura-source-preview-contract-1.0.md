@@ -35,6 +35,7 @@ ENDPOINT: GET /api/v1/source-documents/{sourceDocumentId}
 ENDPOINT: POST /api/v1/source-documents/{sourceDocumentId}/processing-revisions
 ENDPOINT: GET /api/v1/source-documents/{sourceDocumentId}/processing-revisions/{sourceProcessingRevisionId}
 ENDPOINT: GET /api/v1/source-documents/{sourceDocumentId}/processing-revisions/{sourceProcessingRevisionId}/blocks
+ENDPOINT: POST /api/v1/source-documents/{sourceDocumentId}/processing-revisions/{sourceProcessingRevisionId}/partial-acceptance
 ```
 
 所有 GET/POST 必须把路径对象解析到可信 `workspaceContext`。上传路径的
@@ -85,6 +86,25 @@ UPLOAD_RESULT_FIELD: receivedAt
 这里使用 W1-D01 的只读 `sourceIngestionDisplayStatus`，不重新引入模糊可写
 `processingStatus`。结果只返回已登记的不可变来源事实。
 
+`GET /api/v1/source-documents/{sourceDocumentId}` 的成功 DTO 精确包含：
+
+```text
+SOURCE_QUERY_FIELD: sourceDocumentId
+SOURCE_QUERY_FIELD: originalFileName
+SOURCE_QUERY_FIELD: mediaType
+SOURCE_QUERY_FIELD: byteLength
+SOURCE_QUERY_FIELD: contentSha256
+SOURCE_QUERY_FIELD: receivedAt
+SOURCE_QUERY_FIELD: sourceDocumentValidationStatus
+SOURCE_QUERY_FIELD: sourceIngestionDisplayStatus
+SOURCE_QUERY_FIELD: validationFailureCode
+SOURCE_QUERY_FIELD: validationFailureDetail
+```
+
+两个 failure 字段仅在 `REJECTED` 时非 null；其他状态必须同时为 null。该 DTO
+不返回 `sourceBinaryId`、`binaryLocation`、幂等键、active/latest revision 或
+任何存储事实。
+
 ## 4. Processing revision 命令与查询
 
 `CreateProcessingRevisionCommand`：
@@ -127,21 +147,58 @@ AcceptedRetryableFailureTransport = STATUS_GET_200_NOT_POST_503
 revision 查询直接返回：
 
 ```text
-sourceDocumentId
-sourceProcessingRevisionId
-parserProfileVersion
-sourceProcessingRevisionStatus
-sourceIngestionDisplayStatus
-parseCompleteness
-omissions
-failureCode
-failureDetail
-startedAt
-completedAt
+REVISION_QUERY_FIELD: sourceDocumentId
+REVISION_QUERY_FIELD: sourceProcessingRevisionId
+REVISION_QUERY_FIELD: parserProfileVersion
+REVISION_QUERY_FIELD: sourceProcessingRevisionStatus
+REVISION_QUERY_FIELD: sourceIngestionDisplayStatus
+REVISION_QUERY_FIELD: parseCompleteness
+REVISION_QUERY_FIELD: omissions
+REVISION_QUERY_FIELD: partialAcceptanceStatus
+REVISION_QUERY_FIELD: failureCode
+REVISION_QUERY_FIELD: failureDetail
+REVISION_QUERY_FIELD: startedAt
+REVISION_QUERY_FIELD: completedAt
 ```
 
 `omissions` 只在 partial 时非空；错误细节必须服从 D01 的敏感信息约束。
 查询不能返回 attempt fencing token、lease、存储路径或内部异常。
+
+### 4.1 Partial 来源确认命令
+
+```text
+PartialAcceptanceCommand = ACCEPT_EXACT_PARTIAL_REVISION
+PartialAcceptanceActorSource = TRUSTED_WORKSPACE_CONTEXT
+PartialAcceptanceIdempotency = WORKSPACE_REVISION_AND_IDEMPOTENCY_KEY
+PartialAcceptanceRevocation = FORBIDDEN
+PARTIAL_ACCEPTANCE_COMMAND_FIELD: sourceDocumentId
+PARTIAL_ACCEPTANCE_COMMAND_FIELD: sourceProcessingRevisionId
+PARTIAL_ACCEPTANCE_COMMAND_FIELD: blockSetDigest
+PARTIAL_ACCEPTANCE_COMMAND_FIELD: omissionsDigest
+PARTIAL_ACCEPTANCE_COMMAND_FIELD: idempotencyKey
+PARTIAL_ACCEPTANCE_COMMAND_FIELD: decision
+PARTIAL_ACCEPTANCE_RESULT_FIELD: sourceDocumentId
+PARTIAL_ACCEPTANCE_RESULT_FIELD: sourceProcessingRevisionId
+PARTIAL_ACCEPTANCE_RESULT_FIELD: partialAcceptanceStatus
+PARTIAL_ACCEPTANCE_RESULT_FIELD: partialAcceptedAt
+PARTIAL_ACCEPTANCE_RESULT_FIELD: acceptedBy
+PARTIAL_ACCEPTANCE_RESULT_FIELD: consumptionEligible
+PARTIAL_ACCEPTANCE_RESULT_FIELD: idempotentReplay
+PARTIAL_ACCEPTANCE_HTTP: NEW_ACCEPTANCE -> 200_OK
+PARTIAL_ACCEPTANCE_HTTP: IDEMPOTENT_REPLAY -> 200_OK
+PARTIAL_ACCEPTANCE_HTTP: COMPLETE_REVISION -> 409_CONFLICT
+PARTIAL_ACCEPTANCE_HTTP: WRONG_DIGEST_OR_REVISION -> 409_CONFLICT
+PARTIAL_ACCEPTANCE_HTTP: NOT_PREVIEW_READY -> 409_CONFLICT
+```
+
+`decision` 唯一合法值是 `ACCEPT_PARTIAL`；不接受即保持 `PENDING`，不是写入
+“拒绝”或删除来源。服务端从可信 Workspace context 取得 actor，禁止 body 伪造。
+命令只接受 `PREVIEW_READY + PARTIAL + PENDING` 的 exact revision，并 CAS 校验
+当前 `publishedBlockSetDigest` 和 omissions digest。相同 Workspace/revision/key
+与相同 digest 幂等返回；相同 key 不同 digest、过期预览、complete revision 或
+非当前 block set 均冲突。成功只写 D01 的不可变确认事实，不改写 block/omission；
+结果 `consumptionEligible=true`。确认不可撤回，需要不同解析结果时必须创建新的
+parser profile revision。
 
 ## 5. 块预览和分页
 
@@ -153,6 +210,9 @@ PreviewOffsetPagination = FORBIDDEN
 PreviewDefaultLimit = 100
 PreviewMaximumLimit = 500
 PreviewFactSource = SOURCE_DOCUMENT_DOCUMENT_BLOCK_AND_IMMUTABLE_REFERENCE_ALIAS
+PreviewAliasFactSource = D03_SOURCE_SCOPED_REGISTRY
+PreviewAliasCreation = BEFORE_PREVIEW_READY
+PreviewAliasCollision = HARD_FAILURE_BEFORE_FACT_PUBLICATION
 PreviewRevisionSelector = EXPLICIT_FIXED_REVISION
 RendererFactCreation = FORBIDDEN
 ```
@@ -185,6 +245,12 @@ nextCursor
 `sourceOrder`、`sectionPath`、nullable `pageNumber/pageEvidence`、
 `sourceAnchor`、`contentHash` 和允许的 payload 字段。它不复制 D02 的全部内部
 对象。
+
+D03 alias 不是 preview DTO 临时生成物。source alias 必须已随 SourceDocument
+创建，block alias 必须已随 D01 block set 原子发布；碰撞会使相应事实发布失败，
+因此 revision 不得进入 `PARSED/PREVIEW_READY`。预览只从 source-scoped registry
+读取 exact tuple 的现有 alias，禁止依赖 cognition revision、懒创建、重绑或
+以当前 revision selector 修复缺失 alias。
 
 ```text
 PartialPreviewMarker = REQUIRED
@@ -240,11 +306,11 @@ HTTP: 200_OK -> IDEMPOTENT_REPLAY_OR_EXISTING_REVISION
 HTTP: 202_ACCEPTED -> NEW_PROCESSING_REVISION_OR_RETRY_ATTEMPT_ACCEPTED
 HTTP: 400_BAD_REQUEST -> MALFORMED_COMMAND_OR_UNSUPPORTED_PAGINATION
 HTTP: 404_NOT_FOUND -> SOURCE_OR_REVISION_NOT_VISIBLE_IN_WORKSPACE
-HTTP: 409_CONFLICT -> IDEMPOTENCY_OR_CONCURRENT_COMPLETION_CONFLICT
+HTTP: 409_CONFLICT -> IDEMPOTENCY_CONCURRENT_COMPLETION_PARTIAL_ACCEPTANCE_OR_PREVIEW_STATE_CONFLICT
 HTTP: 413_CONTENT_TOO_LARGE -> RAW_UPLOAD_LIMIT_BEFORE_DOCX_SECURITY_SCAN
 HTTP: 415_UNSUPPORTED_MEDIA_TYPE -> NON_DOCX_INPUT
 HTTP: 422_UNPROCESSABLE_CONTENT -> TERMINAL_FORMAT_SECURITY_OR_EXPANDED_ZIP_LIMIT
-HTTP: 503_SERVICE_UNAVAILABLE -> RETRYABLE_PARSER_INFRASTRUCTURE_FAILURE
+HTTP: 503_SERVICE_UNAVAILABLE -> SOURCE_NOT_ACCEPTED_OR_PROCESSING_COMMAND_NOT_ACCEPTED
 ```
 
 语义说明：
@@ -252,8 +318,9 @@ HTTP: 503_SERVICE_UNAVAILABLE -> RETRYABLE_PARSER_INFRASTRUCTURE_FAILURE
 - 新 SourceDocument 完成不可变登记返回 `201`；同 key/同 hash 重放为 `200`。
 - processing 命令只在 revision/attempt 已原子接受后返回 `202`；轮询 GET 获取
   后续状态。
-- D01 CAS 发现请求参数或既有成功事实不能按本请求安全复用时才返回 `409`；
-  正常并发命中同一成功 revision 应返回 `200`，不得制造第二成功事实。
+- D01 CAS 发现请求参数或既有成功事实不能按本请求安全复用、partial 确认绑定
+  不匹配或 preview 状态尚不满足读取条件时返回 `409`；正常并发命中同一成功
+  revision 或同一 partial confirmation 应返回幂等 `200`，不得制造第二事实。
 - `413` 只用于接入前 raw upload byte limit。D02 entry/expanded ZIP count、size、
   total bytes 或 ratio 命中 `SECURITY_REJECTED`，统一为 `422`，不得同时映射 413。
 - processing POST 的 `503` 只表示 revision/attempt 命令尚未被原子接受；此时
@@ -275,6 +342,37 @@ ERROR_FIELD: sourceProcessingRevisionId
 除 `404` 防枚举例外外，两个 ID 只在对应身份尚未创建时为 null；一旦创建就必须
 返回。所有 404 两个 ID 始终为 null，不得依据对象存在性变化。`retryable` 必须
 与 D01/D02 分类一致，不能由 HTTP 状态码临时猜测。
+
+稳定 API 错误闭集为：
+
+```text
+API_ERROR: MALFORMED_COMMAND -> 400,false,IDENTITIES_NULL
+API_ERROR: PAGINATION_INVALID -> 400,false,SOURCE_AND_REVISION_IF_RESOLVED
+API_ERROR: RESOURCE_NOT_FOUND -> 404,false,IDENTITIES_ALWAYS_NULL
+API_ERROR: IDEMPOTENCY_CONFLICT -> 409,false,SOURCE_IF_RESOLVED
+API_ERROR: CONCURRENT_COMPLETION_CONFLICT -> 409,true,SOURCE_AND_REVISION_IF_RESOLVED
+API_ERROR: PARTIAL_ACCEPTANCE_CONFLICT -> 409,false,SOURCE_AND_REVISION_IF_RESOLVED
+API_ERROR: PREVIEW_NOT_READY -> 409,true,SOURCE_AND_REVISION_IF_RESOLVED
+API_ERROR: SOURCE_SIZE_LIMIT -> 413,false,IDENTITIES_NULL
+API_ERROR: UNSUPPORTED_MEDIA_TYPE -> 415,false,IDENTITIES_NULL
+API_ERROR: DOCX_FORMAT_OR_SECURITY_REJECTED -> 422,false,CREATED_IDENTITIES_ONLY
+API_ERROR: SOURCE_NOT_ACCEPTED_YET -> 503,true,SOURCE_IF_RESOLVED
+API_ERROR: PROCESSING_COMMAND_NOT_ACCEPTED -> 503,true,SOURCE_IF_RESOLVED
+```
+
+映射第三项决定两个 identity 字段：`IDENTITIES_NULL`/`IDENTITIES_ALWAYS_NULL`
+均为二者 null；`SOURCE_IF_RESOLVED` 只回显已在可信 Workspace 内解析的 source；
+`SOURCE_AND_REVISION_IF_RESOLVED` 只回显已经同域解析的 exact identities；
+`CREATED_IDENTITIES_ONLY` 只回显拒绝发生前已原子创建的身份。Workspace 不可见、
+真实不存在、revision 不属于 source 和跨 Workspace 统一使用
+`RESOURCE_NOT_FOUND` 同一模板，禁止细分错误码形成 oracle。
+
+cursor 篡改、revision mismatch、limit 非法都使用 `PAGINATION_INVALID`。接入校验
+尚处于 `RECEIVED/VALIDATING` 时 processing 命令未被接受，返回
+`SOURCE_NOT_ACCEPTED_YET/503/retryable=true`；已 `REJECTED` 则使用 422。基础设施
+导致 processing 命令尚未原子接受时返回
+`PROCESSING_COMMAND_NOT_ACCEPTED/503/retryable=true`。已接受 attempt 的后续失败
+仍按第 4 节通过 GET 200 暴露，不回溯成 POST 503。
 
 ## 8. Desktop Web 状态投影
 

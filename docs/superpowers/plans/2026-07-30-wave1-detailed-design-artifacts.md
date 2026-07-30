@@ -986,6 +986,13 @@ Do not push.
 - Consumes: D01 status, D02 blocks, D03 immutable references.
 - Produces: upload/status/preview application contract and `scripts/verify-wave1-design`.
 
+> D05 remediation authority: the checked Task 5 steps below preserve the test-first execution
+> history, but any abbreviated DTO/HTTP wording is superseded by
+> `docs/design/wave-1/cognitura-source-preview-contract-1.0.md`. The final contract additionally
+> requires the exact source query DTO, source-scoped alias lifecycle, partial-acceptance command
+> and consumer gate, stable API error-code matrix, raw-upload-only 413, expanded-ZIP 422,
+> read-only `sourceIngestionDisplayStatus`, and always-null identity fields for every 404.
+
 - [x] **Step 1: Write failing source-preview contract verification**
 
 Require exact use cases:
@@ -1004,7 +1011,7 @@ Require:
 PreviewPagination = KEYSET_BY_SOURCE_ORDER
 PreviewDefaultLimit = 100
 PreviewMaximumLimit = 500
-PreviewFactSource = SOURCE_DOCUMENT_AND_DOCUMENT_BLOCK_ONLY
+PreviewFactSource = SOURCE_DOCUMENT_DOCUMENT_BLOCK_AND_IMMUTABLE_REFERENCE_ALIAS
 RendererFactCreation = FORBIDDEN
 LLMUsage = NONE
 ExternalRelationshipAccessCount = 0
@@ -1044,7 +1051,7 @@ Upload response:
 ```text
 CreateSourceDocumentResult {
   sourceDocumentId
-  processingStatus
+  sourceIngestionDisplayStatus
   contentSha256
   receivedAt
 }
@@ -1074,9 +1081,9 @@ Exact decisions:
 400 Bad Request = malformed command or unsupported pagination
 404 Not Found = source document/revision not visible in the requested workspace context
 409 Conflict = idempotency conflict or concurrent successful revision conflict
-413 Content Too Large = upload or expanded DOCX limit
+413 Content Too Large = raw upload limit before DOCX security scan
 415 Unsupported Media Type = non-DOCX input
-422 Unprocessable Content = terminal DOCX format/security rejection
+422 Unprocessable Content = terminal DOCX format/security or expanded ZIP limit rejection
 503 Service Unavailable = retryable parser infrastructure failure
 ```
 
@@ -1090,7 +1097,8 @@ sourceDocumentId
 sourceProcessingRevisionId
 ```
 
-The last two fields are nullable only before their identities exist.
+The last two fields are nullable before their identities exist. For every `404`, both fields are
+always null and use the same `RESOURCE_NOT_FOUND` template, including cross-Workspace invisibility.
 
 - [x] **Step 5: Define Desktop Web state projection**
 
@@ -1220,6 +1228,15 @@ Do not push.
 - Modify: `docs/engineering/cognitura-design-index.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
+- Modify: `docs/design/wave-1/cognitura-source-document-contract-1.0.md`
+- Modify: `docs/design/wave-1/cognitura-document-block-contract-1.0.md`
+- Modify: `docs/design/wave-1/cognitura-reparse-reference-contract-1.0.md`
+- Modify: `docs/design/wave-1/cognitura-source-preview-contract-1.0.md`
+- Modify: `tests/contracts/wave1-design/verify-source-document-contract.sh`
+- Modify: `tests/contracts/wave1-design/verify-document-block-contract.sh`
+- Modify: `tests/contracts/wave1-design/verify-reparse-reference-contract.sh`
+- Modify: `tests/contracts/wave1-design/verify-source-preview-contract.sh`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Test: `scripts/verify-wave1-design`
 - Test: `scripts/verify-wave0`
 
@@ -1229,7 +1246,7 @@ Do not push.
 - Produces: `W1-DG5 FixedDesignReview = PASS` or a concrete NO-GO finding list; does not produce
   implementation cards.
 
-- [ ] **Step 1: Verify the pre-review candidate**
+- [x] **Step 1: Verify the pre-review candidate**
 
 Run:
 
@@ -1249,7 +1266,7 @@ Expected:
 - W1-D00 through W1-D04 are separate local commits;
 - W1-D05 is the sole `READY` card.
 
-- [ ] **Step 2: Freeze the exact design candidate**
+- [x] **Step 2: Freeze the exact design candidate**
 
 Run:
 

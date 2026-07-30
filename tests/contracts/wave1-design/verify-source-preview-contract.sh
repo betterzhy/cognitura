@@ -45,6 +45,7 @@ validate_contract() {
   for required_line in \
     "SourcePreviewContractVersion = 1.0" \
     "ContractStatus = W1_DG4_PASS" \
+    "BusinessImplementation = NOT_AUTHORIZED" \
     "PreviewPagination = KEYSET_BY_SOURCE_ORDER" \
     "PreviewCursor = PROCESSING_REVISION_ID+LAST_SOURCE_ORDER" \
     "PreviewCursorRevisionMismatch = REJECT_BAD_REQUEST" \
@@ -52,6 +53,9 @@ validate_contract() {
     "PreviewDefaultLimit = 100" \
     "PreviewMaximumLimit = 500" \
     "PreviewFactSource = SOURCE_DOCUMENT_DOCUMENT_BLOCK_AND_IMMUTABLE_REFERENCE_ALIAS" \
+    "PreviewAliasFactSource = D03_SOURCE_SCOPED_REGISTRY" \
+    "PreviewAliasCreation = BEFORE_PREVIEW_READY" \
+    "PreviewAliasCollision = HARD_FAILURE_BEFORE_FACT_PUBLICATION" \
     "PreviewRevisionSelector = EXPLICIT_FIXED_REVISION" \
     "RendererFactCreation = FORBIDDEN" \
     "LLMUsage = NONE" \
@@ -67,6 +71,10 @@ validate_contract() {
     "CrossWorkspaceDisclosure = NOT_FOUND" \
     "NotFoundIdentityFields = ALWAYS_NULL" \
     "NotFoundExistenceOracle = FORBIDDEN" \
+    "PartialAcceptanceCommand = ACCEPT_EXACT_PARTIAL_REVISION" \
+    "PartialAcceptanceActorSource = TRUSTED_WORKSPACE_CONTEXT" \
+    "PartialAcceptanceIdempotency = WORKSPACE_REVISION_AND_IDEMPOTENCY_KEY" \
+    "PartialAcceptanceRevocation = FORBIDDEN" \
     "ProcessingPost503Means = COMMAND_NOT_ACCEPTED" \
     "AcceptedRetryableFailureTransport = STATUS_GET_200_NOT_POST_503" \
     "ParserProvider = NOT_SELECTED" \
@@ -82,7 +90,8 @@ validate_contract() {
     "ENDPOINT: GET /api/v1/source-documents/{sourceDocumentId}" \
     "ENDPOINT: POST /api/v1/source-documents/{sourceDocumentId}/processing-revisions" \
     "ENDPOINT: GET /api/v1/source-documents/{sourceDocumentId}/processing-revisions/{sourceProcessingRevisionId}" \
-    "ENDPOINT: GET /api/v1/source-documents/{sourceDocumentId}/processing-revisions/{sourceProcessingRevisionId}/blocks"
+    "ENDPOINT: GET /api/v1/source-documents/{sourceDocumentId}/processing-revisions/{sourceProcessingRevisionId}/blocks" \
+    "ENDPOINT: POST /api/v1/source-documents/{sourceDocumentId}/processing-revisions/{sourceProcessingRevisionId}/partial-acceptance"
 
   require_exact_prefixed_set \
     "${file}" \
@@ -105,6 +114,20 @@ validate_contract() {
 
   require_exact_prefixed_set \
     "${file}" \
+    "SOURCE_QUERY_FIELD:" \
+    "SOURCE_QUERY_FIELD: sourceDocumentId" \
+    "SOURCE_QUERY_FIELD: originalFileName" \
+    "SOURCE_QUERY_FIELD: mediaType" \
+    "SOURCE_QUERY_FIELD: byteLength" \
+    "SOURCE_QUERY_FIELD: contentSha256" \
+    "SOURCE_QUERY_FIELD: receivedAt" \
+    "SOURCE_QUERY_FIELD: sourceDocumentValidationStatus" \
+    "SOURCE_QUERY_FIELD: sourceIngestionDisplayStatus" \
+    "SOURCE_QUERY_FIELD: validationFailureCode" \
+    "SOURCE_QUERY_FIELD: validationFailureDetail"
+
+  require_exact_prefixed_set \
+    "${file}" \
     "PROCESSING_COMMAND_FIELD:" \
     "PROCESSING_COMMAND_FIELD: sourceDocumentId" \
     "PROCESSING_COMMAND_FIELD: parserProfileVersion"
@@ -118,6 +141,52 @@ validate_contract() {
     "PROCESSING_RESULT_FIELD: sourceIngestionDisplayStatus" \
     "PROCESSING_RESULT_FIELD: pollLocation" \
     "PROCESSING_RESULT_FIELD: reused"
+
+  require_exact_prefixed_set \
+    "${file}" \
+    "REVISION_QUERY_FIELD:" \
+    "REVISION_QUERY_FIELD: sourceDocumentId" \
+    "REVISION_QUERY_FIELD: sourceProcessingRevisionId" \
+    "REVISION_QUERY_FIELD: parserProfileVersion" \
+    "REVISION_QUERY_FIELD: sourceProcessingRevisionStatus" \
+    "REVISION_QUERY_FIELD: sourceIngestionDisplayStatus" \
+    "REVISION_QUERY_FIELD: parseCompleteness" \
+    "REVISION_QUERY_FIELD: omissions" \
+    "REVISION_QUERY_FIELD: partialAcceptanceStatus" \
+    "REVISION_QUERY_FIELD: failureCode" \
+    "REVISION_QUERY_FIELD: failureDetail" \
+    "REVISION_QUERY_FIELD: startedAt" \
+    "REVISION_QUERY_FIELD: completedAt"
+
+  require_exact_prefixed_set \
+    "${file}" \
+    "PARTIAL_ACCEPTANCE_COMMAND_FIELD:" \
+    "PARTIAL_ACCEPTANCE_COMMAND_FIELD: sourceDocumentId" \
+    "PARTIAL_ACCEPTANCE_COMMAND_FIELD: sourceProcessingRevisionId" \
+    "PARTIAL_ACCEPTANCE_COMMAND_FIELD: blockSetDigest" \
+    "PARTIAL_ACCEPTANCE_COMMAND_FIELD: omissionsDigest" \
+    "PARTIAL_ACCEPTANCE_COMMAND_FIELD: idempotencyKey" \
+    "PARTIAL_ACCEPTANCE_COMMAND_FIELD: decision"
+
+  require_exact_prefixed_set \
+    "${file}" \
+    "PARTIAL_ACCEPTANCE_RESULT_FIELD:" \
+    "PARTIAL_ACCEPTANCE_RESULT_FIELD: sourceDocumentId" \
+    "PARTIAL_ACCEPTANCE_RESULT_FIELD: sourceProcessingRevisionId" \
+    "PARTIAL_ACCEPTANCE_RESULT_FIELD: partialAcceptanceStatus" \
+    "PARTIAL_ACCEPTANCE_RESULT_FIELD: partialAcceptedAt" \
+    "PARTIAL_ACCEPTANCE_RESULT_FIELD: acceptedBy" \
+    "PARTIAL_ACCEPTANCE_RESULT_FIELD: consumptionEligible" \
+    "PARTIAL_ACCEPTANCE_RESULT_FIELD: idempotentReplay"
+
+  require_exact_prefixed_set \
+    "${file}" \
+    "PARTIAL_ACCEPTANCE_HTTP:" \
+    "PARTIAL_ACCEPTANCE_HTTP: NEW_ACCEPTANCE -> 200_OK" \
+    "PARTIAL_ACCEPTANCE_HTTP: IDEMPOTENT_REPLAY -> 200_OK" \
+    "PARTIAL_ACCEPTANCE_HTTP: COMPLETE_REVISION -> 409_CONFLICT" \
+    "PARTIAL_ACCEPTANCE_HTTP: WRONG_DIGEST_OR_REVISION -> 409_CONFLICT" \
+    "PARTIAL_ACCEPTANCE_HTTP: NOT_PREVIEW_READY -> 409_CONFLICT"
 
   require_exact_prefixed_set \
     "${file}" \
@@ -135,11 +204,11 @@ validate_contract() {
     "HTTP: 202_ACCEPTED -> NEW_PROCESSING_REVISION_OR_RETRY_ATTEMPT_ACCEPTED" \
     "HTTP: 400_BAD_REQUEST -> MALFORMED_COMMAND_OR_UNSUPPORTED_PAGINATION" \
     "HTTP: 404_NOT_FOUND -> SOURCE_OR_REVISION_NOT_VISIBLE_IN_WORKSPACE" \
-    "HTTP: 409_CONFLICT -> IDEMPOTENCY_OR_CONCURRENT_COMPLETION_CONFLICT" \
+    "HTTP: 409_CONFLICT -> IDEMPOTENCY_CONCURRENT_COMPLETION_PARTIAL_ACCEPTANCE_OR_PREVIEW_STATE_CONFLICT" \
     "HTTP: 413_CONTENT_TOO_LARGE -> RAW_UPLOAD_LIMIT_BEFORE_DOCX_SECURITY_SCAN" \
     "HTTP: 415_UNSUPPORTED_MEDIA_TYPE -> NON_DOCX_INPUT" \
     "HTTP: 422_UNPROCESSABLE_CONTENT -> TERMINAL_FORMAT_SECURITY_OR_EXPANDED_ZIP_LIMIT" \
-    "HTTP: 503_SERVICE_UNAVAILABLE -> RETRYABLE_PARSER_INFRASTRUCTURE_FAILURE"
+    "HTTP: 503_SERVICE_UNAVAILABLE -> SOURCE_NOT_ACCEPTED_OR_PROCESSING_COMMAND_NOT_ACCEPTED"
 
   require_exact_prefixed_set \
     "${file}" \
@@ -149,6 +218,22 @@ validate_contract() {
     "ERROR_FIELD: retryable" \
     "ERROR_FIELD: sourceDocumentId" \
     "ERROR_FIELD: sourceProcessingRevisionId"
+
+  require_exact_prefixed_set \
+    "${file}" \
+    "API_ERROR:" \
+    "API_ERROR: MALFORMED_COMMAND -> 400,false,IDENTITIES_NULL" \
+    "API_ERROR: PAGINATION_INVALID -> 400,false,SOURCE_AND_REVISION_IF_RESOLVED" \
+    "API_ERROR: RESOURCE_NOT_FOUND -> 404,false,IDENTITIES_ALWAYS_NULL" \
+    "API_ERROR: IDEMPOTENCY_CONFLICT -> 409,false,SOURCE_IF_RESOLVED" \
+    "API_ERROR: CONCURRENT_COMPLETION_CONFLICT -> 409,true,SOURCE_AND_REVISION_IF_RESOLVED" \
+    "API_ERROR: PARTIAL_ACCEPTANCE_CONFLICT -> 409,false,SOURCE_AND_REVISION_IF_RESOLVED" \
+    "API_ERROR: PREVIEW_NOT_READY -> 409,true,SOURCE_AND_REVISION_IF_RESOLVED" \
+    "API_ERROR: SOURCE_SIZE_LIMIT -> 413,false,IDENTITIES_NULL" \
+    "API_ERROR: UNSUPPORTED_MEDIA_TYPE -> 415,false,IDENTITIES_NULL" \
+    "API_ERROR: DOCX_FORMAT_OR_SECURITY_REJECTED -> 422,false,CREATED_IDENTITIES_ONLY" \
+    "API_ERROR: SOURCE_NOT_ACCEPTED_YET -> 503,true,SOURCE_IF_RESOLVED" \
+    "API_ERROR: PROCESSING_COMMAND_NOT_ACCEPTED -> 503,true,SOURCE_IF_RESOLVED"
 
   require_exact_prefixed_set \
     "${file}" \
@@ -318,6 +403,31 @@ cp "${contract_file}" "${parser_selected}"
 sed -i.bak 's/^ParserProvider = NOT_SELECTED$/ParserProvider = APACHE_POI/' "${parser_selected}"
 expect_failure "${parser_selected}" "missing required contract line: ParserProvider = NOT_SELECTED"
 
+business_implementation_authorized="${test_tmp_root}/business-implementation-authorized.md"
+cp "${contract_file}" "${business_implementation_authorized}"
+sed -i.bak 's/^BusinessImplementation = NOT_AUTHORIZED$/BusinessImplementation = AUTHORIZED/' "${business_implementation_authorized}"
+expect_failure "${business_implementation_authorized}" "missing required contract line: BusinessImplementation = NOT_AUTHORIZED"
+
+source_query_incomplete="${test_tmp_root}/source-query-incomplete.md"
+cp "${contract_file}" "${source_query_incomplete}"
+sed -i.bak '/^SOURCE_QUERY_FIELD: byteLength$/d' "${source_query_incomplete}"
+expect_failure "${source_query_incomplete}" "SOURCE_QUERY_FIELD: contract set does not match"
+
+error_matrix_incomplete="${test_tmp_root}/error-matrix-incomplete.md"
+cp "${contract_file}" "${error_matrix_incomplete}"
+sed -i.bak '/^API_ERROR: SOURCE_NOT_ACCEPTED_YET -> /d' "${error_matrix_incomplete}"
+expect_failure "${error_matrix_incomplete}" "API_ERROR: contract set does not match"
+
+partial_acceptance_missing="${test_tmp_root}/partial-acceptance-missing.md"
+cp "${contract_file}" "${partial_acceptance_missing}"
+sed -i.bak '/^ENDPOINT: POST .*partial-acceptance$/d' "${partial_acceptance_missing}"
+expect_failure "${partial_acceptance_missing}" "ENDPOINT: contract set does not match"
+
+alias_created_after_preview="${test_tmp_root}/alias-created-after-preview.md"
+cp "${contract_file}" "${alias_created_after_preview}"
+sed -i.bak 's/^PreviewAliasCreation = BEFORE_PREVIEW_READY$/PreviewAliasCreation = ON_PREVIEW_READ/' "${alias_created_after_preview}"
+expect_failure "${alias_created_after_preview}" "missing required contract line: PreviewAliasCreation = BEFORE_PREVIEW_READY"
+
 printf '%s\n' \
   "SourcePreviewContractValidation = PASS" \
-  "NegativeCases = 20"
+  "NegativeCases = 25"
