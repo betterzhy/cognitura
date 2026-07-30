@@ -15,7 +15,7 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  WAVE1_DESIGN_FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+  WAVE1_IMPLEMENTATION_SLICING_SPEC_AWAITING_USER_REVIEW
 
 Wave0ExecutionStatus = COMPLETE
 ActiveTaskCard = NONE
@@ -30,7 +30,8 @@ W0G6ReviewStatus = PASS
 W0G6ReviewedCommit = 08ddc00907a6ead84a526c71a2c0802f363fe614
 W0G6CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
 Wave1FeatureDevelopmentEntry = GO
-Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+Wave1DesignStatus = USER_APPROVED
+Wave1ImplementationPlanningStatus = SLICING_SPEC_AWAITING_USER_REVIEW
 Wave1ImplementationTaskCardSet = NOT_CREATED
 BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
@@ -50,8 +51,9 @@ DirectFullImplementationStart = NO
 Wave 1 详细设计复审修复候选
 `17dabff23b029e1a6fc7f47155f552ed3f16d775` 已通过两个相互独立的
 `gpt-5.6-sol/high` 阶段，均为 `P0=0/P1=0/P2=0`，因此 `W1-DG5 = PASS`。
-设计卡集合已关闭，当前停止在用户完整书面设计审阅 Gate；不创建解析器、页面、
-数据库对象、LLM 调用、业务实现计划或实现卡。
+用户已批准完整书面设计和 14 张中细粒度实现切片方向；当前等待用户审阅落盘的
+实现切片规格，仍不创建解析器、页面、数据库对象、LLM 调用、业务实现计划或
+实现卡。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
@@ -103,6 +105,7 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [Wave 1 详细设计验收](docs/engineering/cognitura-wave-1-design-acceptance.md)
 - [Wave 1 设计任务卡索引](docs/task-cards/wave-1/README.md)
 - [Wave 1 设计治理说明](docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md)
+- [Wave 1 实现切片设计](docs/superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md)
 
 ## 当前准入
 
@@ -110,7 +113,8 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
 Wave1FeatureDevelopmentEntry = GO
-Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+Wave1DesignStatus = USER_APPROVED
+Wave1ImplementationPlanningStatus = SLICING_SPEC_AWAITING_USER_REVIEW
 BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
@@ -131,5 +135,5 @@ task-card、Schema、Golden Case、UI、server、web 七阶段并通过，固定
 成功，一般审查与最终门禁均清零并裁决 GO，故
 `W0-G6 FixedCommitReview = PASS`、`Wave1FeatureDevelopmentEntry = GO`。
 该 GO 仅开放后续受控任务卡，不授权直接实现 Wave 1。
-Wave 1 书面详细设计修复候选已再次通过两个独立审查阶段，`W1-DG5 = PASS`；
-只有用户明确批准完整设计后，才可编制实现切片并建立实现任务卡。
+Wave 1 书面详细设计已获用户批准，14 张中细粒度实现切片规格正在等待用户书面
+审阅；规格获批后才可编制实现计划和建立实现任务卡。

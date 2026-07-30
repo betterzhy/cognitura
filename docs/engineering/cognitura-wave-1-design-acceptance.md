@@ -5,7 +5,9 @@ DecisionDate = 2026-07-30
 ReviewedCandidate = 17dabff23b029e1a6fc7f47155f552ed3f16d775
 PriorReviewedCandidate = 3efe89fa532b7d58d7915dc891732dfdf5f4ee55
 SupersededRepairCandidate = b1d4f78ed98fbe108358a8b07cc7681bea9ffd69
-AcceptanceStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+AcceptanceStatus = USER_APPROVED
+UserApprovalDate = 2026-07-30
+UserApprovedCandidate = 17dabff23b029e1a6fc7f47155f552ed3f16d775
 Wave1DesignVerification = PASS
 Wave0Regression = PASS
 W1-DG0 DesignGovernance = PASS
@@ -14,7 +16,8 @@ W1-DG2 DocumentBlockFidelityAndSafety = PASS
 W1-DG3 ReparseAndReferenceCompatibility = PASS
 W1-DG4 SourcePreviewAndAcceptance = PASS
 W1-DG5 FixedDesignReview = PASS
-Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+Wave1DesignStatus = USER_APPROVED
+ImplementationSlicingStatus = SPEC_AWAITING_USER_REVIEW
 BusinessImplementation = NOT_AUTHORIZED
 Wave1ImplementationTaskCardSet = NOT_CREATED
 DirectFullImplementationStart = NO
@@ -151,6 +154,8 @@ UltraModel = NOT_USED
 
 ## 7. 停止边界
 
-本记录只关闭 Wave 1 书面详细设计 Gate。下一状态是用户审阅完整书面设计；
-在用户再次明确批准前，不创建 `W1-Ixx`、不编制实现计划、不写业务代码或正式
+用户已于 `2026-07-30` 明确批准本记录绑定的完整 Wave 1 书面设计候选，并批准
+采用 14 张中细粒度任务卡方向。当前下一状态是审阅
+[`Wave 1 实现切片设计`](../superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md)；
+该书面规格再次获批前，不创建 `W1-Ixx`、不编制实现计划、不写业务代码或正式
 数据库、不选择 Parser/Object Storage Provider，也不部署或远程推送。

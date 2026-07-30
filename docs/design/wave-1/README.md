@@ -2,7 +2,8 @@
 
 ```text
 CanonicalProjectName = Cognitura
-Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+Wave1DesignStatus = USER_APPROVED
+Wave1ImplementationPlanningStatus = SLICING_SPEC_AWAITING_USER_REVIEW
 ActiveDesignTaskCard = NONE
 BusinessImplementation = NOT_AUTHORIZED
 ```
@@ -29,5 +30,5 @@ BusinessImplementation = NOT_AUTHORIZED
 - 不读取或改写 `raw/` 原件，不访问 Redis 遗留链接目标。
 - Wave 1 不使用 LLM。
 - 每份契约通过对应 sol/high Gate 后才成为后续设计切片的正式输入。
-- 修复候选已通过两个独立 `gpt-5.6-sol/high` 阶段；当前等待用户完整书面
-  设计批准，仍不授权业务实现。
+- 修复候选已通过两个独立 `gpt-5.6-sol/high` 阶段且完整设计已获用户批准；
+  当前等待实现切片书面规格审阅，仍不授权业务实现。
