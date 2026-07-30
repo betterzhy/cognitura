@@ -26,7 +26,7 @@ Wave1DesignGovernance =
 Wave1DesignPlan =
   docs/engineering/cognitura-wave-1-design-plan.md
 Wave1DesignStatus = IN_PROGRESS
-ActiveDesignTaskCard = W1-D01
+ActiveDesignTaskCard = W1-D02
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -122,11 +122,12 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 | 设计切片 | 产物 | 状态 | Gate |
 |---|---|---|---|
 | `W1-D00` | `docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md` | `DONE` | `W1-DG0 PASS` |
-| `W1-D01` | `docs/design/wave-1/cognitura-source-document-contract-1.0.md` | `READY` | `W1-DG1 PENDING` |
-| `W1-D02` | `docs/design/wave-1/cognitura-document-block-contract-1.0.md` | `BLOCKED_BY_DEPENDENCY` | `W1-DG2 PENDING` |
+| `W1-D01` | `docs/design/wave-1/cognitura-source-document-contract-1.0.md` | `DONE` | `W1-DG1 PASS` |
+| `W1-D02` | `docs/design/wave-1/cognitura-document-block-contract-1.0.md` | `READY` | `W1-DG2 PENDING` |
 | `W1-D03` | `docs/design/wave-1/cognitura-reparse-reference-contract-1.0.md` | `BLOCKED_BY_DEPENDENCY` | `W1-DG3 PENDING` |
 | `W1-D04` | `docs/design/wave-1/cognitura-source-preview-contract-1.0.md` | `BLOCKED_BY_DEPENDENCY` | `W1-DG4 PENDING` |
 | `W1-D05` | `docs/engineering/cognitura-wave-1-design-acceptance.md` | `BLOCKED_BY_DEPENDENCY` | `W1-DG5 PENDING` |
 
-未落地的 W1-D01 至 W1-D05 路径是已批准设计计划中的目标产物，不得作为已存在
-的正式设计引用。当前只有 W1-D00 为已落地且批准的 Wave 1 工程治理说明。
+未落地的 W1-D02 至 W1-D05 路径是已批准设计计划中的目标产物，不得作为已存在
+的正式设计引用。当前 W1-D00 治理说明与 W1-D01 SourceDocument 契约已通过
+各自 Gate。

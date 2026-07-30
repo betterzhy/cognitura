@@ -4,7 +4,7 @@
 DecisionDate = 2026-07-30
 CurrentStage = WAVE1_DESIGN_IN_PROGRESS
 Wave1DesignStatus = IN_PROGRESS
-ActiveDesignTaskCard = W1-D01
+ActiveDesignTaskCard = W1-D02
 Wave1ImplementationTaskCardSet = NOT_CREATED
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -20,8 +20,8 @@ DeploymentAndRelease = NOT_AUTHORIZED
 
 ```text
 W1-D00 DesignGovernance = DONE
-W1-D01 SourceDocumentContract = READY
-W1-D02 DocumentBlockFidelityAndSafety = BLOCKED_BY_DEPENDENCY
+W1-D01 SourceDocumentContract = DONE
+W1-D02 DocumentBlockFidelityAndSafety = READY
 W1-D03 ReparseAndReferenceCompatibility = BLOCKED_BY_DEPENDENCY
 W1-D04 SourcePreviewAndAcceptance = BLOCKED_BY_DEPENDENCY
 W1-D05 FixedDesignReview = BLOCKED_BY_DEPENDENCY
@@ -34,7 +34,7 @@ W1-D05 FixedDesignReview = BLOCKED_BY_DEPENDENCY
 
 ```text
 W1-DG0 DesignGovernance = PASS
-W1-DG1 SourceDocumentContract = PENDING
+W1-DG1 SourceDocumentContract = PASS
 W1-DG2 DocumentBlockFidelityAndSafety = PENDING
 W1-DG3 ReparseAndReferenceCompatibility = PENDING
 W1-DG4 SourcePreviewAndAcceptance = PENDING

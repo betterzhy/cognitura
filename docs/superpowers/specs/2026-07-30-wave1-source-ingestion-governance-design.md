@@ -4,9 +4,9 @@
 DesignSliceID = W1-D00
 DesignDate = 2026-07-30
 CanonicalProjectName = Cognitura
-CurrentStage = WAVE1_DESIGN_IN_PROGRESS
+GovernedStage = WAVE1_DETAILED_DESIGN
 DesignStatus = APPROVED
-ActiveDesignTaskCard = W1-D01
+DynamicExecutionStateSource = docs/task-cards/wave-1/README.md
 W1-DG0 DesignGovernance = PASS
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -18,10 +18,11 @@ DeploymentAndRelease = NOT_AUTHORIZED
 本说明固定 Cognitura Wave 1 详细设计阶段的治理边界、设计切片、任务卡模型、
 Gate、验证器方案和从设计进入实现的授权条件。
 
-Wave 1 已通过准入，W1-D00 治理切片已关闭，W1-D01 是当前唯一 `READY`
-设计卡。准入只允许按设计卡推进书面契约，不允许直接实现完整业务功能。因此，
-本说明只建立设计阶段的可验证秩序，不创建 DOCX 解析器、页面、数据库对象或
-LLM 调用。
+Wave 1 已通过准入，W1-D00 治理切片已关闭。当前活动设计卡和卡集状态只以
+`docs/task-cards/wave-1/README.md` 为动态事实来源，本治理说明不复制易漂移的
+活动卡值。准入只允许按设计卡推进书面契约，不允许直接实现完整业务功能。
+因此，本说明只建立设计阶段的可验证秩序，不创建 DOCX 解析器、页面、数据库
+对象或 LLM 调用。
 
 ## 2. 正式来源与权威边界
 
@@ -498,12 +499,12 @@ git status --short
 - `git diff --check` 退出码为 0；
 - 工作树只包含 W1-D00 任务卡写集和原有未跟踪用户目录 `.idea/`；
 - W0 任务卡/验证器、业务源码、原件和正式数据库配置均未修改；
-- W1-D01 是唯一 `READY`，W1-D02 至 W1-D05 保持依赖阻断。
+- 动态活动卡、卡集状态和依赖释放与任务卡索引一致。
 
 ## 12. 本切片之后
 
-本说明和只覆盖 Wave 1 设计产物的详细执行计划已经用户批准。当前下一步是执行
-唯一 `READY` 的 W1-D01，并依次完成 W1-D02 至 W1-D05；执行过程不得包含业务
-实现步骤。
+本说明和只覆盖 Wave 1 设计产物的详细执行计划已经用户批准。执行时只处理任务卡
+索引声明的唯一 `READY` 卡，并按依赖依次完成 W1-D01 至 W1-D05；执行过程不得
+包含业务实现步骤。
 
 完整 Wave 1 书面设计再次经用户批准后，才能另行编制业务实现计划。

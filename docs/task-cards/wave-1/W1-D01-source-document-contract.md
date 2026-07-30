@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-D01
 CardKind = DESIGN
-Status = READY
+Status = DONE
 Gate = W1-DG1 SourceDocumentContract
 Risk = HIGH
 DependsOn = W1-D00
@@ -25,11 +25,14 @@ ReviewRoute = SOL_HIGH_DESIGN_GATE
 - Create: `docs/design/wave-1/README.md`
 - Create: `docs/design/wave-1/cognitura-source-document-contract-1.0.md`
 - Create: `tests/contracts/wave1-design/verify-source-document-contract.sh`
+- Modify: `tests/task-cards/verify-wave1-design-cards.sh`
 - Modify: `docs/task-cards/wave-1/W1-D01-source-document-contract.md`
 - Modify: `docs/task-cards/wave-1/W1-D02-document-block-contract.md`
 - Modify: `docs/task-cards/wave-1/README.md`
 - Modify: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 
@@ -57,3 +60,20 @@ git diff --check
 ## 7. 提交与审查
 
 使用 `gpt-5.6-sol/high` 进行设计 Gate；形成独立本地提交，不推送。
+
+```text
+ReviewDate = 2026-07-30
+ReviewModel = gpt-5.6-sol
+ReviewReasoningEffort = high
+ReviewVerdict = READY
+ReviewP0 = 0
+ReviewP1 = 0
+ReviewP2 = 0
+SourceDocumentContractValidation = PASS
+SourceDocumentContractNegativeCases = 17
+RemotePush = NOT_PERFORMED
+```
+
+复审确认身份、状态所有权、attempt/revision 原子启动与完成、lease 围栏、迟到
+结果审计和错误分阶段映射均闭合；未选择存储 Provider，未写数据库、业务代码、
+`raw/` 或 LLM 调用。

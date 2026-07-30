@@ -381,11 +381,14 @@ Do not stage `.idea/`. Do not push.
 - Create: `docs/design/wave-1/README.md`
 - Create: `docs/design/wave-1/cognitura-source-document-contract-1.0.md`
 - Create: `tests/contracts/wave1-design/verify-source-document-contract.sh`
+- Modify: `tests/task-cards/verify-wave1-design-cards.sh`
 - Modify: `docs/task-cards/wave-1/W1-D01-source-document-contract.md`
 - Modify: `docs/task-cards/wave-1/W1-D02-document-block-contract.md`
 - Modify: `docs/task-cards/wave-1/README.md`
 - Modify: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 - Test: `tests/contracts/wave1-design/verify-source-document-contract.sh`
@@ -396,7 +399,7 @@ Do not stage `.idea/`. Do not push.
 - Produces: `SourceDocumentContractVersion = 1.0`、不可变来源身份、处理 revision、
   幂等上传和状态机；W1-D02 只消费这些已固定名词。
 
-- [ ] **Step 1: 先写缺失契约的失败验证**
+- [x] **Step 1: 先写缺失契约的失败验证**
 
 Create `tests/contracts/wave1-design/verify-source-document-contract.sh`，要求目标文档
 精确包含：
@@ -413,19 +416,28 @@ SourceOriginalMutation = FORBIDDEN
 FormalDatabaseWrite = NOT_AUTHORIZED
 ```
 
-状态必须形成：
+状态必须按对象分离：
 
 ```text
-RECEIVED → VALIDATING → ACCEPTED → PARSING → PARSED → PREVIEW_READY
-VALIDATING → REJECTED
-PARSING → FAILED_RETRYABLE
-PARSING → FAILED_TERMINAL
-FAILED_RETRYABLE → PARSING
+SourceDocumentValidationStatus = RECEIVED,VALIDATING,ACCEPTED,REJECTED
+SourceProcessingRevisionStatus = PARSING,PARSED,PREVIEW_READY,FAILED_RETRYABLE,FAILED_TERMINAL
+SourceIngestionDisplayStatus = READ_ONLY_PROJECTION
+DOCUMENT: RECEIVED → VALIDATING
+DOCUMENT: VALIDATING → ACCEPTED
+DOCUMENT: VALIDATING → REJECTED
+REVISION: PARSING → PARSED
+REVISION: PARSING → FAILED_RETRYABLE
+REVISION: PARSING → FAILED_TERMINAL
+REVISION: FAILED_RETRYABLE → PARSING
+REVISION: PARSED → PREVIEW_READY
 ```
 
-测试还必须复制文档到临时目录并通过删字段/篡改状态迁移构造至少 6 个负例。
+`ACCEPTED` 是创建或复用 `PARSING` revision 的编排前置条件，不是跨对象状态
+迁移。测试还必须复制文档到临时目录并通过删字段、篡改状态迁移、放宽活动 attempt
+数量、允许多个成功 attempt、开放 display 状态写入、破坏错误映射和接受迟到结果
+构造至少 17 个负例。
 
-- [ ] **Step 2: 运行验证并观察预期失败**
+- [x] **Step 2: 运行验证并观察预期失败**
 
 Run:
 
@@ -436,7 +448,7 @@ bash tests/contracts/wave1-design/verify-source-document-contract.sh
 Expected: FAIL，报告缺少
 `docs/design/wave-1/cognitura-source-document-contract-1.0.md`。
 
-- [ ] **Step 3: 写 SourceDocument 正式工程契约**
+- [x] **Step 3: 写 SourceDocument 正式工程契约**
 
 Create document with these exact decisions:
 
@@ -473,7 +485,9 @@ contentSha256
 receivedAt
 sourceProcessingRevisionId
 parserProfileVersion
-processingStatus
+sourceDocumentValidationStatus
+sourceProcessingRevisionStatus
+sourceIngestionDisplayStatus
 failureCode
 failureDetail
 startedAt
@@ -494,7 +508,7 @@ PARSER_RETRYABLE_FAILURE
 PARSER_TERMINAL_FAILURE
 ```
 
-- [ ] **Step 4: 写状态机和并发裁决表**
+- [x] **Step 4: 写状态机和并发裁决表**
 
 文档必须明确：
 
@@ -503,11 +517,32 @@ PARSER_TERMINAL_FAILURE
   revision；
 - 同一 `(sourceDocumentId, contentSha256, parserProfileVersion)` 同时最多一个
   活动 attempt；
-- 第一个成功完成的 attempt 成为该 revision 的唯一成功结果，迟到结果被拒绝；
+- attempt 固定
+  `PENDING/RUNNING/SUCCEEDED/FAILED_RETRYABLE/FAILED_TERMINAL`
+  状态；`PENDING/RUNNING` 为活动状态；
+- `activeAttemptId/currentAttemptGeneration` 归属 revision；attempt 只保存取得
+  活动权时的 `attemptGeneration/fencingToken`；
+- 新建或重试 attempt 必须用 `activeAttemptId + attemptGeneration` CAS 获取唯一
+  活动权，完成也必须用同一双条件 CAS；
+- 首次开始必须原子创建 `PARSING` revision、generation 1 的 `PENDING` attempt
+  和活动身份；retry 必须从 `FAILED_RETRYABLE` 且无活动 attempt 的 revision
+  原子迁移到 `PARSING`、递增 generation、创建 `PENDING` attempt、设置活动
+  身份、清空当前失败投影并取消 `completedAt`；历史失败保留在旧 attempt；
+- 禁止先创建 attempt 再另行迁移 revision；
+- 成功或失败完成必须在同一事务中更新 attempt 终态、revision 对应状态、清除
+  活动身份和设置完成时间；
+- lease 过期先以 CAS 原子终结旧 attempt 与 revision 并清除活动身份，之后才允许
+  创建新 attempt；
+- 第一个成功完成 CAS 的 attempt 成为该 revision 的唯一成功结果，迟到结果进入
+  追加式 `RESULT_REJECTED_STALE` completion-rejection 审计事件，不得改写旧
+  attempt 终态、发布块或推进 revision；
+- display status 是无持久化字段和写 API 的只读组合投影；
+- `DOCX_FORMAT_INVALID` 在接入校验阶段映射 `REJECTED`，在 revision 解析阶段映射
+  `FAILED_TERMINAL`，不得保留无阶段的二义性；
 - 原件只读，重新解析只能创建或重用 processing revision；
 - 删除、永久清除、配额和对象存储 Provider 不属于 Wave 1。
 
-- [ ] **Step 5: 运行契约、链接和 W1 卡验证**
+- [x] **Step 5: 运行契约、链接和 W1 卡验证**
 
 Run:
 
@@ -520,7 +555,7 @@ git diff --check
 
 Expected: all PASS。
 
-- [ ] **Step 6: 以 `gpt-5.6-sol/high` 审查 W1-D01**
+- [x] **Step 6: 以 `gpt-5.6-sol/high` 审查 W1-D01**
 
 审查必须重点判断：
 
@@ -530,7 +565,7 @@ Expected: all PASS。
 - 未选择对象存储或写入正式数据库；
 - 没有引入用户级知识树或 LLM。
 
-- [ ] **Step 7: 关闭 W1-D01 并释放 W1-D02**
+- [x] **Step 7: 关闭 W1-D01 并释放 W1-D02**
 
 Update:
 
@@ -544,7 +579,7 @@ W1-DG1 SourceDocumentContract = PASS
 同步 W1 索引、工程设计计划、设计索引、`AGENTS.md` 和 `README.md`。W0 索引
 保持不变。
 
-- [ ] **Step 8: 本地提交 W1-D01**
+- [x] **Step 8: 本地提交 W1-D01**
 
 Run:
 
@@ -556,8 +591,11 @@ git add \
   docs/design/wave-1/cognitura-source-document-contract-1.0.md \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-wave-1-design-plan.md \
+  docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md \
+  docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md \
   docs/task-cards/wave-1 \
-  tests/contracts/wave1-design/verify-source-document-contract.sh
+  tests/contracts/wave1-design/verify-source-document-contract.sh \
+  tests/task-cards/verify-wave1-design-cards.sh
 git diff --cached --check
 git commit -m "docs: define SourceDocument lifecycle contract"
 ```

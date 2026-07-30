@@ -18,7 +18,7 @@ CurrentStage =
   WAVE1_DESIGN_IN_PROGRESS
 
 Wave0ExecutionStatus = COMPLETE
-ActiveTaskCard = W1-D01
+ActiveTaskCard = W1-D02
 ActiveTaskCardStatus = READY
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
@@ -47,10 +47,11 @@ DirectFullImplementationStart = NO
 `08ddc00907a6ead84a526c71a2c0802f363fe614` 已通过一般审查和独立最终门禁，
 两阶段均为 `P0=0/P1=0/P2=0`，因此 `W0-G6 = PASS`，Wave 0 已关闭。
 
-当前进入 Wave 1 详细设计阶段。W1-D00 设计治理已关闭，W1-D01
-`SourceDocument` 身份与生命周期契约是唯一 `READY` 卡；W1-D02 至 W1-D05
-保持依赖阻断。该阶段只产出书面设计、设计验证和 Gate 记录，不创建解析器、
-页面、数据库对象、LLM 调用或业务实现卡。
+当前进入 Wave 1 详细设计阶段。W1-D00 设计治理与 W1-D01 `SourceDocument`
+身份和生命周期契约已关闭，`W1-DG1 = PASS`；W1-D02 `DocumentBlock` 保真与
+安全契约是唯一 `READY` 卡，W1-D03 至 W1-D05 保持依赖阻断。该阶段只产出
+书面设计、设计验证和 Gate 记录，不创建解析器、页面、数据库对象、LLM 调用
+或业务实现卡。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
