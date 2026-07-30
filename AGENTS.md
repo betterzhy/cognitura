@@ -14,18 +14,18 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  WAVE1_DESIGN_REVIEW_REPAIR_IN_PROGRESS
+  WAVE1_DESIGN_FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
-ActiveTaskCard = W1-D05
-ActiveTaskCardStatus = READY
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = NONE
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
 W0G5Status = PASS
 W0G6ReviewStatus = PASS
 Wave1FeatureDevelopmentEntry = GO
-Wave1DesignStatus = REVIEW_REPAIR_IN_PROGRESS
+Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
 Wave1ImplementationTaskCardSet = NOT_CREATED
 BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
@@ -33,10 +33,9 @@ DirectFullImplementationStart = NO
 
 Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、Golden Case
 回归资产、测试和 CI 基线以及页面/Renderer 契约。Wave 1 准入 GO 只允许按后续
-任务卡受控推进，不授权直接开始完整业务实现。用户在完整书面设计审阅中批准修复
-三个复审发现，W1-D05 已重新成为唯一 `READY` 设计卡；当前只允许修正 D00/D01/
-D03 契约、验证器和对应状态记录并重新执行固定候选复核。再次取得完整设计批准前，
-不得创建 Wave 1 实现卡、业务实现计划或业务代码。
+任务卡受控推进，不授权直接开始完整业务实现。Wave 1 详细设计复审修复和 W1-D05
+固定候选复核已完成；当前停止在用户完整书面设计审阅 Gate。再次取得用户批准前，
+不得创建 Wave 1 实现卡、实现计划或业务代码。
 
 ## 3. 正式事实来源
 

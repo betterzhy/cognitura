@@ -2,9 +2,9 @@
 
 ```text
 DecisionDate = 2026-07-30
-CurrentStage = WAVE1_DESIGN_REVIEW_REPAIR_IN_PROGRESS
-Wave1DesignStatus = REVIEW_REPAIR_IN_PROGRESS
-ActiveDesignTaskCard = W1-D05
+CurrentStage = WAVE1_DESIGN_FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+Wave1DesignStatus = FIXED_REVIEW_PASS_AWAITING_USER_APPROVAL
+ActiveDesignTaskCard = NONE
 Wave1ImplementationTaskCardSet = NOT_CREATED
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -24,7 +24,7 @@ W1-D01 SourceDocumentContract = DONE
 W1-D02 DocumentBlockFidelityAndSafety = DONE
 W1-D03 ReparseAndReferenceCompatibility = DONE
 W1-D04 SourcePreviewAndAcceptance = DONE
-W1-D05 FixedDesignReview = READY
+W1-D05 FixedDesignReview = DONE
 ```
 
 唯一正式索引是
@@ -33,12 +33,12 @@ W1-D05 FixedDesignReview = READY
 ## 3. Gate
 
 ```text
-W1-DG0 DesignGovernance = REPAIR_CANDIDATE_AWAITING_FIXED_REVIEW
-W1-DG1 SourceDocumentContract = REPAIR_CANDIDATE_AWAITING_FIXED_REVIEW
+W1-DG0 DesignGovernance = PASS
+W1-DG1 SourceDocumentContract = PASS
 W1-DG2 DocumentBlockFidelityAndSafety = PASS
-W1-DG3 ReparseAndReferenceCompatibility = REPAIR_CANDIDATE_AWAITING_FIXED_REVIEW
+W1-DG3 ReparseAndReferenceCompatibility = PASS
 W1-DG4 SourcePreviewAndAcceptance = PASS
-W1-DG5 FixedDesignReview = IN_PROGRESS
+W1-DG5 FixedDesignReview = PASS
 ```
 
 W1-D00 至 W1-D04 均使用 `gpt-5.6-sol/high` 设计 Gate；W1-D05 使用两个
@@ -51,7 +51,7 @@ W1-D00 至 W1-D04 均使用 `gpt-5.6-sol/high` 设计 Gate；W1-D05 使用两个
 - 用户审阅前不得编制或执行业务实现计划。
 - 正式数据库、远程推送、部署与发布均不在本计划授权内。
 
-固定候选 `3efe89fa532b7d58d7915dc891732dfdf5f4ee55` 的历史双阶段结论已被后续
-用户审阅发现取代。当前只执行经批准的三个设计修复；新固定候选必须重新通过两个
-独立 `gpt-5.6-sol/high` 阶段，完整证据持续记录在
+修复固定候选 `17dabff23b029e1a6fc7f47155f552ed3f16d775` 已重新通过两个
+独立 `gpt-5.6-sol/high` 阶段，均为零发现。当前停止在用户完整书面设计批准点；
+完整证据记录在
 [`cognitura-wave-1-design-acceptance.md`](cognitura-wave-1-design-acceptance.md)。

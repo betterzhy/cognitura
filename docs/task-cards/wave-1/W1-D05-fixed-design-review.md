@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-D05
 CardKind = DESIGN
-Status = READY
+Status = DONE
 Gate = W1-DG5 FixedDesignReview
 Risk = HIGH
 DependsOn = W1-D04
@@ -231,3 +231,32 @@ W1-DG5 FixedDesignReview = IN_PROGRESS
 claim 或 heartbeat 后的 stale expiry observation。修复必须把
 `expectedAttemptStatus + observedLeaseExpiresAt` 纳入超时 CAS，并新增
 identity-only 退化负例；随后形成新固定候选并从一般审查重新开始。
+
+第七轮修复候选与双阶段结论：
+
+```text
+ReviewedCandidate = 17dabff23b029e1a6fc7f47155f552ed3f16d775
+GeneralReviewModel = gpt-5.6-sol
+GeneralReviewReasoningEffort = high
+GeneralReviewVerdict = READY
+GeneralReviewP0 = 0
+GeneralReviewP1 = 0
+GeneralReviewP2 = 0
+FinalGateModel = gpt-5.6-sol
+FinalGateReasoningEffort = high
+FinalGateVerdict = GO
+FinalGateP0 = 0
+FinalGateP1 = 0
+FinalGateP2 = 0
+UltraModel = NOT_USED
+Wave1DesignVerification = PASS
+Wave0Regression = PASS
+W1-DG5 FixedDesignReview = PASS
+BusinessImplementation = NOT_AUTHORIZED
+Wave1ImplementationTaskCardSet = NOT_CREATED
+```
+
+两个 reviewer 相互独立并绑定同一固定候选。一般审查确认 lease expiry stale
+observation、section scope、`PENDING` 超时出口和实现授权边界均已闭合；最终
+Gate 未复用一般审查结论，独立裁决 `GO`。该 GO 只允许关闭 W1-D05 并等待用户
+完整书面设计批准，不授权实现。
