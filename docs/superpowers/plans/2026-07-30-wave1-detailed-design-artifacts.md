@@ -975,6 +975,7 @@ Do not push.
 - Modify: `docs/task-cards/wave-1/README.md`
 - Modify: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 - Test: `tests/contracts/wave1-design/verify-source-preview-contract.sh`
@@ -985,7 +986,7 @@ Do not push.
 - Consumes: D01 status, D02 blocks, D03 immutable references.
 - Produces: upload/status/preview application contract and `scripts/verify-wave1-design`.
 
-- [ ] **Step 1: Write failing source-preview contract verification**
+- [x] **Step 1: Write failing source-preview contract verification**
 
 Require exact use cases:
 
@@ -1012,7 +1013,7 @@ ExternalRelationshipAccessCount = 0
 Negative fixtures must accept offset pagination without stable revision, create preview-only
 content, allow an LLM summary, or permit external relationship access; each must fail.
 
-- [ ] **Step 2: Run and observe failure**
+- [x] **Step 2: Run and observe failure**
 
 Run:
 
@@ -1022,7 +1023,7 @@ bash tests/contracts/wave1-design/verify-source-preview-contract.sh
 
 Expected: FAIL because the D04 contract is missing.
 
-- [ ] **Step 3: Define command and query DTOs**
+- [x] **Step 3: Define command and query DTOs**
 
 Upload command:
 
@@ -1062,7 +1063,7 @@ Preview block DTO must be a direct projection of the D02 envelope and typed payl
 Mapper, storage key, raw XML, internal exception and binary filesystem path must never appear in
 Web DTOs.
 
-- [ ] **Step 4: Define HTTP semantics and error mapping**
+- [x] **Step 4: Define HTTP semantics and error mapping**
 
 Exact decisions:
 
@@ -1091,7 +1092,7 @@ sourceProcessingRevisionId
 
 The last two fields are nullable only before their identities exist.
 
-- [ ] **Step 5: Define Desktop Web state projection**
+- [x] **Step 5: Define Desktop Web state projection**
 
 The contract must map backend state to:
 
@@ -1113,7 +1114,7 @@ or external-reference markers.
 It must not show generated summaries, inferred headings, fetched external images, Skeleton,
 KnowledgeTheme, CognitiveModule, or KnowledgeElement.
 
-- [ ] **Step 6: Define acceptance layers**
+- [x] **Step 6: Define acceptance layers**
 
 The design must require later implementation to provide:
 
@@ -1133,7 +1134,7 @@ Golden:
 This design task does not run a new parser against the three originals. It may run existing W0
 guarded regression during final fixed-candidate verification.
 
-- [ ] **Step 7: Create the aggregate design verifier**
+- [x] **Step 7: Create the aggregate design verifier**
 
 Create executable `scripts/verify-wave1-design`:
 
@@ -1159,7 +1160,7 @@ Wave1SourcePreviewContract = PASS
 Wave1DesignContracts = PASS
 ```
 
-- [ ] **Step 8: Verify W1-D04**
+- [x] **Step 8: Verify W1-D04**
 
 Run:
 
@@ -1173,7 +1174,7 @@ git diff --check
 
 Expected: all PASS.
 
-- [ ] **Step 9: Sol/high review, state transition, and local commit**
+- [x] **Step 9: Sol/high review, state transition, and local commit**
 
 Review with `gpt-5.6-sol/high`, require P0/P1/P2 = 0, then update:
 
@@ -1194,6 +1195,7 @@ git add \
   docs/design/wave-1/cognitura-source-preview-contract-1.0.md \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-wave-1-design-plan.md \
+  docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md \
   docs/task-cards/wave-1 \
   scripts/verify-wave1-design \
   tests/contracts/wave1-design/verify-source-preview-contract.sh \

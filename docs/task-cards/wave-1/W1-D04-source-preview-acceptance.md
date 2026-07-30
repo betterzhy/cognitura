@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-D04
 CardKind = DESIGN
-Status = READY
+Status = DONE
 Gate = W1-DG4 SourcePreviewAndAcceptance
 Risk = HIGH
 DependsOn = W1-D03
@@ -32,6 +32,7 @@ ReviewRoute = SOL_HIGH_DESIGN_GATE
 - Modify: `docs/task-cards/wave-1/README.md`
 - Modify: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 
@@ -61,3 +62,20 @@ git diff --check
 ## 7. 提交与审查
 
 使用 `gpt-5.6-sol/high` 进行设计 Gate；形成独立本地提交，不推送。
+
+```text
+ReviewDate = 2026-07-30
+ReviewModel = gpt-5.6-sol
+ReviewReasoningEffort = high
+ReviewVerdict = READY
+ReviewP0 = 0
+ReviewP1 = 0
+ReviewP2 = 0
+SourcePreviewContractValidation = PASS
+SourcePreviewContractNegativeCases = 20
+Wave1DesignVerification = PASS
+RemotePush = NOT_PERFORMED
+```
+
+复审确认 Workspace 404 防枚举、processing HTTP/Location、固定 revision keyset、
+partial/complete 组合、Preview DTO allowlist、外链零操作与分层验收均闭合。

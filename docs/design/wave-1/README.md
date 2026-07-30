@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 Wave1DesignStatus = IN_PROGRESS
-ActiveDesignTaskCard = W1-D04
+ActiveDesignTaskCard = W1-D05
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -18,7 +18,7 @@ BusinessImplementation = NOT_AUTHORIZED
 | `W1-D01` | [SourceDocument 身份与生命周期](cognitura-source-document-contract-1.0.md) | `DONE` | `W1-DG1 PASS` |
 | `W1-D02` | [DocumentBlock 保真与安全](cognitura-document-block-contract-1.0.md) | `DONE` | `W1-DG2 PASS` |
 | `W1-D03` | [重解析与稳定引用](cognitura-reparse-reference-contract-1.0.md) | `DONE` | `W1-DG3 PASS` |
-| `W1-D04` | `cognitura-source-preview-contract-1.0.md` | `NOT_CREATED` | `W1-DG4 PENDING` |
+| `W1-D04` | [来源预览与验收](cognitura-source-preview-contract-1.0.md) | `DONE` | `W1-DG4 PASS` |
 
 `NOT_CREATED` 路径只是已批准计划中的目标名称，不是可引用的正式设计。
 

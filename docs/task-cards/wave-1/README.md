@@ -5,7 +5,7 @@ CanonicalProjectName = Cognitura
 TaskCardSet = WAVE1_DESIGN
 TaskCardIDs = W1-D00,W1-D01,W1-D02,W1-D03,W1-D04,W1-D05
 TaskCardCount = 6
-ActiveTaskCard = W1-D04
+ActiveTaskCard = W1-D05
 TaskCardSetStatus = READY_FOR_EXECUTION
 Wave1DesignStatus = IN_PROGRESS
 BusinessImplementation = NOT_AUTHORIZED
@@ -22,8 +22,8 @@ BusinessImplementation = NOT_AUTHORIZED
 | `W1-D01` | [SourceDocument 契约](W1-D01-source-document-contract.md) | `DONE` | `W1-D00` | `W1-DG1` | `HIGH` |
 | `W1-D02` | [DocumentBlock 契约](W1-D02-document-block-contract.md) | `DONE` | `W1-D01` | `W1-DG2` | `HIGH` |
 | `W1-D03` | [重解析与稳定引用](W1-D03-reparse-reference-contract.md) | `DONE` | `W1-D02` | `W1-DG3` | `HIGH` |
-| `W1-D04` | [来源预览与验收](W1-D04-source-preview-acceptance.md) | `READY` | `W1-D03` | `W1-DG4` | `HIGH` |
-| `W1-D05` | [固定设计候选复核](W1-D05-fixed-design-review.md) | `BLOCKED_BY_DEPENDENCY` | `W1-D04` | `W1-DG5` | `HIGH` |
+| `W1-D04` | [来源预览与验收](W1-D04-source-preview-acceptance.md) | `DONE` | `W1-D03` | `W1-DG4` | `HIGH` |
+| `W1-D05` | [固定设计候选复核](W1-D05-fixed-design-review.md) | `READY` | `W1-D04` | `W1-DG5` | `HIGH` |
 
 ## 2. 状态模型
 
@@ -70,5 +70,5 @@ ExpectedWave1DesignTaskCardContractTests = PASS
 ExpectedWave1DesignTaskCardValidation = PASS
 ExpectedTaskCardCount = 6
 ExpectedTaskCardSetStatus = READY_FOR_EXECUTION
-ExpectedActiveTaskCard = W1-D04
+ExpectedActiveTaskCard = W1-D05
 ```

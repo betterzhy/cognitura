@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-D05
 CardKind = DESIGN
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W1-DG5 FixedDesignReview
 Risk = HIGH
 DependsOn = W1-D04
