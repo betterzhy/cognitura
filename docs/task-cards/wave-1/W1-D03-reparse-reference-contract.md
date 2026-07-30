@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-D03
 CardKind = DESIGN
-Status = READY
+Status = DONE
 Gate = W1-DG3 ReparseAndReferenceCompatibility
 Risk = HIGH
 DependsOn = W1-D02
@@ -30,6 +30,7 @@ ReviewRoute = SOL_HIGH_DESIGN_GATE
 - Modify: `docs/task-cards/wave-1/README.md`
 - Modify: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 
@@ -58,3 +59,19 @@ EvidenceReference 所需字段保持兼容。
 ## 7. 提交与审查
 
 使用 `gpt-5.6-sol/high` 进行设计 Gate；形成独立本地提交，不推送。
+
+```text
+ReviewDate = 2026-07-30
+ReviewModel = gpt-5.6-sol
+ReviewReasoningEffort = high
+ReviewVerdict = READY
+ReviewP0 = 0
+ReviewP1 = 0
+ReviewP2 = 0
+ReparseReferenceContractValidation = PASS
+ReparseReferenceContractNegativeCases = 22
+RemotePush = NOT_PERFORMED
+```
+
+复审确认 versioned alias canonicalization、terminal reparse、lineage 全覆盖与
+作用域、Wave 2 有序只读消费和 EvidenceReference 字段所有权均闭合。

@@ -18,7 +18,7 @@ CurrentStage =
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
-ActiveTaskCard = W1-D03
+ActiveTaskCard = W1-D04
 ActiveTaskCardStatus = READY
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS

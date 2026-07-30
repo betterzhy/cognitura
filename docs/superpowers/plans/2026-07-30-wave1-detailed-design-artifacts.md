@@ -807,6 +807,7 @@ Do not push.
 - Modify: `docs/task-cards/wave-1/README.md`
 - Modify: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
 - Test: `tests/contracts/wave1-design/verify-reparse-reference-contract.sh`
@@ -816,7 +817,7 @@ Do not push.
 - Consumes: D01 processing revision and D02 block envelope.
 - Produces: immutable `DocumentBlockRef` and `BlockLineageMap` contract for Wave 2/3 consumers.
 
-- [ ] **Step 1: Write the failing contract test**
+- [x] **Step 1: Write the failing contract test**
 
 Require:
 
@@ -833,7 +834,7 @@ AmbiguousLineageAutoResolution = FORBIDDEN
 Negative fixtures must allow silent retargeting, omit `REMOVED`, or claim a new parser profile
 reuses the old revision; each must fail.
 
-- [ ] **Step 2: Run and observe failure**
+- [x] **Step 2: Run and observe failure**
 
 Run:
 
@@ -843,7 +844,7 @@ bash tests/contracts/wave1-design/verify-reparse-reference-contract.sh
 
 Expected: FAIL because the D03 contract is missing.
 
-- [ ] **Step 3: Define immutable references**
+- [x] **Step 3: Define immutable references**
 
 Exact public reference:
 
@@ -865,7 +866,7 @@ Rules:
 - Consumers must opt into a new revision; no query may silently substitute an active block for
   an historical block.
 
-- [ ] **Step 4: Define idempotency and lineage**
+- [x] **Step 4: Define idempotency and lineage**
 
 Exact reparse decisions:
 
@@ -896,7 +897,7 @@ source position, or explicit user decision. It is not an LLM confidence score.
 `AMBIGUOUS` must remain unresolved until a later user or authorized design decision; it may not
 retarget EvidenceReference automatically.
 
-- [ ] **Step 5: Define Wave 2/3 read-only compatibility**
+- [x] **Step 5: Define Wave 2/3 read-only compatibility**
 
 Allowed consumers:
 
@@ -913,7 +914,7 @@ No consumer may update Wave 1 blocks. The contract must explicitly map D02 field
 Baseline 2.0 §6.8 and document that `EvidenceReference` stores summaries/metadata rather than
 copying the full source.
 
-- [ ] **Step 6: Verify all three source contracts**
+- [x] **Step 6: Verify all three source contracts**
 
 Run:
 
@@ -928,7 +929,7 @@ git diff --check
 
 Expected: all PASS.
 
-- [ ] **Step 7: Sol/high review, state transition, and local commit**
+- [x] **Step 7: Sol/high review, state transition, and local commit**
 
 Review with `gpt-5.6-sol/high`, require P0/P1/P2 = 0, then update:
 
@@ -949,6 +950,7 @@ git add \
   docs/design/wave-1/cognitura-reparse-reference-contract-1.0.md \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-wave-1-design-plan.md \
+  docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md \
   docs/task-cards/wave-1 \
   tests/contracts/wave1-design/verify-reparse-reference-contract.sh
 git diff --cached --check
