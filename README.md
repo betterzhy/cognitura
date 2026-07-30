@@ -15,11 +15,11 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  WAVE1_ENTRY_APPROVED
+  WAVE1_DESIGN_IN_PROGRESS
 
 Wave0ExecutionStatus = COMPLETE
-ActiveTaskCard = NONE
-ActiveTaskCardStatus = NONE
+ActiveTaskCard = W1-D01
+ActiveTaskCardStatus = READY
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
 W0G5Status = PASS
@@ -30,6 +30,9 @@ W0G6ReviewStatus = PASS
 W0G6ReviewedCommit = 08ddc00907a6ead84a526c71a2c0802f363fe614
 W0G6CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
 Wave1FeatureDevelopmentEntry = GO
+Wave1DesignStatus = IN_PROGRESS
+Wave1ImplementationTaskCardSet = NOT_CREATED
+BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
 
@@ -43,6 +46,11 @@ DirectFullImplementationStart = NO
 均已通过，`W0-G5 = PASS`。W0-08 的固定候选
 `08ddc00907a6ead84a526c71a2c0802f363fe614` 已通过一般审查和独立最终门禁，
 两阶段均为 `P0=0/P1=0/P2=0`，因此 `W0-G6 = PASS`，Wave 0 已关闭。
+
+当前进入 Wave 1 详细设计阶段。W1-D00 设计治理已关闭，W1-D01
+`SourceDocument` 身份与生命周期契约是唯一 `READY` 卡；W1-D02 至 W1-D05
+保持依赖阻断。该阶段只产出书面设计、设计验证和 Gate 记录，不创建解析器、
+页面、数据库对象、LLM 调用或业务实现卡。
 
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
@@ -90,6 +98,9 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [Wave 0 任务卡索引](docs/task-cards/README.md)
 - [Wave 0 开发准入裁决](docs/engineering/cognitura-wave-0-entry-decision.md)
 - [Wave 1 准入裁决](docs/engineering/cognitura-wave-1-entry-decision.md)
+- [Wave 1 详细设计计划](docs/engineering/cognitura-wave-1-design-plan.md)
+- [Wave 1 设计任务卡索引](docs/task-cards/wave-1/README.md)
+- [Wave 1 设计治理说明](docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md)
 
 ## 当前准入
 
@@ -97,6 +108,8 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
 Wave1FeatureDevelopmentEntry = GO
+Wave1DesignStatus = IN_PROGRESS
+BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
 

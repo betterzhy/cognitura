@@ -14,23 +14,28 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  WAVE1_ENTRY_APPROVED
+  WAVE1_DESIGN_IN_PROGRESS
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
-ActiveTaskCard = NONE
-ActiveTaskCardStatus = NONE
+ActiveTaskCard = W1-D01
+ActiveTaskCardStatus = READY
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
 W0G5Status = PASS
 W0G6ReviewStatus = PASS
 Wave1FeatureDevelopmentEntry = GO
+Wave1DesignStatus = IN_PROGRESS
+Wave1ImplementationTaskCardSet = NOT_CREATED
+BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
 
 Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、Golden Case
 回归资产、测试和 CI 基线以及页面/Renderer 契约。Wave 1 准入 GO 只允许按后续
-任务卡受控推进，不授权直接开始完整业务实现。
+任务卡受控推进，不授权直接开始完整业务实现。当前只执行
+`docs/task-cards/wave-1/` 下的详细设计卡；W1-D05 完成并再次取得用户批准前，
+不得创建 Wave 1 实现卡。
 
 ## 3. 正式事实来源
 
@@ -114,10 +119,11 @@ V1Architecture = MODULAR_MONOLITH
 2. 检查真实目录、Git 状态、当前分支、最近提交和未提交修改。
 3. 保留用户修改；不得 reset、覆盖、amend 或把无关修改混入当前提交。
 4. 先写失败的验证或契约测试，再实现最小变更。
-5. 每项 Wave 0 资产必须有可复现的验证命令和明确 Gate 结果。
+5. 每项 Wave 资产必须有可复现的验证命令和明确 Gate 结果。
 6. 只执行唯一 `READY` 卡的写集；依赖阻断、文档缺口或排队卡不得提前实施。
-7. 完成卡片时同步任务卡索引、Wave 0 计划和准入记录，并运行
-   `bash tests/task-cards/verify-task-cards.sh`。
+7. 完成卡片时同步对应任务卡索引、工程计划和准入记录；Wave 0 运行
+   `bash tests/task-cards/verify-task-cards.sh`，Wave 1 设计运行
+   `bash tests/task-cards/verify-wave1-design-cards.sh`。
 
 ## 8. Agent 路由
 
@@ -128,6 +134,9 @@ V1Architecture = MODULAR_MONOLITH
   `ultra_gatekeeper`。
 - W0-08 采用用户于 `2026-07-30` 明确指定的例外：一般审查与最终门禁均使用
   `gpt-5.6-sol/high`，不使用 ultra 模型，但必须保持两个独立审查阶段。
+- Wave 1 详细设计采用用户批准的路由：W1-D00 至 W1-D04 使用
+  `gpt-5.6-sol/high` 设计 Gate；W1-D05 使用两个相互独立的
+  `gpt-5.6-sol/high` 审查阶段，不使用 ultra 模型。
 - 没有独立、边界清晰的子任务时保持 Solo。
 
 ## 9. 准入门禁
@@ -142,8 +151,18 @@ W0-G4 GoldenCaseRegression
 W0-G4A UiContractValidation
 W0-G5 TestAndCI
 W0-G6 FixedCommitReview
+W1-DG0 DesignGovernance
+W1-DG1 SourceDocumentContract
+W1-DG2 DocumentBlockFidelityAndSafety
+W1-DG3 ReparseAndReferenceCompatibility
+W1-DG4 SourcePreviewAndAcceptance
+W1-DG5 FixedDesignReview
 ```
 
 只有以上 Gate 全部为 `PASS`，且固定候选提交通过适用的独立最终准入复核，
 才允许把 `Wave1FeatureDevelopmentEntry` 改为 `GO`。W0-08 的适用模型例外
 以第 8 节为准。
+
+Wave 1 设计 Gate 只授权书面设计推进，不授权业务实现。只有 W1-DG0 至 W1-DG5
+全部 `PASS`，完整书面设计再次取得用户批准，并另行建立实现任务卡后，才允许
+讨论最小实现卡的 `READY` 状态。

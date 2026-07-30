@@ -89,6 +89,7 @@
 - Create: `docs/engineering/cognitura-wave-1-design-plan.md`
 - Create: `scripts/verify-wave1-design-cards`
 - Create: `tests/task-cards/verify-wave1-design-cards.sh`
+- Modify: `docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md`
 - Modify: `docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
 - Modify: `AGENTS.md`
@@ -148,7 +149,7 @@ dependency cycle detected
 ActiveTaskCard W1-D02 is not READY
 Gate mismatch for W1-D03
 design card write set contains forbidden path: server/src
-implementation card is forbidden before W1-D05 completion
+implementation card is forbidden before explicit post-design user approval
 ```
 
 - [ ] **Step 3: 运行测试并观察预期失败**
@@ -189,6 +190,10 @@ for task_id in "${declared_ids[@]}"; do
     fail "cannot resolve declared TaskCardID: ${task_id}"
 done
 ```
+
+验证器还必须枚举目录中的全部 `W1-D*.md`，要求实际文件集合与 `TaskCardIDs`
+声明一一相等；例如 `W1-D99-undeclared.md` 必须以
+`undeclared design task card: W1-D99-undeclared.md` 拒绝。
 
 每张卡精确要求：
 
@@ -244,7 +249,8 @@ raw/
 .github/
 ```
 
-同时拒绝卡目录内任何 `W1-I*.md`。
+同时无条件拒绝卡目录内任何 `W1-I*.md`；即使 W1-D05 已完成，仍需后续用户
+明确批准和独立实现卡流程，当前设计验证器不得自行放行。
 
 - [ ] **Step 5: 创建六张设计卡与索引**
 
@@ -354,6 +360,7 @@ git add \
   README.md \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-wave-1-design-plan.md \
+  docs/superpowers/plans/2026-07-30-wave1-detailed-design-artifacts.md \
   docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md \
   docs/task-cards/wave-1 \
   scripts/verify-wave1-design-cards \

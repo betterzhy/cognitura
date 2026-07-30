@@ -1,0 +1,374 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --cards-dir <path>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'Wave1DesignTaskCardValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+cards_dir=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --cards-dir)
+      [[ "$#" -ge 2 ]] || usage
+      cards_dir="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+[[ -n "${cards_dir}" ]] || usage
+[[ -d "${cards_dir}" ]] ||
+  fail "cards directory does not exist: ${cards_dir}"
+[[ -f "${cards_dir}/README.md" ]] ||
+  fail "task card index is missing: README.md"
+
+field_value() {
+  local file="$1"
+  local field="$2"
+  sed -n "s/^${field} = //p" "${file}"
+}
+
+index_field_value() {
+  local field="$1"
+  local count
+  count="$(grep -c "^${field} = " "${cards_dir}/README.md" || true)"
+  [[ "${count}" -gt 0 ]] ||
+    fail "README.md: missing required field: ${field}"
+  [[ "${count}" -eq 1 ]] ||
+    fail "README.md: expected one ${field} field, found ${count}"
+  field_value "${cards_dir}/README.md" "${field}"
+}
+
+contains_value() {
+  local expected="$1"
+  shift
+  local value
+  for value in "$@"; do
+    if [[ "${value}" == "${expected}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+index_for_id() {
+  local expected="$1"
+  local index=0
+  local value
+  for value in "${card_ids[@]}"; do
+    if [[ "${value}" == "${expected}" ]]; then
+      printf '%s\n' "${index}"
+      return 0
+    fi
+    index=$((index + 1))
+  done
+  return 1
+}
+
+write_set_contains_forbidden_path() {
+  local file="$1"
+  local forbidden="$2"
+  awk '
+    /^## 3[.] 写集$/ { in_write_set=1; next }
+    /^## 4[.] 执行步骤$/ { in_write_set=0 }
+    in_write_set { print }
+  ' "${file}" | grep -Fq "${forbidden}"
+}
+
+task_card_set="$(index_field_value "TaskCardSet")"
+[[ "${task_card_set}" == "WAVE1_DESIGN" ]] ||
+  fail "README.md: TaskCardSet must be WAVE1_DESIGN"
+
+declared_ids_value="$(index_field_value "TaskCardIDs")"
+[[ -n "${declared_ids_value}" ]] ||
+  fail "README.md: TaskCardIDs is missing"
+
+IFS=',' read -r -a declared_ids <<< "${declared_ids_value}"
+declared_count="${#declared_ids[@]}"
+index_count="$(index_field_value "TaskCardCount")"
+[[ "${index_count}" == "${declared_count}" ]] ||
+  fail "README.md: TaskCardCount ${index_count} does not match declared IDs ${declared_count}"
+
+shopt -s nullglob
+actual_design_files=("${cards_dir}"/W1-D*.md)
+implementation_files=("${cards_dir}"/W1-I*.md)
+shopt -u nullglob
+
+for actual_file in "${actual_design_files[@]}"; do
+  actual_filename="$(basename "${actual_file}")"
+  actual_id="$(field_value "${actual_file}" "TaskCardID")"
+  if [[ -z "${actual_id}" ]] ||
+    ! contains_value "${actual_id}" "${declared_ids[@]}"; then
+    fail "undeclared design task card: ${actual_filename}"
+  fi
+done
+
+[[ "${#actual_design_files[@]}" -eq "${declared_count}" ]] ||
+  fail "actual design task card count ${#actual_design_files[@]} does not match declared IDs ${declared_count}"
+
+if [[ "${#implementation_files[@]}" -gt 0 ]]; then
+  fail "implementation card is forbidden before explicit post-design user approval"
+fi
+
+required_fields=(
+  "TaskCardID"
+  "CardKind"
+  "Status"
+  "Gate"
+  "Risk"
+  "DependsOn"
+  "ReviewRoute"
+)
+
+required_sections=(
+  "## 1. 目标"
+  "## 2. 前置条件与输入"
+  "## 3. 写集"
+  "## 4. 执行步骤"
+  "## 5. 验证命令"
+  "## 6. Gate 与完成定义"
+  "## 7. 提交与审查"
+)
+
+card_ids=()
+card_dependencies=()
+card_statuses=()
+ready_count=0
+done_count=0
+
+for declared_id in "${declared_ids[@]}"; do
+  shopt -s nullglob
+  matches=("${cards_dir}/${declared_id}-"*.md)
+  shopt -u nullglob
+  [[ "${#matches[@]}" -eq 1 ]] ||
+    fail "cannot resolve declared TaskCardID: ${declared_id}"
+  file="${matches[0]}"
+  filename="$(basename "${file}")"
+
+  for field in "${required_fields[@]}"; do
+    field_count="$(grep -c "^${field} = " "${file}" || true)"
+    [[ "${field_count}" -gt 0 ]] ||
+      fail "${filename}: missing required field: ${field}"
+    [[ "${field_count}" -eq 1 ]] ||
+      fail "${filename}: expected one ${field} field, found ${field_count}"
+  done
+
+  for section in "${required_sections[@]}"; do
+    grep -Fqx "${section}" "${file}" ||
+      fail "${filename}: missing required section: ${section}"
+  done
+
+  task_id="$(field_value "${file}" "TaskCardID")"
+  card_kind="$(field_value "${file}" "CardKind")"
+  status="$(field_value "${file}" "Status")"
+  gate="$(field_value "${file}" "Gate")"
+  risk="$(field_value "${file}" "Risk")"
+  depends_on="$(field_value "${file}" "DependsOn")"
+  review_route="$(field_value "${file}" "ReviewRoute")"
+
+  if [[ "${#card_ids[@]}" -gt 0 ]] &&
+    contains_value "${task_id}" "${card_ids[@]}"; then
+    fail "duplicate TaskCardID: ${task_id}"
+  fi
+  card_ids+=("${task_id}")
+  card_dependencies+=("${depends_on}")
+  card_statuses+=("${status}")
+
+  [[ "${task_id}" == "${declared_id}" ]] ||
+    fail "${filename}: TaskCardID ${task_id} does not match declared ID ${declared_id}"
+  [[ "${filename}" == "${task_id}-"* ]] ||
+    fail "${filename}: filename does not match TaskCardID ${task_id}"
+  [[ "${card_kind}" == "DESIGN" ]] ||
+    fail "${filename}: CardKind must be DESIGN"
+
+  case "${status}" in
+    DONE|READY|QUEUED|BLOCKED_BY_DEPENDENCY|BLOCKED_BY_DOCUMENTATION_GAP)
+      ;;
+    *)
+      fail "${filename}: invalid Status: ${status}"
+      ;;
+  esac
+
+  if [[ "${status}" == "READY" ]]; then
+    ready_count=$((ready_count + 1))
+  fi
+  if [[ "${status}" == "DONE" ]]; then
+    done_count=$((done_count + 1))
+  fi
+
+  case "${risk}" in
+    LOW|MEDIUM|HIGH)
+      ;;
+    *)
+      fail "${filename}: invalid Risk: ${risk}"
+      ;;
+  esac
+
+  expected_gate=""
+  expected_review_route=""
+  case "${task_id}" in
+    W1-D00)
+      expected_gate="W1-DG0 DesignGovernance"
+      expected_review_route="SOL_HIGH_DESIGN_GATE"
+      ;;
+    W1-D01)
+      expected_gate="W1-DG1 SourceDocumentContract"
+      expected_review_route="SOL_HIGH_DESIGN_GATE"
+      ;;
+    W1-D02)
+      expected_gate="W1-DG2 DocumentBlockFidelityAndSafety"
+      expected_review_route="SOL_HIGH_DESIGN_GATE"
+      ;;
+    W1-D03)
+      expected_gate="W1-DG3 ReparseAndReferenceCompatibility"
+      expected_review_route="SOL_HIGH_DESIGN_GATE"
+      ;;
+    W1-D04)
+      expected_gate="W1-DG4 SourcePreviewAndAcceptance"
+      expected_review_route="SOL_HIGH_DESIGN_GATE"
+      ;;
+    W1-D05)
+      expected_gate="W1-DG5 FixedDesignReview"
+      expected_review_route="SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE"
+      ;;
+    *)
+      fail "${filename}: unsupported TaskCardID ${task_id}"
+      ;;
+  esac
+
+  [[ "${gate}" == "${expected_gate}" ]] ||
+    fail "Gate mismatch for ${task_id}: '${gate}' != '${expected_gate}'"
+  [[ "${review_route}" == "${expected_review_route}" ]] ||
+    fail "${filename}: invalid ReviewRoute ${review_route}"
+
+  for forbidden_path in \
+    "server/src" \
+    "web/src" \
+    "db/migration" \
+    "raw/" \
+    ".github/"; do
+    if write_set_contains_forbidden_path "${file}" "${forbidden_path}"; then
+      fail "design card write set contains forbidden path: ${forbidden_path}"
+    fi
+  done
+done
+
+for dependency_list in "${card_dependencies[@]}"; do
+  if [[ "${dependency_list}" == "NONE" ]]; then
+    continue
+  fi
+  IFS=',' read -r -a dependencies <<< "${dependency_list}"
+  for dependency in "${dependencies[@]}"; do
+    contains_value "${dependency}" "${card_ids[@]}" ||
+      fail "unknown dependency ${dependency}"
+  done
+done
+
+remaining=("${card_ids[@]}")
+removed=()
+while [[ "${#remaining[@]}" -gt 0 ]]; do
+  next_remaining=()
+  progress=0
+  for task_id in "${remaining[@]}"; do
+    task_index="$(index_for_id "${task_id}")"
+    dependency_list="${card_dependencies[task_index]}"
+    dependencies_satisfied=1
+    if [[ "${dependency_list}" != "NONE" ]]; then
+      IFS=',' read -r -a dependencies <<< "${dependency_list}"
+      for dependency in "${dependencies[@]}"; do
+        if [[ "${#removed[@]}" -eq 0 ]] ||
+          ! contains_value "${dependency}" "${removed[@]}"; then
+          dependencies_satisfied=0
+          break
+        fi
+      done
+    fi
+    if [[ "${dependencies_satisfied}" -eq 1 ]]; then
+      removed+=("${task_id}")
+      progress=$((progress + 1))
+    else
+      next_remaining+=("${task_id}")
+    fi
+  done
+  [[ "${progress}" -gt 0 ]] || fail "dependency cycle detected"
+  if [[ "${#next_remaining[@]}" -eq 0 ]]; then
+    remaining=()
+  else
+    remaining=("${next_remaining[@]}")
+  fi
+done
+
+for task_id in "${card_ids[@]}"; do
+  task_index="$(index_for_id "${task_id}")"
+  status="${card_statuses[task_index]}"
+  dependency_list="${card_dependencies[task_index]}"
+  if [[ "${status}" == "DONE" || "${status}" == "READY" ]]; then
+    if [[ "${dependency_list}" == "NONE" ]]; then
+      continue
+    fi
+    IFS=',' read -r -a dependencies <<< "${dependency_list}"
+    for dependency in "${dependencies[@]}"; do
+      dependency_index="$(index_for_id "${dependency}")"
+      dependency_status="${card_statuses[dependency_index]}"
+      [[ "${dependency_status}" == "DONE" ]] ||
+        fail "${task_id}: ${status} dependency ${dependency} is not DONE"
+    done
+  fi
+done
+
+task_card_set_status="$(index_field_value "TaskCardSetStatus")"
+active_task_card="$(index_field_value "ActiveTaskCard")"
+
+case "${task_card_set_status}" in
+  READY_FOR_EXECUTION)
+    [[ "${ready_count}" -eq 1 ]] ||
+      fail "expected exactly one READY task card, found ${ready_count}"
+    contains_value "${active_task_card}" "${card_ids[@]}" ||
+      fail "README.md: unknown ActiveTaskCard ${active_task_card}"
+    active_index="$(index_for_id "${active_task_card}")"
+    active_status="${card_statuses[active_index]}"
+    [[ "${active_status}" == "READY" ]] ||
+      fail "ActiveTaskCard ${active_task_card} is not READY"
+    ;;
+  BLOCKED_BY_DOCUMENTATION_GAP)
+    [[ "${ready_count}" -eq 0 ]] ||
+      fail "blocked task card set must have zero READY task cards"
+    [[ "${active_task_card}" == "NONE" ]] ||
+      fail "blocked task card set must use ActiveTaskCard NONE"
+    documentation_gap_count=0
+    for status in "${card_statuses[@]}"; do
+      if [[ "${status}" == "BLOCKED_BY_DOCUMENTATION_GAP" ]]; then
+        documentation_gap_count=$((documentation_gap_count + 1))
+      fi
+    done
+    [[ "${documentation_gap_count}" -gt 0 ]] ||
+      fail "blocked task card set has no documentation-gap card"
+    ;;
+  COMPLETE)
+    [[ "${ready_count}" -eq 0 ]] ||
+      fail "complete task card set must have zero READY task cards"
+    [[ "${done_count}" -eq "${declared_count}" ]] ||
+      fail "complete task card set must have all task cards DONE"
+    [[ "${active_task_card}" == "NONE" ]] ||
+      fail "complete task card set must use ActiveTaskCard NONE"
+    ;;
+  *)
+    fail "README.md: invalid TaskCardSetStatus ${task_card_set_status}"
+    ;;
+esac
+
+printf '%s\n' \
+  "Wave1DesignTaskCardValidation = PASS" \
+  "TaskCardCount = ${declared_count}" \
+  "TaskCardSetStatus = ${task_card_set_status}" \
+  "ActiveTaskCard = ${active_task_card}"

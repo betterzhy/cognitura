@@ -4,8 +4,10 @@
 DesignSliceID = W1-D00
 DesignDate = 2026-07-30
 CanonicalProjectName = Cognitura
-CurrentStage = WAVE1_ENTRY_APPROVED
-DesignStatus = PROPOSED_FOR_USER_REVIEW
+CurrentStage = WAVE1_DESIGN_IN_PROGRESS
+DesignStatus = APPROVED
+ActiveDesignTaskCard = W1-D01
+W1-DG0 DesignGovernance = PASS
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 DeploymentAndRelease = NOT_AUTHORIZED
@@ -16,9 +18,10 @@ DeploymentAndRelease = NOT_AUTHORIZED
 本说明固定 Cognitura Wave 1 详细设计阶段的治理边界、设计切片、任务卡模型、
 Gate、验证器方案和从设计进入实现的授权条件。
 
-Wave 1 已通过准入，但当前不存在 `READY` 任务卡。准入只允许准备后续正式任务
-卡，不允许直接实现完整业务功能。因此，本说明只建立设计阶段的可验证秩序，
-不创建 DOCX 解析器、页面、数据库对象或 LLM 调用。
+Wave 1 已通过准入，W1-D00 治理切片已关闭，W1-D01 是当前唯一 `READY`
+设计卡。准入只允许按设计卡推进书面契约，不允许直接实现完整业务功能。因此，
+本说明只建立设计阶段的可验证秩序，不创建 DOCX 解析器、页面、数据库对象或
+LLM 调用。
 
 ## 2. 正式来源与权威边界
 
@@ -369,6 +372,8 @@ W1 验证器必须检查：
 
 - 只扫描 `docs/task-cards/wave-1/W1-D*.md`；
 - 卡片数量和允许 ID 由 W1 索引显式声明，不在脚本中复制隐式数量；
+- 目录中的实际 `W1-D*.md` 集合必须与索引声明一一相等，任何未声明设计卡
+  都必须失败；
 - ID、文件名、必填字段、必填章节、依赖、Gate、风险和审查路线一致；
 - 依赖形成有向无环图；
 - 不允许依赖不存在的卡、依赖自身或形成循环；
@@ -377,9 +382,10 @@ W1 验证器必须检查：
 - `READY` 卡的依赖必须全部为 `DONE`；
 - 设计卡写集不得包含 `server/src`、`web/src`、Flyway migration 或正式数据库
   配置；
-- W1-D05 未完成时不存在 `W1-I*.md`；
-- 负例至少覆盖重复 ID、未知依赖、循环依赖、第二张 READY、活动卡不一致、
-  非法 Gate、越界写集和提前创建实现卡。
+- 无论 W1-D05 是否完成，在完整书面设计取得后续用户明确批准前，都不存在
+  `W1-I*.md`；本设计验证器始终无条件拒绝实现卡；
+- 负例至少覆盖重复 ID、未声明设计卡、未知依赖、循环依赖、第二张 READY、
+  活动卡不一致、非法 Gate、越界写集、设计完成但未获用户批准即创建实现卡。
 
 ### 7.3 与统一质量门的关系
 
@@ -476,6 +482,10 @@ CurrentStatus
 ```bash
 rg -n '[T]BD|[T]ODO|[待]定|BusinessImplementation = [A]UTHORIZED' \
   docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md
+bash tests/task-cards/verify-wave1-design-cards.sh
+scripts/verify-wave1-design-cards --cards-dir docs/task-cards/wave-1
+bash tests/task-cards/verify-task-cards.sh
+bash tests/ci/verify-markdown-links.sh
 git diff --check
 git status --short
 ```
@@ -483,13 +493,17 @@ git status --short
 预期结果：
 
 - 占位符与越界授权扫描无匹配；
+- W1 设计卡正例、11 个负例与 COMPLETE 终态通过；
+- W0 历史任务卡和 Markdown 链接回归通过；
 - `git diff --check` 退出码为 0；
-- 工作树只新增本说明和原有未跟踪用户目录 `.idea/`；
-- W0 任务卡、校验器、业务源码、原件和正式数据库配置均未修改。
+- 工作树只包含 W1-D00 任务卡写集和原有未跟踪用户目录 `.idea/`；
+- W0 任务卡/验证器、业务源码、原件和正式数据库配置均未修改；
+- W1-D01 是唯一 `READY`，W1-D02 至 W1-D05 保持依赖阻断。
 
 ## 12. 本切片之后
 
-用户批准本说明后，下一步是编制只覆盖 Wave 1 设计产物的详细执行计划。该计划
-先建立设计卡与验证器，再逐张完成 W1-D01 至 W1-D05；它不得包含业务实现步骤。
+本说明和只覆盖 Wave 1 设计产物的详细执行计划已经用户批准。当前下一步是执行
+唯一 `READY` 的 W1-D01，并依次完成 W1-D02 至 W1-D05；执行过程不得包含业务
+实现步骤。
 
 完整 Wave 1 书面设计再次经用户批准后，才能另行编制业务实现计划。
