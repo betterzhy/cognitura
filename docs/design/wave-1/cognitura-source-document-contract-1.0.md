@@ -33,6 +33,9 @@ DuplicateBytesAcrossDifferentRequests = DISTINCT_SOURCE_DOCUMENT_SHARED_BINARY
 SameIdempotencyKeySameBytes = RETURN_EXISTING_SOURCE_DOCUMENT
 SameIdempotencyKeyDifferentBytes = IDEMPOTENCY_CONFLICT
 SourceOriginalMutation = FORBIDDEN
+PreRegistrationValidation = MEDIA_TYPE_NONEMPTY_SIZE_AND_DECLARED_HASH
+PreRegistrationRejectionCreatesSourceDocument = NO
+FormalSourceRegistration = AFTER_PRE_REGISTRATION_PASS
 ```
 
 三类身份不得混用：
@@ -46,6 +49,13 @@ SourceOriginalMutation = FORBIDDEN
 
 原始文件名只是显示元数据。不同内容使用相同文件名不会合并；相同内容使用不同
 文件名也不会在没有相同幂等键时合并逻辑上传。
+
+流式接收先进入无正式身份的隔离输入端口，只计算真实 media type、byte length
+和 SHA-256，并校验声明 hash。media type 不支持、空文件、超过 raw limit 或声明
+hash 不匹配时立即拒绝，清理隔离输入，不创建 `SourceDocument`、`SourceBinary`
+或幂等记录。四项预注册校验全部通过后，才原子创建正式来源/二进制身份和
+`RECEIVED` 状态。DOCX 容器安全与格式校验发生在正式注册之后，因此可以形成
+可审计的 `REJECTED` SourceDocument，且不会违反 `byteLength > 0`。
 
 ## 3. 对象职责
 
@@ -417,10 +427,10 @@ PARSER_TERMINAL_FAILURE
 
 | 错误码 | 状态 | retryable |
 |---|---|---|
-| `UNSUPPORTED_MEDIA_TYPE` | `REJECTED` | `false` |
-| `EMPTY_SOURCE_FILE` | `REJECTED` | `false` |
-| `SOURCE_SIZE_LIMIT` | `REJECTED` | `false` |
-| `SOURCE_HASH_MISMATCH` | `REJECTED` | `false` |
+| `UNSUPPORTED_MEDIA_TYPE` | 不产生新状态 | `false` |
+| `EMPTY_SOURCE_FILE` | 不产生新状态 | `false` |
+| `SOURCE_SIZE_LIMIT` | 不产生新状态 | `false` |
+| `SOURCE_HASH_MISMATCH` | 不产生新状态 | `false` |
 | `IDEMPOTENCY_CONFLICT` | 不产生新状态 | `false` |
 | `DOCX_SECURITY_REJECTED` | `REJECTED` | `false` |
 | `DOCX_FORMAT_INVALID` | `REJECTED` 或 `FAILED_TERMINAL` | `false` |
@@ -430,10 +440,10 @@ PARSER_TERMINAL_FAILURE
 机器可验证映射为：
 
 ```text
-ERROR: UNSUPPORTED_MEDIA_TYPE -> REJECTED,false,VALIDATION
-ERROR: EMPTY_SOURCE_FILE -> REJECTED,false,VALIDATION
-ERROR: SOURCE_SIZE_LIMIT -> REJECTED,false,VALIDATION
-ERROR: SOURCE_HASH_MISMATCH -> REJECTED,false,VALIDATION
+ERROR: UNSUPPORTED_MEDIA_TYPE -> NO_NEW_STATE,false,PRE_REGISTRATION
+ERROR: EMPTY_SOURCE_FILE -> NO_NEW_STATE,false,PRE_REGISTRATION
+ERROR: SOURCE_SIZE_LIMIT -> NO_NEW_STATE,false,PRE_REGISTRATION
+ERROR: SOURCE_HASH_MISMATCH -> NO_NEW_STATE,false,PRE_REGISTRATION
 ERROR: IDEMPOTENCY_CONFLICT -> NO_NEW_STATE,false,COMMAND
 ERROR: DOCX_SECURITY_REJECTED -> REJECTED,false,VALIDATION
 ERROR: DOCX_FORMAT_INVALID -> REJECTED,false,VALIDATION
@@ -446,6 +456,10 @@ ERROR: PARSER_TERMINAL_FAILURE -> FAILED_TERMINAL,false,PARSING
 不会创建 revision；若容器已通过校验、revision 已创建，而解析阶段发现确定性
 格式错误，则使该 revision 进入 `FAILED_TERMINAL`。阶段必须随错误记录保存，
 不得由调用方任意选择结果状态。
+
+`UNSUPPORTED_MEDIA_TYPE`、`EMPTY_SOURCE_FILE`、`SOURCE_SIZE_LIMIT` 和
+`SOURCE_HASH_MISMATCH` 是唯一 pre-registration 错误；它们没有 SourceDocument
+状态或身份。其余 `REJECTED` 映射只在正式来源已创建后发生。
 
 `failureDetail` 必须是可审计的确定性描述，不得包含原始全文、凭据、本地绝对路径
 或外部链接目标内容。

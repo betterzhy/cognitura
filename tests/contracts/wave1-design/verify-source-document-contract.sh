@@ -59,6 +59,9 @@ validate_contract() {
     "SameIdempotencyKeySameBytes = RETURN_EXISTING_SOURCE_DOCUMENT" \
     "SameIdempotencyKeyDifferentBytes = IDEMPOTENCY_CONFLICT" \
     "SourceOriginalMutation = FORBIDDEN" \
+    "PreRegistrationValidation = MEDIA_TYPE_NONEMPTY_SIZE_AND_DECLARED_HASH" \
+    "PreRegistrationRejectionCreatesSourceDocument = NO" \
+    "FormalSourceRegistration = AFTER_PRE_REGISTRATION_PASS" \
     "FormalDatabaseWrite = NOT_AUTHORIZED" \
     "ObjectStorageProvider = NOT_SELECTED" \
     "LLMUsage = NONE" \
@@ -84,6 +87,8 @@ validate_contract() {
     "BlockSetStagingScope = SOURCE_PROCESSING_ATTEMPT" \
     "StagedBlockSetVisibility = PRIVATE_TO_ACTIVE_ATTEMPT" \
     "PublishedBlockSetCardinality = EXACTLY_ONE_PER_PARSED_REVISION" \
+    "publishedBlockSetDigest" \
+    "omissionsDigest" \
     "RevisionPartialConfirmationDigestFields = PUBLISHED_BLOCK_SET_DIGEST_AND_OMISSIONS_DIGEST" \
     "RevisionParseResultFieldsBeforeSuccessfulPublish = ALL_NULL" \
     "BlockSetPublicationCAS = ACTIVE_ATTEMPT_ID_AND_ATTEMPT_GENERATION_MATCH" \
@@ -161,10 +166,10 @@ validate_contract() {
   require_exact_prefixed_set \
     "${file}" \
     "ERROR:" \
-    "ERROR: UNSUPPORTED_MEDIA_TYPE -> REJECTED,false,VALIDATION" \
-    "ERROR: EMPTY_SOURCE_FILE -> REJECTED,false,VALIDATION" \
-    "ERROR: SOURCE_SIZE_LIMIT -> REJECTED,false,VALIDATION" \
-    "ERROR: SOURCE_HASH_MISMATCH -> REJECTED,false,VALIDATION" \
+    "ERROR: UNSUPPORTED_MEDIA_TYPE -> NO_NEW_STATE,false,PRE_REGISTRATION" \
+    "ERROR: EMPTY_SOURCE_FILE -> NO_NEW_STATE,false,PRE_REGISTRATION" \
+    "ERROR: SOURCE_SIZE_LIMIT -> NO_NEW_STATE,false,PRE_REGISTRATION" \
+    "ERROR: SOURCE_HASH_MISMATCH -> NO_NEW_STATE,false,PRE_REGISTRATION" \
     "ERROR: IDEMPOTENCY_CONFLICT -> NO_NEW_STATE,false,COMMAND" \
     "ERROR: DOCX_SECURITY_REJECTED -> REJECTED,false,VALIDATION" \
     "ERROR: DOCX_FORMAT_INVALID -> REJECTED,false,VALIDATION" \
@@ -418,12 +423,22 @@ expect_failure \
 missing_omissions_digest_fact="${test_tmp_root}/missing-omissions-digest-fact.md"
 cp "${contract_file}" "${missing_omissions_digest_fact}"
 sed -i.bak \
-  's/^RevisionPartialConfirmationDigestFields = PUBLISHED_BLOCK_SET_DIGEST_AND_OMISSIONS_DIGEST$/RevisionPartialConfirmationDigestFields = PUBLISHED_BLOCK_SET_DIGEST_ONLY/' \
+  -e '/^publishedBlockSetDigest$/d' \
+  -e '/^omissionsDigest$/d' \
   "${missing_omissions_digest_fact}"
 expect_failure \
   "${missing_omissions_digest_fact}" \
-  "missing required contract line: RevisionPartialConfirmationDigestFields"
+  "missing required contract line: publishedBlockSetDigest"
+
+pre_registration_rejection_creates_identity="${test_tmp_root}/pre-registration-rejection-creates-identity.md"
+cp "${contract_file}" "${pre_registration_rejection_creates_identity}"
+sed -i.bak \
+  's/^PreRegistrationRejectionCreatesSourceDocument = NO$/PreRegistrationRejectionCreatesSourceDocument = YES/' \
+  "${pre_registration_rejection_creates_identity}"
+expect_failure \
+  "${pre_registration_rejection_creates_identity}" \
+  "missing required contract line: PreRegistrationRejectionCreatesSourceDocument = NO"
 
 printf '%s\n' \
   "SourceDocumentContractValidation = PASS" \
-  "NegativeCases = 23"
+  "NegativeCases = 24"

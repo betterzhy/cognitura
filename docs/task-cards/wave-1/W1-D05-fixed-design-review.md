@@ -124,3 +124,31 @@ SourcePreviewContractNegativeCases = 28
 ```
 
 第二轮结论同样不得作为最终门禁证据；必须再次形成新固定提交并从一般审查开始。
+
+第三轮固定候选：
+
+```text
+GeneralReviewModel = gpt-5.6-sol
+GeneralReviewReasoningEffort = high
+GeneralReviewVerdict = NOT_READY
+GeneralReviewP0 = 0
+GeneralReviewP1 = 2
+GeneralReviewP2 = 0
+ReviewedCandidate = 731d5bd8eafce06a2ee6a7f556945c02022f5da8
+FinalGateStarted = NO
+```
+
+第三轮发现要求 Gate 直接验证 D01 revision 的两个 digest owner 字段，并统一基础
+validation rejection 的身份边界。修复裁决为：media type、非空、raw size 和声明
+hash 均在正式注册前验证，失败不创建 SourceDocument/SourceBinary/幂等事实；
+注册后的 DOCX 安全/格式拒绝才产生 `REJECTED` SourceDocument。第三轮修复后的
+验证负例目标为：
+
+```text
+SourceDocumentContractNegativeCases = 24
+DocumentBlockContractNegativeCases = 24
+ReparseReferenceContractNegativeCases = 25
+SourcePreviewContractNegativeCases = 28
+```
+
+第三轮结论不得作为最终门禁证据；必须形成新固定提交并从一般审查重新开始。
