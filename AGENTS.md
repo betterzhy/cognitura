@@ -14,7 +14,7 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  WAVE1_IMPLEMENTATION_TASK_CARD_PLAN_AWAITING_EXECUTION_CHOICE
+  HIGH_FIDELITY_READING_PRESENTATION_READY
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
@@ -28,6 +28,12 @@ Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
+HighFidelityDesignTaskCardSet = READY_FOR_EXECUTION
+HighFidelityDesignStatus = CANDIDATE_AWAITING_REPOSITORY_GATE
+HighFidelityDesignGate = HF-DG0 PASS
+ActiveDesignTaskCard = HF-D01
+W1-I00Creation = FORBIDDEN
+W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
@@ -37,6 +43,11 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 任务卡受控推进，不授权直接开始完整业务实现。Wave 1 详细设计和 14 张中细粒度
 实现切片书面规格均已获用户批准；当前等待选择任务卡 bootstrap 计划的执行方式。
 计划执行只允许创建卡集并完成治理卡 I00，不授权 W1-I01 业务代码。
+
+本分支另有经用户授权的独立 `HIGH_FIDELITY_DESIGN` 集合；`HF-D00` 已关闭，当前唯一活动设计卡为
+`HF-D01`。它只允许推进页面与呈现冲突裁决，不能创建或释放 `W1-I00`，也不
+改变 `BusinessImplementation = NOT_AUTHORIZED`、正式数据库写入和远程推送边界。
+候选只有在 HF-D04 固定候选双阶段审查通过后才可晋级正式专项。
 
 ## 3. 正式事实来源
 

@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --cards-dir <path>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'HighFidelityDesignTaskCardValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+cards_dir=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --cards-dir)
+      [[ "$#" -ge 2 ]] || usage
+      cards_dir="$2"
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+
+if [[ -z "${cards_dir}" ]]; then
+  script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+  cards_dir="${script_root}/docs/task-cards/high-fidelity-design"
+fi
+[[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
+[[ -f "${cards_dir}/README.md" ]] || fail "task card index is missing: README.md"
+
+field_value() {
+  sed -n "s/^$2 = //p" "$1"
+}
+
+index_value() {
+  local field="$1"
+  local count
+  count="$(grep -c "^${field} = " "${cards_dir}/README.md" || true)"
+  [[ "${count}" -eq 1 ]] || fail "README.md: expected one ${field} field, found ${count}"
+  field_value "${cards_dir}/README.md" "${field}"
+}
+
+contains() {
+  local needle="$1"
+  shift
+  local item
+  for item in "$@"; do
+    [[ "${item}" == "${needle}" ]] && return 0
+  done
+  return 1
+}
+
+[[ "$(index_value CanonicalProjectName)" == "Cognitura" ]] ||
+  fail "CanonicalProjectName must be Cognitura"
+[[ "$(index_value TaskCardSet)" == "HIGH_FIDELITY_DESIGN" ]] ||
+  fail "TaskCardSet must be HIGH_FIDELITY_DESIGN"
+[[ "$(index_value TaskCardIDs)" == "HF-D00,HF-D01,HF-D02,HF-D03,HF-D04" ]] ||
+  fail "TaskCardIDs must be HF-D00..HF-D04"
+[[ "$(index_value TaskCardCount)" == "5" ]] || fail "TaskCardCount must be 5"
+[[ "$(index_value TaskCardSetStatus)" == "READY_FOR_EXECUTION" ]] ||
+  fail "TaskCardSetStatus must be READY_FOR_EXECUTION"
+[[ "$(index_value BusinessImplementation)" == "NOT_AUTHORIZED" ]] ||
+  fail "BusinessImplementation must be NOT_AUTHORIZED"
+[[ "$(index_value FormalDatabaseWrite)" == "NOT_AUTHORIZED" ]] ||
+  fail "FormalDatabaseWrite must be NOT_AUTHORIZED"
+[[ "$(index_value RemotePush)" == "NOT_AUTHORIZED" ]] ||
+  fail "RemotePush must be NOT_AUTHORIZED"
+[[ "$(index_value W1-I00Creation)" == "FORBIDDEN" ]] ||
+  fail "W1-I00Creation must be FORBIDDEN"
+[[ "$(index_value W1-I00Release)" == "FORBIDDEN" ]] ||
+  fail "W1-I00Release must be FORBIDDEN"
+
+declared_ids=(HF-D00 HF-D01 HF-D02 HF-D03 HF-D04)
+required_fields=(TaskCardID CardKind Status Gate Risk DependsOn ReviewRoute DesignOwner LocalCommitBoundary WriteSetSource WriteSetItemCount)
+required_sections=("## 1. 目标" "## 2. 前置条件与输入" "## 3. 写集" "## 4. 禁止写集" "## 5. 执行步骤" "## 6. 验证命令" "## 7. Gate 与完成定义" "## 8. 提交与审查")
+
+shopt -s nullglob
+actual_cards=("${cards_dir}"/HF-D*.md)
+implementation_cards=("${cards_dir}"/W1-I*.md "${cards_dir}"/HF-I*.md)
+shopt -u nullglob
+[[ "${#actual_cards[@]}" -eq 5 ]] ||
+  fail "actual design task card count ${#actual_cards[@]} does not match 5"
+[[ "${#implementation_cards[@]}" -eq 0 ]] ||
+  fail "implementation card is forbidden in HIGH_FIDELITY_DESIGN"
+
+ready_count=0
+ready_id=""
+seen_ids=()
+card_index=0
+for expected_id in "${declared_ids[@]}"; do
+  shopt -s nullglob
+  matches=("${cards_dir}/${expected_id}-"*.md)
+  shopt -u nullglob
+  [[ "${#matches[@]}" -eq 1 ]] || fail "cannot resolve declared TaskCardID: ${expected_id}"
+  file="${matches[0]}"
+  filename="$(basename "${file}")"
+
+  for field in "${required_fields[@]}"; do
+    count="$(grep -c "^${field} = " "${file}" || true)"
+    [[ "${count}" -eq 1 ]] || fail "${filename}: missing required field: ${field}"
+  done
+  for section in "${required_sections[@]}"; do
+    grep -Fqx "${section}" "${file}" || fail "${filename}: missing required section: ${section}"
+  done
+
+  task_id="$(field_value "${file}" TaskCardID)"
+  status="$(field_value "${file}" Status)"
+  gate="$(field_value "${file}" Gate)"
+  depends_on="$(field_value "${file}" DependsOn)"
+  write_count="$(field_value "${file}" WriteSetItemCount)"
+
+  if [[ "${#seen_ids[@]}" -gt 0 ]] && contains "${task_id}" "${seen_ids[@]}"; then
+    fail "duplicate TaskCardID: ${task_id}"
+  fi
+  seen_ids+=("${task_id}")
+  [[ "${task_id}" == "${expected_id}" ]] || fail "${filename}: TaskCardID mismatch"
+  [[ "$(field_value "${file}" CardKind)" == "DESIGN" ]] || fail "${filename}: CardKind must be DESIGN"
+  [[ "$(field_value "${file}" Risk)" == "HIGH" ]] || fail "${filename}: Risk must be HIGH"
+  [[ "$(field_value "${file}" LocalCommitBoundary)" == "REQUIRED" ]] ||
+    fail "${filename}: LocalCommitBoundary must be REQUIRED"
+  [[ "$(field_value "${file}" WriteSetSource)" == "APPROVED_TASK_PLAN_EXACT" ]] ||
+    fail "${filename}: WriteSetSource must be APPROVED_TASK_PLAN_EXACT"
+
+  expected_gate="HF-DG${card_index}"
+  [[ "${gate}" == "${expected_gate}"* ]] || fail "Gate mismatch for ${task_id}"
+  if [[ "${card_index}" -eq 0 ]]; then
+    [[ "${depends_on}" == "NONE" ]] || fail "HF-D00 must have no dependency"
+    expected_write_count=20
+  else
+    previous_index=$((card_index - 1))
+    printf -v expected_dependency 'HF-D%02d' "${previous_index}"
+    [[ "${depends_on}" == "${expected_dependency}" ]] ||
+      fail "dependency mismatch for ${task_id}"
+    case "${task_id}" in
+      HF-D01) expected_write_count=12 ;;
+      HF-D02) expected_write_count=10 ;;
+      HF-D03) expected_write_count=12 ;;
+      HF-D04) expected_write_count=13 ;;
+    esac
+  fi
+  [[ "${write_count}" == "${expected_write_count}" ]] ||
+    fail "${filename}: WriteSetItemCount must be ${expected_write_count}"
+  write_set="$(awk '/^## 3[.] 写集$/ {inside=1; next} /^## 4[.] 禁止写集$/ {inside=0} inside {print}' "${file}")"
+  for forbidden in 'server/' 'web/' 'raw/' 'schemas/' '.idea/' 'W1-I00' \
+    'cognitura-source-manifest.yaml' 'cognitura-specialty-contract-coverage.md' \
+    'scripts/verify-source-manifest' 'scripts/verify-specialty-contract-coverage'; do
+    [[ "${write_set}" != *"${forbidden}"* ]] || fail "${filename}: write set contains forbidden path: ${forbidden}"
+  done
+  actual_write_count="$(awk '/^## 3[.] 写集$/ {inside=1; next} /^## 4[.] 禁止写集$/ {inside=0} inside && /^- (Create|Modify): / {count++} END {print count+0}' "${file}")"
+  [[ "${actual_write_count}" == "${expected_write_count}" ]] ||
+    fail "${filename}: declared write set contains ${actual_write_count} items, expected ${expected_write_count}"
+
+  case "${status}" in
+    DONE) ;;
+    READY)
+      ready_count=$((ready_count + 1))
+      ready_id="${task_id}"
+      ;;
+    BLOCKED_BY_DEPENDENCY) ;;
+    *) fail "${filename}: invalid Status: ${status}" ;;
+  esac
+  card_index=$((card_index + 1))
+done
+
+[[ "${ready_count}" -eq 1 ]] || fail "expected exactly one READY task card, found ${ready_count}"
+active_card="$(index_value ActiveTaskCard)"
+[[ "${active_card}" == "${ready_id}" ]] || fail "ActiveTaskCard ${active_card} is not READY"
+
+passed_ready=0
+for expected_id in "${declared_ids[@]}"; do
+  file=("${cards_dir}/${expected_id}-"*.md)
+  status="$(field_value "${file[0]}" Status)"
+  if [[ "${expected_id}" == "${ready_id}" ]]; then
+    [[ "${status}" == "READY" ]] || fail "active card ${ready_id} is not READY"
+    passed_ready=1
+  elif [[ "${passed_ready}" -eq 0 ]]; then
+    [[ "${status}" == "DONE" ]] || fail "predecessor ${expected_id} must be DONE"
+  else
+    [[ "${status}" == "BLOCKED_BY_DEPENDENCY" ]] ||
+      fail "successor ${expected_id} must be BLOCKED_BY_DEPENDENCY"
+  fi
+done
+
+printf '%s\n' \
+  "HighFidelityDesignTaskCardValidation = PASS" \
+  "TaskCardCount = 5" \
+  "TaskCardSetStatus = READY_FOR_EXECUTION" \
+  "ActiveTaskCard = ${active_card}" \
+  "BusinessImplementation = NOT_AUTHORIZED" \
+  "W1-I00Release = FORBIDDEN"

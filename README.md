@@ -15,7 +15,7 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  WAVE1_IMPLEMENTATION_TASK_CARD_PLAN_AWAITING_EXECUTION_CHOICE
+  HIGH_FIDELITY_READING_PRESENTATION_READY
 
 Wave0ExecutionStatus = COMPLETE
 ActiveTaskCard = NONE
@@ -33,6 +33,12 @@ Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
+HighFidelityDesignTaskCardSet = READY_FOR_EXECUTION
+HighFidelityDesignStatus = CANDIDATE_AWAITING_REPOSITORY_GATE
+HighFidelityDesignGate = HF-DG0 PASS
+ActiveDesignTaskCard = HF-D01
+W1-I00Creation = FORBIDDEN
+W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
@@ -107,6 +113,16 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [Wave 1 设计治理说明](docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md)
 - [Wave 1 实现切片设计](docs/superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md)
 - [Wave 1 实现任务卡 bootstrap 计划](docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md)
+- [高保真交互设计整合规格](docs/superpowers/specs/2026-08-06-high-fidelity-interaction-design-integration.md)
+- [高保真设计任务卡索引](docs/task-cards/high-fidelity-design/README.md)
+- [高保真专项独立 Manifest](docs/engineering/cognitura-high-fidelity-design-manifest.yaml)
+- [高保真专项合同覆盖](docs/engineering/cognitura-high-fidelity-contract-coverage.md)
+
+当前分支已启动独立 `HIGH_FIDELITY_DESIGN` 卡集；`HF-D00` 已关闭，`HF-D01` 是唯一活动设计卡。
+新增交互状态正文仅为 `CANDIDATE_AWAITING_REPOSITORY_GATE`；候选原有 46 个状态、
+20 个异常、20 项 RF-AC 和 30 项反向迁移已登记，但在 HF-D04 前不构成正式专项
+或 Gate 关闭证据。本轮不创建或释放 `W1-I00`，也不授权业务实现、正式数据库写入
+或远程推送。
 
 ## 当前准入
 

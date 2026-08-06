@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --coverage <path> --document <path>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'HighFidelityContractCoverageValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+coverage=""
+document=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --coverage) [[ "$#" -ge 2 ]] || usage; coverage="$2"; shift 2 ;;
+    --document) [[ "$#" -ge 2 ]] || usage; document="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+if [[ -z "${coverage}" || -z "${document}" ]]; then
+  script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+  [[ -n "${coverage}" ]] || coverage="${script_root}/docs/engineering/cognitura-high-fidelity-contract-coverage.md"
+  [[ -n "${document}" ]] || document="${script_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md"
+fi
+[[ -f "${coverage}" ]] || fail "MISSING_COVERAGE: ${coverage}"
+[[ -f "${document}" ]] || fail "MISSING_DOCUMENT: ${document}"
+
+grep -Fqx 'GateClosure = DEFERRED_UNTIL_HF_D04' "${coverage}" ||
+  fail "GateClosure must remain DEFERRED_UNTIL_HF_D04"
+
+for required in \
+  'CanonicalProjectName = Cognitura' \
+  'CoverageStatus = CANDIDATE_TRACE_REGISTERED' \
+  'BusinessImplementation = NOT_AUTHORIZED' \
+  'FormalDatabaseWrite = NOT_AUTHORIZED' \
+  'RemotePush = NOT_AUTHORIZED'; do
+  grep -Fqx "${required}" "${coverage}" ||
+    fail "missing or invalid coverage field: ${required}"
+done
+
+for id in STATE-CODES EXCEPTION-CODES RF-AC REVERSE-MIGRATION; do
+  count="$(grep -c "^| ${id} |" "${coverage}" || true)"
+  [[ "${count}" -eq 1 ]] || fail "missing coverage ID: ${id}"
+done
+row_count="$(grep -c '^| \(STATE-CODES\|EXCEPTION-CODES\|RF-AC\|REVERSE-MIGRATION\) |' "${coverage}" || true)"
+[[ "${row_count}" -eq 4 ]] || fail "CoverageRowCount must be 4"
+grep -Fq '| STATE-CODES | 46 |' "${coverage}" || fail "STATE-CODES count must be 46"
+grep -Fq '| EXCEPTION-CODES | 20 |' "${coverage}" || fail "EXCEPTION-CODES count must be 20"
+grep -Fq '| RF-AC | 20 |' "${coverage}" || fail "RF-AC count must be 20"
+grep -Fq '| REVERSE-MIGRATION | 30 |' "${coverage}" || fail "REVERSE-MIGRATION count must be 30"
+grep -Fq 'Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md' "${coverage}" ||
+  fail "candidate source trace is missing"
+
+printf '%s\n' \
+  "HighFidelityContractCoverageValidation = PASS" \
+  "CoverageRowCount = 4" \
+  "GateClosure = DEFERRED_UNTIL_HF_D04"

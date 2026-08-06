@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --document <path>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'InteractionStateContractValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+document=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --document)
+      [[ "$#" -ge 2 ]] || usage
+      document="$2"
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+if [[ -z "${document}" ]]; then
+  script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+  document="${script_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md"
+fi
+[[ -f "${document}" ]] || fail "MISSING_DOCUMENT: ${document}"
+
+grep -Fqx 'CanonicalProjectName = Cognitura' "${document}" ||
+  fail "CanonicalProjectName must be Cognitura"
+canonical_hierarchy="$(awk '
+  /^CanonicalHierarchy =$/ {
+    getline; one=$0
+    getline; two=$0
+    getline; three=$0
+    getline; four=$0
+    print one "|" two "|" three "|" four
+    exit
+  }
+' "${document}")"
+[[ "${canonical_hierarchy}" == '  KnowledgeLandscape|  → KnowledgeTheme|  → CognitiveModule|  → KnowledgeElement' ]] ||
+  fail "CanonicalHierarchy must use Cognitura four-layer names"
+
+status="$(awk '/^Status =$/ {getline; sub(/^[[:space:]]+/, ""); print; exit}' "${document}")"
+[[ "${status}" == "CANDIDATE_AWAITING_REPOSITORY_GATE" ]] ||
+  fail "candidate status must remain CANDIDATE_AWAITING_REPOSITORY_GATE"
+grep -Fqx 'BusinessImplementation = NOT_AUTHORIZED' "${document}" ||
+  fail "BusinessImplementation must be NOT_AUTHORIZED"
+grep -Fqx 'RepositoryIntegrationStatus = UNTRACKED_CANDIDATE_REGISTERED_BY_HF_D00' "${document}" ||
+  fail "actual repository integration status is missing"
+grep -Fqx 'DocumentationGap = DOC-GAP-HF-001' "${document}" ||
+  fail "missing predecessor bodies must be DocumentationGap"
+grep -Fqx 'HistoricalHierarchyAliases =' "${document}" ||
+  fail "historical hierarchy aliases are not mapped"
+
+count_unique_rows() {
+  local marker="$1"
+  awk -F'|' -v marker="${marker}" '
+    $2 ~ "`" marker "`" {
+      value=$3
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (value != "") seen[value]=1
+      rows++
+    }
+    END {
+      unique=0
+      for (value in seen) unique++
+      print rows ":" unique
+    }
+  ' "${document}"
+}
+
+state_counts="$(count_unique_rows StateCode)"
+[[ "${state_counts}" == "46:46" ]] ||
+  fail "expected 46 unique original StateCode rows, found ${state_counts}"
+exception_counts="$(count_unique_rows ExceptionCode)"
+[[ "${exception_counts}" == "20:20" ]] ||
+  fail "expected 20 unique ExceptionCode rows, found ${exception_counts}"
+
+rf_counts="$(awk -F'|' '/^\| RF-AC-[0-9][0-9] / {gsub(/ /, "", $2); seen[$2]=1; rows++} END {unique=0; for (v in seen) unique++; print rows ":" unique}' "${document}")"
+[[ "${rf_counts}" == "20:20" ]] ||
+  fail "expected 20 unique RF-AC rows, found ${rf_counts}"
+rm_counts="$(awk '/^ISHFI-RM-[0-9][0-9] =$/ {seen[$1]=1; rows++} END {unique=0; for (v in seen) unique++; print rows ":" unique}' "${document}")"
+[[ "${rm_counts}" == "30:30" ]] ||
+  fail "expected 30 unique reverse-migration items, found ${rm_counts}"
+
+printf '%s\n' \
+  "InteractionStateContractValidation = PASS" \
+  "OriginalStateCodeCount = 46" \
+  "ExceptionCodeCount = 20" \
+  "RFAcceptanceCount = 20" \
+  "ReverseMigrationCount = 30"
