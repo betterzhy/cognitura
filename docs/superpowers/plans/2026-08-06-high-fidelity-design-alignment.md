@@ -150,6 +150,9 @@ git commit -m "docs: establish high fidelity design governance"
 - Modify: `cognitive-knowledge-atlas-overall-design-1.2.md`
 - Modify: `docs/contracts/cognitura-page-contracts.md`
 - Modify: `docs/contracts/cognitura-renderer-contract.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
+- Modify: `scripts/verify-high-fidelity-design-manifest`
+- Modify: `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`
 - Modify: `tests/contracts/ui/verify-ui-contracts.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D01-reading-presentation-contract.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
@@ -182,22 +185,33 @@ Append only a traceable reverse-migration record to Overall 1.2 and minimally re
 
 Define CognitiveSection, PrimaryVisualProjection, PrimaryVisualPrimitiveFamily, SimultaneouslyEmphasizedVisualObject, and PrimaryAction measurement rules in the specialty; project only stable non-Schema invariants into page/Renderer contracts.
 
-- [ ] **Step 5: Run UI and cross-document validation**
+- [ ] **Step 5: Refresh and test the independent HF manifest**
+
+After all specialty-body edits, recalculate its exact byte count and SHA-256 in
+`docs/engineering/cognitura-high-fidelity-design-manifest.yaml`. Extend the manifest wrapper
+and test with a stale-byte-count and stale-SHA mutation so the card fails if the specialty and
+HF manifest are not committed together.
+
+- [ ] **Step 6: Run UI and cross-document validation**
 
 Run:
 
 ```bash
 bash tests/contracts/ui/verify-ui-contracts.sh
 bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
+scripts/verify-high-fidelity-design-manifest
+bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
 bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 bash tests/source-manifest/verify-source-manifest.sh
 bash tests/ci/verify-markdown-links.sh
 git diff --check
 ```
 
-Expected: all pass; mutations for permanent governance rail, pure article, and Renderer-created facts fail.
+Expected: all pass; mutations for stale HF byte count, stale HF SHA-256, permanent governance
+rail, pure article, and Renderer-created facts fail. The Wave 0 commands remain unchanged
+read-only regressions.
 
-- [ ] **Step 6: Close HF-D01 and release HF-D02**
+- [ ] **Step 7: Close HF-D01 and release HF-D02**
 
 Update task-card projections, rerun the Gate, and commit:
 
@@ -207,7 +221,10 @@ git add AGENTS.md README.md \
   cognitive-knowledge-atlas-overall-design-1.2.md \
   docs/contracts/cognitura-page-contracts.md \
   docs/contracts/cognitura-renderer-contract.md \
+  docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
   docs/task-cards/high-fidelity-design \
+  scripts/verify-high-fidelity-design-manifest \
+  tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
   tests/contracts/ui/verify-ui-contracts.sh
 git commit -m "docs: align reading first presentation contracts"
 ```
@@ -217,6 +234,9 @@ git commit -m "docs: align reading first presentation contracts"
 **Files:**
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
 - Modify: `docs/contracts/cognitura-page-contracts.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
+- Modify: `scripts/verify-high-fidelity-design-manifest`
+- Modify: `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
@@ -264,7 +284,13 @@ Define Ephemeral UI, URL, Browser History, Session/Draft Store, and Canonical Se
 
 State that `schemas/ui/page-state.schema.json`, Renderer Input, Catalog, and evidence map stay unchanged. Map candidate logical object names to existing revision/Relation/Evidence concepts without specifying physical tables.
 
-- [ ] **Step 6: Run the Gate and close the card**
+- [ ] **Step 6: Refresh and test the independent HF manifest**
+
+After the specialty-body state and recovery tables are final, recalculate its exact byte count
+and SHA-256 in `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`. Extend the
+manifest wrapper and test so stale metadata caused by this card's specialty edit fails closed.
+
+- [ ] **Step 7: Run the Gate and close the card**
 
 Run:
 
@@ -272,12 +298,16 @@ Run:
 bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 bash tests/contracts/ui/verify-ui-contracts.sh
 bash tests/contracts/schema/verify-json-schemas.sh
+scripts/verify-high-fidelity-design-manifest
+bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
 bash tests/source-manifest/verify-source-manifest.sh
 bash tests/task-cards/verify-high-fidelity-design-cards.sh
 git diff --check
 ```
 
-Expected: all pass and PageState remains the original 12-value lifecycle enum.
+Expected: all pass, the specialty byte count/SHA-256 match the independent HF manifest, and
+PageState remains the original 12-value lifecycle enum. The Wave 0 source-manifest command is
+an unchanged read-only regression.
 
 Set `HF-D02 = DONE`, `HF-D03 = READY`, rerun, and commit:
 
@@ -285,7 +315,10 @@ Set `HF-D02 = DONE`, `HF-D03 = READY`, rerun, and commit:
 git add AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
   docs/contracts/cognitura-page-contracts.md \
+  docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
   docs/task-cards/high-fidelity-design \
+  scripts/verify-high-fidelity-design-manifest \
+  tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
   tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 git commit -m "docs: normalize interaction state and recovery model"
 ```
@@ -297,6 +330,9 @@ git commit -m "docs: normalize interaction state and recovery model"
 - Create: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
+- Modify: `scripts/verify-high-fidelity-design-manifest`
+- Modify: `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D03-high-fidelity-evidence-contract.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
@@ -340,17 +376,28 @@ HV-D05 FixedVisualUsabilityReview
 
 Only `HV-D00` becomes READY after HF-D04 closes; no visual card is READY during HF-D03.
 
-- [ ] **Step 5: Run the Gate and close the card**
+- [ ] **Step 5: Refresh and test the independent HF manifest**
+
+After the evidence contract is final, recalculate the specialty body's exact byte count and
+SHA-256 in `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`. Extend the manifest
+wrapper and test so the HF-D03 candidate cannot advance with stale specialty metadata.
+
+- [ ] **Step 6: Run the Gate and close the card**
 
 Run:
 
 ```bash
 bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 bash tests/task-cards/verify-high-fidelity-design-cards.sh
+scripts/verify-high-fidelity-design-manifest
+bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
 bash tests/source-manifest/verify-source-manifest.sh
 bash tests/ci/verify-markdown-links.sh
 git diff --check
 ```
+
+Expected: all pass, including exact HF manifest byte-count/SHA-256 matching; the Wave 0 source
+manifest remains an unchanged read-only regression target.
 
 Set `HF-D03 = DONE`, `HF-D04 = READY`, rerun, and commit:
 
@@ -358,9 +405,12 @@ Set `HF-D03 = DONE`, `HF-D04 = READY`, rerun, and commit:
 git add AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
   docs/engineering/cognitura-design-index.md \
+  docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
   docs/engineering/cognitura-high-fidelity-design-plan.md \
   docs/engineering/cognitura-high-fidelity-design-acceptance.md \
   docs/task-cards/high-fidelity-design \
+  scripts/verify-high-fidelity-design-manifest \
+  tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
   tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 git commit -m "docs: define high fidelity evidence gates"
 ```
@@ -368,6 +418,13 @@ git commit -m "docs: define high fidelity evidence gates"
 ### Task 5: HF-D04 Fixed Contract Candidate Review
 
 **Files:**
+- Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
+- Modify: `docs/engineering/cognitura-high-fidelity-contract-coverage.md`
+- Modify: `scripts/verify-high-fidelity-design-manifest`
+- Modify: `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`
+- Modify: `scripts/verify-high-fidelity-contract-coverage`
+- Modify: `tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md`
@@ -402,7 +459,16 @@ If either review reports a finding, reopen the exact owner card, add a failing r
 
 - [ ] **Step 4: Close the integration card set**
 
-Only with both reviews at `GO / P0=0 / P1=0 / P2=0`, set all HF cards DONE, promote the specialty to `FORMAL_SPECIALTY_BASELINE`, record reviewed SHA and results, and release `HV-D00 = READY` in the visual design plan.
+Only with both reviews at `GO / P0=0 / P1=0 / P2=0`, set all HF cards DONE and use the
+exact closure write set to: promote
+`Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
+to `FORMAL_SPECIALTY_BASELINE` and record the reviewed candidate SHA; update
+`docs/engineering/cognitura-high-fidelity-design-manifest.yaml` with that formal status,
+reviewed candidate SHA, and the specialty's new exact byte count/SHA-256; change
+`docs/engineering/cognitura-high-fidelity-contract-coverage.md` from deferred to
+reviewed/closed and record the same reviewed candidate SHA. Update both independent
+validator/test pairs with failing promotion mutations, then release `HV-D00 = READY` in the
+visual design plan.
 
 - [ ] **Step 5: Verify and commit closure**
 
@@ -410,17 +476,32 @@ Run:
 
 ```bash
 scripts/verify-high-fidelity-design
+scripts/verify-high-fidelity-design-manifest
+bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
+scripts/verify-high-fidelity-contract-coverage
+bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
 scripts/verify-wave0
 git diff --check
 ```
+
+Expected: both independent HF validators and their mutation suites pass; the specialty body,
+HF manifest, and HF contract coverage record the same reviewed candidate SHA, and the manifest
+matches the promoted specialty's exact byte count/SHA-256.
 
 Commit:
 
 ```bash
 git add AGENTS.md README.md \
+  Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
   docs/engineering/cognitura-design-index.md \
+  docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
+  docs/engineering/cognitura-high-fidelity-contract-coverage.md \
   docs/engineering/cognitura-high-fidelity-design-acceptance.md \
-  docs/task-cards/high-fidelity-design
+  docs/task-cards/high-fidelity-design \
+  scripts/verify-high-fidelity-design-manifest \
+  scripts/verify-high-fidelity-contract-coverage \
+  tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
+  tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
 git commit -m "docs: close high fidelity contract design gate"
 ```
 

@@ -439,6 +439,20 @@ ExactlyOneReadyCard = REQUIRED
 - `docs/engineering/cognitura-high-fidelity-design-plan.md`；
 - `docs/engineering/cognitura-high-fidelity-design-acceptance.md`。
 
+专项正文是独立 HF design manifest 的哈希输入。`HF-D00` 至 `HF-D04` 中任何修改
+专项正文的卡，都必须在同一张卡、同一本地提交内重新计算并更新 manifest 的精确
+字节数与 SHA-256，将 manifest、`scripts/verify-high-fidelity-design-manifest` 和
+`tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh` 纳入该卡
+Files、验证与暂存清单，并在提交前运行独立 HF manifest 验证。不得把 Wave 0
+source manifest 用作该同步目标。
+
+`HF-D04` 只有在同一封口写集中完成以下三项后才能把专项提升为
+`FORMAL_SPECIALTY_BASELINE`：专项正文写入正式状态和 reviewed candidate SHA；
+独立 HF design manifest 同步正式状态、精确字节数、SHA-256 和 reviewed candidate
+SHA；独立 HF contract coverage 从 deferred 更新为已审查覆盖状态并记录相同 SHA。
+封口必须分别运行 HF design manifest 与 HF contract coverage 两套独立验证器及其
+测试；任一失败都禁止晋级。
+
 以下 Wave 0 来源与专项合同资产是已通过 Gate 的固定历史合同，保持不变并位于
 全部 HF/HV 写集之外：
 
@@ -459,7 +473,11 @@ tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 统一设计验证必须证明：
 
 - 专项正文存在且独立 HF design manifest 中的路径、版本、字节数、SHA-256 一致；
+- 每个修改专项正文的 HF 卡都在同一提交中刷新 HF manifest，并运行 manifest
+  wrapper 与对应测试；
 - 独立 HF contract coverage 完整覆盖本专项合同，且不改写 Wave 0 来源或专项覆盖；
+- HF-D04 晋级时专项正文、HF manifest 和 HF contract coverage 记录同一 reviewed
+  candidate SHA，且两套独立 HF 验证器均通过；
 - CanonicalProjectName 和四层正式名称正确；
 - 缺失专项不得显示为已核验权威；
 - 46 个原状态代码恰好一次分类；
