@@ -30,6 +30,11 @@ Cognitura 正式设计体系中，同时保持以下边界：
 本轮完成的是专项设计治理、冲突裁决、状态模型整理、高保真证据合同和后续任务卡。
 真实高保真视觉稿、可操作原型和业务代码仍须在后续独立 Gate 下推进。
 
+本轮用户授权在当前分支上建立独立 `HIGH_FIDELITY_DESIGN` 集合，并使
+`HF-D00` 成为唯一活动设计卡。该授权不创建或释放 `W1-I00`，不修改独立的
+`wave1-implementation-card-bootstrap` worktree，也不改变
+`BusinessImplementation = NOT_AUTHORIZED`。
+
 ## 2. 产品与权威裁决
 
 ### 2.1 产品归属
@@ -373,6 +378,10 @@ CONTRACT
 建立独立集合 `HIGH_FIDELITY_DESIGN`，不得重开已完成的 Wave 1 设计卡，也不得
 修改独立 worktree 中的 W1-I00～W1-I13。
 
+本分支的执行拓扑固定为：`HF-D00` 是唯一活动设计卡；`W1-I00` 不存在于本分支
+活动卡集合中，不因 HF/HV 设计推进而创建、释放或变为 `READY`。HF/HV 的任何
+Gate 结果均不构成 Wave 1 业务实现授权。
+
 | ID | 单一职责 | 主要产物 | Gate |
 |---|---|---|---|
 | `HF-D00` | 设计治理与来源登记 | 权威链、命名、索引、缺口、卡集合同 | `HF-DG0` |
@@ -407,15 +416,21 @@ ExactlyOneReadyCard = REQUIRED
 ### 9.2 现有权威投影
 
 - `docs/engineering/cognitura-design-index.md`：登记候选/正式状态和 Gate；
-- `docs/engineering/cognitura-source-manifest.yaml`：登记实际文件、字节数和 SHA-256；
-- `docs/engineering/cognitura-specialty-contract-coverage.md`：登记合同来源与缺口；
 - `docs/contracts/cognitura-page-contracts.md`：投影页面职责、默认侧栏和交互边界；
 - `docs/contracts/cognitura-renderer-contract.md`：投影视觉预算与 Renderer 非事实边界；
-- `cognitive-knowledge-atlas-overall-design-1.2.md`：只增加正式回迁记录，不改历史版本号；
+- `cognitive-knowledge-atlas-overall-design-1.2.md`：只追加可追溯的反向迁移记录，并
+  对 ModuleReading/Page/Renderer 合同作最小协调；不重写现有产品权威，不改历史
+  版本号；
 - `README.md`、`AGENTS.md`：仅同步当前设计阶段、准入和授权边界。
 
 ### 9.3 新增治理资产
 
+- `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`；
+- `docs/engineering/cognitura-high-fidelity-contract-coverage.md`；
+- `scripts/verify-high-fidelity-design-manifest`；
+- `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`；
+- `scripts/verify-high-fidelity-contract-coverage`；
+- `tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh`；
 - `docs/task-cards/high-fidelity-design/README.md`；
 - `docs/task-cards/high-fidelity-design/HF-D00..HF-D04`；
 - `tests/task-cards/verify-high-fidelity-design-cards.sh`；
@@ -424,11 +439,27 @@ ExactlyOneReadyCard = REQUIRED
 - `docs/engineering/cognitura-high-fidelity-design-plan.md`；
 - `docs/engineering/cognitura-high-fidelity-design-acceptance.md`。
 
+以下 Wave 0 来源与专项合同资产是已通过 Gate 的固定历史合同，保持不变并位于
+全部 HF/HV 写集之外：
+
+```text
+docs/engineering/cognitura-source-manifest.yaml
+docs/engineering/cognitura-specialty-contract-coverage.md
+scripts/verify-source-manifest
+tests/source-manifest/verify-source-manifest.sh
+scripts/verify-specialty-contract-coverage
+tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
+```
+
+它们的测试只能作为未变更的 Wave 0 回归检查运行，不承担 HF 来源登记、合同覆盖
+或 Gate 投影职责。
+
 ## 10. 验证合同
 
 统一设计验证必须证明：
 
-- 专项正文存在且 Manifest 路径、版本、字节数、SHA-256 一致；
+- 专项正文存在且独立 HF design manifest 中的路径、版本、字节数、SHA-256 一致；
+- 独立 HF contract coverage 完整覆盖本专项合同，且不改写 Wave 0 来源或专项覆盖；
 - CanonicalProjectName 和四层正式名称正确；
 - 缺失专项不得显示为已核验权威；
 - 46 个原状态代码恰好一次分类；
@@ -441,6 +472,8 @@ ExactlyOneReadyCard = REQUIRED
 - 合同 PASS、视觉 PASS、可用性 PASS、实现 PASS 不互相冒充；
 - 当前 Wave 1 implementation worktree、业务源码、migration、`raw/` 和 `.idea/`
   均不在写集。
+- Wave 0 source manifest 与 specialty coverage 及其脚本/测试保持逐字节不变，只作为
+  回归检查；HF/HV 登记和覆盖仅写入独立 HF 治理资产。
 
 ## 11. 完成边界
 

@@ -22,6 +22,9 @@
 - `RemotePush = NOT_AUTHORIZED`.
 - Do not modify `server/**`, `web/**`, `raw/**`, database migrations, deployment configuration, or `.idea/`.
 - Do not modify the linked `wave1-implementation-card-bootstrap` worktree or its W1-I00–W1-I13 cards.
+- This authorization makes `HF-D00` the sole active design card on this branch; it does not create or release `W1-I00` and does not authorize business implementation.
+- Keep these fixed Wave 0 historical contracts outside every HF/HV write set: `docs/engineering/cognitura-source-manifest.yaml`, `docs/engineering/cognitura-specialty-contract-coverage.md`, `scripts/verify-source-manifest`, `tests/source-manifest/verify-source-manifest.sh`, `scripts/verify-specialty-contract-coverage`, and `tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh`.
+- Wave 0 source-manifest and specialty-coverage tests remain unchanged regression checks only; HF registration and coverage use independent HF governance assets.
 - Do not read the Golden Case DOCX bodies or follow the Redis legacy local link.
 - Preserve all 46 original state codes, 20 exception codes, 20 RF-AC items, and 30 reverse-migration items with one-to-one traceability.
 - Contract, high-fidelity visual, high-fidelity usability, and implementation PASS are separate stages.
@@ -43,20 +46,24 @@
 - Create: `tests/task-cards/verify-high-fidelity-design-cards.sh`
 - Create: `scripts/verify-interaction-state-contracts`
 - Create: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
+- Create: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
+- Create: `docs/engineering/cognitura-high-fidelity-contract-coverage.md`
+- Create: `scripts/verify-high-fidelity-design-manifest`
+- Create: `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`
+- Create: `scripts/verify-high-fidelity-contract-coverage`
+- Create: `tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh`
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
-- Modify: `docs/engineering/cognitura-source-manifest.yaml`
-- Modify: `docs/engineering/cognitura-specialty-contract-coverage.md`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
 
 **Interfaces:**
 - Consumes: approved integration spec `docs/superpowers/specs/2026-08-06-high-fidelity-interaction-design-integration.md` and the untracked user candidate.
-- Produces: a five-card `HIGH_FIDELITY_DESIGN` state machine with only `HF-D00` READY, a registered candidate source, and two reproducible validator entrypoints.
+- Produces: a five-card `HIGH_FIDELITY_DESIGN` state machine with only `HF-D00` READY, an independently registered HF candidate source, HF contract coverage, and reproducible validator entrypoints.
 
 - [ ] **Step 1: Create the failing card and interaction contract tests**
 
-Write Bash checks that require exactly five `HF-Dxx` cards, one READY card, canonical project/hierarchy markers, exact state/exception/RF-AC counts, source registration, and explicit `BusinessImplementation = NOT_AUTHORIZED`.
+Write Bash checks that require exactly five `HF-Dxx` cards, only `HF-D00` READY, canonical project/hierarchy markers, exact state/exception/RF-AC counts, independent HF source registration and contract coverage, explicit `BusinessImplementation = NOT_AUTHORIZED`, and no W1-I00 creation or release.
 
 - [ ] **Step 2: Run the tests and confirm RED**
 
@@ -65,9 +72,11 @@ Run:
 ```bash
 bash tests/task-cards/verify-high-fidelity-design-cards.sh
 bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
+bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
+bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
 ```
 
-Expected: both fail because cards, normalized authority fields, and source registration do not yet exist.
+Expected: all four fail because cards, normalized authority fields, independent HF source registration, and HF contract coverage do not yet exist.
 
 - [ ] **Step 3: Bootstrap the five-card set and validator wrappers**
 
@@ -89,7 +98,11 @@ Change self-declared formal status to `CANDIDATE_AWAITING_REPOSITORY_GATE`, add 
 
 - [ ] **Step 5: Register the candidate without prematurely promoting it**
 
-Add the file path, version, role, byte count, and SHA-256 to the source manifest and design index. Update specialty coverage so the candidate closes no Gate until HF-D04.
+Add the file path, version, role, byte count, and SHA-256 to
+`docs/engineering/cognitura-high-fidelity-design-manifest.yaml` and the design index. Record
+the candidate's traceability and deferred Gate status in
+`docs/engineering/cognitura-high-fidelity-contract-coverage.md`; it closes no Gate until
+HF-D04. Do not change the fixed Wave 0 source manifest or specialty coverage.
 
 - [ ] **Step 6: Run GREEN and negative mutations**
 
@@ -98,12 +111,16 @@ Run:
 ```bash
 bash tests/task-cards/verify-high-fidelity-design-cards.sh
 bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
+bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
+bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
 bash tests/source-manifest/verify-source-manifest.sh
 bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 git diff --check
 ```
 
-Expected: all pass; temporary mutations for missing state, wrong hierarchy, premature formal status, and a READY successor fail closed.
+Expected: all pass; temporary HF mutations for missing source, wrong hash, missing coverage,
+missing state, wrong hierarchy, premature formal status, and a READY successor fail closed.
+The two Wave 0 commands pass only as unchanged regression checks.
 
 - [ ] **Step 7: Close HF-D00 and release HF-D01**
 
@@ -113,12 +130,16 @@ Set `HF-D00 = DONE`, `HF-D01 = READY`, update index/README/AGENTS projections, r
 git add AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
   docs/engineering/cognitura-design-index.md \
-  docs/engineering/cognitura-source-manifest.yaml \
-  docs/engineering/cognitura-specialty-contract-coverage.md \
+  docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
+  docs/engineering/cognitura-high-fidelity-contract-coverage.md \
   docs/task-cards/high-fidelity-design \
   scripts/verify-high-fidelity-design scripts/verify-interaction-state-contracts \
+  scripts/verify-high-fidelity-design-manifest \
+  scripts/verify-high-fidelity-contract-coverage \
   tests/task-cards/verify-high-fidelity-design-cards.sh \
-  tests/contracts/interaction-state/verify-interaction-state-contracts.sh
+  tests/contracts/interaction-state/verify-interaction-state-contracts.sh \
+  tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
+  tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
 git commit -m "docs: establish high fidelity design governance"
 ```
 
@@ -129,7 +150,6 @@ git commit -m "docs: establish high fidelity design governance"
 - Modify: `cognitive-knowledge-atlas-overall-design-1.2.md`
 - Modify: `docs/contracts/cognitura-page-contracts.md`
 - Modify: `docs/contracts/cognitura-renderer-contract.md`
-- Modify: `docs/engineering/cognitura-source-manifest.yaml`
 - Modify: `tests/contracts/ui/verify-ui-contracts.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D01-reading-presentation-contract.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
@@ -156,7 +176,7 @@ Expected: fail on missing new contract lines and the old unconditional three-col
 
 - [ ] **Step 3: Apply the page and Renderer decisions**
 
-Update Overall 1.2 in place with a new reverse-migration section without changing its historical version number. Change the ModuleReading default from permanent SourceEvidence/RelatedModules/KnownGaps right rail to on-demand source and context surfaces. Preserve full SourceEvidence route responsibility and the nine Renderer types.
+Append only a traceable reverse-migration record to Overall 1.2 and minimally reconcile its ModuleReading/Page/Renderer contract without changing the historical version number or rewriting existing product authority. Change the ModuleReading default from permanent SourceEvidence/RelatedModules/KnownGaps right rail to on-demand source and context surfaces. Preserve full SourceEvidence route responsibility and the nine Renderer types.
 
 - [ ] **Step 4: Make density budgets operational**
 
@@ -187,7 +207,6 @@ git add AGENTS.md README.md \
   cognitive-knowledge-atlas-overall-design-1.2.md \
   docs/contracts/cognitura-page-contracts.md \
   docs/contracts/cognitura-renderer-contract.md \
-  docs/engineering/cognitura-source-manifest.yaml \
   docs/task-cards/high-fidelity-design \
   tests/contracts/ui/verify-ui-contracts.sh
 git commit -m "docs: align reading first presentation contracts"
@@ -198,7 +217,6 @@ git commit -m "docs: align reading first presentation contracts"
 **Files:**
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
 - Modify: `docs/contracts/cognitura-page-contracts.md`
-- Modify: `docs/engineering/cognitura-source-manifest.yaml`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
@@ -267,7 +285,6 @@ Set `HF-D02 = DONE`, `HF-D03 = READY`, rerun, and commit:
 git add AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
   docs/contracts/cognitura-page-contracts.md \
-  docs/engineering/cognitura-source-manifest.yaml \
   docs/task-cards/high-fidelity-design \
   tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 git commit -m "docs: normalize interaction state and recovery model"
@@ -280,7 +297,6 @@ git commit -m "docs: normalize interaction state and recovery model"
 - Create: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
-- Modify: `docs/engineering/cognitura-source-manifest.yaml`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D03-high-fidelity-evidence-contract.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
@@ -342,7 +358,6 @@ Set `HF-D03 = DONE`, `HF-D04 = READY`, rerun, and commit:
 git add AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
   docs/engineering/cognitura-design-index.md \
-  docs/engineering/cognitura-source-manifest.yaml \
   docs/engineering/cognitura-high-fidelity-design-plan.md \
   docs/engineering/cognitura-high-fidelity-design-acceptance.md \
   docs/task-cards/high-fidelity-design \
