@@ -619,6 +619,15 @@ expect_hvd02_dom_failure "${invisible_open_quick_source_panel}" relation-focus \
   module-relation-focus-desktop.png \
   'relation-focus browser selector probe data-probe-quick-source-rendered-after-enter must be true, got false'
 
+transparent_relation_ancestor="${test_tmp_root}/transparent-relation-ancestor"
+make_fixture "${transparent_relation_ancestor}"
+sed -i.bak 's/class="focus-shell relation-focus-shell"/class="focus-shell relation-focus-shell" style="opacity: 0"/' \
+  "${transparent_relation_ancestor}/prototype/index.html"
+rm "${transparent_relation_ancestor}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${transparent_relation_ancestor}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus rendered document count must be 1, got 0'
+
 hidden_relation_primary_focus="${test_tmp_root}/hidden-relation-primary-focus"
 make_fixture "${hidden_relation_primary_focus}"
 sed -i.bak 's/<section class="relation-focus-primary"/<section hidden class="relation-focus-primary"/' \
@@ -763,5 +772,5 @@ printf 'ExistingNegativeFixtureCount = 44\n'
 printf 'HV-D01FixRound1DOMNegativeFixtureCount = 15\n'
 printf 'HV-D01FixRound2AdversarialNegativeFixtureCount = 1\n'
 printf 'HV-D01SelectorSemanticsPositiveFixtureCount = 2\n'
-printf 'HV-D02DOMNegativeFixtureCount = 18\n'
-printf 'NegativeFixtureCount = 86\n'
+printf 'HV-D02DOMNegativeFixtureCount = 19\n'
+printf 'NegativeFixtureCount = 87\n'

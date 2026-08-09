@@ -928,13 +928,19 @@ write_hvd02_selector_probe() {
       if (!element || element.closest("[hidden], [aria-hidden='true']")) {
         return false;
       }
-      const style = targetDocument.defaultView.getComputedStyle(element);
+      let current = element;
+      while (current) {
+        const currentStyle = targetDocument.defaultView.getComputedStyle(current);
+        if (currentStyle.display === "none" ||
+            currentStyle.visibility === "hidden" ||
+            currentStyle.visibility === "collapse" ||
+            Number(currentStyle.opacity) === 0) {
+          return false;
+        }
+        current = current.parentElement;
+      }
       const rect = element.getBoundingClientRect();
-      return style.display !== "none" &&
-        style.visibility !== "hidden" &&
-        style.visibility !== "collapse" &&
-        Number(style.opacity) !== 0 &&
-        element.getClientRects().length > 0 &&
+      return element.getClientRects().length > 0 &&
         rect.width > 0 &&
         rect.height > 0;
     };
