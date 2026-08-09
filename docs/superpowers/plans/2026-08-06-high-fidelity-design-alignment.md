@@ -570,7 +570,8 @@ git status --short
 
 This marker-adjacent fence is the exact ordered Step 1 Gate list: every displayed line is
 required in this order, no additional or duplicate line is allowed, and none may also appear
-in the Step 1 staging fence.
+in the Step 1 staging fence. The all-Step uniqueness rule applies uniformly to every canonical
+line, including both re-freeze sentinels and `git status --short`.
 
 Record the exact preparation SHA before dispatching either reviewer.
 
@@ -636,7 +637,8 @@ git diff --check
 
 This marker-adjacent fence is the exact ordered Step 5 Gate list: every displayed line is
 required in this order, no additional or duplicate line is allowed, and none may also appear
-in the Step 5 closure staging/commit fence.
+in the Step 5 closure staging/commit fence. The all-Step uniqueness rule applies uniformly to
+every canonical line rather than to a command subset.
 
 Expected: both independent HF validators and their mutation suites pass; the specialty body,
 HF manifest, and HF contract coverage record the same reviewed candidate SHA, and the manifest

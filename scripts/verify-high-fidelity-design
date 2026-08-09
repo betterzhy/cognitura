@@ -130,16 +130,10 @@ for verification_step in 1 5; do
   fi
   [[ "${verification_commands}" == "${expected_verification_commands}" ]] ||
     fail "Task 5 Step ${verification_step} designated verification fence must exactly match the ordered command list"
-  for required_command in "${required_verification_commands[@]}"; do
-    [[ "$(printf '%s\n' "${all_step_bash_commands}" | grep -Fxc "${required_command}" || true)" -eq 1 ]] ||
-      fail "Task 5 Step ${verification_step} command must occur exactly once across all Step bash fences: ${required_command}"
-  done
-  if [[ "${verification_step}" -eq 1 ]]; then
-    for sentinel_command in "${required_refreeze_sentinel_commands[@]}"; do
-      [[ "$(printf '%s\n' "${all_step_bash_commands}" | grep -Fxc "${sentinel_command}" || true)" -eq 1 ]] ||
-        fail "Task 5 Step 1 command must occur exactly once across all Step bash fences: ${sentinel_command}"
-    done
-  fi
+  while IFS= read -r expected_command; do
+    [[ "$(printf '%s\n' "${all_step_bash_commands}" | grep -Fxc "${expected_command}" || true)" -eq 1 ]] ||
+      fail "Task 5 Step ${verification_step} command must occur exactly once across all Step bash fences: ${expected_command}"
+  done <<<"${expected_verification_commands}"
 done
 
 for sentinel_command in "${required_refreeze_sentinel_commands[@]}"; do

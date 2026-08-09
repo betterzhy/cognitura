@@ -450,6 +450,7 @@ for extra_mutation in \
 done
 
 for duplicate_mutation in \
+  'step1-duplicate-status|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|git status --short' \
   'step1-duplicate-specialty-core|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
   'step1-duplicate-specialty-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh' \
   'step5-duplicate-specialty-core|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|2|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
@@ -577,4 +578,4 @@ done
 
 printf '%s\n' \
   "HighFidelityDesignTaskCardContractTests = PASS" \
-  "NegativeCases = 42"
+  "NegativeCases = 43"
