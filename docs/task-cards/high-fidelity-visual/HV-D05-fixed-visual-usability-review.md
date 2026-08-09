@@ -11,7 +11,7 @@ ReviewRoute = TWO_INDEPENDENT_gpt-5.6-sol/high_STAGES
 DesignOwner = FIXED_VISUAL_AND_USABILITY_REVIEW
 LocalCommitBoundary = docs: close high fidelity visual design gate
 WriteSetSource = MASTER_PLAN_TASK_11_CORRECTED
-WriteSetItemCount = 6
+WriteSetItemCount = 12
 ```
 
 ## 1. 目标
@@ -25,12 +25,18 @@ WriteSetItemCount = 6
 
 ## 3. 写集
 
+- `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
+- `docs/design/high-fidelity/evidence/README.md`
+- `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - `docs/engineering/cognitura-design-index.md`
 - `docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md`
 - `docs/task-cards/high-fidelity-visual/README.md`
+- `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- `scripts/verify-high-fidelity-visual`
 - `README.md`
 - `AGENTS.md`
+- `docs/task-cards/README.md`
 
 ## 4. 禁止写集
 
@@ -38,7 +44,9 @@ WriteSetItemCount = 6
 
 ## 5. 执行步骤
 
-运行完整验证，冻结 SHA，执行两个相互独立的 `gpt-5.6-sol/high` 阶段；发现问题则
+运行完整验证，冻结 SHA，复核前四卡各自 Owner RF-AC 均已关闭且不跨卡提前 PASS，
+并仅在固定候选复核中评估 `RF-AC-20`，
+再执行两个相互独立的 `gpt-5.6-sol/high` 阶段；发现问题则
 回到 Owner 卡补失败验证、重捕证据并重新冻结。
 
 ## 6. 验证命令

@@ -155,7 +155,9 @@ FixtureState = static-export
 ```
 
 夹具数据必须内嵌、确定、可离线读取。状态只由 `?state=<id>` 选择；禁止 HTTP、
-WebSocket、浏览器存储、Cookie、server/web 导入或对用户数据的任何持久化。
+WebSocket、浏览器存储、Cookie、server/web 导入、HTML/JS/CSS 外部网络资源或对用户
+数据的任何持久化。未知 `state` 必须呈现 `REJECTED_UNKNOWN_STATE`，不得回退到
+`visual-foundation` 或其他已登记夹具。
 
 ## 6. 截图合同
 
@@ -165,10 +167,12 @@ FoundationArtifactState = visual-foundation
 FoundationArtifactViewport = 1440x1100
 FoundationArtifactStatus = CAPTURED_FOUNDATION_FIXTURE
 FoundationArtifactMeaning = TOKEN_AND_GOVERNANCE_BASELINE_ONLY
+FoundationArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
 ```
 
 文件命名采用 `<semantic-state>-<viewport>.png`；证据 README 记录 URL、视口、
-捕获边界和验收含义。截图只能证明所属 HV 卡的视觉结果，不能推导可用性或实现。
+捕获边界和验收含义。验证器必须用当前 HTML/CSS/JS 在 1440×1100 重新捕获临时 PNG，
+并与提交证据逐字节一致；截图只能证明所属 HV 卡的视觉结果，不能推导可用性或实现。
 
 ## 7. 阶段边界
 
@@ -180,7 +184,5 @@ HV-D02 FocusAndSource = NOT_RUN
 HV-D03 RevisionAndRecovery = NOT_RUN
 HV-D04 CrossLayerResponsiveAndExport = NOT_RUN
 HV-D05 FixedVisualUsabilityReview = NOT_RUN
-HighFidelityVisualDesign = NOT_RUN
-HighFidelityUsabilityValidation = NOT_RUN
 BusinessImplementation = NOT_AUTHORIZED
 ```

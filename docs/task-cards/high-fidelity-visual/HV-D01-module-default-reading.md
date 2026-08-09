@@ -11,7 +11,7 @@ ReviewRoute = MAIN_AGENT_LOCAL_GATE
 DesignOwner = MODULE_DEFAULT_READING_EVIDENCE
 LocalCommitBoundary = docs: design module default reading evidence
 WriteSetSource = MASTER_PLAN_TASK_7_CORRECTED
-WriteSetItemCount = 8
+WriteSetItemCount = 17
 ```
 
 ## 1. 目标
@@ -29,9 +29,18 @@ WriteSetItemCount = 8
 - `docs/design/high-fidelity/prototype/prototype.js`
 - `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
 - `docs/design/high-fidelity/evidence/module-default-reading-desktop.png`
+- `docs/design/high-fidelity/evidence/README.md`
+- `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - `docs/task-cards/high-fidelity-visual/HV-D01-module-default-reading.md`
+- `docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md`
 - `docs/task-cards/high-fidelity-visual/README.md`
+- `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- `scripts/verify-high-fidelity-visual`
+- `docs/engineering/cognitura-design-index.md`
+- `README.md`
+- `AGENTS.md`
+- `docs/task-cards/README.md`
 
 ## 4. 禁止写集
 
@@ -40,7 +49,8 @@ WriteSetItemCount = 8
 ## 5. 执行步骤
 
 先写 DOM/截图失败断言，再实现 `state=module-default`，捕获并检查 1440×1100 证据，
-仅记录适用 RF-AC 的视觉结果，最后释放 `HV-D02`。
+仅记录 Owner 集 `RF-AC-02,04,05,06,08,11,12` 的视觉结果，最后在上述状态同步文件中
+关闭 `HV-D01` 并释放 `HV-D02`。不得提前改写其他 RF-AC。
 
 ## 6. 验证命令
 

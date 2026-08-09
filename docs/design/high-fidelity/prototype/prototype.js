@@ -17,10 +17,15 @@
 
   const query = new URLSearchParams(window.location.search);
   const requestedState = query.get("state") || "visual-foundation";
-  const selectedState = Object.prototype.hasOwnProperty.call(fixtures, requestedState)
-    ? requestedState
-    : "visual-foundation";
 
-  document.body.dataset.stateFixture = selectedState;
-  document.getElementById("fixture-label").textContent = fixtures[selectedState];
+  if (!Object.prototype.hasOwnProperty.call(fixtures, requestedState)) {
+    document.documentElement.dataset.fixtureStatus = "REJECTED_UNKNOWN_STATE";
+    document.body.dataset.stateFixture = "REJECTED";
+    document.getElementById("fixture-label").textContent = `Rejected fixture state: ${requestedState}`;
+    return;
+  }
+
+  document.documentElement.dataset.fixtureStatus = "ACCEPTED";
+  document.body.dataset.stateFixture = requestedState;
+  document.getElementById("fixture-label").textContent = fixtures[requestedState];
 })();

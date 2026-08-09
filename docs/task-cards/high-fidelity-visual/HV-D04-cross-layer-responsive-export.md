@@ -11,7 +11,7 @@ ReviewRoute = MAIN_AGENT_LOCAL_GATE
 DesignOwner = CROSS_LAYER_RESPONSIVE_AND_EXPORT
 LocalCommitBoundary = docs: complete cross layer visual evidence
 WriteSetSource = MASTER_PLAN_TASK_10_CORRECTED
-WriteSetItemCount = 12
+WriteSetItemCount = 21
 ```
 
 ## 1. 目标
@@ -27,15 +27,24 @@ WriteSetItemCount = 12
 - `docs/design/high-fidelity/prototype/index.html`
 - `docs/design/high-fidelity/prototype/styles.css`
 - `docs/design/high-fidelity/prototype/prototype.js`
-- `docs/design/high-fidelity/evidence/domain-default-reading-desktop.png`
-- `docs/design/high-fidelity/evidence/theme-default-reading-desktop.png`
+- `docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png`
+- `docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png`
 - `docs/design/high-fidelity/evidence/module-default-reading-small-screen.png`
 - `docs/design/high-fidelity/evidence/static-export-example.png`
 - `docs/design/high-fidelity/evidence/static-export-manifest.json`
 - `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
+- `docs/design/high-fidelity/evidence/README.md`
+- `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - `docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md`
+- `docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md`
 - `docs/task-cards/high-fidelity-visual/README.md`
+- `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- `scripts/verify-high-fidelity-visual`
+- `docs/engineering/cognitura-design-index.md`
+- `README.md`
+- `AGENTS.md`
+- `docs/task-cards/README.md`
 
 ## 4. 禁止写集
 
@@ -43,8 +52,11 @@ WriteSetItemCount = 12
 
 ## 5. 执行步骤
 
-先写跨层/导出失败断言，捕获 Domain、Theme、小屏 Module 与静态导出四类证据，
-校验伴随 manifest 稳定 ID，再释放 `HV-D05`。
+先写跨层/导出失败断言，以 `knowledge-landscape-theme-desktop.png` 作为跨层唯一主证据，
+以 `cross-domain-reading-desktop.png` 证明机制型/规则型内容仍服从同一层级；补充小屏
+Module 与静态导出证据并校验 manifest 稳定 ID。只关闭 Owner 集
+`RF-AC-01,10,15,19`；`RF-AC-20` 仅记录 supporting visual evidence，仍保持
+`NOT_RUN` 并留给 `HV-D05` 固定候选复核关闭，最后释放 `HV-D05`。
 
 ## 6. 验证命令
 

@@ -780,15 +780,24 @@ git commit -m "docs: establish high fidelity visual foundation"
 - Modify: `docs/design/high-fidelity/prototype/prototype.js`
 - Modify: `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
 - Create: `docs/design/high-fidelity/evidence/module-default-reading-desktop.png`
+- Modify: `docs/design/high-fidelity/evidence/README.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - Modify: `docs/task-cards/high-fidelity-visual/HV-D01-module-default-reading.md`
+- Modify: `docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md`
 - Modify: `docs/task-cards/high-fidelity-visual/README.md`
+- Modify: `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- Modify: `scripts/verify-high-fidelity-visual`
+- Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `README.md`
+- Modify: `AGENTS.md`
+- Modify: `docs/task-cards/README.md`
 
 **Interfaces:**
 - Consumes: visual foundation and MySQL mechanism-type synthetic cognitive fixture.
 - Produces: the primary desktop Module reading page proving zero-interaction cognitive closure.
 
-`WriteSetItemCount = 8`。本卡只拥有上述八个精确路径。
+`WriteSetItemCount = 17`。本卡只拥有上述十七个精确路径。
 
 - [ ] **Step 1: Add failing DOM and screenshot assertions**
 
@@ -808,9 +817,10 @@ Use deterministic synthetic content derived from the contract example rather tha
 
 Inspect the PNG before recording acceptance.
 
-- [ ] **Step 3: Evaluate RF-AC-01 through RF-AC-12 and RF-AC-15**
+- [ ] **Step 3: Evaluate only the HV-D01 RF-AC Owner set**
 
-Record each result against the screenshot and DOM fixture. Mark only `HIGH_FIDELITY_VISUAL`; leave usability NOT_RUN.
+Record only `RF-AC-02,04,05,06,08,11,12` against the screenshot and DOM fixture. Do not
+prematurely PASS another card's acceptance. Mark only `HIGH_FIDELITY_VISUAL`; leave usability NOT_RUN.
 
 - [ ] **Step 4: Close HV-D01 and release HV-D02**
 
@@ -825,15 +835,24 @@ Run visual/card/interaction validators and commit `docs: design module default r
 - Create: `docs/design/high-fidelity/evidence/module-relation-focus-desktop.png`
 - Create: `docs/design/high-fidelity/evidence/module-source-verification-desktop.png`
 - Modify: `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
+- Modify: `docs/design/high-fidelity/evidence/README.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - Modify: `docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md`
+- Modify: `docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md`
 - Modify: `docs/task-cards/high-fidelity-visual/README.md`
+- Modify: `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- Modify: `scripts/verify-high-fidelity-visual`
+- Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `README.md`
+- Modify: `AGENTS.md`
+- Modify: `docs/task-cards/README.md`
 
 **Interfaces:**
 - Consumes: Module default reading state.
 - Produces: single-primary Relation focus, endpoint hierarchy, Quick Source, full verification, keyboard focus return, and explicit source-gap visuals.
 
-`WriteSetItemCount = 9`。本卡只拥有上述九个精确路径。
+`WriteSetItemCount = 18`。本卡只拥有上述十八个精确路径。
 
 - [ ] **Step 1: Add failing state-fixture assertions**
 
@@ -843,9 +862,10 @@ Require one primary focus, origin anchor, relation statement, endpoints at secon
 
 Capture deterministic screenshots for `RELATION_PINNED_FOCUS` and `FULL_VERIFICATION_WORKSPACE` with the Task 7 Chrome command, using `state=relation-focus` and `state=source-verification` and their declared output filenames.
 
-- [ ] **Step 3: Run keyboard/touch-equivalence desk validation**
+- [ ] **Step 3: Run keyboard/touch-equivalence desk validation and Owner acceptance**
 
 Use the prototype controls to verify Tab order, Enter activation, Escape close order, explicit touch-equivalent actions, and focus restoration. Record visual evidence separately from usability observations.
+Evaluate only `RF-AC-03,07,09,16`; do not change another card's RF-AC status.
 
 - [ ] **Step 4: Close HV-D02 and release HV-D03**
 
@@ -858,18 +878,27 @@ Run all visual validators and commit `docs: design focus and source verification
 - Modify: `docs/design/high-fidelity/prototype/styles.css`
 - Modify: `docs/design/high-fidelity/prototype/prototype.js`
 - Create: `docs/design/high-fidelity/evidence/module-revision-impact-desktop.png`
-- Create: `docs/design/high-fidelity/evidence/module-partial-failure-desktop.png`
+- Create: `docs/design/high-fidelity/evidence/module-recovery-desktop.png`
 - Create: `docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png`
 - Modify: `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
+- Modify: `docs/design/high-fidelity/evidence/README.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - Modify: `docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md`
+- Modify: `docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md`
 - Modify: `docs/task-cards/high-fidelity-visual/README.md`
+- Modify: `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- Modify: `scripts/verify-high-fidelity-visual`
+- Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `README.md`
+- Modify: `AGENTS.md`
+- Modify: `docs/task-cards/README.md`
 
 **Interfaces:**
 - Consumes: state axes, 20 exception contracts, and source verification design.
 - Produces: Quick-to-Full upgrade, three-lane impact, commit boundaries, partial failure, stale projection, conflict draft, and Revert evidence.
 
-`WriteSetItemCount = 10`。本卡只拥有上述十个精确路径。
+`WriteSetItemCount = 19`。本卡只拥有上述十九个精确路径。
 
 - [ ] **Step 1: Add failing revision/recovery assertions**
 
@@ -877,9 +906,9 @@ Require Before/After, Semantic/Structural/Expression impact lanes, expanded Bloc
 
 - [ ] **Step 2: Implement and capture the three high-risk states**
 
-Capture revision impact, canonical-saved partial failure, and conflicted draft screens at 1440×1100 with the Task 7 Chrome command, using `state=revision-impact`, `state=partial-failure`, and `state=conflicted-draft`.
+Capture revision impact, canonical-saved partial failure, and conflicted draft screens at 1440×1100 with the Task 7 Chrome command, using `state=revision-impact`, `state=partial-failure`, and `state=conflicted-draft`. `module-recovery-desktop.png` is the canonical primary artifact for partial failure and recovery; the other two screens are supplemental.
 
-- [ ] **Step 3: Validate RF-AC-13, RF-AC-14, RF-AC-16, RF-AC-17, and RF-AC-18**
+- [ ] **Step 3: Validate only RF-AC-13, RF-AC-14, RF-AC-17, and RF-AC-18**
 
 Record visual results and execute deterministic prototype transitions for duplicate submit, refresh restore, conflict rebase, and Escape close order.
 
@@ -893,21 +922,30 @@ Run all visual validators and commit `docs: design revision and recovery evidenc
 - Modify: `docs/design/high-fidelity/prototype/index.html`
 - Modify: `docs/design/high-fidelity/prototype/styles.css`
 - Modify: `docs/design/high-fidelity/prototype/prototype.js`
-- Create: `docs/design/high-fidelity/evidence/domain-default-reading-desktop.png`
-- Create: `docs/design/high-fidelity/evidence/theme-default-reading-desktop.png`
+- Create: `docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png`
+- Create: `docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png`
 - Create: `docs/design/high-fidelity/evidence/module-default-reading-small-screen.png`
 - Create: `docs/design/high-fidelity/evidence/static-export-example.png`
 - Create: `docs/design/high-fidelity/evidence/static-export-manifest.json`
 - Modify: `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
+- Modify: `docs/design/high-fidelity/evidence/README.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - Modify: `docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md`
+- Modify: `docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md`
 - Modify: `docs/task-cards/high-fidelity-visual/README.md`
+- Modify: `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- Modify: `scripts/verify-high-fidelity-visual`
+- Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `README.md`
+- Modify: `AGENTS.md`
+- Modify: `docs/task-cards/README.md`
 
 **Interfaces:**
 - Consumes: validated Module states.
 - Produces: Domain, Theme, small-screen, and static export evidence with stable machine-readable identity.
 
-`WriteSetItemCount = 12`。本卡只拥有上述十二个精确路径。
+`WriteSetItemCount = 21`。本卡只拥有上述二十一个精确路径。
 
 - [ ] **Step 1: Add failing cross-layer and export assertions**
 
@@ -915,11 +953,12 @@ Require canonical hierarchy labels, core questions, responsibilities, boundaries
 
 - [ ] **Step 2: Implement and capture four evidence states**
 
-Capture desktop Domain/Theme at 1440×1100 with `state=domain-default` and `state=theme-default`. Capture small-screen Module with `--window-size=390,844` and `state=module-small-screen`; capture static export with `--window-size=1200,1600` and `state=static-export`. Use the same Chrome binary and flags as Task 7 and the filenames declared in this task.
+Capture the canonical combined KnowledgeLandscape/KnowledgeTheme artifact at 1440×1100 and a supplemental mechanism/rule cross-domain reading artifact. Capture small-screen Module with `--window-size=390,844` and `state=module-small-screen`; capture static export with `--window-size=1200,1600` and `state=static-export`. Use the same Chrome binary and flags as Task 7 and the filenames declared in this task.
 
-- [ ] **Step 3: Validate RF-AC-15, RF-AC-19, and RF-AC-20**
+- [ ] **Step 3: Close only RF-AC-01, RF-AC-10, RF-AC-15, and RF-AC-19**
 
-Check responsive safety, export identity, and low-fidelity-to-high-fidelity traceability.
+Check responsive safety and export identity. Capture supporting visual evidence for `RF-AC-20`,
+but leave its formal status `NOT_RUN` for the `HV-D05` fixed-candidate review.
 
 - [ ] **Step 4: Close HV-D04 and release HV-D05**
 
@@ -928,18 +967,24 @@ Run all visual validators and commit `docs: complete cross layer visual evidence
 ### Task 11: HV-D05 Fixed Visual and Usability Review
 
 **Files:**
+- Modify: `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
+- Modify: `docs/design/high-fidelity/evidence/README.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
 - Modify: `docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md`
 - Modify: `docs/task-cards/high-fidelity-visual/README.md`
+- Modify: `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- Modify: `scripts/verify-high-fidelity-visual`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
+- Modify: `docs/task-cards/README.md`
 
 **Interfaces:**
 - Consumes: all eight evidence classes, screenshots, prototype transitions, RF-AC results, and exception recovery observations.
 - Produces: independent visual/usability GO results and `HighFidelityDesignStatus = COMPLETE` without authorizing implementation.
 
-`WriteSetItemCount = 6`。本卡只拥有上述六个精确路径。
+`WriteSetItemCount = 12`。本卡只拥有上述十二个精确路径。
 
 - [ ] **Step 1: Run complete local evidence validation**
 
@@ -973,6 +1018,8 @@ ImplementationValidation = NOT_RUN
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
+`RF-AC-20` is owned and closed only by this fixed-candidate review.
+
 Commit `docs: close high fidelity visual design gate`.
 
 ### Task 12: Development-Entry Prompt and Final Design Boundary
@@ -982,12 +1029,15 @@ Commit `docs: close high fidelity visual design gate`.
 - Modify: `docs/engineering/cognitura-design-index.md`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
+- Modify: `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- Modify: `scripts/verify-high-fidelity-visual`
+- Modify: `docs/task-cards/README.md`
 
 **Interfaces:**
 - Consumes: closed contract, visual, and usability design Gates.
 - Produces: a copyable next-session prompt that asks for implementation task-card planning and explicit business authorization without authorizing code itself.
 
-`WriteSetItemCount = 4`。本卡只拥有上述四个精确路径。
+`WriteSetItemCount = 7`。本卡只拥有上述七个精确路径。
 
 - [ ] **Step 1: Write the development-entry prompt**
 
@@ -1024,9 +1074,13 @@ Expected: all Gate commands pass; only `.idea/` remains unrelated user state; no
 - [ ] **Step 4: Commit the final design checkpoint**
 
 ```bash
-git add AGENTS.md README.md \
-  docs/engineering/cognitura-design-index.md \
-  docs/engineering/cognitura-development-entry-prompt.md
+git add AGENTS.md
+git add README.md
+git add docs/engineering/cognitura-design-index.md
+git add docs/engineering/cognitura-development-entry-prompt.md
+git add docs/task-cards/README.md
+git add scripts/verify-high-fidelity-visual
+git add tests/task-cards/verify-high-fidelity-visual-cards.sh
 git commit -m "docs: prepare Cognitura development entry prompt"
 ```
 

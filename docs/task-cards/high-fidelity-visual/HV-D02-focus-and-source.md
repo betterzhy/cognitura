@@ -11,7 +11,7 @@ ReviewRoute = MAIN_AGENT_LOCAL_GATE
 DesignOwner = RELATION_FOCUS_AND_SOURCE_VERIFICATION
 LocalCommitBoundary = docs: design focus and source verification evidence
 WriteSetSource = MASTER_PLAN_TASK_8_CORRECTED
-WriteSetItemCount = 9
+WriteSetItemCount = 18
 ```
 
 ## 1. 目标
@@ -30,9 +30,18 @@ WriteSetItemCount = 9
 - `docs/design/high-fidelity/evidence/module-relation-focus-desktop.png`
 - `docs/design/high-fidelity/evidence/module-source-verification-desktop.png`
 - `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
+- `docs/design/high-fidelity/evidence/README.md`
+- `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - `docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md`
+- `docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md`
 - `docs/task-cards/high-fidelity-visual/README.md`
+- `tests/task-cards/verify-high-fidelity-visual-cards.sh`
+- `scripts/verify-high-fidelity-visual`
+- `docs/engineering/cognitura-design-index.md`
+- `README.md`
+- `AGENTS.md`
+- `docs/task-cards/README.md`
 
 ## 4. 禁止写集
 
@@ -41,7 +50,8 @@ WriteSetItemCount = 9
 ## 5. 执行步骤
 
 先写状态夹具失败断言，分别实现并捕获 `relation-focus` 与 `source-verification`，
-验证键盘/触控等价与 Escape 焦点归还，再释放 `HV-D03`。
+验证键盘/触控等价与 Escape 焦点归还，只评估 Owner 集
+`RF-AC-03,07,09,16`，再关闭 `HV-D02` 并释放 `HV-D03`。
 
 ## 6. 验证命令
 

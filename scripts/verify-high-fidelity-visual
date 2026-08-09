@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s [--cards-dir <path>] [--visual-design <path>] [--prototype-dir <path>] [--evidence-dir <path>] [--plan <path>]\n' "$0" >&2
+  printf 'Usage: %s [--cards-dir <path>] [--visual-design <path>] [--prototype-dir <path>] [--evidence-dir <path>] [--plan <path>] [--acceptance <path>] [--evidence-plan <path>]\n' "$0" >&2
   exit 2
 }
 
@@ -18,6 +18,8 @@ visual_design="${script_root}/docs/design/high-fidelity/cognitura-high-fidelity-
 prototype_dir="${script_root}/docs/design/high-fidelity/prototype"
 evidence_dir="${script_root}/docs/design/high-fidelity/evidence"
 plan="${script_root}/docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md"
+acceptance="${script_root}/docs/engineering/cognitura-high-fidelity-design-acceptance.md"
+evidence_plan="${script_root}/docs/engineering/cognitura-high-fidelity-design-plan.md"
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -44,6 +46,16 @@ while [[ "$#" -gt 0 ]]; do
     --plan)
       [[ "$#" -ge 2 ]] || usage
       plan="$2"
+      shift 2
+      ;;
+    --acceptance)
+      [[ "$#" -ge 2 ]] || usage
+      acceptance="$2"
+      shift 2
+      ;;
+    --evidence-plan)
+      [[ "$#" -ge 2 ]] || usage
+      evidence_plan="$2"
       shift 2
       ;;
     *) usage ;;
@@ -78,12 +90,67 @@ require_text() {
   grep -Fq -- "${text}" "${file}" || fail "$(basename "${file}"): missing contract text: ${text}"
 }
 
+assert_card_write_set() {
+  local card="$1"
+  local task_id="$2"
+  shift 2
+  local expected_sorted actual_sorted
+  expected_sorted="$(printf '%s\n' "$@" | LC_ALL=C sort)"
+  actual_sorted="$(awk '
+    $0 == "## 3. 写集" {inside=1; next}
+    $0 == "## 4. 禁止写集" {inside=0}
+    inside && $0 ~ /^- `[^`]+`$/ {
+      line=$0
+      sub(/^- `/,"",line)
+      sub(/`$/,"",line)
+      print line
+    }
+  ' "${card}" | LC_ALL=C sort)"
+  [[ "${actual_sorted}" == "${expected_sorted}" ]] ||
+    fail "${task_id}: write-set paths do not match exact contract"
+  if printf '%s\n' "${actual_sorted}" | grep -Eq '(\*|\?|\[)'; then
+    fail "${task_id}: write-set glob paths are forbidden"
+  fi
+}
+
+plan_task_body() {
+  local task_number="$1"
+  awk -v task_number="${task_number}" '
+    $0 ~ "^### Task " task_number ":" {inside=1}
+    inside && $0 ~ "^### Task " && $0 !~ "^### Task " task_number ":" {exit}
+    inside {print}
+  ' "${plan}"
+}
+
+assert_plan_write_set() {
+  local task_number="$1"
+  shift
+  local body expected_sorted actual_sorted
+  body="$(plan_task_body "${task_number}")"
+  expected_sorted="$(printf '%s\n' "$@" | LC_ALL=C sort)"
+  actual_sorted="$(printf '%s\n' "${body}" | awk '
+    /^- (Create|Modify): `[^`]+`$/ {
+      line=$0
+      sub(/^- (Create|Modify): `/,"",line)
+      sub(/`$/,"",line)
+      print line
+    }
+  ' | LC_ALL=C sort)"
+  [[ "${actual_sorted}" == "${expected_sorted}" ]] ||
+    fail "master plan Task ${task_number} write-set paths do not match exact contract"
+  if printf '%s\n' "${actual_sorted}" | grep -Eq '(\*|\?|\[)'; then
+    fail "master plan Task ${task_number} write-set glob paths are forbidden"
+  fi
+}
+
 [[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
 [[ -f "${cards_dir}/README.md" ]] || fail "visual task card index is missing"
 [[ -f "${visual_design}" ]] || fail "visual design baseline is missing"
 [[ -d "${prototype_dir}" ]] || fail "prototype directory is missing"
 [[ -d "${evidence_dir}" ]] || fail "evidence directory is missing"
 [[ -f "${plan}" ]] || fail "high-fidelity master plan is missing"
+[[ -f "${acceptance}" ]] || fail "high-fidelity acceptance is missing"
+[[ -f "${evidence_plan}" ]] || fail "high-fidelity evidence plan is missing"
 
 index="${cards_dir}/README.md"
 [[ "$(field_value "${index}" CanonicalProjectName)" == "Cognitura" ]] ||
@@ -112,7 +179,7 @@ done
 declared_ids=(HV-D00 HV-D01 HV-D02 HV-D03 HV-D04 HV-D05)
 expected_status=(DONE READY BLOCKED_BY_DEPENDENCY BLOCKED_BY_DEPENDENCY BLOCKED_BY_DEPENDENCY BLOCKED_BY_DEPENDENCY)
 expected_dependency=(NONE HV-D00 HV-D01 HV-D02 HV-D03 HV-D04)
-expected_write_count=(22 8 9 10 12 6)
+expected_write_count=(22 17 18 19 21 12)
 required_sections=("## 1. 目标" "## 2. 前置条件与输入" "## 3. 写集" "## 4. 禁止写集" "## 5. 执行步骤" "## 6. 验证命令" "## 7. Gate 与完成定义" "## 8. 提交与审查")
 
 shopt -s nullglob
@@ -153,9 +220,6 @@ for task_id in "${declared_ids[@]}"; do
   for section in "${required_sections[@]}"; do
     grep -Fqx "${section}" "${card}" || fail "${task_id}: missing required section: ${section}"
   done
-  if grep -Fq 'docs/design/high-fidelity/prototype/*' "${card}"; then
-    fail "${task_id}: prototype wildcard paths are forbidden"
-  fi
   write_path_count="$(awk '
     $0 == "## 3. 写集" {inside=1; next}
     $0 == "## 4. 禁止写集" {inside=0}
@@ -164,6 +228,95 @@ for task_id in "${declared_ids[@]}"; do
   ' "${card}")"
   [[ "${write_path_count}" -eq "${expected_write_count[${card_index}]}" ]] ||
     fail "${task_id}: write-set path count ${write_path_count} does not match ${expected_write_count[${card_index}]}"
+  case "${task_id}" in
+    HV-D00) assert_card_write_set "${card}" "${task_id}" \
+      'docs/task-cards/high-fidelity-visual/README.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D00-visual-foundation.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D01-module-default-reading.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md' \
+      'tests/task-cards/verify-high-fidelity-visual-cards.sh' \
+      'scripts/verify-high-fidelity-visual' \
+      'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+      'docs/design/high-fidelity/prototype/index.html' \
+      'docs/design/high-fidelity/prototype/styles.css' \
+      'docs/design/high-fidelity/prototype/prototype.js' \
+      'docs/design/high-fidelity/evidence/README.md' \
+      'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+      'README.md' 'AGENTS.md' \
+      'docs/design/high-fidelity/evidence/visual-foundation-desktop.png' \
+      'docs/engineering/cognitura-design-index.md' \
+      'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+      'docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md' \
+      'docs/task-cards/README.md' ;;
+    HV-D01) assert_card_write_set "${card}" "${task_id}" \
+      'docs/design/high-fidelity/prototype/index.html' 'docs/design/high-fidelity/prototype/styles.css' \
+      'docs/design/high-fidelity/prototype/prototype.js' \
+      'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+      'docs/design/high-fidelity/evidence/module-default-reading-desktop.png' \
+      'docs/design/high-fidelity/evidence/README.md' \
+      'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+      'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D01-module-default-reading.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md' \
+      'docs/task-cards/high-fidelity-visual/README.md' \
+      'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+      'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' 'docs/task-cards/README.md' ;;
+    HV-D02) assert_card_write_set "${card}" "${task_id}" \
+      'docs/design/high-fidelity/prototype/index.html' 'docs/design/high-fidelity/prototype/styles.css' \
+      'docs/design/high-fidelity/prototype/prototype.js' \
+      'docs/design/high-fidelity/evidence/module-relation-focus-desktop.png' \
+      'docs/design/high-fidelity/evidence/module-source-verification-desktop.png' \
+      'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+      'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+      'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md' \
+      'docs/task-cards/high-fidelity-visual/README.md' \
+      'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+      'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' 'docs/task-cards/README.md' ;;
+    HV-D03) assert_card_write_set "${card}" "${task_id}" \
+      'docs/design/high-fidelity/prototype/index.html' 'docs/design/high-fidelity/prototype/styles.css' \
+      'docs/design/high-fidelity/prototype/prototype.js' \
+      'docs/design/high-fidelity/evidence/module-revision-impact-desktop.png' \
+      'docs/design/high-fidelity/evidence/module-recovery-desktop.png' \
+      'docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png' \
+      'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+      'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+      'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md' \
+      'docs/task-cards/high-fidelity-visual/README.md' \
+      'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+      'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' 'docs/task-cards/README.md' ;;
+    HV-D04) assert_card_write_set "${card}" "${task_id}" \
+      'docs/design/high-fidelity/prototype/index.html' 'docs/design/high-fidelity/prototype/styles.css' \
+      'docs/design/high-fidelity/prototype/prototype.js' \
+      'docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png' \
+      'docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png' \
+      'docs/design/high-fidelity/evidence/module-default-reading-small-screen.png' \
+      'docs/design/high-fidelity/evidence/static-export-example.png' \
+      'docs/design/high-fidelity/evidence/static-export-manifest.json' \
+      'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+      'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+      'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md' \
+      'docs/task-cards/high-fidelity-visual/README.md' \
+      'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+      'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' 'docs/task-cards/README.md' ;;
+    HV-D05) assert_card_write_set "${card}" "${task_id}" \
+      'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+      'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+      'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+      'docs/engineering/cognitura-design-index.md' \
+      'docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md' \
+      'docs/task-cards/high-fidelity-visual/README.md' \
+      'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+      'README.md' 'AGENTS.md' 'docs/task-cards/README.md' ;;
+  esac
   case "${status}" in
     READY) ready_count=$((ready_count + 1)) ;;
     DONE) done_count=$((done_count + 1)) ;;
@@ -213,18 +366,85 @@ for path in "${task6_expected_paths[@]}"; do
 done
 task6_path_count="$(printf '%s\n' "${task6_body}" | grep -Ec '^- (Create|Modify): `[^`]+`$' || true)"
 [[ "${task6_path_count}" -eq 22 ]] || fail "master plan Task 6 write-set path count must be 22"
-if grep -Fq 'docs/design/high-fidelity/prototype/*' "${plan}"; then
-  fail "master plan must not use prototype wildcard paths"
-fi
-future_task_write_counts=(8 9 10 12 6 4)
+assert_plan_write_set 7 \
+  'docs/design/high-fidelity/prototype/index.html' 'docs/design/high-fidelity/prototype/styles.css' \
+  'docs/design/high-fidelity/prototype/prototype.js' \
+  'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+  'docs/design/high-fidelity/evidence/module-default-reading-desktop.png' \
+  'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+  'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D01-module-default-reading.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md' \
+  'docs/task-cards/high-fidelity-visual/README.md' \
+  'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+  'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' 'docs/task-cards/README.md'
+assert_plan_write_set 8 \
+  'docs/design/high-fidelity/prototype/index.html' 'docs/design/high-fidelity/prototype/styles.css' \
+  'docs/design/high-fidelity/prototype/prototype.js' \
+  'docs/design/high-fidelity/evidence/module-relation-focus-desktop.png' \
+  'docs/design/high-fidelity/evidence/module-source-verification-desktop.png' \
+  'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+  'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+  'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md' \
+  'docs/task-cards/high-fidelity-visual/README.md' \
+  'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+  'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' 'docs/task-cards/README.md'
+assert_plan_write_set 9 \
+  'docs/design/high-fidelity/prototype/index.html' 'docs/design/high-fidelity/prototype/styles.css' \
+  'docs/design/high-fidelity/prototype/prototype.js' \
+  'docs/design/high-fidelity/evidence/module-revision-impact-desktop.png' \
+  'docs/design/high-fidelity/evidence/module-recovery-desktop.png' \
+  'docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png' \
+  'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+  'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+  'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md' \
+  'docs/task-cards/high-fidelity-visual/README.md' \
+  'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+  'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' 'docs/task-cards/README.md'
+assert_plan_write_set 10 \
+  'docs/design/high-fidelity/prototype/index.html' 'docs/design/high-fidelity/prototype/styles.css' \
+  'docs/design/high-fidelity/prototype/prototype.js' \
+  'docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png' \
+  'docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png' \
+  'docs/design/high-fidelity/evidence/module-default-reading-small-screen.png' \
+  'docs/design/high-fidelity/evidence/static-export-example.png' \
+  'docs/design/high-fidelity/evidence/static-export-manifest.json' \
+  'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+  'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+  'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md' \
+  'docs/task-cards/high-fidelity-visual/README.md' \
+  'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+  'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' 'docs/task-cards/README.md'
+assert_plan_write_set 11 \
+  'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md' \
+  'docs/design/high-fidelity/evidence/README.md' 'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+  'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+  'docs/engineering/cognitura-design-index.md' \
+  'docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md' \
+  'docs/task-cards/high-fidelity-visual/README.md' \
+  'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+  'README.md' 'AGENTS.md' 'docs/task-cards/README.md'
+assert_plan_write_set 12 \
+  'docs/engineering/cognitura-development-entry-prompt.md' \
+  'docs/engineering/cognitura-design-index.md' 'README.md' 'AGENTS.md' \
+  'tests/task-cards/verify-high-fidelity-visual-cards.sh' 'scripts/verify-high-fidelity-visual' \
+  'docs/task-cards/README.md'
+
+future_task_write_counts=(17 18 19 21 12 7)
 future_task_index=0
 for task in 7 8 9 10 11 12; do
-  require_text "${plan}" "WriteSetItemCount = ${future_task_write_counts[${future_task_index}]}"
+  task_body="$(plan_task_body "${task}")"
+  [[ "$(printf '%s\n' "${task_body}" | grep -Fc "\`WriteSetItemCount = ${future_task_write_counts[${future_task_index}]}\`" || true)" -eq 1 ]] ||
+    fail "master plan Task ${task} WriteSetItemCount must be ${future_task_write_counts[${future_task_index}]}"
   future_task_index=$((future_task_index + 1))
 done
 
-evidence_plan="${script_root}/docs/engineering/cognitura-high-fidelity-design-plan.md"
-acceptance="${script_root}/docs/engineering/cognitura-high-fidelity-design-acceptance.md"
 design_index="${script_root}/docs/engineering/cognitura-design-index.md"
 root_task_index="${script_root}/docs/task-cards/README.md"
 for sync_file in \
@@ -262,14 +482,35 @@ require_line_once "${design_index}" 'ActiveDesignTaskCard = HV-D01'
 require_line_once "${root_task_index}" 'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION'
 require_line_once "${root_task_index}" 'HighFidelityVisualActiveTaskCard = HV-D01'
 
+for owner_contract in \
+  'RF-AC-01|HV-D04' 'RF-AC-02|HV-D01' 'RF-AC-03|HV-D02' 'RF-AC-04|HV-D01' \
+  'RF-AC-05|HV-D01' 'RF-AC-06|HV-D01' 'RF-AC-07|HV-D02' 'RF-AC-08|HV-D01' \
+  'RF-AC-09|HV-D02' 'RF-AC-10|HV-D04' 'RF-AC-11|HV-D01' 'RF-AC-12|HV-D01' \
+  'RF-AC-13|HV-D03' 'RF-AC-14|HV-D03' 'RF-AC-15|HV-D04' 'RF-AC-16|HV-D02' \
+  'RF-AC-17|HV-D03' 'RF-AC-18|HV-D03' 'RF-AC-19|HV-D04' 'RF-AC-20|HV-D05'; do
+  rf_id="${owner_contract%%|*}"
+  rf_gate="${owner_contract#*|}"
+  rf_line_count="$(grep -Ec "^RFAcceptance = ${rf_id}\\|" "${acceptance}" || true)"
+  [[ "${rf_line_count}" -eq 1 ]] || fail "${rf_id} must have exactly one acceptance row"
+  grep -Eq "^RFAcceptance = ${rf_id}\\|.*\\|Gate=${rf_gate}$" "${acceptance}" ||
+    fail "${rf_id} must be owned by ${rf_gate}"
+done
+
+grep -Eq '^EvidencePath = 05\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-recovery-desktop\.png\|Status=NOT_RUN\|Gate=HV-D03$' "${evidence_plan}" ||
+  fail "EvidencePath 05 canonical primary artifact must be module-recovery-desktop.png"
+grep -Eq '^EvidencePath = 06\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop\.png\|Status=NOT_RUN\|Gate=HV-D04$' "${evidence_plan}" ||
+  fail "EvidencePath 06 canonical primary artifact must be knowledge-landscape-theme-desktop.png"
+
 for artifact in index.html styles.css prototype.js; do
   [[ -f "${prototype_dir}/${artifact}" ]] || fail "prototype artifact is missing: ${artifact}"
 done
 [[ -f "${evidence_dir}/README.md" ]] || fail "evidence contract is missing"
 
+[[ "$(field_value "${visual_design}" HighFidelityVisualDesign)" == "NOT_RUN" ]] ||
+  fail "HighFidelityVisualDesign must be NOT_RUN"
+[[ "$(field_value "${visual_design}" HighFidelityUsabilityValidation)" == "NOT_RUN" ]] ||
+  fail "HighFidelityUsabilityValidation must be NOT_RUN"
 for line in \
-  'HighFidelityVisualDesign = NOT_RUN' \
-  'HighFidelityUsabilityValidation = NOT_RUN' \
   'PrototypeKind = DOCUMENTATION_ONLY_NON_PRODUCTION_FIXTURE' \
   'FixtureDataSource = EMBEDDED_DETERMINISTIC_DATA' \
   'FixtureStateTransport = URL_QUERY_ONLY' \
@@ -285,7 +526,12 @@ for line in \
   'ErrorToken = --status-error'; do
   require_line "${visual_design}" "${line}"
 done
-for state_id in visual-foundation module-default relation-focus source-verification revision-impact partial-failure conflicted-draft domain-default theme-default module-small-screen static-export; do
+expected_fixture_states=(visual-foundation module-default relation-focus source-verification revision-impact partial-failure conflicted-draft domain-default theme-default module-small-screen static-export)
+actual_fixture_states="$(sed -n 's/^FixtureState = //p' "${visual_design}" | LC_ALL=C sort)"
+expected_fixture_state_set="$(printf '%s\n' "${expected_fixture_states[@]}" | LC_ALL=C sort)"
+[[ "${actual_fixture_states}" == "${expected_fixture_state_set}" ]] ||
+  fail "FixtureState must be the exact canonical set"
+for state_id in "${expected_fixture_states[@]}"; do
   require_text "${visual_design}" "FixtureState = ${state_id}"
   require_text "${prototype_dir}/prototype.js" "${state_id}"
 done
@@ -304,15 +550,19 @@ require_text "${prototype_dir}/styles.css" ':focus-visible'
 
 combined_prototype="$(printf '%s\n' \
   "$(sed 's/[[:space:]]//g' "${prototype_dir}/index.html")" \
-  "$(sed 's/[[:space:]]//g' "${prototype_dir}/prototype.js")")"
+  "$(sed 's/[[:space:]]//g' "${prototype_dir}/prototype.js")" \
+  "$(sed 's/[[:space:]]//g' "${prototype_dir}/styles.css")")"
 if printf '%s\n' "${combined_prototype}" | grep -Eqi 'fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon'; then
   fail "prototype must not use network APIs"
 fi
 if printf '%s\n' "${combined_prototype}" | grep -Eqi 'localStorage|sessionStorage|indexedDB|document\.cookie'; then
   fail "prototype must not persist user data"
 fi
-if printf '%s\n' "${combined_prototype}" | grep -Eqi '(src|href|import[^[:alnum:]])[^\n]*(web/|server/|https?://)'; then
-  fail "prototype must not import production web/server assets or remote resources"
+if printf '%s\n' "${combined_prototype}" | grep -Eqi "https?://|@import|url\\([^)]*//|(src|href)=([\"']?//)|import\\(([\"']?//)"; then
+  fail "prototype must not use external network resources"
+fi
+if printf '%s\n' "${combined_prototype}" | grep -Eqi '(src|href|import[^[:alnum:]])[^\n]*(web/|server/)'; then
+  fail "prototype must not import production web/server assets"
 fi
 
 require_text "${evidence_dir}/README.md" 'visual-foundation-desktop.png'
@@ -324,6 +574,53 @@ png_description="$(file "${evidence_png}" 2>/dev/null || true)"
 [[ "${png_description}" == *"PNG image data, 1440 x 1100"* ]] ||
   fail "visual foundation evidence must be a 1440x1100 PNG"
 
+chrome_bin="${CHROME_BIN:-}"
+if [[ -z "${chrome_bin}" ]]; then
+  for chrome_candidate in \
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+    '/Applications/Chromium.app/Contents/MacOS/Chromium'; do
+    if [[ -x "${chrome_candidate}" ]]; then
+      chrome_bin="${chrome_candidate}"
+      break
+    fi
+  done
+fi
+if [[ -z "${chrome_bin}" ]]; then
+  chrome_bin="$(command -v google-chrome || command -v chromium || true)"
+fi
+[[ -n "${chrome_bin}" && -x "${chrome_bin}" ]] ||
+  fail "Chrome headless is required for visual evidence freshness validation"
+
+runtime_tmp="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-hv-runtime.XXXXXX")"
+cleanup_runtime() {
+  rm -f "${runtime_tmp}/visual-foundation-desktop.png"
+  rmdir "${runtime_tmp}" 2>/dev/null || true
+}
+trap cleanup_runtime EXIT
+
+rogue_dom="$("${chrome_bin}" \
+  --headless=new --disable-gpu --hide-scrollbars \
+  --dump-dom \
+  "file://${prototype_dir}/index.html?state=rogue-state" 2>/dev/null)" ||
+  fail "Chrome could not evaluate the unknown fixture state"
+[[ "${rogue_dom}" == *'data-fixture-status="REJECTED_UNKNOWN_STATE"'* ]] ||
+  fail "unknown fixture state must be explicitly rejected"
+[[ "${rogue_dom}" == *'data-state-fixture="REJECTED"'* ]] ||
+  fail "unknown fixture state must not fall back to a canonical fixture"
+
+captured_png="${runtime_tmp}/visual-foundation-desktop.png"
+"${chrome_bin}" \
+  --headless=new --disable-gpu --hide-scrollbars \
+  --window-size=1440,1100 \
+  --screenshot="${captured_png}" \
+  "file://${prototype_dir}/index.html?state=visual-foundation" >/dev/null 2>&1 ||
+  fail "Chrome could not recapture the visual foundation evidence"
+captured_description="$(file "${captured_png}" 2>/dev/null || true)"
+[[ "${captured_description}" == *"PNG image data, 1440 x 1100"* ]] ||
+  fail "recaptured visual foundation evidence must be a 1440x1100 PNG"
+cmp -s "${captured_png}" "${evidence_png}" ||
+  fail "visual foundation evidence is stale for the current prototype"
+
 printf 'HighFidelityVisualTaskCardValidation = PASS\n'
 printf 'TaskCardCount = 6\n'
 printf 'TaskCardSetStatus = READY_FOR_EXECUTION\n'
@@ -334,6 +631,8 @@ printf 'BlockedTaskCardCount = %s\n' "${blocked_count}"
 printf 'Task6WriteSetItemCount = 22\n'
 printf 'VisualFoundationPrototypeValidation = PASS\n'
 printf 'VisualFoundationEvidence = 1440x1100\n'
+printf 'UnknownFixtureStateRejection = PASS\n'
+printf 'VisualFoundationEvidenceFreshness = PASS\n'
 printf 'HighFidelityVisualDesign = NOT_RUN\n'
 printf 'HighFidelityUsabilityValidation = NOT_RUN\n'
 printf 'BusinessImplementation = NOT_AUTHORIZED\n'
