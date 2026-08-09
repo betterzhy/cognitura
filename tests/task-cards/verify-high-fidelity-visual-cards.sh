@@ -108,6 +108,49 @@ recapture_module_evidence() {
     fail "recaptured module-default mutation evidence must be a 1440x1100 PNG: ${fixture_root}"
 }
 
+recapture_hvd02_evidence() {
+  local fixture_root="$1"
+  local state_id="$2"
+  local artifact_name="$3"
+  local chrome_profile="${fixture_root}/chrome-profile-${state_id}-recapture"
+  local staged_png="${fixture_root}/evidence/.${artifact_name}.recapture.png"
+  local chrome_pid attempt artifact_ready
+
+  "${chrome_bin}" \
+    --headless=new --disable-gpu --hide-scrollbars \
+    --user-data-dir="${chrome_profile}" --no-first-run --no-default-browser-check \
+    --use-mock-keychain \
+    --window-size=1440,1100 \
+    --screenshot="${staged_png}" \
+    "file://${fixture_root}/prototype/index.html?state=${state_id}" >/dev/null 2>&1 &
+  chrome_pid=$!
+  artifact_ready=NO
+  attempt=0
+  while [[ "${attempt}" -lt 300 ]]; do
+    if file "${staged_png}" 2>/dev/null | grep -Fq 'PNG image data, 1440 x 1100'; then
+      artifact_ready=YES
+      break
+    fi
+    kill -0 "${chrome_pid}" 2>/dev/null || break
+    sleep 0.1
+    attempt=$((attempt + 1))
+  done
+  terminate_headless_chrome "${chrome_pid}"
+  [[ "${artifact_ready}" == "YES" ]] ||
+    fail "could not recapture ${state_id} mutation evidence: ${fixture_root}"
+  mv -f "${staged_png}" "${fixture_root}/evidence/${artifact_name}"
+}
+
+expect_hvd02_dom_failure() {
+  local fixture_root="$1"
+  local state_id="$2"
+  local artifact_name="$3"
+  local expected_message="$4"
+
+  recapture_hvd02_evidence "${fixture_root}" "${state_id}" "${artifact_name}"
+  expect_failure "${fixture_root}" "${expected_message}"
+}
+
 module_dom_unexpected_passes=()
 module_dom_unexpected_failures=()
 expect_module_dom_failure() {
@@ -183,10 +226,10 @@ for expected_line in \
   "HighFidelityVisualTaskCardValidation = PASS" \
   "TaskCardCount = 6" \
   "TaskCardSetStatus = READY_FOR_EXECUTION" \
-  "ActiveTaskCard = HV-D02" \
-  "DoneTaskCardCount = 2" \
+  "ActiveTaskCard = HV-D03" \
+  "DoneTaskCardCount = 3" \
   "ReadyTaskCardCount = 1" \
-  "BlockedTaskCardCount = 3" \
+  "BlockedTaskCardCount = 2" \
   "Task6WriteSetItemCount = 22" \
   "VisualFoundationPrototypeValidation = PASS" \
   "VisualFoundationEvidence = 1440x1100" \
@@ -196,6 +239,15 @@ for expected_line in \
   "ModuleDefaultReadingBrowserSelectorValidation = PASS" \
   "ModuleDefaultReadingEvidence = 1440x1100" \
   "ModuleDefaultReadingEvidenceFreshness = PASS" \
+  "RelationFocusBrowserSelectorValidation = PASS" \
+  "RelationFocusInteractionTransitionValidation = PASS" \
+  "QuickSourceTransientTransitionValidation = PASS" \
+  "RelationFocusEvidence = 1440x1100" \
+  "RelationFocusEvidenceFreshness = PASS" \
+  "SourceVerificationBrowserSelectorValidation = PASS" \
+  "SourceVerificationInteractionTransitionValidation = PASS" \
+  "SourceVerificationEvidence = 1440x1100" \
+  "SourceVerificationEvidenceFreshness = PASS" \
   "HighFidelityVisualDesign = NOT_RUN" \
   "HighFidelityUsabilityValidation = NOT_RUN" \
   "BusinessImplementation = NOT_AUTHORIZED" \
@@ -213,8 +265,8 @@ expect_failure "${missing_card}" "actual visual task card count 5 does not match
 second_ready="${test_tmp_root}/second-ready"
 make_fixture "${second_ready}"
 sed -i.bak 's/^Status = BLOCKED_BY_DEPENDENCY$/Status = READY/' \
-  "${second_ready}/cards/HV-D03-revision-and-recovery.md"
-rm "${second_ready}/cards/HV-D03-revision-and-recovery.md.bak"
+  "${second_ready}/cards/HV-D04-cross-layer-responsive-export.md"
+rm "${second_ready}/cards/HV-D04-cross-layer-responsive-export.md.bak"
 expect_failure "${second_ready}" "exactly one READY card is required"
 
 wrong_write_set="${test_tmp_root}/wrong-write-set"
@@ -495,6 +547,103 @@ expect_module_dom_success "${legal_comment_closing_tag}"
 
 assert_module_dom_failures_closed
 
+missing_relation_primary_focus="${test_tmp_root}/missing-relation-primary-focus"
+make_fixture "${missing_relation_primary_focus}"
+sed -i.bak 's/class="relation-focus-primary"/class="relation-focus-primary-missing"/' \
+  "${missing_relation_primary_focus}/prototype/index.html"
+rm "${missing_relation_primary_focus}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_relation_primary_focus}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus must contain exactly one real primary Relation focus'
+
+missing_relation_origin_anchor="${test_tmp_root}/missing-relation-origin-anchor"
+make_fixture "${missing_relation_origin_anchor}"
+sed -i.bak 's/relation-origin-anchor focus-return-anchor/relation-origin-anchor-missing focus-return-anchor/' \
+  "${missing_relation_origin_anchor}/prototype/index.html"
+rm "${missing_relation_origin_anchor}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_relation_origin_anchor}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus must contain exactly one real origin anchor'
+
+missing_relation_statement="${test_tmp_root}/missing-relation-statement"
+make_fixture "${missing_relation_statement}"
+sed -i.bak 's/class="relation-focus-statement"/class="relation-focus-statement-missing"/' \
+  "${missing_relation_statement}/prototype/index.html"
+rm "${missing_relation_statement}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_relation_statement}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus must contain exactly one complete Relation statement'
+
+missing_relation_endpoint="${test_tmp_root}/missing-relation-endpoint"
+make_fixture "${missing_relation_endpoint}"
+perl -0pi -e 's/class="relation-endpoint"/class="relation-endpoint-missing"/' \
+  "${missing_relation_endpoint}/prototype/index.html"
+expect_hvd02_dom_failure "${missing_relation_endpoint}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus must contain exactly two secondary endpoints'
+
+missing_relation_support_scope="${test_tmp_root}/missing-relation-support-scope"
+make_fixture "${missing_relation_support_scope}"
+sed -i.bak 's/class="relation-support-scope"/class="relation-support-scope-missing"/' \
+  "${missing_relation_support_scope}/prototype/index.html"
+rm "${missing_relation_support_scope}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_relation_support_scope}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus must contain exactly one evidence support scope'
+
+missing_quick_source_panel="${test_tmp_root}/missing-quick-source-panel"
+make_fixture "${missing_quick_source_panel}"
+sed -i.bak 's/class="quick-source-panel"/class="quick-source-panel-missing"/' \
+  "${missing_quick_source_panel}/prototype/index.html"
+rm "${missing_quick_source_panel}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_quick_source_panel}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus must contain exactly one transient Quick Source panel'
+
+broken_quick_source_explicit_close="${test_tmp_root}/broken-quick-source-explicit-close"
+make_fixture "${broken_quick_source_explicit_close}"
+sed -i.bak 's/data-touch-equivalent="CLOSE_QUICK_SOURCE"/data-touch-equivalent="BROKEN_QUICK_SOURCE_CLOSE"/' \
+  "${broken_quick_source_explicit_close}/prototype/index.html"
+rm "${broken_quick_source_explicit_close}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${broken_quick_source_explicit_close}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus browser selector probe data-probe-quick-source-close-count must be 1, got 0'
+
+missing_source_conflict="${test_tmp_root}/missing-source-conflict"
+make_fixture "${missing_source_conflict}"
+sed -i.bak 's/class="source-conflict"/class="source-conflict-missing"/' \
+  "${missing_source_conflict}/prototype/index.html"
+rm "${missing_source_conflict}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_source_conflict}" source-verification \
+  module-source-verification-desktop.png \
+  'source-verification must contain exactly one explicit conflict state'
+
+missing_source_gap="${test_tmp_root}/missing-source-gap"
+make_fixture "${missing_source_gap}"
+sed -i.bak 's/class="source-gap"/class="source-gap-missing"/' \
+  "${missing_source_gap}/prototype/index.html"
+rm "${missing_source_gap}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_source_gap}" source-verification \
+  module-source-verification-desktop.png \
+  'source-verification must contain exactly one explicit source gap'
+
+missing_source_return_target="${test_tmp_root}/missing-source-return-target"
+make_fixture "${missing_source_return_target}"
+sed -i.bak 's/id="source-origin-anchor"/id="source-origin-anchor-missing"/' \
+  "${missing_source_return_target}/prototype/index.html"
+rm "${missing_source_return_target}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_source_return_target}" source-verification \
+  module-source-verification-desktop.png \
+  'source-verification must contain exactly one Escape focus return target'
+
+independent_source_fact="${test_tmp_root}/independent-source-fact"
+make_fixture "${independent_source_fact}"
+perl -0pi -e 's/(id="source-verification-document".*?data-independent-fact-count=)"0"/$1"1"/s' \
+  "${independent_source_fact}/prototype/index.html"
+expect_hvd02_dom_failure "${independent_source_fact}" source-verification \
+  module-source-verification-desktop.png \
+  'source-verification must declare zero independent facts'
+
 missing_module_source_label="${test_tmp_root}/missing-module-source-label"
 make_fixture "${missing_module_source_label}"
 sed -i.bak \
@@ -540,15 +689,16 @@ expect_failure "${regressed_completed_owner}" \
 premature_future_owner="${test_tmp_root}/premature-future-owner"
 make_fixture "${premature_future_owner}"
 sed -i.bak \
-  '/^RFAcceptance = RF-AC-03|/ s/Status=NOT_RUN/Status=PASS/' \
+  '/^RFAcceptance = RF-AC-13|/ s/Status=NOT_RUN/Status=PASS/' \
   "${premature_future_owner}/acceptance.md"
 rm "${premature_future_owner}/acceptance.md.bak"
 expect_failure "${premature_future_owner}" \
-  'RF-AC-03 canonical input contract must remain PLANNED/NOT_RUN'
+  'RF-AC-13 canonical input contract must remain PLANNED/NOT_RUN'
 
 printf 'HighFidelityVisualTaskCardContractTests = PASS\n'
 printf 'ExistingNegativeFixtureCount = 44\n'
 printf 'HV-D01FixRound1DOMNegativeFixtureCount = 15\n'
 printf 'HV-D01FixRound2AdversarialNegativeFixtureCount = 1\n'
 printf 'HV-D01SelectorSemanticsPositiveFixtureCount = 2\n'
-printf 'NegativeFixtureCount = 68\n'
+printf 'HV-D02DOMNegativeFixtureCount = 11\n'
+printf 'NegativeFixtureCount = 79\n'

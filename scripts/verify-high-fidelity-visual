@@ -589,6 +589,14 @@ grep -Eq '^EvidencePath = 01\|CognitiveModuleDefaultReading\|.*\|Artifact=PLANNE
 if [[ "${active_number}" -ge 2 ]]; then
   require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D01|EvidencePath=01|EvidenceClass=CognitiveModuleDefaultReading|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D01 PASS'
 fi
+grep -Eq '^EvidencePath = 02\|RelationFocus\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-relation-focus-desktop\.png\|Status=NOT_RUN\|Gate=HV-D02$' "${evidence_plan}" ||
+  fail "EvidencePath 02 canonical input contract must remain PLANNED/NOT_RUN"
+grep -Eq '^EvidencePath = 03\|SourceEvidenceVerification\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-source-verification-desktop\.png\|Status=NOT_RUN\|Gate=HV-D02$' "${evidence_plan}" ||
+  fail "EvidencePath 03 canonical input contract must remain PLANNED/NOT_RUN"
+if [[ "${active_number}" -ge 3 ]]; then
+  require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D02|EvidencePath=02|EvidenceClass=RelationFocus|Artifact=docs/design/high-fidelity/evidence/module-relation-focus-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D02 PASS'
+  require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D02|EvidencePath=03|EvidenceClass=SourceEvidenceVerification|Artifact=docs/design/high-fidelity/evidence/module-source-verification-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D02 PASS'
+fi
 grep -Eq '^EvidencePath = 05\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-recovery-desktop\.png\|Status=NOT_RUN\|Gate=HV-D03$' "${evidence_plan}" ||
   fail "EvidencePath 05 canonical primary artifact must be module-recovery-desktop.png"
 grep -Eq '^EvidencePath = 06\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop\.png\|Status=NOT_RUN\|Gate=HV-D04$' "${evidence_plan}" ||
@@ -685,6 +693,10 @@ rogue_chrome_profile="${runtime_tmp}/chrome-profile-rogue"
 foundation_chrome_profile="${runtime_tmp}/chrome-profile-foundation"
 module_dom_chrome_profile="${runtime_tmp}/chrome-profile-module-dom"
 module_png_chrome_profile="${runtime_tmp}/chrome-profile-module-png"
+relation_dom_chrome_profile="${runtime_tmp}/chrome-profile-relation-dom"
+relation_png_chrome_profile="${runtime_tmp}/chrome-profile-relation-png"
+source_dom_chrome_profile="${runtime_tmp}/chrome-profile-source-dom"
+source_png_chrome_profile="${runtime_tmp}/chrome-profile-source-png"
 cleanup_runtime() {
   rm -rf "${runtime_tmp}"
 }
@@ -842,6 +854,150 @@ EOF
   } >"${output_file}"
 }
 
+hvd02_probe_attribute_value() {
+  local probe_name="$1"
+  local probe_dom="$2"
+  local attribute="$3"
+  local matches match_count
+  matches="$(printf '%s\n' "${probe_dom}" | { grep -Eo -- "${attribute}=\"[^\"]*\"" || true; })"
+  match_count="$(printf '%s\n' "${matches}" | awk 'NF {count++} END {print count+0}')"
+  [[ "${match_count}" -eq 1 ]] ||
+    fail "${probe_name} browser selector probe must declare ${attribute} exactly once"
+  printf '%s\n' "${matches}" | sed -n "s/^${attribute}=\"\([^\"]*\)\"$/\1/p"
+}
+
+require_hvd02_probe_value() {
+  local probe_name="$1"
+  local probe_dom="$2"
+  local attribute="$3"
+  local expected="$4"
+  local actual
+  actual="$(hvd02_probe_attribute_value "${probe_name}" "${probe_dom}" "${attribute}")"
+  [[ "${actual}" == "${expected}" ]] ||
+    fail "${probe_name} browser selector probe ${attribute} must be ${expected}, got ${actual}"
+}
+
+write_hvd02_selector_probe() {
+  local output_file="$1"
+  local target_url="$2"
+  local fixture_kind="$3"
+  {
+    printf '%s\n' '<!doctype html>' '<html><head><meta charset="utf-8"><title>HV-D02 selector probe</title></head><body>'
+    printf '<iframe id="target" src="%s"></iframe>\n' "${target_url}"
+    printf '<script>document.documentElement.setAttribute("data-probe-requested-kind", "%s");</script>\n' "${fixture_kind}"
+    cat <<'EOF'
+<script>
+(function () {
+  "use strict";
+  const frame = document.getElementById("target");
+  const setProbe = function (name, value) {
+    document.documentElement.setAttribute("data-probe-" + name, String(value));
+  };
+  const evaluateTarget = function () {
+    const targetDocument = frame.contentDocument;
+    if (!targetDocument || targetDocument.readyState !== "complete" ||
+        targetDocument.documentElement.dataset.fixtureStatus !== "ACCEPTED") {
+      window.setTimeout(evaluateTarget, 10);
+      return;
+    }
+    const kind = document.documentElement.getAttribute("data-probe-requested-kind");
+    const isRelation = kind === "relation-focus";
+    const fixtureSelector = isRelation ? "#relation-focus-fixture" : "#source-verification-fixture";
+    const rootSelector = isRelation ? "#relation-focus-document" : "#source-verification-document";
+    const fixture = targetDocument.querySelector(fixtureSelector);
+    const root = targetDocument.querySelector(rootSelector);
+    if (!fixture || !root) {
+      setProbe("document-count", 0);
+      setProbe("status", "READY");
+      return;
+    }
+    const buttons = Array.prototype.slice.call(fixture.querySelectorAll("button:not([disabled])"));
+    const enterControl = fixture.querySelector("[data-enter-action]");
+    const quickSourcePanel = isRelation ? fixture.querySelector(".quick-source-panel") : null;
+    setProbe("quick-source-initially-hidden", quickSourcePanel ? quickSourcePanel.hidden : "MISSING");
+    if (enterControl) {
+      enterControl.focus();
+      enterControl.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+      setProbe("quick-source-visible-after-enter", quickSourcePanel ? !quickSourcePanel.hidden : "MISSING");
+      enterControl.click();
+    }
+    if (isRelation) {
+      const quickSourceClose = fixture.querySelector(".quick-source-close");
+      if (quickSourceClose) {
+        quickSourceClose.click();
+      }
+      setProbe("quick-source-hidden-after-explicit-close", quickSourcePanel ? quickSourcePanel.hidden : "MISSING");
+      setProbe("quick-source-explicit-close-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+      setProbe("quick-source-explicit-close-transition", targetDocument.body.dataset.lastTransition || "");
+      if (enterControl) {
+        enterControl.click();
+      }
+    }
+    root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+    if (isRelation) {
+      setProbe("quick-source-hidden-after-escape", quickSourcePanel ? quickSourcePanel.hidden : "MISSING");
+      setProbe("quick-source-focus-return", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+      setProbe("quick-source-close-transition", targetDocument.body.dataset.lastTransition || "");
+      root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+    }
+
+    setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
+    setProbe("state-fixture", targetDocument.body.dataset.stateFixture || "");
+    setProbe("document-count", targetDocument.querySelectorAll(rootSelector).length);
+    setProbe("state-code", root.dataset.stateCode || "");
+    setProbe("origin-anchor-declaration", root.dataset.originAnchorId || "");
+    setProbe("independent-fact-declaration", root.dataset.independentFactCount || "");
+    setProbe("focus-return-status", targetDocument.body.dataset.focusReturnStatus || "");
+    setProbe("focus-returned-to", targetDocument.body.dataset.focusReturnedTo || "");
+    setProbe("last-transition", targetDocument.body.dataset.lastTransition || "");
+    setProbe("keyboard-enter-action", targetDocument.body.dataset.keyboardEnterAction || "");
+    setProbe("touch-equivalent-action", targetDocument.body.dataset.touchEquivalentAction || "");
+    setProbe("active-element", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+    setProbe("button-count", buttons.length);
+    setProbe("touch-equivalent-control-count", fixture.querySelectorAll("button[data-touch-equivalent]").length);
+
+    if (isRelation) {
+      setProbe("evidence-stage", targetDocument.body.dataset.relationFocusEvidence || "");
+      setProbe("declared-primary-focus-count", targetDocument.body.dataset.primaryStableFocusCount || "");
+      setProbe("primary-focus-kind", root.dataset.primaryFocusKind || "");
+      setProbe("primary-focus-count", root.querySelectorAll(".relation-focus-primary").length);
+      setProbe("origin-anchor-count", fixture.querySelectorAll(".relation-origin-anchor").length);
+      setProbe("statement-count", root.querySelectorAll(".relation-focus-statement").length);
+      setProbe("endpoint-count", root.querySelectorAll(".relation-endpoint").length);
+      setProbe("declared-endpoint-count", root.dataset.endpointCount || "");
+      setProbe("support-scope-count", root.querySelectorAll(".relation-support-scope").length);
+      setProbe("quick-source-panel-count", root.querySelectorAll(".quick-source-panel").length);
+      setProbe("quick-source-trigger-count", root.querySelectorAll("#relation-quick-source-trigger[data-enter-action='OPEN_QUICK_SOURCE']").length);
+      setProbe("quick-source-close-count", root.querySelectorAll(".quick-source-close[data-focus-return-target='relation-quick-source-trigger'][data-touch-equivalent='CLOSE_QUICK_SOURCE']").length);
+      setProbe("close-control-count", root.querySelectorAll(".relation-focus-close[data-focus-return-target='relation-origin-anchor']").length);
+      setProbe("quick-source-persistence", targetDocument.body.dataset.quickSourcePersistence || "");
+    } else {
+      setProbe("evidence-stage", targetDocument.body.dataset.sourceVerificationEvidence || "");
+      setProbe("workspace-history", targetDocument.body.dataset.workspaceHistory || "");
+      setProbe("original-reading-anchor", targetDocument.body.dataset.originalReadingAnchor || "");
+      setProbe("canonical-target", root.dataset.canonicalTarget || "");
+      setProbe("proposition-count", root.querySelectorAll(".verification-proposition").length);
+      setProbe("support-matrix-count", root.querySelectorAll(".source-support-matrix").length);
+      setProbe("support-row-count", root.querySelectorAll(".support-matrix-grid [role='row']:not(.support-matrix-head)").length);
+      setProbe("support-scope-count", root.querySelectorAll(".source-support-scope").length);
+      setProbe("conflict-count", root.querySelectorAll(".source-conflict").length);
+      setProbe("gap-count", root.querySelectorAll(".source-gap").length);
+      setProbe("return-target-count", fixture.querySelectorAll("#source-origin-anchor.source-return-anchor").length);
+      setProbe("close-control-count", root.querySelectorAll(".source-verification-close[data-focus-return-target='source-origin-anchor']").length);
+    }
+    setProbe("status", "READY");
+  };
+  frame.addEventListener("load", evaluateTarget);
+  if (frame.contentDocument && frame.contentDocument.readyState === "complete") {
+    window.setTimeout(evaluateTarget, 0);
+  }
+}());
+</script>
+</body></html>
+EOF
+  } >"${output_file}"
+}
+
 rogue_dom_file="${runtime_tmp}/rogue-state-dom.html"
 run_headless_dump_dom \
   "${rogue_chrome_profile}" \
@@ -869,7 +1025,11 @@ cmp -s "${captured_png}" "${evidence_png}" ||
 
 if [[ "${active_number}" -ge 2 ]]; then
   require_line_once "${visual_design}" 'HV-D01 ModuleDefaultReading = PASS'
-  require_line_once "${visual_design}" 'HV-D02 FocusAndSource = NOT_RUN'
+  if [[ "${active_number}" -eq 2 ]]; then
+    require_line_once "${visual_design}" 'HV-D02 FocusAndSource = NOT_RUN'
+  else
+    require_line_once "${visual_design}" 'HV-D02 FocusAndSource = PASS'
+  fi
   require_text "${evidence_dir}/README.md" 'module-default-reading-desktop.png'
   require_text "${evidence_dir}/README.md" 'state=module-default'
 
@@ -967,6 +1127,174 @@ if [[ "${active_number}" -ge 2 ]]; then
     fail "module-default visual evidence is stale for the current prototype"
 fi
 
+if [[ "${active_number}" -ge 3 ]]; then
+  require_line_once "${visual_design}" 'HV-D02 FocusAndSource = PASS'
+  require_text "${evidence_dir}/README.md" 'module-relation-focus-desktop.png'
+  require_text "${evidence_dir}/README.md" 'state=relation-focus'
+  require_text "${evidence_dir}/README.md" 'module-source-verification-desktop.png'
+  require_text "${evidence_dir}/README.md" 'state=source-verification'
+
+  relation_probe_file="${runtime_tmp}/relation-focus-selector-probe.html"
+  write_hvd02_selector_probe \
+    "${relation_probe_file}" \
+    "file://${prototype_dir}/index.html?state=relation-focus" \
+    'relation-focus'
+  relation_probe_dom_file="${runtime_tmp}/relation-focus-selector-probe-dom.html"
+  run_headless_dump_dom \
+    "${relation_dom_chrome_profile}" \
+    "${relation_probe_dom_file}" \
+    "file://${relation_probe_file}" \
+    --allow-file-access-from-files ||
+    fail "Chrome could not evaluate the relation-focus browser selector probe"
+  relation_probe_dom="$(<"${relation_probe_dom_file}")"
+  relation_quick_source_panel_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-quick-source-panel-count')"
+  [[ "${relation_quick_source_panel_count}" -eq 1 ]] ||
+    fail "relation-focus must contain exactly one transient Quick Source panel"
+  for relation_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|relation-focus' \
+    'data-probe-document-count|1' \
+    'data-probe-state-code|RELATION_PINNED_FOCUS' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-primary-focus-kind|RELATION' \
+    'data-probe-origin-anchor-declaration|relation-origin-anchor' \
+    'data-probe-quick-source-persistence|EPHEMERAL_NOT_URL' \
+    'data-probe-close-control-count|1' \
+    'data-probe-focus-return-status|RESTORED' \
+    'data-probe-focus-returned-to|relation-origin-anchor' \
+    'data-probe-active-element|relation-origin-anchor' \
+    'data-probe-last-transition|ESCAPE_CLOSE' \
+    'data-probe-keyboard-enter-action|OPEN_QUICK_SOURCE' \
+    'data-probe-touch-equivalent-action|OPEN_QUICK_SOURCE' \
+    'data-probe-quick-source-initially-hidden|true' \
+    'data-probe-quick-source-visible-after-enter|true' \
+    'data-probe-quick-source-hidden-after-explicit-close|true' \
+    'data-probe-quick-source-explicit-close-focus|relation-quick-source-trigger' \
+    'data-probe-quick-source-explicit-close-transition|QUICK_SOURCE_EXPLICIT_CLOSE' \
+    'data-probe-quick-source-hidden-after-escape|true' \
+    'data-probe-quick-source-focus-return|relation-quick-source-trigger' \
+    'data-probe-quick-source-close-transition|QUICK_SOURCE_ESCAPE_CLOSE' \
+    'data-probe-quick-source-trigger-count|1' \
+    'data-probe-quick-source-close-count|1' \
+    'data-probe-button-count|8' \
+    'data-probe-touch-equivalent-control-count|8'; do
+    relation_attribute="${relation_contract%%|*}"
+    relation_expected="${relation_contract#*|}"
+    require_hvd02_probe_value relation-focus "${relation_probe_dom}" \
+      "${relation_attribute}" "${relation_expected}"
+  done
+  relation_primary_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-primary-focus-count')"
+  [[ "${relation_primary_count}" -eq 1 ]] ||
+    fail "relation-focus must contain exactly one real primary Relation focus"
+  relation_declared_primary_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-declared-primary-focus-count')"
+  [[ "${relation_primary_count}" == "${relation_declared_primary_count}" ]] ||
+    fail "relation-focus real primary focus count ${relation_primary_count} does not match declared count ${relation_declared_primary_count}"
+  relation_origin_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-origin-anchor-count')"
+  [[ "${relation_origin_count}" -eq 1 ]] ||
+    fail "relation-focus must contain exactly one real origin anchor"
+  relation_statement_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-statement-count')"
+  [[ "${relation_statement_count}" -eq 1 ]] ||
+    fail "relation-focus must contain exactly one complete Relation statement"
+  relation_endpoint_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-endpoint-count')"
+  [[ "${relation_endpoint_count}" -eq 2 ]] ||
+    fail "relation-focus must contain exactly two secondary endpoints"
+  relation_declared_endpoint_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-declared-endpoint-count')"
+  [[ "${relation_endpoint_count}" == "${relation_declared_endpoint_count}" ]] ||
+    fail "relation-focus real endpoint count ${relation_endpoint_count} does not match declared count ${relation_declared_endpoint_count}"
+  relation_support_scope_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-support-scope-count')"
+  [[ "${relation_support_scope_count}" -eq 1 ]] ||
+    fail "relation-focus must contain exactly one evidence support scope"
+  relation_independent_fact_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-independent-fact-declaration')"
+  [[ "${relation_independent_fact_count}" -eq 0 ]] ||
+    fail "relation-focus must declare zero independent facts"
+
+  source_probe_file="${runtime_tmp}/source-verification-selector-probe.html"
+  write_hvd02_selector_probe \
+    "${source_probe_file}" \
+    "file://${prototype_dir}/index.html?state=source-verification" \
+    'source-verification'
+  source_probe_dom_file="${runtime_tmp}/source-verification-selector-probe-dom.html"
+  run_headless_dump_dom \
+    "${source_dom_chrome_profile}" \
+    "${source_probe_dom_file}" \
+    "file://${source_probe_file}" \
+    --allow-file-access-from-files ||
+    fail "Chrome could not evaluate the source-verification browser selector probe"
+  source_probe_dom="$(<"${source_probe_dom_file}")"
+  source_return_target_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-return-target-count')"
+  [[ "${source_return_target_count}" -eq 1 ]] ||
+    fail "source-verification must contain exactly one Escape focus return target"
+  for source_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|source-verification' \
+    'data-probe-document-count|1' \
+    'data-probe-state-code|FULL_VERIFICATION_WORKSPACE' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-workspace-history|URL_AND_HISTORY' \
+    'data-probe-original-reading-anchor|RETAINED' \
+    'data-probe-canonical-target|rel-read-view-visibility' \
+    'data-probe-origin-anchor-declaration|source-origin-anchor' \
+    'data-probe-proposition-count|1' \
+    'data-probe-support-matrix-count|1' \
+    'data-probe-support-row-count|4' \
+    'data-probe-support-scope-count|1' \
+    'data-probe-close-control-count|1' \
+    'data-probe-focus-return-status|RESTORED' \
+    'data-probe-focus-returned-to|source-origin-anchor' \
+    'data-probe-active-element|source-origin-anchor' \
+    'data-probe-last-transition|ESCAPE_CLOSE' \
+    'data-probe-keyboard-enter-action|CONFIRM_VERIFICATION' \
+    'data-probe-touch-equivalent-action|CONFIRM_VERIFICATION' \
+    'data-probe-button-count|4' \
+    'data-probe-touch-equivalent-control-count|4'; do
+    source_attribute="${source_contract%%|*}"
+    source_expected="${source_contract#*|}"
+    require_hvd02_probe_value source-verification "${source_probe_dom}" \
+      "${source_attribute}" "${source_expected}"
+  done
+  source_conflict_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-conflict-count')"
+  [[ "${source_conflict_count}" -eq 1 ]] ||
+    fail "source-verification must contain exactly one explicit conflict state"
+  source_gap_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-gap-count')"
+  [[ "${source_gap_count}" -eq 1 ]] ||
+    fail "source-verification must contain exactly one explicit source gap"
+  source_independent_fact_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-independent-fact-declaration')"
+  [[ "${source_independent_fact_count}" -eq 0 ]] ||
+    fail "source-verification must declare zero independent facts"
+
+  relation_evidence_png="${evidence_dir}/module-relation-focus-desktop.png"
+  [[ -f "${relation_evidence_png}" ]] || fail "relation-focus visual evidence is missing"
+  relation_png_description="$(file "${relation_evidence_png}" 2>/dev/null || true)"
+  [[ "${relation_png_description}" == *"PNG image data, 1440 x 1100"* ]] ||
+    fail "relation-focus visual evidence must be a 1440x1100 PNG"
+  captured_relation_png="${runtime_tmp}/module-relation-focus-desktop.png"
+  run_headless_screenshot \
+    "${relation_png_chrome_profile}" \
+    "${captured_relation_png}" \
+    '1440,1100' \
+    "file://${prototype_dir}/index.html?state=relation-focus" ||
+    fail "Chrome could not recapture the relation-focus evidence"
+  cmp -s "${captured_relation_png}" "${relation_evidence_png}" ||
+    fail "relation-focus visual evidence is stale for the current prototype"
+
+  source_evidence_png="${evidence_dir}/module-source-verification-desktop.png"
+  [[ -f "${source_evidence_png}" ]] || fail "source-verification visual evidence is missing"
+  source_png_description="$(file "${source_evidence_png}" 2>/dev/null || true)"
+  [[ "${source_png_description}" == *"PNG image data, 1440 x 1100"* ]] ||
+    fail "source-verification visual evidence must be a 1440x1100 PNG"
+  captured_source_png="${runtime_tmp}/module-source-verification-desktop.png"
+  run_headless_screenshot \
+    "${source_png_chrome_profile}" \
+    "${captured_source_png}" \
+    '1440,1100' \
+    "file://${prototype_dir}/index.html?state=source-verification" ||
+    fail "Chrome could not recapture the source-verification evidence"
+  cmp -s "${captured_source_png}" "${source_evidence_png}" ||
+    fail "source-verification visual evidence is stale for the current prototype"
+fi
+
 printf 'HighFidelityVisualTaskCardValidation = PASS\n'
 printf 'TaskCardCount = 6\n'
 printf 'TaskCardSetStatus = READY_FOR_EXECUTION\n'
@@ -984,6 +1312,17 @@ if [[ "${active_number}" -ge 2 ]]; then
   printf 'ModuleDefaultReadingBrowserSelectorValidation = PASS\n'
   printf 'ModuleDefaultReadingEvidence = 1440x1100\n'
   printf 'ModuleDefaultReadingEvidenceFreshness = PASS\n'
+fi
+if [[ "${active_number}" -ge 3 ]]; then
+  printf 'RelationFocusBrowserSelectorValidation = PASS\n'
+  printf 'RelationFocusInteractionTransitionValidation = PASS\n'
+  printf 'QuickSourceTransientTransitionValidation = PASS\n'
+  printf 'RelationFocusEvidence = 1440x1100\n'
+  printf 'RelationFocusEvidenceFreshness = PASS\n'
+  printf 'SourceVerificationBrowserSelectorValidation = PASS\n'
+  printf 'SourceVerificationInteractionTransitionValidation = PASS\n'
+  printf 'SourceVerificationEvidence = 1440x1100\n'
+  printf 'SourceVerificationEvidenceFreshness = PASS\n'
 fi
 printf 'HighFidelityVisualDesign = NOT_RUN\n'
 printf 'HighFidelityUsabilityValidation = NOT_RUN\n'

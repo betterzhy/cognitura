@@ -202,13 +202,43 @@ PrimaryCognitiveSpine、单一机制投影、Conditions、Results、Boundaries/E
 没有卡片瀑布、长文章退化、常驻治理侧栏或 Perspective 依赖；所有按钮继承既定
 `:focus-visible` 与 44px 触达合同。
 
+### 6.2 HV-D02 Relation Focus 与来源核验证据
+
+```text
+RelationFocusArtifact = docs/design/high-fidelity/evidence/module-relation-focus-desktop.png
+RelationFocusArtifactState = relation-focus
+RelationFocusArtifactViewport = 1440x1100
+RelationFocusArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+RelationFocusArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
+RelationFocusStateCode = RELATION_PINNED_FOCUS
+RelationFocusPrimaryStableFocusCount = 1
+RelationFocusEndpointCount = 2
+RelationFocusIndependentFactCount = 0
+RelationFocusEscapeReturn = relation-origin-anchor
+SourceVerificationArtifact = docs/design/high-fidelity/evidence/module-source-verification-desktop.png
+SourceVerificationArtifactState = source-verification
+SourceVerificationArtifactViewport = 1440x1100
+SourceVerificationArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+SourceVerificationArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
+SourceVerificationStateCode = FULL_VERIFICATION_WORKSPACE
+SourceVerificationCanonicalTarget = rel-read-view-visibility
+SourceVerificationOriginalReadingAnchor = RETAINED
+SourceVerificationIndependentFactCount = 0
+```
+
+Relation 聚焦中只有完整 Relation 陈述是稳定主焦点；起点、终点、原 Module 与
+PrimaryCognitiveSpine 都是次级上下文。来源核验 Workspace 保留相同 Canonical
+Target 和原阅读 Anchor，以支持矩阵区分直接支持、结构重组、范围受限、显式冲突与
+来源缺口。真实浏览器探针分别以 Enter、显式点击和 Escape 验证键盘/触控等价与焦点
+归还；两个状态都只投影正式 Relation 和 EvidenceBinding，不创建独立事实。
+
 ## 7. 阶段边界
 
 ```text
 HF-DG4 FixedDesignReview = PASS
 HV-D00 VisualFoundation = PASS
 HV-D01 ModuleDefaultReading = PASS
-HV-D02 FocusAndSource = NOT_RUN
+HV-D02 FocusAndSource = PASS
 HV-D03 RevisionAndRecovery = NOT_RUN
 HV-D04 CrossLayerResponsiveAndExport = NOT_RUN
 HV-D05 FixedVisualUsabilityReview = NOT_RUN

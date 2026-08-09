@@ -17,7 +17,7 @@ ReviewStage2P1 = 0
 ReviewStage2P2 = 0
 UltraReviewUsed = NO
 EvidenceArtifactCapture = NOT_RUN
-HVExecutionArtifactCapture = PARTIAL_HV_D01
+HVExecutionArtifactCapture = PARTIAL_HV_D02
 VisualFoundationArtifactCapture = PASS
 VisualFoundationArtifact = docs/design/high-fidelity/evidence/visual-foundation-desktop.png
 VisualFoundationViewport = DESKTOP_1440x1100
@@ -25,6 +25,13 @@ ModuleDefaultReadingArtifactCapture = PASS
 ModuleDefaultReadingArtifact = docs/design/high-fidelity/evidence/module-default-reading-desktop.png
 ModuleDefaultReadingViewport = DESKTOP_1440x1100
 ModuleDefaultReadingValidationStage = HIGH_FIDELITY_VISUAL
+RelationFocusArtifactCapture = PASS
+RelationFocusArtifact = docs/design/high-fidelity/evidence/module-relation-focus-desktop.png
+RelationFocusViewport = DESKTOP_1440x1100
+SourceVerificationArtifactCapture = PASS
+SourceVerificationArtifact = docs/design/high-fidelity/evidence/module-source-verification-desktop.png
+SourceVerificationViewport = DESKTOP_1440x1100
+FocusAndSourceValidationStage = HIGH_FIDELITY_VISUAL
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
@@ -35,8 +42,10 @@ RemotePush = NOT_AUTHORIZED
 
 `HV-D00` 已产生一张不绑定 RF 行的 foundation 截图与 docs-only 原型；`HV-D01`
 又以求值后 DOM 和 Module 默认阅读截图，只推进其正式 Owner 集
-`RF-AC-02,04,05,06,08,11,12` 的 `HIGH_FIDELITY_VISUAL` 结果。其他 RF、全部异常、
-整体视觉、可用性和实现结果仍为 `NOT_RUN`。
+`RF-AC-02,04,05,06,08,11,12` 的 `HIGH_FIDELITY_VISUAL` 结果；`HV-D02` 再以
+Relation 聚焦、完整来源核验 DOM 与两张桌面截图，只推进
+`RF-AC-03,07,09,16`。其他 RF、全部异常、整体视觉、可用性和实现结果仍为
+`NOT_RUN`。
 
 ## 1. RF-AC 证据验收
 
@@ -154,7 +163,25 @@ HVVisualAcceptanceObservation = RF-AC-11|Owner=HV-D01|Artifact=docs/design/high-
 HVVisualAcceptanceObservation = RF-AC-12|Owner=HV-D01|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
 ```
 
-## 6. 当前 Gate 结论
+## 6. HV-D02 Relation 聚焦与来源核验视觉记录
+
+```text
+FocusAndSourceAcceptance = HV-D02|Scenarios=RELATION_PINNED_FOCUS,FULL_VERIFICATION_WORKSPACE|Viewport=DESKTOP_1440x1100|Artifacts=docs/design/high-fidelity/evidence/module-relation-focus-desktop.png,docs/design/high-fidelity/evidence/module-source-verification-desktop.png|Status=PASS|ValidationStage=HIGH_FIDELITY_VISUAL
+RelationFocusClosure = OnePrimaryRelation,OriginAnchor,CompleteStatement,TwoSecondaryEndpoints,EvidenceSupportScope,ExplicitClose,EscapeFocusReturn
+SourceVerificationClosure = CanonicalTarget,OriginalReadingAnchor,SupportMatrix,DirectSupport,Recomposition,LimitedScope,Conflict,SourceGap,EscapeFocusReturn
+FocusAndSourceRFOwnerPass = RF-AC-03,07,09,16
+FocusAndSourceFutureRFStatus = NOT_RUN
+FocusAndSourceIndependentFactCount = 0
+FocusAndSourceUsabilityStatus = NOT_RUN
+FocusAndSourceImplementationStatus = NOT_RUN
+
+HVVisualAcceptanceObservation = RF-AC-03|Owner=HV-D02|Artifact=docs/design/high-fidelity/evidence/module-relation-focus-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-07|Owner=HV-D02|Artifact=docs/design/high-fidelity/evidence/module-source-verification-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-09|Owner=HV-D02|Artifact=docs/design/high-fidelity/evidence/module-source-verification-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-16|Owner=HV-D02|Artifact=docs/design/high-fidelity/evidence/module-relation-focus-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+```
+
+## 7. 当前 Gate 结论
 
 ```text
 HF-DG3 HighFidelityEvidenceContract = PASS
@@ -166,6 +193,6 @@ GateUsabilityEvidenceStatus = NOT_RUN
 GateImplementationStatus = NOT_RUN
 ```
 
-`HF-DG4` 只关闭合同设计固定候选审查；`HV-D00` 只关闭视觉基础，`HV-D01` 只
-关闭 Module 默认阅读的七项 RF Owner 视觉结果并释放 `HV-D02`。其余 HV 视觉
-结果与 W1-I 业务实现仍未授权。
+`HF-DG4` 只关闭合同设计固定候选审查；`HV-D00` 只关闭视觉基础，`HV-D01` 关闭
+Module 默认阅读的七项 RF Owner 视觉结果，`HV-D02` 关闭 Relation/Source 的四项
+RF Owner 视觉结果并释放 `HV-D03`。其余 HV 视觉结果与 W1-I 业务实现仍未授权。

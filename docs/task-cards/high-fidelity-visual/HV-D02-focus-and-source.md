@@ -3,8 +3,8 @@
 ```text
 TaskCardID = HV-D02
 CardKind = HIGH_FIDELITY_VISUAL_DESIGN
-Status = READY
-Gate = HV-D02 NOT_RUN
+Status = DONE
+Gate = HV-D02 PASS
 Risk = HIGH
 DependsOn = HV-D01
 ReviewRoute = MAIN_AGENT_LOCAL_GATE
@@ -69,3 +69,15 @@ git diff --check
 ## 8. 提交与审查
 
 形成独立本地提交 `docs: design focus and source verification evidence`；不 push。
+
+```text
+ExecutionResult = PASS
+RelationFocusArtifact = docs/design/high-fidelity/evidence/module-relation-focus-desktop.png
+SourceVerificationArtifact = docs/design/high-fidelity/evidence/module-source-verification-desktop.png
+ArtifactViewport = 1440x1100
+BrowserSelectorValidation = PASS
+KeyboardTouchEscapeTransitionValidation = PASS
+RFOwnerVisualPass = RF-AC-03,07,09,16
+UsabilityValidation = NOT_RUN
+ImplementationValidation = NOT_RUN
+```

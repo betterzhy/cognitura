@@ -53,6 +53,46 @@ PrimaryCognitiveSpine、单一机制投影、Conditions、Results、Boundaries/E
 仅使 `RF-AC-02,04,05,06,08,11,12` 的 `HIGH_FIDELITY_VISUAL` 阶段为 PASS；
 其他 RF-AC、异常、整体视觉、可用性与实现状态不变。
 
+## HV-D02 Relation 聚焦与来源核验证据
+
+```text
+Artifact = module-relation-focus-desktop.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=relation-focus
+Viewport = 1440x1100
+CaptureKind = CHROME_HEADLESS_LOCAL_FILE
+ArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+EvidenceClass = RelationFocus
+ValidationStage = HIGH_FIDELITY_VISUAL
+EvidenceMeaning = SINGLE_PRIMARY_RELATION_WITH_SECONDARY_ENDPOINTS_AND_ORIGIN_RETURN
+FreshnessCheck = CHROME_RECAPTURE_1440x1100_BYTE_IDENTICAL
+StateCode = RELATION_PINNED_FOCUS
+PrimaryStableFocusCount = 1
+EndpointCount = 2
+IndependentFactCount = 0
+EscapeFocusReturn = relation-origin-anchor
+
+Artifact = module-source-verification-desktop.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=source-verification
+Viewport = 1440x1100
+CaptureKind = CHROME_HEADLESS_LOCAL_FILE
+ArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+EvidenceClass = SourceEvidenceVerification
+ValidationStage = HIGH_FIDELITY_VISUAL
+EvidenceMeaning = CANONICAL_TARGET_SUPPORT_MATRIX_WITH_CONFLICT_GAP_AND_ORIGIN_RETURN
+FreshnessCheck = CHROME_RECAPTURE_1440x1100_BYTE_IDENTICAL
+StateCode = FULL_VERIFICATION_WORKSPACE
+CanonicalTarget = rel-read-view-visibility
+OriginalReadingAnchor = RETAINED
+IndependentFactCount = 0
+HighFidelityFocusAndSource = PASS
+```
+
+两张证据均使用内嵌确定性合成内容，不读取 Golden Case DOCX，不访问网络或持久化。
+真实 DOM 与交互探针核验唯一主聚焦、origin anchor、完整 Relation 陈述、两个次级
+端点、支持范围、冲突、来源缺口、Enter/点击等价和 Escape 焦点归还。该证据只使
+`RF-AC-03,07,09,16` 的 `HIGH_FIDELITY_VISUAL` 阶段为 PASS；正式 RF 输入行、异常、
+整体视觉、可用性与实现状态仍不变。
+
 ## 后续主证据与 RF Owner
 
 ```text

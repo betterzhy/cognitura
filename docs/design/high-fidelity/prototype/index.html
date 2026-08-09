@@ -258,6 +258,241 @@
       </div>
     </div>
 
+    <div id="relation-focus-fixture" hidden>
+      <div class="focus-shell relation-focus-shell">
+        <nav class="focus-context-rail" aria-label="Relation 原阅读上下文">
+          <p class="rail-label">Origin snapshot</p>
+          <button
+            id="relation-origin-anchor"
+            class="relation-origin-anchor focus-return-anchor"
+            type="button"
+            data-touch-equivalent="RETURN_TO_ORIGIN"
+          >
+            <small>Module · 关键关系 02</small>
+            <strong>Read View 约束记录版本可见性</strong>
+            <span>返回原阅读位置 ↙</span>
+          </button>
+          <ol class="focus-spine" aria-label="Primary Cognitive Spine">
+            <li><small>Landscape</small><strong>数据系统</strong></li>
+            <li><small>Theme</small><strong>并发与一致性</strong></li>
+            <li class="current"><small>Module</small><strong>一致性读的版本选择</strong></li>
+          </ol>
+          <p class="rail-note">原 Module 与 Spine 作为返回快照保留；不与当前 Relation 争夺主焦点。</p>
+        </nav>
+
+        <main
+          id="relation-focus-document"
+          class="focus-document"
+          tabindex="-1"
+          data-state-code="RELATION_PINNED_FOCUS"
+          data-primary-focus-kind="RELATION"
+          data-origin-anchor-id="relation-origin-anchor"
+          data-endpoint-count="2"
+          data-independent-fact-count="0"
+        >
+          <div class="document-meta focus-meta">
+            <span>READING MODE · RELATION PINNED</span>
+            <span>ONE STABLE PRIMARY FOCUS</span>
+          </div>
+
+          <section class="relation-focus-primary" aria-labelledby="relation-focus-title">
+            <div class="focus-kicker">
+              <p class="eyebrow">Primary Relation · 主聚焦</p>
+              <span>relation · rel-read-view-visibility</span>
+            </div>
+            <h1 id="relation-focus-title" class="relation-focus-statement">
+              <span>Read View</span><em>约束</em><span>记录版本可见性</span>
+            </h1>
+            <p class="focus-rationale">
+              这条关系把观察边界与版本选择连接起来：记录版本只有落在 Read View
+              定义的可见范围内，才会成为一致性读结果。
+            </p>
+          </section>
+
+          <section class="relation-endpoints" aria-label="Relation 次级端点">
+            <article class="relation-endpoint">
+              <p class="eyebrow">Subject · 次级端点</p>
+              <h2>Read View</h2>
+              <p>观察边界 · 当前 Module 的 KnowledgeElement</p>
+              <button type="button" data-touch-equivalent="OPEN_SUBJECT">进入起点 <span aria-hidden="true">→</span></button>
+            </article>
+            <div class="relation-direction" aria-hidden="true"><span>约束</span><i>→</i></div>
+            <article class="relation-endpoint">
+              <p class="eyebrow">Object · 次级端点</p>
+              <h2>记录版本可见性</h2>
+              <p>判断规则 · 当前 Module 的机制节点</p>
+              <button type="button" data-touch-equivalent="OPEN_OBJECT">进入终点 <span aria-hidden="true">→</span></button>
+            </article>
+          </section>
+
+          <section class="relation-focus-detail" aria-label="关系成立条件与来源支持">
+            <div>
+              <p class="eyebrow">成立条件</p>
+              <h2>一致性读正在消费有效 Read View</h2>
+              <p>隔离级别与活跃事务范围共同定义判断上下文；当前读不适用这条关系。</p>
+            </div>
+            <div class="relation-support-scope">
+              <p class="eyebrow">Evidence support scope</p>
+              <h2>直接支持：边界定义与版本判断步骤</h2>
+              <p>不覆盖当前读行为，也不把来源摘录提升为新的独立事实。</p>
+            </div>
+          </section>
+
+          <section
+            id="relation-quick-source-panel"
+            class="quick-source-panel"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="quick-source-title"
+            aria-live="polite"
+            hidden
+          >
+            <div>
+              <p class="eyebrow">Quick Source · 临时来源层</p>
+              <h2 id="quick-source-title">一致性读机制 · 观察边界段</h2>
+              <p>摘录：Read View 提供版本可见性判断所需的事务边界。</p>
+            </div>
+            <dl>
+              <div><dt>支持范围</dt><dd>主体、客体与判断顺序</dd></div>
+              <div><dt>加工类型</dt><dd>直接支持</dd></div>
+            </dl>
+            <div class="quick-source-actions">
+              <button type="button" data-touch-equivalent="UPGRADE_FULL_VERIFICATION">进入完整核验</button>
+              <button
+                class="quick-source-close"
+                type="button"
+                data-focus-return-target="relation-quick-source-trigger"
+                data-touch-equivalent="CLOSE_QUICK_SOURCE"
+              >关闭来源层 <kbd>Esc</kbd></button>
+            </div>
+          </section>
+
+          <div class="focus-actions" aria-label="Relation 聚焦操作">
+            <button
+              id="relation-quick-source-trigger"
+              class="focus-action source-action"
+              type="button"
+              data-enter-action="OPEN_QUICK_SOURCE"
+              data-touch-equivalent="OPEN_QUICK_SOURCE"
+            >快速查看来源 <span aria-hidden="true">↗</span></button>
+            <button class="focus-action" type="button" data-touch-equivalent="OPEN_VERIFICATION">进入完整核验</button>
+            <button
+              class="focus-action quiet relation-focus-close"
+              type="button"
+              data-focus-return-target="relation-origin-anchor"
+              data-touch-equivalent="CLOSE_AND_RESTORE"
+            >关闭并返回原关系 <kbd>Esc</kbd></button>
+          </div>
+
+          <footer class="document-footer focus-footer">
+            <p>HV-D02 relation-focus · deterministic synthetic relation</p>
+            <p>Endpoints secondary · independent facts 0</p>
+          </footer>
+        </main>
+      </div>
+    </div>
+
+    <div id="source-verification-fixture" hidden>
+      <div class="verification-shell">
+        <header class="verification-context">
+          <button
+            id="source-origin-anchor"
+            class="source-return-anchor focus-return-anchor"
+            type="button"
+            data-touch-equivalent="RETURN_TO_RELATION"
+          >
+            <span aria-hidden="true">←</span>
+            <span><small>返回阅读 Anchor</small><strong>Read View 约束记录版本可见性</strong></span>
+          </button>
+          <div>
+            <p class="eyebrow">Canonical target</p>
+            <strong>rel-read-view-visibility</strong>
+          </div>
+          <span class="verification-mode">VERIFICATION · FULL WORKSPACE</span>
+        </header>
+
+        <main
+          id="source-verification-document"
+          class="verification-document"
+          tabindex="-1"
+          data-state-code="FULL_VERIFICATION_WORKSPACE"
+          data-canonical-target="rel-read-view-visibility"
+          data-origin-anchor-id="source-origin-anchor"
+          data-independent-fact-count="0"
+        >
+          <section class="verification-proposition">
+            <p class="eyebrow">Proposition under verification</p>
+            <h1>Read View <span>约束</span> 记录版本可见性</h1>
+            <p>核验对象保持为正式 Relation；Workspace 只投影证据绑定、支持范围与冲突，不创建第二套事实。</p>
+          </section>
+
+          <section class="source-support-matrix" aria-labelledby="support-matrix-title">
+            <div class="verification-section-heading">
+              <div>
+                <p class="eyebrow">Support matrix</p>
+                <h2 id="support-matrix-title">命题结构与来源支持</h2>
+              </div>
+              <span>4 dimensions · canonical target retained</span>
+            </div>
+            <div class="support-matrix-grid" role="table" aria-label="Relation 来源支持矩阵">
+              <div role="row" class="support-matrix-head">
+                <span role="columnheader">核验维度</span><span role="columnheader">Canonical 内容</span><span role="columnheader">支持状态</span>
+              </div>
+              <div role="row"><span role="cell">主体 / Subject</span><strong role="cell">Read View</strong><em role="cell" class="support-direct">直接支持</em></div>
+              <div role="row"><span role="cell">谓词 / Direction</span><strong role="cell">约束 →</strong><em role="cell" class="support-recomposed">结构重组</em></div>
+              <div role="row"><span role="cell">客体 / Object</span><strong role="cell">记录版本可见性</strong><em role="cell" class="support-direct">直接支持</em></div>
+              <div role="row"><span role="cell">条件 / Scope</span><strong role="cell">一致性读 · 非当前读</strong><em role="cell" class="support-limited">范围受限</em></div>
+            </div>
+          </section>
+
+          <div class="verification-columns">
+            <section class="source-evidence-stack" aria-labelledby="evidence-stack-title">
+              <div class="verification-section-heading compact">
+                <div><p class="eyebrow">Bound evidence</p><h2 id="evidence-stack-title">来源摘录与加工类型</h2></div>
+                <span>2 references</span>
+              </div>
+              <article class="source-evidence-item">
+                <div><span>01</span><p><small>合成契约来源</small><strong>一致性读机制 · 观察边界段</strong></p></div>
+                <blockquote>Read View 提供版本可见性判断所需的事务边界；不可见时沿版本链回溯。</blockquote>
+                <p class="source-support-scope"><b>支持范围</b> 主体、客体与判断顺序 · <b>加工</b> 直接支持</p>
+              </article>
+              <article class="source-evidence-item muted-evidence">
+                <div><span>02</span><p><small>合成契约来源</small><strong>隔离级别 · 当前读边界段</strong></p></div>
+                <blockquote>当前读读取当前版本，不由历史快照回答。</blockquote>
+                <p><b>支持范围</b> 例外边界 · <b>加工</b> 直接支持</p>
+              </article>
+            </section>
+
+            <aside class="verification-findings" aria-label="核验发现">
+              <article class="source-conflict">
+                <p class="eyebrow">Conflict · 显式冲突</p>
+                <h2>“约束所有读取”超出来源范围</h2>
+                <p>来源只支持一致性读；当前读构成明确例外。裁决前不得扩大谓词范围。</p>
+                <span>影响：Relation 条件限定</span>
+              </article>
+              <article class="source-gap">
+                <p class="eyebrow">Source gap · 来源缺口</p>
+                <h2>缺少“活跃事务集合变化”示例</h2>
+                <p>不影响当前命题成立，但限制解释深度；缺口保持可见，禁止静默补齐。</p>
+                <button type="button" data-touch-equivalent="ADD_SOURCE">补充来源</button>
+              </article>
+            </aside>
+          </div>
+
+          <div class="verification-actions" aria-label="完整来源核验操作">
+            <span><b>Quick Source 已升级</b> · 原阅读 Anchor 已保留</span>
+            <button type="button" data-enter-action="CONFIRM_VERIFICATION" data-touch-equivalent="CONFIRM_VERIFICATION">确认核验裁决</button>
+            <button
+              class="quiet source-verification-close"
+              type="button"
+              data-focus-return-target="source-origin-anchor"
+              data-touch-equivalent="CLOSE_AND_RESTORE"
+            >取消并返回 <kbd>Esc</kbd></button>
+          </div>
+        </main>
+      </div>
+    </div>
+
     <script src="prototype.js"></script>
   </body>
 </html>

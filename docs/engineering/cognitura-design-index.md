@@ -50,9 +50,10 @@ HighFidelityVisualBaseline =
 HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
 HighFidelityVisualFoundation = PASS
 HighFidelityModuleDefaultReading = PASS
+HighFidelityFocusAndSource = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
-ActiveDesignTaskCard = HV-D02
+ActiveDesignTaskCard = HV-D03
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -198,11 +199,11 @@ HF-D02 已关闭正交状态与恢复边界，HF-D03 已关闭证据输入合同
 
 | 工程引用名 | 实际路径 | 状态 | Gate |
 |---|---|---|---|
-| `Cognitura-High-Fidelity-Visual-Design-1.0` | `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md` | `MODULE_DEFAULT_READING_EVIDENCE_ESTABLISHED` | `HV-D01 PASS` |
+| `Cognitura-High-Fidelity-Visual-Design-1.0` | `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md` | `FOCUS_AND_SOURCE_EVIDENCE_ESTABLISHED` | `HV-D02 PASS` |
 
 `HV-D00` 只建立视觉 token、桌面/小屏阈值、a11y focus、Reading First 零常驻治理
 侧栏、按需 SourceEvidence、确定性 URL fixture 和 1440×1100 foundation 截图。
-`HV-D01` 已建立 Module 默认阅读的确定性 DOM 与 1440×1100 证据，仅关闭其七项
-RF Owner 的 `HIGH_FIDELITY_VISUAL` 结果，并释放 `HV-D02` 为唯一 `READY`。正式
-HF 专项与 `HF-DG4 PASS` 不变；整体视觉设计、可用性、实现、正式数据库写入和
-远程推送仍未执行。
+`HV-D01` 已建立 Module 默认阅读的确定性 DOM 与 1440×1100 证据；`HV-D02` 已建立
+Relation 主聚焦与完整来源核验的两张 1440×1100 证据，仅关闭各卡 Owner 的
+`HIGH_FIDELITY_VISUAL` 观察，并释放 `HV-D03` 为唯一 `READY`。正式 HF 专项与
+`HF-DG4 PASS` 不变；整体视觉设计、可用性、实现、正式数据库写入和远程推送仍未执行。
