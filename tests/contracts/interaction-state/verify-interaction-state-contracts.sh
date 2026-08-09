@@ -227,8 +227,8 @@ expect_failure "${premature_contract_pass}" \
 
 premature_p0_close="${test_tmp_root}/premature-p0-close.md"
 cp "${document}" "${premature_p0_close}"
-sed -i.bak \
-  's/^ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04$/ContractP0Remaining = 0/' \
+sed -i.bak -E \
+  's/^ContractP0Remaining = DEFERRED_TO_HF_D0(1|2)_THROUGH_HF_D04$/ContractP0Remaining = 0/' \
   "${premature_p0_close}"
 rm "${premature_p0_close}.bak"
 expect_failure "${premature_p0_close}" \

@@ -8,12 +8,19 @@ AuthoritativeSource = Cognitura-Overall-Design-1.2§20.1-20.11
 UIUXSpecialtyBody = MISSING
 DocumentationGap = DOC-GAP-002:OPEN
 FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-2.0
+HighFidelityReadingPresentationGate = HF-DG1 PASS
+HighFidelityRefinementSource = Cognitura-High-Fidelity-Interaction-Specialty-1.0§3,10-18
+HighFidelityRefinementBoundary = DEFAULT_PRESENTATION_ONLY_OVERALL_PRODUCT_AUTHORITY_RETAINED
 ```
 
 本文件从总体设计已经回迁的正式内容提取 Desktop Web 页面验收契约，不重写
 产品设计，也不自行补写字段类型、必填性、枚举或 JSON Schema。缺失的历史
 UIUX 专项正文仍记录为 `DOC-GAP-002`；W0-04 的 Page State 与 Renderer Input
 字段权威现由用户批准的 `Cognitura-Schema-Baseline-2.0` 提供。
+
+Overall 1.2 保持 Wave 0 manifest 固定的原字节和产品权威。HF-DG1 仅将已登记专项
+候选中经 Gate 通过的默认呈现裁决投影到本页面合同；不改写 Overall 的历史
+`AppliedReverseMigration = 26/26`，也不将整体专项晋级为正式基线。
 
 ## 1. 页面地图与职责
 
@@ -108,8 +115,8 @@ SourceCoverage
 KnownGaps
 ```
 
-ModuleReading 是核心学习页面。桌面正式布局为左侧层级、中间认知正文、右侧来源
-与相关模块，正式顺序为：
+ModuleReading 是核心学习页面。默认桌面阅读保留层级定位和连续认知正文，
+不常驻来源、关系、缺口或其他治理右栏。正式顺序为：
 
 ```text
 CoreThesis
@@ -121,8 +128,26 @@ CoreThesis
 → SourceReferences
 ```
 
-PrimaryCognitiveSpine 必须高于辅助 Facet，CriticalBoundary 不得弱化为普通备注，
-页面不得退化为连续长文。
+PrimaryCognitiveSpine 必须高于辅助 Facet，CriticalBoundary 不得弱化为普通备注。
+禁止的是无结构长文，不是为完成认知闭环而必要的连续解释性叙事。
+
+以下为 HF-DG1 通过的稳定非 Schema 投影：
+
+```text
+ReadingPresentationContract = PRIMARY_PRESENTATION_MODEL|INTERACTIVE_COGNITIVE_DOCUMENT|HF-SPECIALTY§3,18
+ReadingPresentationContract = PRIMARY_EXPERIENCE_MODEL|READING_FIRST|HF-SPECIALTY§3,18
+ReadingPresentationContract = PURE_UNSTRUCTURED_LONG_ARTICLE|FORBIDDEN|HF-SPECIALTY§10,18
+ReadingPresentationContract = STRUCTURED_CONTINUOUS_COGNITIVE_NARRATIVE|REQUIRED_WHEN_NEEDED|HF-SPECIALTY§10,18
+
+ModuleReadingDefault = KNOWLEDGE_HIERARCHY_ORIENTATION|RETAINED|HF-SPECIALTY§13,14,16
+ModuleReadingDefault = PERSISTENT_GOVERNANCE_SIDE_PANEL|0|HF-SPECIALTY§12,14,16
+ModuleReadingDefault = QUICK_SOURCE_PANEL|ON_DEMAND_TRANSIENT|HF-SPECIALTY§12,14,16
+ModuleReadingDefault = FULL_SOURCE_EVIDENCE|ON_DEMAND_WORKSPACE_OR_ROUTE|HF-SPECIALTY§14,16,18
+ModuleReadingDefault = RELATED_MODULES|INLINE_OR_ON_DEMAND|HF-SPECIALTY§13,14,16
+ModuleReadingDefault = KNOWN_GAPS|INLINE_WHEN_UNDERSTANDING_CHANGES|HF-SPECIALTY§13,14,16
+
+ReadingPresentationBudget = DEFAULT_READING_PERSISTENT_PRIMARY_ACTIONS_PER_PAGE|AT_MOST_2|HF-SPECIALTY§12
+```
 
 ## 4. Source Evidence
 
@@ -130,6 +155,9 @@ SourceEvidence 是理解和追溯入口，不是独立知识库检索页面。�
 §20.9 列出的文档名、章节路径、页码或顺序、DocumentBlock 类型、原始段落、
 表格、图片与图注、双向来源使用关系、显式/综合来源区分、缺口/推断标记和返回
 原 Module、SpineStep 或 Element。
+
+ModuleReading 只提供轻量来源入口和按需临时面板；完整 SourceEvidence 职责由按需
+Workspace 或独立路由承担，并必须保留原认知对象、语义 Anchor 和返回路径。
 
 ## 5. 页面状态与错误模型
 

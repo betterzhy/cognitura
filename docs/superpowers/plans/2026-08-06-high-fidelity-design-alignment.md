@@ -147,7 +147,6 @@ git commit -m "docs: establish high fidelity design governance"
 
 **Files:**
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
-- Modify: `cognitive-knowledge-atlas-overall-design-1.2.md`
 - Modify: `docs/contracts/cognitura-page-contracts.md`
 - Modify: `docs/contracts/cognitura-renderer-contract.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
@@ -158,10 +157,20 @@ git commit -m "docs: establish high fidelity design governance"
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
+- Modify: `docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md`
+- Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md`
+- Modify: `scripts/verify-high-fidelity-design`
+- Modify: `tests/task-cards/verify-high-fidelity-design-cards.sh`
+- Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
 
 **Interfaces:**
 - Consumes: HF-D00 registered specialty candidate.
 - Produces: one authoritative conflict resolution for Reading First, continuous narrative, default side panels, visual budgets, and SourceEvidence access.
+
+`WriteSetItemCount = 17`. 执行前预检发现原 12 项计划未包含设计索引活动卡投影、HF-D02 释放状态以及
+对应卡集验证资产；同时 Overall 1.2 被 Wave 0 source manifest 固定，不能在保持该 Gate 的同时修改。
+本卡在实施正文前已将 Gate 必需文件收敛到上述精确写集，Overall 1.2 改为只读权威输入，其他边界不变。
 
 - [ ] **Step 1: Add failing UI contract assertions**
 
@@ -179,7 +188,12 @@ Expected: fail on missing new contract lines and the old unconditional three-col
 
 - [ ] **Step 3: Apply the page and Renderer decisions**
 
-Append only a traceable reverse-migration record to Overall 1.2 and minimally reconcile its ModuleReading/Page/Renderer contract without changing the historical version number or rewriting existing product authority. Change the ModuleReading default from permanent SourceEvidence/RelatedModules/KnownGaps right rail to on-demand source and context surfaces. Preserve full SourceEvidence route responsibility and the nine Renderer types.
+Keep Overall 1.2 byte-for-byte unchanged as the Wave 0 manifest-fixed read-only product authority.
+Use the registered specialty candidate as the explicit HF-DG1 presentation refinement and project
+only its stable non-Schema decisions into page/Renderer contracts. Change the ModuleReading default
+from permanent SourceEvidence/RelatedModules/KnownGaps right rail to on-demand source and context
+surfaces. Preserve full SourceEvidence route responsibility, the nine Renderer types, and Overall's
+historical `AppliedReverseMigration = 26/26` record.
 
 - [ ] **Step 4: Make density budgets operational**
 
@@ -201,6 +215,7 @@ bash tests/contracts/ui/verify-ui-contracts.sh
 bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 scripts/verify-high-fidelity-design-manifest
 bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
+bash tests/task-cards/verify-high-fidelity-design-cards.sh
 bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 bash tests/source-manifest/verify-source-manifest.sh
 bash tests/ci/verify-markdown-links.sh
@@ -218,13 +233,19 @@ Update task-card projections, rerun the Gate, and commit:
 ```bash
 git add AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
-  cognitive-knowledge-atlas-overall-design-1.2.md \
   docs/contracts/cognitura-page-contracts.md \
   docs/contracts/cognitura-renderer-contract.md \
+  docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
-  docs/task-cards/high-fidelity-design \
+  docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md \
+  docs/task-cards/high-fidelity-design/HF-D01-reading-presentation-contract.md \
+  docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md \
+  docs/task-cards/high-fidelity-design/README.md \
+  scripts/verify-high-fidelity-design \
   scripts/verify-high-fidelity-design-manifest \
   tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
+  tests/contracts/interaction-state/verify-interaction-state-contracts.sh \
+  tests/task-cards/verify-high-fidelity-design-cards.sh \
   tests/contracts/ui/verify-ui-contracts.sh
 git commit -m "docs: align reading first presentation contracts"
 ```

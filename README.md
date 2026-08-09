@@ -15,7 +15,7 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  HIGH_FIDELITY_READING_PRESENTATION_READY
+  HIGH_FIDELITY_INTERACTION_STATE_MODEL_READY
 
 Wave0ExecutionStatus = COMPLETE
 ActiveTaskCard = NONE
@@ -35,8 +35,9 @@ Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
 HighFidelityDesignTaskCardSet = READY_FOR_EXECUTION
 HighFidelityDesignStatus = CANDIDATE_AWAITING_REPOSITORY_GATE
-HighFidelityDesignGate = HF-DG0 PASS
-ActiveDesignTaskCard = HF-D01
+HighFidelityDesignGate = HF-DG1 PASS
+HighFidelityReadingPresentationContract = PASS
+ActiveDesignTaskCard = HF-D02
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
@@ -118,10 +119,12 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [高保真专项独立 Manifest](docs/engineering/cognitura-high-fidelity-design-manifest.yaml)
 - [高保真专项合同覆盖](docs/engineering/cognitura-high-fidelity-contract-coverage.md)
 
-当前分支已启动独立 `HIGH_FIDELITY_DESIGN` 卡集；`HF-D00` 已关闭，`HF-D01` 是唯一活动设计卡。
+当前分支已启动独立 `HIGH_FIDELITY_DESIGN` 卡集；`HF-D01` 已通过页面与呈现合同 Gate，
+`HF-D02` 是唯一活动设计卡。
 新增交互状态正文仅为 `CANDIDATE_AWAITING_REPOSITORY_GATE`；候选原有 46 个状态、
-20 个异常、20 项 RF-AC 和 30 项反向迁移已登记，但在 HF-D04 前不构成正式专项
-或 Gate 关闭证据。本轮不创建或释放 `W1-I00`，也不授权业务实现、正式数据库写入
+20 个异常、20 项 RF-AC 和 30 项反向迁移已登记；当前只允许
+`ReadingFirstPresentationContract = PASS`，整体专项晋级、高保真视觉、可用性和实现仍保持
+延后。本轮不创建或释放 `W1-I00`，也不授权业务实现、正式数据库写入
 或远程推送。
 
 ## 当前准入

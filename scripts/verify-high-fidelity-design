@@ -135,7 +135,7 @@ for expected_id in "${declared_ids[@]}"; do
     [[ "${depends_on}" == "${expected_dependency}" ]] ||
       fail "dependency mismatch for ${task_id}"
     case "${task_id}" in
-      HF-D01) expected_write_count=12 ;;
+      HF-D01) expected_write_count=17 ;;
       HF-D02) expected_write_count=10 ;;
       HF-D03) expected_write_count=12 ;;
       HF-D04) expected_write_count=13 ;;

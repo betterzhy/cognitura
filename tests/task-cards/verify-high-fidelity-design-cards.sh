@@ -70,6 +70,48 @@ initial_output="$("${verifier}" --cards-dir "${initial_d00_dir}")" ||
 [[ "${initial_output}" == *"ActiveTaskCard = HF-D00"* ]] ||
   fail "initial snapshot did not retain HF-D00 as the only READY card"
 
+expanded_hfd01_dir="${test_tmp_root}/expanded-hfd01-write-set"
+cp -R "${baseline_dir}" "${expanded_hfd01_dir}"
+expanded_hfd01_card="${expanded_hfd01_dir}/HF-D01-reading-presentation-contract.md"
+sed -i.bak -E \
+  's/^WriteSetItemCount = (12|16|17|18)$/WriteSetItemCount = 17/' \
+  "${expanded_hfd01_card}"
+rm "${expanded_hfd01_card}.bak"
+for expanded_path in \
+  'docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md' \
+  'docs/engineering/cognitura-design-index.md' \
+  'docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md' \
+  'scripts/verify-high-fidelity-design' \
+  'tests/contracts/interaction-state/verify-interaction-state-contracts.sh' \
+  'tests/task-cards/verify-high-fidelity-design-cards.sh'; do
+  if ! grep -Fq -- "- Modify: \`${expanded_path}\`" "${expanded_hfd01_card}"; then
+    sed -i.bak \
+      "/^## 4[.] 禁止写集$/i\\
+- Modify: \`${expanded_path}\`
+" "${expanded_hfd01_card}"
+    rm "${expanded_hfd01_card}.bak"
+  fi
+done
+for expanded_card in "${expanded_hfd01_dir}"/HF-D*.md; do
+  expanded_id="$(sed -n 's/^TaskCardID = //p' "${expanded_card}")"
+  case "${expanded_id}" in
+    HF-D00) expanded_status="DONE" ;;
+    HF-D01) expanded_status="READY" ;;
+    *) expanded_status="BLOCKED_BY_DEPENDENCY" ;;
+  esac
+  sed -i.bak -E \
+    "s/^Status = (DONE|READY|BLOCKED_BY_DEPENDENCY)$/Status = ${expanded_status}/" \
+    "${expanded_card}"
+  rm "${expanded_card}.bak"
+done
+sed -i.bak 's/^ActiveTaskCard = .*$/ActiveTaskCard = HF-D01/' \
+  "${expanded_hfd01_dir}/README.md"
+rm "${expanded_hfd01_dir}/README.md.bak"
+expanded_output="$("${verifier}" --cards-dir "${expanded_hfd01_dir}")" ||
+  fail "HF-D01 corrected 17-item write set was rejected"
+[[ "${expanded_output}" == *"HighFidelityDesignTaskCardValidation = PASS"* ]] ||
+  fail "HF-D01 expanded write-set fixture did not report PASS"
+
 missing_owner_dir="${test_tmp_root}/missing-owner"
 cp -R "${baseline_dir}" "${missing_owner_dir}"
 sed -i.bak '/^DesignOwner = /d' \
@@ -79,9 +121,9 @@ expect_failure "${missing_owner_dir}" "missing required field: DesignOwner"
 
 second_ready_dir="${test_tmp_root}/second-ready"
 cp -R "${baseline_dir}" "${second_ready_dir}"
-sed -i.bak 's/^Status = BLOCKED_BY_DEPENDENCY$/Status = READY/' \
-  "${second_ready_dir}/HF-D02-interaction-state-model.md"
-rm "${second_ready_dir}/HF-D02-interaction-state-model.md.bak"
+sed -i.bak 's/^Status = DONE$/Status = READY/' \
+  "${second_ready_dir}/HF-D01-reading-presentation-contract.md"
+rm "${second_ready_dir}/HF-D01-reading-presentation-contract.md.bak"
 expect_failure "${second_ready_dir}" "expected exactly one READY task card"
 
 forbidden_write_dir="${test_tmp_root}/forbidden-write"

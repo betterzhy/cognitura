@@ -45,6 +45,7 @@ canonical_output="$("${verifier}" --manifest "${manifest}" --repo-root "${repo_r
   fail "canonical high-fidelity manifest was rejected"
 for expected_line in \
   "HighFidelityDesignManifestValidation = PASS" \
+  "SourceBodyManifestCoupling = REQUIRED" \
   "SourceCount = 1" \
   "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
@@ -63,6 +64,19 @@ sed -i.bak -E 's/^    sha256: [0-9a-f]{64}$/    sha256: aaaaaaaaaaaaaaaaaaaaaaaa
 rm "${wrong_hash_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
 expect_failure "${wrong_hash_root}" "SHA256_MISMATCH"
 
+stale_size_root="${test_tmp_root}/stale-size"
+make_fixture "${stale_size_root}"
+printf '\n' >> \
+  "${stale_size_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md"
+expect_failure "${stale_size_root}" "SIZE_MISMATCH"
+
+stale_sha_root="${test_tmp_root}/stale-sha"
+make_fixture "${stale_sha_root}"
+sed -i.bak 's/^CanonicalProjectName = Cognitura$/CanonicalProjectName = Cogniturx/' \
+  "${stale_sha_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md"
+rm "${stale_sha_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md.bak"
+expect_failure "${stale_sha_root}" "SHA256_MISMATCH"
+
 premature_status_root="${test_tmp_root}/premature-status"
 make_fixture "${premature_status_root}"
 sed -i.bak 's/^    status: CANDIDATE_AWAITING_REPOSITORY_GATE$/    status: FORMAL_SPECIALTY_BASELINE/' \
@@ -72,4 +86,4 @@ expect_failure "${premature_status_root}" "STATUS_MISMATCH"
 
 printf '%s\n' \
   "HighFidelityDesignManifestTests = PASS" \
-  "NegativeCases = 3"
+  "NegativeCases = 5"

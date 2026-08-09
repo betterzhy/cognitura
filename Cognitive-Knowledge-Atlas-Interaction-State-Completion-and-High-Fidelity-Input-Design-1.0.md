@@ -47,7 +47,7 @@ HistoricalHierarchyAliases =
 CanonicalRelationshipObject = Relation
 RelationIsHierarchyLevel = NO
 
-HighFidelityVisualAndUsabilityDesign = NEXT_STAGE
+HighFidelityVisualAndUsabilityDesign = DEFERRED_TO_SEPARATE_HIGH_FIDELITY_STAGE
 FrontendTechnologySelection = OUT_OF_SCOPE
 FrontendImplementation = OUT_OF_SCOPE
 ThirdRoundOverallLowFidelity = NOT_REQUIRED
@@ -206,6 +206,21 @@ Disposition = NOT_VERIFIED_AUTHORITY
 三份正文在当前 Repository 中不存在，只保留为候选文件的历史输入声明。候选中已
 完整写出的规则可以在对应 HF Gate 下审查，但不得伪称已从缺失正文核验。
 
+HF-D01 的权威边界为：
+
+```text
+OverallDesign1_2Disposition = READ_ONLY_MANIFEST_FIXED_PRODUCT_AUTHORITY
+OverallDesign1_2BytesChangedByHFD01 = NO
+HistoricalAppliedReverseMigration26Of26Changed = NO
+ReadingPresentationRefinementAuthority = THIS_SPECIALTY_UNDER_HF_DG1
+PageAndRendererProjection = STABLE_NON_SCHEMA_REFINEMENT_ONLY
+FormalSpecialtyPromotion = DEFERRED_TO_HF_D04
+```
+
+因 Overall 1.2 同时是 Wave 0 source manifest 的固定输入，HF-D01 不对其追加或重写反向迁移记录。
+本文档在 `CONTRACT` 阶段对默认呈现做显式细化，页面与 Renderer 合同只投影该细化，
+不改写 Overall 的产品目标、层级、页面类型或历史版本。
+
 ### 0.3 CurrentLatestFiles
 
 | 权威范围 | 当前可核验最新文件 | 状态裁决 |
@@ -329,9 +344,9 @@ StaticImageMarkdownPdfProjectionBoundaryNotExplicit = TRUE
 以上是初始 `1.0` 创建前的缺口记录。完成本轮后：
 
 ```text
-CurrentRemainingReadingFirstGaps = DEFERRED_TO_HF_D01
+CurrentRemainingReadingFirstGaps = 0
 CurrentRemainingHighFidelityStateInputGaps = DEFERRED_TO_HF_D02_THROUGH_HF_D03
-ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04
+ContractP0Remaining = DEFERRED_TO_HF_D02_THROUGH_HF_D04
 ```
 
 ### 0.8 PlannedMinimalPatchScope
@@ -3067,6 +3082,11 @@ OneActionOpeningMultipleInteractionLayers =
   FORBIDDEN
 ```
 
+HF-DG1 将本章的 `CognitiveSection`、`PrimaryVisualProjection`、
+`PrimaryVisualPrimitiveFamily`、`SimultaneouslyEmphasizedVisualObject` 与
+`PrimaryAction` 定义作为 Reading First 合同阶段的唯一统计口径。它们只约束
+可见呈现与交互暴露，不推导新 Schema、物理对象或 Renderer 事实。
+
 ### 12.4 Cognitive Perspective 暴露规则
 
 Cognitive Perspective 继续作为正式能力，但默认：
@@ -3729,14 +3749,14 @@ ContractPASSDoesNotImplyUsabilityPASS = REQUIRED
 
 | 阶段 | 验收对象 | 当前状态 |
 |---|---|---|
-| `CONTRACT` | 规则、状态、字段、边界、矩阵和可执行验收输入是否完整 | DEFERRED_TO_HF_D01_THROUGH_HF_D03 |
+| `CONTRACT` | 规则、状态、字段、边界、矩阵和可执行验收输入是否完整 | HF-DG1_READING_PRESENTATION_PASS_REMAINDER_DEFERRED_TO_HF_D02_THROUGH_HF_D03 |
 | `HIGH_FIDELITY_VISUAL` | 真实高保真页面是否满足层级、密度、连续性和状态表达 | NOT_RUN |
 | `HIGH_FIDELITY_USABILITY` | 用户是否能在真实原型中理解、操作、返回和恢复 | NOT_RUN |
 | `IMPLEMENTATION` | 前端代码是否实现并通过自动化与人工验收 | NOT_RUN |
 
 ```text
 ContractDefined = CANDIDATE_ONLY
-ContractCompleteness = DEFERRED_TO_HF_D01_THROUGH_HF_D04
+ContractCompleteness = DEFERRED_TO_HF_D02_THROUGH_HF_D04
 HighFidelityInputReady = CANDIDATE_ONLY
 
 HighFidelityVisualDesign = NOT_RUN
@@ -3772,10 +3792,14 @@ HighFidelityStateAcceptance = NOT_RUN
 | RF-AC-19 | 检查导出身份 | 稳定 ID 机器可读且默认不打扰读者 | CONTRACT | DEFERRED | NOT_RUN |
 | RF-AC-20 | 检查第二轮追溯 | 已接受结论与当前候选追溯位置可定位 | CONTRACT | DEFERRED | NOT_RUN |
 
-### 19.3 当前候选合同状态（不得声明 PASS）
+### 19.3 当前候选合同的分阶段状态
+
+HF-D01 只允许 Reading First 页面与呈现合同在 `CONTRACT` 阶段为 PASS。
+状态与恢复、高保真证据、固定候选审查仍按 HF-D02～HF-D04 延后；任何
+视觉、可用性或实现 PASS 声明仍被禁止。
 
 ```text
-ReadingFirstPresentationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ReadingFirstPresentationContract = PASS
 InteractiveCognitiveDocumentContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 ZeroInteractionReadingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 DocumentContinuityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
@@ -3799,7 +3823,7 @@ BudgetMeasurementDefinition = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 StableIdentityExportContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 SecondRoundLowFidelityTraceability = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 
-ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04
+ContractP0Remaining = DEFERRED_TO_HF_D02_THROUGH_HF_D04
 HighFidelityInputReady = CANDIDATE_ONLY
 ```
 
@@ -4055,10 +4079,10 @@ GitRepositoryConnected =
   YES
 
 GitCommitPerformed =
-  PENDING_HF_D00_LOCAL_GATE_AND_COMMIT
+  PENDING_HF_D01_LOCAL_GATE_AND_COMMIT
 
 RecommendedCommit =
-  docs: establish high fidelity design governance
+  docs: align reading first presentation contracts
 ```
 
 本次产物级检查：
@@ -4096,7 +4120,7 @@ DesignVersion =
 Status =
   CANDIDATE_AWAITING_REPOSITORY_GATE
 
-ReadingFirstPresentationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ReadingFirstPresentationContract = PASS
 InteractiveCognitiveDocumentContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 ZeroInteractionReadingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 DocumentContinuityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
@@ -4121,7 +4145,7 @@ StableIdentityExportContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 SecondRoundLowFidelityTraceability = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 CrossDomainScenarioContractValidation = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 
-ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04
+ContractP0Remaining = DEFERRED_TO_HF_D02_THROUGH_HF_D04
 HighFidelityInputReady = CANDIDATE_ONLY
 
 HighFidelityVisualDesign = NOT_RUN
@@ -4141,10 +4165,7 @@ FrontendTechnologySelectionReady = NO
 FrontendImplementationReady = NO
 
 NextStage =
-  MODULE_DEFAULT_READING_HIGH_FIDELITY
-  → DOMAIN_THEME_MODULE_CROSS_DOMAIN_HIGH_FIDELITY
-  → HIGH_FIDELITY_STATE_ACCEPTANCE
-  → FRONTEND_IMPLEMENTATION_PREPARATION
+  HF_D02_ORTHOGONAL_STATE_AND_RECOVERY_MODEL
 ```
 
 ---
@@ -4153,10 +4174,7 @@ NextStage =
 
 ```text
 NextStage =
-  MODULE_DEFAULT_READING_HIGH_FIDELITY
-  → DOMAIN_THEME_MODULE_CROSS_DOMAIN_HIGH_FIDELITY
-  → HIGH_FIDELITY_STATE_ACCEPTANCE
-  → FRONTEND_IMPLEMENTATION_PREPARATION
+  HF_D02_ORTHOGONAL_STATE_AND_RECOVERY_MODEL
 ```
 
 下一阶段先设计：
@@ -4196,5 +4214,6 @@ AdditionalDesignSpecialtyBeforeHighFidelity = FORBIDDEN
 FormalDesignInputCompletion = DEFERRED_TO_HF_D04
 ```
 
-本文件现为 Cognitura 唯一已登记的高保真交互专项候选。HF-D00 不使其成为正式
-基线；契约、固定审查、真实高保真视觉与可用性验收仍按后续独立 Gate 推进。
+本文件现为 Cognitura 唯一已登记的高保真交互专项候选。HF-D01 仅使
+Reading First 页面与呈现合同在 `CONTRACT` 阶段通过，不使候选成为正式基线；
+状态与恢复合同、固定审查、真实高保真视觉与可用性验收仍按后续独立 Gate 推进。

@@ -36,8 +36,9 @@ HighFidelityDesignManifest =
 HighFidelityContractCoverage =
   docs/engineering/cognitura-high-fidelity-contract-coverage.md
 HighFidelityDesignStatus = CANDIDATE_AWAITING_REPOSITORY_GATE
-HighFidelityDesignGate = HF-DG0 PASS
-ActiveDesignTaskCard = HF-D01
+HighFidelityDesignGate = HF-DG1 PASS
+HighFidelityReadingPresentationContract = PASS
+ActiveDesignTaskCard = HF-D02
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -152,7 +153,7 @@ W1-D00 治理说明、W1-D01 至 W1-D04 四份来源设计契约和验收记录�
 
 | 工程引用名 | 实际路径 | 状态 | 独立来源 ID | Gate |
 |---|---|---|---|---|
-| `Cognitura-High-Fidelity-Interaction-Specialty-1.0` | `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md` | `CANDIDATE_AWAITING_REPOSITORY_GATE` | `HF-DESIGN-001` | `HF-DG0 PASS` |
+| `Cognitura-High-Fidelity-Interaction-Specialty-1.0` | `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md` | `CANDIDATE_AWAITING_REPOSITORY_GATE` | `HF-DESIGN-001` | `HF-DG1 PASS` |
 
 候选的路径、版本、字节数和 SHA-256 由
 [`cognitura-high-fidelity-design-manifest.yaml`](cognitura-high-fidelity-design-manifest.yaml)
@@ -162,5 +163,6 @@ deferred 追溯由
 承担。它们不修改 Wave 0 固定 manifest/coverage，也不在 HF-D04 前晋级正式专项。
 
 候选声明的三份前序专项正文在 Repository 中不存在，登记为
-`DOC-GAP-HF-001..003`，不得作为已核验权威。HF-D00 已关闭，当前唯一活动设计卡是 `HF-D01`；
+`DOC-GAP-HF-001..003`，不得作为已核验权威。HF-D01 已关闭页面与呈现冲突，
+但专项仍为候选，视觉、可用性与实现均未验收；当前唯一活动设计卡是 `HF-D02`；
 本分支不创建或释放 `W1-I00`，业务实现、正式数据库写入和远程推送均未授权。

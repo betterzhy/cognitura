@@ -75,6 +75,7 @@ actual_hash="$(hash_file "${source_file}")"
 
 printf '%s\n' \
   "HighFidelityDesignManifestValidation = PASS" \
+  "SourceBodyManifestCoupling = REQUIRED" \
   "SourceCount = 1" \
   "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE" \
   "SourceSizeBytes = ${actual_size}" \

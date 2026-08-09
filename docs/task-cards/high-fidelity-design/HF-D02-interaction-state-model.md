@@ -3,7 +3,7 @@
 ```text
 TaskCardID = HF-D02
 CardKind = DESIGN
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = HF-DG2 OrthogonalStateAndRecoveryModel
 Risk = HIGH
 DependsOn = HF-D01

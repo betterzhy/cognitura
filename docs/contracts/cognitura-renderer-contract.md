@@ -8,10 +8,15 @@ AuthoritativeSource = Cognitura-Overall-Design-1.2§20.8
 RendererCreatesIndependentFacts = NO
 RendererSchemaStatus = READY_UNDER_COGNITURA_SCHEMA_BASELINE_2_0
 FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-2.0
+HighFidelityReadingPresentationGate = HF-DG1 PASS
+HighFidelityRefinementSource = Cognitura-High-Fidelity-Interaction-Specialty-1.0§11-12
+HighFidelityRefinementBoundary = PRESENTATION_BUDGET_ONLY_RENDERER_FACT_MODEL_UNCHANGED
 ```
 
 Renderer 只投影正式 CognitiveModule 内容，不创建第二套事实。本文件固定组件
 类型、概念输入能力和验收不变量；它不是 Renderer 输入 JSON Schema。
+高保真专项候选只细化默认呈现预算，Overall 1.2 仍作为 Wave 0 manifest 固定的只读
+产品权威；本卡不改写其历史反向迁移记录。
 
 ## 1. 正式 Renderer
 
@@ -57,6 +62,19 @@ RendererInvariant = SEMANTIC_REORDERING|FORBIDDEN|OD1.2§20.8
 RendererInvariant = DENSITY_OVERFLOW_HANDLING|GROUP_FOLD_OR_STAGE|OD1.2§20.8
 RendererInvariant = NARROW_SCREEN_FEATURE_PARITY|NOT_REQUIRED|OD1.2§20.8
 ```
+
+高显著性视觉投影的稳定非 Schema 预算为：
+
+```text
+RendererPresentationBudget = PRIMARY_VISUAL_PRIMITIVE_FAMILIES_PER_MODULE|AT_MOST_4|HF-SPECIALTY§11,12
+RendererPresentationBudget = PRIMARY_VISUAL_PROJECTION_PER_COGNITIVE_SECTION|AT_MOST_1|HF-SPECIALTY§11,12
+RendererPresentationBudget = SIMULTANEOUSLY_EMPHASIZED_VISUAL_OBJECTS|AT_MOST_7|HF-SPECIALTY§11,12
+```
+
+`CognitiveSection`、`PrimaryVisualProjection`、`PrimaryVisualPrimitiveFamily`、
+`SimultaneouslyEmphasizedVisualObject` 和 `PrimaryAction` 的统计口径由高保真交互
+专项候选定义。本文仅投影上限与不创造事实的稳定不变量，不由这些名称
+推导字段、枚举、JSON Schema 或物理对象。
 
 - 节点超过认知密度上限时必须分组、折叠或拆成阶段。
 - 节点可以展开详情并显示来源标记。
