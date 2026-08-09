@@ -270,11 +270,17 @@ git commit -m "docs: align reading first presentation contracts"
 **Files:**
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
 - Modify: `docs/contracts/cognitura-page-contracts.md`
+- Modify: `docs/engineering/cognitura-design-index.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
+- Modify: `docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md`
 - Modify: `scripts/verify-high-fidelity-design-manifest`
+- Modify: `scripts/verify-high-fidelity-design`
+- Modify: `scripts/verify-interaction-state-contracts`
 - Modify: `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
+- Modify: `tests/task-cards/verify-high-fidelity-design-cards.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md`
+- Modify: `docs/task-cards/high-fidelity-design/HF-D03-high-fidelity-evidence-contract.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
@@ -283,7 +289,7 @@ git commit -m "docs: align reading first presentation contracts"
 - Consumes: HF-D01 presentation contract and the original 46 state definitions.
 - Produces: exact one-owner classification of every original state code plus URL, History, draft, session, and Canonical persistence boundaries.
 
-- [ ] **Step 1: Extend the validator to require all 46 classification rows**
+- [x] **Step 1: Extend the validator to require all 46 classification rows**
 
 Each row must contain:
 
@@ -298,7 +304,7 @@ CanonicalWriteBoundary
 
 Add mutations for duplicate Owner, unclassified state, event persisted as state, `GENERATING` namespace collision, and Preview in URL.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run:
 
@@ -308,25 +314,25 @@ bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 
 Expected: fail because the classification table and persistence ledger are absent.
 
-- [ ] **Step 3: Add the six-axis snapshot and flow decomposition**
+- [x] **Step 3: Add the six-axis snapshot and flow decomposition**
 
 Document `ModeAxis`, `FocusAxis`, `AuxiliarySurfaceAxis`, `DraftAxis`, `ProcessingAxis`, and `RecoveryAxis`; separate navigation events and derived results. Namespace local projection generation as `PROJECTION_GENERATING` while retaining original `GENERATING` as a traced historical code.
 
-- [ ] **Step 4: Add persistence and recovery ledgers**
+- [x] **Step 4: Add persistence and recovery ledgers**
 
 Define Ephemeral UI, URL, Browser History, Session/Draft Store, and Canonical Server State. Preserve the 20 exception matrices, submit-unknown semantics, idempotent result query, explicit stale projection, and Revert-as-new-ChangeSet rules.
 
-- [ ] **Step 5: Record Schema non-change decision**
+- [x] **Step 5: Record Schema non-change decision**
 
 State that `schemas/ui/page-state.schema.json`, Renderer Input, Catalog, and evidence map stay unchanged. Map candidate logical object names to existing revision/Relation/Evidence concepts without specifying physical tables.
 
-- [ ] **Step 6: Refresh and test the independent HF manifest**
+- [x] **Step 6: Refresh and test the independent HF manifest**
 
 After the specialty-body state and recovery tables are final, recalculate its exact byte count
 and SHA-256 in `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`. Extend the
 manifest wrapper and test so stale metadata caused by this card's specialty edit fails closed.
 
-- [ ] **Step 7: Run the Gate and close the card**
+- [x] **Step 7: Run the Gate and close the card**
 
 Run:
 
@@ -351,11 +357,18 @@ Set `HF-D02 = DONE`, `HF-D03 = READY`, rerun, and commit:
 git add AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
   docs/contracts/cognitura-page-contracts.md \
+  docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
-  docs/task-cards/high-fidelity-design \
+  docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md \
+  docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md \
+  docs/task-cards/high-fidelity-design/HF-D03-high-fidelity-evidence-contract.md \
+  docs/task-cards/high-fidelity-design/README.md \
+  scripts/verify-high-fidelity-design \
   scripts/verify-high-fidelity-design-manifest \
+  scripts/verify-interaction-state-contracts \
   tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
-  tests/contracts/interaction-state/verify-interaction-state-contracts.sh
+  tests/contracts/interaction-state/verify-interaction-state-contracts.sh \
+  tests/task-cards/verify-high-fidelity-design-cards.sh
 git commit -m "docs: normalize interaction state and recovery model"
 ```
 

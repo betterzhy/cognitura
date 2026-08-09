@@ -9,6 +9,7 @@ UIUXSpecialtyBody = MISSING
 DocumentationGap = DOC-GAP-002:OPEN
 FieldLevelSchemaAuthority = Cognitura-Schema-Baseline-2.0
 HighFidelityReadingPresentationGate = HF-DG1 PASS
+HighFidelityInteractionStateGate = HF-DG2 PASS
 HighFidelityRefinementSource = Cognitura-High-Fidelity-Interaction-Specialty-1.0§3,10-18
 HighFidelityRefinementBoundary = DEFAULT_PRESENTATION_ONLY_OVERALL_PRODUCT_AUTHORITY_RETAINED
 ```
@@ -176,6 +177,39 @@ PageState = CONFIRMED|OD1.2§20.10
 PageState = PUBLISHED|OD1.2§20.10
 PageState = OUTDATED_BY_STRUCTURE_CHANGE|OD1.2§20.10
 ```
+
+HF-DG2 不改变上述 12 值生命周期枚举。页面交互快照由 `ModeAxis`、`FocusAxis`、
+`AuxiliarySurfaceAxis`、`DraftAxis`、`ProcessingAxis` 与 `RecoveryAxis` 正交组合；
+Preview/Input Focus 是临时 UI，关闭/返回/重置是事件，提交、重算、生成与核验完成/
+失败是流程结果。它们均不得被追加为新的 `PageState`。
+
+```text
+InteractionSnapshotAxis = ModeAxis|READING,VERIFICATION,REVISION
+InteractionSnapshotAxis = FocusAxis|IDLE,ELEMENT_PINNED,RELATION_PINNED
+InteractionSnapshotAxis = AuxiliarySurfaceAxis|NONE,QUICK_SOURCE,FULL_VERIFICATION,FULL_REVISION
+InteractionSnapshotAxis = DraftAxis|NO_DRAFT,CLEAN_DRAFT,DIRTY_DRAFT,SAVED_DRAFT,RECOVERABLE_DRAFT,CONFLICTED_DRAFT
+InteractionSnapshotAxis = ProcessingAxis|PROCESSING_IDLE,IMPACT_ANALYZING,COMMIT_ALLOWED,COMMIT_BLOCKED,SUBMITTING,CANONICAL_SAVED,RECOMPUTING,PROJECTION_GENERATING,PENDING_VERIFICATION,PARTIAL_FAILURE,FAILED,COMPLETE
+InteractionSnapshotAxis = RecoveryAxis|STABLE,HISTORY_RESTORING,REFRESH_RESTORING,RESTORE_FAILED
+
+HistoricalInteractionStateCode = GENERATING
+LocalProjectionProcessingValue = PROJECTION_GENERATING
+PreviewURLDisposition = FORBIDDEN
+NavigationEventPersistence = FORBIDDEN
+```
+
+页面状态映射只做投影解释：`EMPTY/UPLOADING/PARSING/ANALYZING/GENERATING/
+WAITING_REVIEW/PARTIALLY_GENERATED/FAILED/RETRYING/CONFIRMED/PUBLISHED/
+OUTDATED_BY_STRUCTURE_CHANGE` 仍逐值保留。其中现有 `PageState.GENERATING` 是页面
+生命周期值；本地投影处理使用 `ProcessingAxis.PROJECTION_GENERATING`。Renderer
+Input、Schema Catalog 和 evidence map 均不变，Renderer 继续只投影正式
+`CognitiveModule`。
+
+持久化按 Ephemeral UI、URL、Browser History、Session/Draft Store、Canonical
+Server State 五级分离。URL 只保存可分享页面、稳定对象、模式、Relation 与
+Perspective；History 只保存稳定 Focus、完整 Workspace 与语义 Anchor；草稿、
+幂等键和恢复 Guard 留在 Session/Draft Store；已确认 Revision、Relation、Evidence
+与处理结果才进入 Canonical Server State。网络超时必须用同一幂等键查询原结果；
+正式保存后的陈旧投影必须显式标记；撤销必须创建新的 Revert ChangeSet。
 
 错误信息必须说明失败阶段、已完成内容、仍可使用结果、最小重试范围、是否重新
 调用模型，以及结构变化是否使旧 Module 过期。局部失败不得阻断无关 Theme 或

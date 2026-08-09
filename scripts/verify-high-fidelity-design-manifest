@@ -56,6 +56,7 @@ version="$(sed -n 's/^    version: //p' "${manifest}")"
 status="$(sed -n 's/^    status: //p' "${manifest}")"
 declared_size="$(sed -n 's/^    sizeBytes: //p' "${manifest}")"
 declared_hash="$(sed -n 's/^    sha256: //p' "${manifest}")"
+fingerprint_scope="$(sed -n 's/^    fingerprintScope: //p' "${manifest}")"
 
 [[ "${source_path}" == "Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md" ]] ||
   fail "PATH_MISMATCH"
@@ -63,6 +64,8 @@ declared_hash="$(sed -n 's/^    sha256: //p' "${manifest}")"
 [[ "${version}" == "Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0" ]] ||
   fail "VERSION_MISMATCH"
 [[ "${status}" == "CANDIDATE_AWAITING_REPOSITORY_GATE" ]] || fail "STATUS_MISMATCH"
+[[ "${fingerprint_scope}" == "HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY" ]] ||
+  fail "FINGERPRINT_SCOPE_MISMATCH"
 
 source_file="${repo_root}/${source_path}"
 [[ -f "${source_file}" ]] || fail "MISSING_SOURCE: ${source_path}"
@@ -78,5 +81,6 @@ printf '%s\n' \
   "SourceBodyManifestCoupling = REQUIRED" \
   "SourceCount = 1" \
   "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE" \
+  "SourceFingerprintScope = HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY" \
   "SourceSizeBytes = ${actual_size}" \
   "SourceSha256 = ${actual_hash}"

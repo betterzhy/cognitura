@@ -3,7 +3,7 @@
 ```text
 TaskCardID = HF-D03
 CardKind = DESIGN
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = HF-DG3 HighFidelityEvidenceContract
 Risk = HIGH
 DependsOn = HF-D02
@@ -20,7 +20,7 @@ WriteSetItemCount = 12
 
 ## 2. 前置条件与输入
 
-- HF-D02 的正交状态与恢复模型通过。
+- HF-D02 的正交状态与恢复模型已通过 `HF-DG2`。
 - 20 异常、20 RF-AC 与 30 反向迁移项保持一对一追溯。
 
 ## 3. 写集

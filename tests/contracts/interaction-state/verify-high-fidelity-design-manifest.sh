@@ -47,7 +47,8 @@ for expected_line in \
   "HighFidelityDesignManifestValidation = PASS" \
   "SourceBodyManifestCoupling = REQUIRED" \
   "SourceCount = 1" \
-  "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE"; do
+  "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE" \
+  "SourceFingerprintScope = HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
 done
@@ -84,6 +85,14 @@ sed -i.bak 's/^    status: CANDIDATE_AWAITING_REPOSITORY_GATE$/    status: FORMA
 rm "${premature_status_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
 expect_failure "${premature_status_root}" "STATUS_MISMATCH"
 
+stale_scope_root="${test_tmp_root}/stale-scope"
+make_fixture "${stale_scope_root}"
+sed -i.bak \
+  's/^    fingerprintScope: HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY$/    fingerprintScope: HF-DG1_READING_PRESENTATION/' \
+  "${stale_scope_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml"
+rm "${stale_scope_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
+expect_failure "${stale_scope_root}" "FINGERPRINT_SCOPE_MISMATCH"
+
 printf '%s\n' \
   "HighFidelityDesignManifestTests = PASS" \
-  "NegativeCases = 5"
+  "NegativeCases = 6"

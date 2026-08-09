@@ -142,8 +142,8 @@ for forbidden_closure in \
   fi
 done
 require_exact_line_once \
-  'RemainingInteractionStateP0 = CANDIDATE_INVENTORIED' \
-  'RemainingInteractionStateP0 must remain CANDIDATE_INVENTORIED'
+  'RemainingInteractionStateP0 = HF_DG2_ORTHOGONAL_STATE_AND_RECOVERY_PASS' \
+  'RemainingInteractionStateP0 must record HF-DG2 PASS'
 require_exact_line_once \
   'SecondRoundLowFidelityPrototype = HISTORICAL_INPUT_RECORDED' \
   'SecondRoundLowFidelityPrototype must remain a historical record'
@@ -157,8 +157,11 @@ require_exact_line_once \
   'ReadingFirstRiskDisposition = DEFERRED_TO_APPLICABLE_HF_GATE' \
   'ReadingFirstRiskDisposition must remain deferred'
 require_exact_line_once \
-  'StateInputGapDisposition = CANDIDATE_INVENTORIED' \
-  'StateInputGapDisposition must remain CANDIDATE_INVENTORIED'
+  'StateInputGapDisposition = HF_DG2_ORTHOGONAL_STATE_AND_RECOVERY_PASS' \
+  'StateInputGapDisposition must record HF-DG2 PASS'
+require_exact_line_once \
+  'OrthogonalStateRecoveryContract = PASS' \
+  'OrthogonalStateRecoveryContract must be PASS exactly once'
 [[ "$(grep -c '| DEFERRED_TO_APPLICABLE_HF_GATE |$' "${document}" || true)" -eq 12 ]] ||
   fail "second-round trace rows must remain deferred to applicable HF Gates"
 canonical_hierarchy="$(awk '
@@ -212,6 +215,119 @@ count_unique_rows() {
 state_counts="$(count_unique_rows StateCode)"
 [[ "${state_counts}" == "46:46" ]] ||
   fail "expected 46 unique original StateCode rows, found ${state_counts}"
+
+classification_result="$(awk -F'|' '
+  function trim(value) {
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+    return value
+  }
+  $2 ~ /`StateCode`/ {
+    code=trim($3)
+    original[code]=1
+    next
+  }
+  trim($2) == "OriginalStateCode" { next }
+  trim($2) != "" && trim($3) ~ /^(AXIS_VALUE|TRANSIENT_UI|FLOW_PHASE|EVENT|DERIVED_RESULT)$/ {
+    code=trim($2)
+    classification=trim($3)
+    owner=trim($4)
+    persistence=trim($5)
+    history=trim($6)
+    canonical=trim($7)
+    rows++
+    seen[code]++
+    if (owner == "") invalid_owner++
+    if (persistence !~ /^(EPHEMERAL_UI|URL|BROWSER_HISTORY|SESSION_DRAFT_STORE|CANONICAL_SERVER_STATE)$/) invalid_persistence++
+    if (history !~ /^(NOT_PERSISTED|URL_AND_HISTORY|HISTORY_ONLY|SESSION_RESTORE_ONLY|DERIVED_FROM_CANONICAL_RESULT)$/) invalid_history++
+    if (canonical !~ /^(NO_CANONICAL_WRITE|WRITE_REQUIRES_CONFIRMED_CHANGESET|CANONICAL_WRITE_RESULT|DERIVED_AFTER_CANONICAL_WRITE)$/) invalid_canonical++
+    if (classification == "EVENT" &&
+        (persistence != "EPHEMERAL_UI" || history != "NOT_PERSISTED" || canonical != "NO_CANONICAL_WRITE")) event_persisted++
+    if (code == "PREVIEW" &&
+        (persistence != "EPHEMERAL_UI" || history != "NOT_PERSISTED" || canonical != "NO_CANONICAL_WRITE")) preview_persisted++
+    if (code == "GENERATING" && owner != "ProjectionGenerationFlow:PROJECTION_GENERATING") generating_owner_invalid++
+  }
+  END {
+    duplicate=0
+    unknown=0
+    missing=0
+    unique=0
+    for (code in seen) {
+      unique++
+      if (seen[code] != 1) duplicate++
+      if (!(code in original)) unknown++
+    }
+    for (code in original) if (!(code in seen)) missing++
+    printf "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d", rows, unique, duplicate, unknown, missing,
+      invalid_owner, invalid_persistence, invalid_history, invalid_canonical, event_persisted,
+      preview_persisted, generating_owner_invalid
+  }
+' "${document}")"
+IFS=: read -r classification_rows classification_unique duplicate_owner_count unknown_classification_count \
+  missing_classification_count invalid_owner_count invalid_persistence_count invalid_history_count \
+  invalid_canonical_count event_persisted_count preview_persisted_count generating_owner_invalid_count \
+  <<<"${classification_result}"
+[[ "${classification_rows}:${classification_unique}" == "46:46" ]] ||
+  fail "expected 46 unique classification rows, found ${classification_rows}:${classification_unique}"
+[[ "${duplicate_owner_count}" -eq 0 ]] ||
+  fail "each OriginalStateCode must have exactly one owner"
+[[ "${unknown_classification_count}" -eq 0 ]] ||
+  fail "classification contains unknown OriginalStateCode"
+[[ "${missing_classification_count}" -eq 0 ]] ||
+  fail "classification omits an original StateCode"
+[[ "${invalid_owner_count}" -eq 0 ]] || fail "OwningAxisOrFlow must be non-empty"
+[[ "${invalid_persistence_count}" -eq 0 ]] || fail "invalid PersistenceBoundary"
+[[ "${invalid_history_count}" -eq 0 ]] || fail "invalid URLHistoryDisposition"
+[[ "${invalid_canonical_count}" -eq 0 ]] || fail "invalid CanonicalWriteBoundary"
+[[ "${event_persisted_count}" -eq 0 ]] || fail "event must not be persisted as state"
+[[ "${preview_persisted_count}" -eq 0 ]] || fail "PREVIEW must not enter URL or History"
+[[ "${generating_owner_invalid_count}" -eq 0 ]] ||
+  fail "historical GENERATING must map to PROJECTION_GENERATING"
+require_exact_line_once \
+  'HistoricalStateCode = GENERATING' \
+  'historical GENERATING trace marker is required'
+require_exact_line_once \
+  'LocalProjectionPhase = PROJECTION_GENERATING' \
+  'local projection generation must use PROJECTION_GENERATING'
+[[ "$(grep -Fxc 'LocalProjectionPhase = GENERATING' "${document}" || true)" -eq 0 ]] ||
+  fail "GENERATING namespace collision"
+
+for required_axis in ModeAxis FocusAxis AuxiliarySurfaceAxis DraftAxis ProcessingAxis RecoveryAxis; do
+  [[ "$(grep -c "^OrthogonalAxis = ${required_axis}|" "${document}" || true)" -eq 1 ]] ||
+    fail "missing orthogonal axis: ${required_axis}"
+done
+
+for required_level in EPHEMERAL_UI URL BROWSER_HISTORY SESSION_DRAFT_STORE CANONICAL_SERVER_STATE; do
+  [[ "$(grep -c "^PersistenceLedger = ${required_level}|" "${document}" || true)" -eq 1 ]] ||
+    fail "missing persistence ledger level: ${required_level}"
+done
+
+page_state_mapping="$(awk -F'|' '/^PageStateMapping = / {
+  split($1, prefix, " = ")
+  state=prefix[2]
+  seen[state]++
+  rows++
+} END {
+  unique=0; duplicate=0
+  for (state in seen) { unique++; if (seen[state] != 1) duplicate++ }
+  print rows ":" unique ":" duplicate
+}' "${document}")"
+[[ "${page_state_mapping}" == "12:12:0" ]] ||
+  fail "expected 12 unique PageState mappings, found ${page_state_mapping}"
+for required_page_state in EMPTY UPLOADING PARSING ANALYZING GENERATING WAITING_REVIEW \
+  PARTIALLY_GENERATED FAILED RETRYING CONFIRMED PUBLISHED OUTDATED_BY_STRUCTURE_CHANGE; do
+  [[ "$(grep -c "^PageStateMapping = ${required_page_state}|" "${document}" || true)" -eq 1 ]] ||
+    fail "missing PageState mapping: ${required_page_state}"
+done
+
+for required_non_change in \
+  'PageStateSchemaChange = NO' \
+  'RendererInputChange = NO' \
+  'SchemaCatalogChange = NO' \
+  'SchemaEvidenceMapChange = NO' \
+  'PhysicalSchemaSpecified = NO'; do
+  require_exact_line_once "${required_non_change}" "Schema non-change decision is incomplete"
+done
+
 exception_counts="$(count_unique_rows ExceptionCode)"
 [[ "${exception_counts}" == "20:20" ]] ||
   fail "expected 20 unique ExceptionCode rows, found ${exception_counts}"
@@ -242,6 +358,10 @@ rm_counts="$(awk '/^ISHFI-RM-[0-9][0-9] =$/ {seen[$1]=1; rows++} END {unique=0; 
 printf '%s\n' \
   "InteractionStateContractValidation = PASS" \
   "OriginalStateCodeCount = 46" \
+  "ClassifiedOriginalStateCodeCount = 46" \
+  "OrthogonalAxisCount = 6" \
+  "PersistenceLedgerLevelCount = 5" \
+  "PageStateMappingCount = 12" \
   "ExceptionCodeCount = 20" \
   "RFAcceptanceCount = 20" \
   "ReverseMigrationCount = 30"

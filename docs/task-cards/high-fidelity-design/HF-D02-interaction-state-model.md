@@ -3,7 +3,7 @@
 ```text
 TaskCardID = HF-D02
 CardKind = DESIGN
-Status = READY
+Status = DONE
 Gate = HF-DG2 OrthogonalStateAndRecoveryModel
 Risk = HIGH
 DependsOn = HF-D01
@@ -11,7 +11,7 @@ ReviewRoute = SOL_HIGH_DESIGN_GATE
 DesignOwner = INTERACTION_STATE_AND_RECOVERY_AUTHORITY
 LocalCommitBoundary = REQUIRED
 WriteSetSource = APPROVED_TASK_PLAN_EXACT
-WriteSetItemCount = 10
+WriteSetItemCount = 16
 ```
 
 ## 1. 目标
@@ -27,11 +27,17 @@ WriteSetItemCount = 10
 
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
 - Modify: `docs/contracts/cognitura-page-contracts.md`
+- Modify: `docs/engineering/cognitura-design-index.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
+- Modify: `docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md`
+- Modify: `scripts/verify-high-fidelity-design`
 - Modify: `scripts/verify-high-fidelity-design-manifest`
+- Modify: `scripts/verify-interaction-state-contracts`
 - Modify: `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
+- Modify: `tests/task-cards/verify-high-fidelity-design-cards.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md`
+- Modify: `docs/task-cards/high-fidelity-design/HF-D03-high-fidelity-evidence-contract.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
@@ -43,8 +49,8 @@ WriteSetItemCount = 10
 
 ## 5. 执行步骤
 
-先扩展分类 RED，再加入六轴、五级持久化、恢复与 Schema non-change 决议，刷新 HF
-manifest，完成负例后释放 HF-D03。
+已先观察 classification、HF manifest 与任务卡三处 RED，再加入六轴、五级持久化、
+恢复与 Schema non-change 决议，刷新 HF manifest，并在负例通过后释放 HF-D03。
 
 ## 6. 验证命令
 
@@ -53,7 +59,8 @@ manifest，完成负例后释放 HF-D03。
 
 ## 7. Gate 与完成定义
 
-`HF-DG2 = PASS` 要求 46 状态恰好一次分类且 PageState 12 值不变。
+`HF-DG2 = PASS`：46 状态恰好一次分类，六轴与五级持久化边界已固定，PageState
+12 值保持不变；视觉、可用性与实现仍为 `NOT_RUN`。
 
 ## 8. 提交与审查
 

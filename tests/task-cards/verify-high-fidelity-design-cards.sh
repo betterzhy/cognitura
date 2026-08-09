@@ -117,7 +117,7 @@ expanded_output="$("${verifier}" --cards-dir "${expanded_hfd01_dir}")" ||
   fail "HF-D01 expanded write-set fixture did not report PASS"
 for unchanged_card_count in \
   'HF-D00-design-governance.md|20' \
-  'HF-D02-interaction-state-model.md|10' \
+  'HF-D02-interaction-state-model.md|16' \
   'HF-D03-high-fidelity-evidence-contract.md|12' \
   'HF-D04-fixed-design-review.md|13'; do
   unchanged_card="${unchanged_card_count%%|*}"
@@ -125,6 +125,15 @@ for unchanged_card_count in \
   grep -Fqx "WriteSetItemCount = ${unchanged_count}" "${expanded_hfd01_dir}/${unchanged_card}" ||
     fail "${unchanged_card} write-set count changed while expanding HF-D01"
 done
+
+missing_hfd02_path_dir="${test_tmp_root}/missing-hfd02-path"
+cp -R "${baseline_dir}" "${missing_hfd02_path_dir}"
+sed -i.bak \
+  's#^- Modify: `scripts/verify-interaction-state-contracts`$#- Modify: `scripts/verify-high-fidelity-design-manifest`#' \
+  "${missing_hfd02_path_dir}/HF-D02-interaction-state-model.md"
+rm "${missing_hfd02_path_dir}/HF-D02-interaction-state-model.md.bak"
+expect_failure "${missing_hfd02_path_dir}" \
+  "missing exact HF-D02 write-set path: scripts/verify-interaction-state-contracts"
 
 missing_owner_dir="${test_tmp_root}/missing-owner"
 cp -R "${baseline_dir}" "${missing_owner_dir}"
@@ -157,4 +166,4 @@ expect_failure "${w1_release_dir}" "W1-I00Release must be FORBIDDEN"
 
 printf '%s\n' \
   "HighFidelityDesignTaskCardContractTests = PASS" \
-  "NegativeCases = 4"
+  "NegativeCases = 5"

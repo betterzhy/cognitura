@@ -5,7 +5,7 @@ CanonicalProjectName = Cognitura
 TaskCardSet = HIGH_FIDELITY_DESIGN
 TaskCardIDs = HF-D00,HF-D01,HF-D02,HF-D03,HF-D04
 TaskCardCount = 5
-ActiveTaskCard = HF-D02
+ActiveTaskCard = HF-D03
 TaskCardSetStatus = READY_FOR_EXECUTION
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -23,8 +23,8 @@ W1-I00Release = FORBIDDEN
 |---|---|---|---|---|
 | `HF-D00` | [设计治理与来源登记](HF-D00-design-governance.md) | `DONE` | `NONE` | `HF-DG0 PASS` |
 | `HF-D01` | [页面与呈现冲突裁决](HF-D01-reading-presentation-contract.md) | `DONE` | `HF-D00` | `HF-DG1 PASS` |
-| `HF-D02` | [正交状态与恢复边界](HF-D02-interaction-state-model.md) | `READY` | `HF-D01` | `HF-DG2` |
-| `HF-D03` | [高保真证据与验收](HF-D03-high-fidelity-evidence-contract.md) | `BLOCKED_BY_DEPENDENCY` | `HF-D02` | `HF-DG3` |
+| `HF-D02` | [正交状态与恢复边界](HF-D02-interaction-state-model.md) | `DONE` | `HF-D01` | `HF-DG2 PASS` |
+| `HF-D03` | [高保真证据与验收](HF-D03-high-fidelity-evidence-contract.md) | `READY` | `HF-D02` | `HF-DG3` |
 | `HF-D04` | [固定设计候选复核](HF-D04-fixed-design-review.md) | `BLOCKED_BY_DEPENDENCY` | `HF-D03` | `HF-DG4` |
 
 ## 2. 状态规则

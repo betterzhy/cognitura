@@ -25,8 +25,8 @@ hfd02_stage_fail() {
 validate_hfd02_stage_separation() {
   local fixture="$1"
 
-  [[ "$(grep -Fxc '  HF_D02_ORTHOGONAL_STATE_AND_RECOVERY_MODEL' "${fixture}" || true)" -eq 2 ]] ||
-    { hfd02_stage_fail "HFD02_STAGE_SCOPE_MISMATCH"; return 1; }
+  [[ "$(grep -Fxc '  HF_D03_HIGH_FIDELITY_EVIDENCE_CONTRACT' "${fixture}" || true)" -eq 2 ]] ||
+    { hfd02_stage_fail "HFD03_STAGE_ENTRY_MISMATCH"; return 1; }
   grep -Fqx \
     'HFD02Scope = ORTHOGONAL_STATE_CLASSIFICATION_RECOVERY_AND_PERSISTENCE_ONLY' \
     "${fixture}" || { hfd02_stage_fail "HFD02_STAGE_SCOPE_MISMATCH"; return 1; }
@@ -110,12 +110,12 @@ for forbidden_closure in \
   fi
 done
 for required_candidate_disposition in \
-  'RemainingInteractionStateP0 = CANDIDATE_INVENTORIED' \
+  'RemainingInteractionStateP0 = HF_DG2_ORTHOGONAL_STATE_AND_RECOVERY_PASS' \
   'SecondRoundLowFidelityPrototype = HISTORICAL_INPUT_RECORDED' \
   'SecondRoundLowFidelityAssessment = HISTORICAL_DIRECTION_RECORDED_READING_FIRST_PATCH_REQUIRED' \
   'SecondRoundLowFidelityDirectionRecord = HISTORICAL_ACCEPTANCE_RECORDED' \
   'ReadingFirstRiskDisposition = DEFERRED_TO_APPLICABLE_HF_GATE' \
-  'StateInputGapDisposition = CANDIDATE_INVENTORIED'; do
+  'StateInputGapDisposition = HF_DG2_ORTHOGONAL_STATE_AND_RECOVERY_PASS'; do
   [[ "$(grep -Fxc "${required_candidate_disposition}" "${document}" || true)" -eq 1 ]] ||
     fail "candidate disposition is missing: ${required_candidate_disposition}"
 done
@@ -127,6 +127,10 @@ canonical_output="$(run_validation "${document}")" ||
 for expected_line in \
   "InteractionStateContractValidation = PASS" \
   "OriginalStateCodeCount = 46" \
+  "ClassifiedOriginalStateCodeCount = 46" \
+  "OrthogonalAxisCount = 6" \
+  "PersistenceLedgerLevelCount = 5" \
+  "PageStateMappingCount = 12" \
   "ExceptionCodeCount = 20" \
   "RFAcceptanceCount = 20" \
   "ReverseMigrationCount = 30"; do
@@ -169,6 +173,46 @@ cp "${document}" "${missing_state}"
 sed -i.bak '/^| `StateCode` | IDLE |$/d' "${missing_state}"
 rm "${missing_state}.bak"
 expect_failure "${missing_state}" "expected 46 unique original StateCode rows"
+
+duplicate_owner="${test_tmp_root}/duplicate-owner.md"
+cp "${document}" "${duplicate_owner}"
+sed -i.bak '/^| CLOSE_AUXILIARY_PANEL | EVENT |/p' "${duplicate_owner}"
+rm "${duplicate_owner}.bak"
+expect_failure "${duplicate_owner}" "expected 46 unique classification rows"
+
+missing_classification="${test_tmp_root}/missing-classification.md"
+cp "${document}" "${missing_classification}"
+sed -i.bak '/^| IDLE | AXIS_VALUE |/d' "${missing_classification}"
+rm "${missing_classification}.bak"
+expect_failure "${missing_classification}" "expected 46 unique classification rows"
+
+unknown_classification="${test_tmp_root}/unknown-classification.md"
+cp "${document}" "${unknown_classification}"
+sed -i.bak 's/^| IDLE | AXIS_VALUE |/| UNKNOWN_STATE | AXIS_VALUE |/' "${unknown_classification}"
+rm "${unknown_classification}.bak"
+expect_failure "${unknown_classification}" "classification contains unknown OriginalStateCode"
+
+event_persisted="${test_tmp_root}/event-persisted.md"
+cp "${document}" "${event_persisted}"
+sed -i.bak \
+  's/^| CLOSE_AUXILIARY_PANEL | EVENT | NavigationEventFlow | EPHEMERAL_UI | NOT_PERSISTED | NO_CANONICAL_WRITE |$/| CLOSE_AUXILIARY_PANEL | EVENT | NavigationEventFlow | CANONICAL_SERVER_STATE | DERIVED_FROM_CANONICAL_RESULT | CANONICAL_WRITE_RESULT |/' \
+  "${event_persisted}"
+rm "${event_persisted}.bak"
+expect_failure "${event_persisted}" "event must not be persisted as state"
+
+preview_in_url="${test_tmp_root}/preview-in-url.md"
+cp "${document}" "${preview_in_url}"
+sed -i.bak \
+  's/^| PREVIEW | TRANSIENT_UI | PreviewFlow | EPHEMERAL_UI | NOT_PERSISTED | NO_CANONICAL_WRITE |$/| PREVIEW | TRANSIENT_UI | PreviewFlow | URL | URL_AND_HISTORY | NO_CANONICAL_WRITE |/' \
+  "${preview_in_url}"
+rm "${preview_in_url}.bak"
+expect_failure "${preview_in_url}" "PREVIEW must not enter URL or History"
+
+generating_collision="${test_tmp_root}/generating-collision.md"
+cp "${document}" "${generating_collision}"
+sed -i.bak 's/PROJECTION_GENERATING/GENERATING/g' "${generating_collision}"
+rm "${generating_collision}.bak"
+expect_failure "${generating_collision}" "historical GENERATING must map to PROJECTION_GENERATING"
 
 premature_formal="${test_tmp_root}/premature-formal.md"
 cp "${document}" "${premature_formal}"
@@ -255,7 +299,7 @@ expect_failure "${premature_contract_pass}" \
 premature_p0_close="${test_tmp_root}/premature-p0-close.md"
 cp "${document}" "${premature_p0_close}"
 sed -i.bak -E \
-  's/^ContractP0Remaining = DEFERRED_TO_HF_D0(1|2)_THROUGH_HF_D04$/ContractP0Remaining = 0/' \
+  's/^ContractP0Remaining = DEFERRED_TO_HF_D0(1|2|3)_THROUGH_HF_D04$/ContractP0Remaining = 0/' \
   "${premature_p0_close}"
 rm "${premature_p0_close}.bak"
 expect_failure "${premature_p0_close}" \
@@ -291,7 +335,7 @@ expect_failure "${premature_specialty_baseline}" \
 closed_interaction_p0="${test_tmp_root}/closed-interaction-p0.md"
 cp "${document}" "${closed_interaction_p0}"
 sed -i.bak \
-  's/^RemainingInteractionStateP0 = CANDIDATE_INVENTORIED$/RemainingInteractionStateP0 = CLOSED_BY_THIS_DOCUMENT/' \
+  's/^RemainingInteractionStateP0 = HF_DG2_ORTHOGONAL_STATE_AND_RECOVERY_PASS$/RemainingInteractionStateP0 = CLOSED_BY_THIS_DOCUMENT/' \
   "${closed_interaction_p0}"
 rm "${closed_interaction_p0}.bak"
 expect_failure "${closed_interaction_p0}" \
@@ -383,4 +427,4 @@ expect_failure "${premature_real_high_fidelity_page}" \
 printf '%s\n' \
   "InteractionStateContractTests = PASS" \
   "StageAwarePositiveCases = 2" \
-  "NegativeCases = 32"
+  "NegativeCases = 38"

@@ -14,7 +14,7 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  HIGH_FIDELITY_INTERACTION_STATE_MODEL_READY
+  HIGH_FIDELITY_EVIDENCE_CONTRACT_READY
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
@@ -30,9 +30,10 @@ Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
 HighFidelityDesignTaskCardSet = READY_FOR_EXECUTION
 HighFidelityDesignStatus = CANDIDATE_AWAITING_REPOSITORY_GATE
-HighFidelityDesignGate = HF-DG1 PASS
+HighFidelityDesignGate = HF-DG2 PASS
 HighFidelityReadingPresentationContract = PASS
-ActiveDesignTaskCard = HF-D02
+HighFidelityInteractionStateModel = PASS
+ActiveDesignTaskCard = HF-D03
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
@@ -45,11 +46,12 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 实现切片书面规格均已获用户批准；当前等待选择任务卡 bootstrap 计划的执行方式。
 计划执行只允许创建卡集并完成治理卡 I00，不授权 W1-I01 业务代码。
 
-本分支另有经用户授权的独立 `HIGH_FIDELITY_DESIGN` 集合；`HF-D01` 已关闭，当前唯一活动设计卡为
-`HF-D02`。它只允许推进正交状态与恢复边界，不能创建或释放 `W1-I00`，也不
+本分支另有经用户授权的独立 `HIGH_FIDELITY_DESIGN` 集合；`HF-D01` 与 `HF-D02`
+已关闭，当前唯一活动设计卡为 `HF-D03`。它只允许推进高保真证据与验收合同，不能创建或释放 `W1-I00`，也不
 改变 `BusinessImplementation = NOT_AUTHORIZED`、正式数据库写入和远程推送边界。
 候选只有在 HF-D04 固定候选双阶段审查通过后才可晋级正式专项。
-`HF-D01` 仅关闭 Reading First 页面与呈现合同；高保真视觉、可用性、实现及整体专项晋级仍未授权。
+`HF-D01` 仅关闭 Reading First 页面与呈现合同，`HF-D02` 仅关闭正交状态、持久化
+与恢复边界；高保真视觉、可用性、实现及整体专项晋级仍未授权。
 
 ## 3. 正式事实来源
 

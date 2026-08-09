@@ -6,5 +6,6 @@ sources:
     role: HIGH_FIDELITY_INTERACTION_SPECIALTY_CANDIDATE
     version: Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0
     status: CANDIDATE_AWAITING_REPOSITORY_GATE
-    sizeBytes: 150944
-    sha256: f358a0c4a3bdf886305ce80d21e6212542d320e077872ff1ae062257ffc79b22
+    fingerprintScope: HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY
+    sizeBytes: 161988
+    sha256: d377251d355a9b969df3faf99619e2597f2c9b1a3663c7e9dce371352a6ce36f
