@@ -1358,6 +1358,23 @@ write_hvd04_selector_probe() {
         return roles.join("+") + "=" + element.innerText.trim().replace(/\s+/g, " ");
       }).join(";");
     };
+    const directHierarchyTopology = function (caseSelector) {
+      const hierarchy = root.querySelector(caseSelector + " > .canonical-hierarchy");
+      if (!hierarchy) {
+        return "";
+      }
+      return Array.prototype.map.call(hierarchy.children, function (element) {
+        if (element.tagName === "I") {
+          return "I.separator";
+        }
+        if (element.tagName !== "SPAN") {
+          return element.tagName + ".unexpected";
+        }
+        const roles = ["landscape-level", "theme-level", "module-level", "element-level"]
+          .filter(function (role) { return element.classList.contains(role); });
+        return "SPAN." + roles.join("+");
+      }).join(",");
+    };
     setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
     setProbe("state-fixture", targetDocument.body.dataset.stateFixture || "");
     setProbe("document-count", targetDocument.querySelectorAll(rootSelector).length);
@@ -1412,6 +1429,14 @@ write_hvd04_selector_probe() {
       setProbe("rule-raw-layer-count", root.querySelectorAll(
         ".rule-policy-domain > .canonical-hierarchy > span"
       ).length);
+      setProbe("mechanism-direct-child-count", root.querySelector(
+        ".mechanism-domain > .canonical-hierarchy"
+      ).children.length);
+      setProbe("rule-direct-child-count", root.querySelector(
+        ".rule-policy-domain > .canonical-hierarchy"
+      ).children.length);
+      setProbe("mechanism-direct-child-topology", directHierarchyTopology(".mechanism-domain"));
+      setProbe("rule-direct-child-topology", directHierarchyTopology(".rule-policy-domain"));
       setProbe("mechanism-hierarchy-count", renderedCount(rootSelector + " .mechanism-domain .canonical-level"));
       setProbe("rule-hierarchy-count", renderedCount(rootSelector + " .rule-policy-domain .canonical-level"));
       setProbe("mechanism-landscape-count", renderedCount(rootSelector + " .mechanism-domain .landscape-level"));
@@ -2112,6 +2137,10 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-independent-domain-rendered-count|0' \
     'data-probe-mechanism-raw-layer-count|4' \
     'data-probe-rule-raw-layer-count|4' \
+    'data-probe-mechanism-direct-child-count|7' \
+    'data-probe-rule-direct-child-count|7' \
+    'data-probe-mechanism-direct-child-topology|SPAN.landscape-level,I.separator,SPAN.theme-level,I.separator,SPAN.module-level,I.separator,SPAN.element-level' \
+    'data-probe-rule-direct-child-topology|SPAN.landscape-level,I.separator,SPAN.theme-level,I.separator,SPAN.module-level,I.separator,SPAN.element-level' \
     'data-probe-mechanism-hierarchy-count|4' \
     'data-probe-rule-hierarchy-count|4' \
     'data-probe-mechanism-landscape-count|1' \
