@@ -14,8 +14,7 @@ KnowledgeLandscape
 ## 当前阶段
 
 ```text
-CurrentStage =
-  HIGH_FIDELITY_MODULE_DEFAULT_READING_ESTABLISHED
+CurrentStage = HIGH_FIDELITY_FOCUS_AND_SOURCE_ESTABLISHED
 
 Wave0ExecutionStatus = COMPLETE
 ActiveTaskCard = NONE

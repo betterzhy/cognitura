@@ -493,6 +493,19 @@ for project_status in \
   require_line_once "${script_root}/AGENTS.md" "${project_status}"
   require_line_once "${script_root}/README.md" "${project_status}"
 done
+case "${active_task}" in
+  HV-D01) expected_current_stage='HIGH_FIDELITY_VISUAL_FOUNDATION_ESTABLISHED' ;;
+  HV-D02) expected_current_stage='HIGH_FIDELITY_MODULE_DEFAULT_READING_ESTABLISHED' ;;
+  HV-D03) expected_current_stage='HIGH_FIDELITY_FOCUS_AND_SOURCE_ESTABLISHED' ;;
+  HV-D04) expected_current_stage='HIGH_FIDELITY_REVISION_AND_RECOVERY_ESTABLISHED' ;;
+  HV-D05) expected_current_stage='HIGH_FIDELITY_CROSS_LAYER_RESPONSIVE_EXPORT_ESTABLISHED' ;;
+esac
+for current_stage_file in \
+  "${script_root}/AGENTS.md" \
+  "${script_root}/README.md" \
+  "${design_index}"; do
+  require_field_value "${current_stage_file}" CurrentStage "${expected_current_stage}"
+done
 execution_names=(VisualFoundation ModuleDefaultReading FocusAndSource RevisionAndRecovery CrossLayerResponsiveAndExport FixedVisualUsabilityReview)
 for execution_index in 0 1 2 3 4 5; do
   execution_id="HV-D0${execution_index}"
@@ -911,6 +924,36 @@ write_hvd02_selector_probe() {
       setProbe("status", "READY");
       return;
     }
+    const isRendered = function (element) {
+      if (!element || element.closest("[hidden], [aria-hidden='true']")) {
+        return false;
+      }
+      const style = targetDocument.defaultView.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.visibility !== "collapse" &&
+        Number(style.opacity) !== 0 &&
+        element.getClientRects().length > 0 &&
+        rect.width > 0 &&
+        rect.height > 0;
+    };
+    const renderedCount = function (selector) {
+      return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isRendered).length;
+    };
+    const isKeyboardInteractable = function (element) {
+      return isRendered(element) &&
+        element.tagName === "BUTTON" &&
+        !element.disabled &&
+        element.getAttribute("aria-disabled") !== "true" &&
+        element.tabIndex >= 0;
+    };
+    const renderedInteractableCount = function (selector) {
+      return Array.prototype.filter.call(
+        targetDocument.querySelectorAll(selector),
+        isKeyboardInteractable
+      ).length;
+    };
     const buttons = Array.prototype.slice.call(fixture.querySelectorAll("button:not([disabled])"));
     const enterControl = fixture.querySelector("[data-enter-action]");
     const quickSourcePanel = isRelation ? fixture.querySelector(".quick-source-panel") : null;
@@ -919,6 +962,11 @@ write_hvd02_selector_probe() {
       enterControl.focus();
       enterControl.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
       setProbe("quick-source-visible-after-enter", quickSourcePanel ? !quickSourcePanel.hidden : "MISSING");
+      setProbe("quick-source-rendered-after-enter", quickSourcePanel ? isRendered(quickSourcePanel) : "MISSING");
+      setProbe(
+        "quick-source-close-interactable-after-enter",
+        isRelation ? renderedInteractableCount(rootSelector + " .quick-source-close") === 1 : "NOT_APPLICABLE"
+      );
       enterControl.click();
     }
     if (isRelation) {
@@ -955,20 +1003,30 @@ write_hvd02_selector_probe() {
     setProbe("active-element", targetDocument.activeElement ? targetDocument.activeElement.id : "");
     setProbe("button-count", buttons.length);
     setProbe("touch-equivalent-control-count", fixture.querySelectorAll("button[data-touch-equivalent]").length);
+    setProbe("rendered-interactable-enter-control-count", renderedInteractableCount(fixtureSelector + " [data-enter-action]"));
 
     if (isRelation) {
       setProbe("evidence-stage", targetDocument.body.dataset.relationFocusEvidence || "");
       setProbe("declared-primary-focus-count", targetDocument.body.dataset.primaryStableFocusCount || "");
       setProbe("primary-focus-kind", root.dataset.primaryFocusKind || "");
       setProbe("primary-focus-count", root.querySelectorAll(".relation-focus-primary").length);
+      setProbe("rendered-document-count", renderedCount(rootSelector));
+      setProbe("rendered-primary-focus-count", renderedCount(rootSelector + " .relation-focus-primary"));
       setProbe("origin-anchor-count", fixture.querySelectorAll(".relation-origin-anchor").length);
+      setProbe("rendered-origin-anchor-count", renderedCount(fixtureSelector + " .relation-origin-anchor"));
+      setProbe("interactable-origin-anchor-count", renderedInteractableCount(fixtureSelector + " .relation-origin-anchor"));
       setProbe("statement-count", root.querySelectorAll(".relation-focus-statement").length);
+      setProbe("rendered-statement-count", renderedCount(rootSelector + " .relation-focus-statement"));
       setProbe("endpoint-count", root.querySelectorAll(".relation-endpoint").length);
+      setProbe("rendered-endpoint-count", renderedCount(rootSelector + " .relation-endpoint"));
       setProbe("declared-endpoint-count", root.dataset.endpointCount || "");
       setProbe("support-scope-count", root.querySelectorAll(".relation-support-scope").length);
+      setProbe("rendered-support-scope-count", renderedCount(rootSelector + " .relation-support-scope"));
       setProbe("quick-source-panel-count", root.querySelectorAll(".quick-source-panel").length);
       setProbe("quick-source-trigger-count", root.querySelectorAll("#relation-quick-source-trigger[data-enter-action='OPEN_QUICK_SOURCE']").length);
+      setProbe("rendered-interactable-quick-source-trigger-count", renderedInteractableCount(rootSelector + " #relation-quick-source-trigger[data-enter-action='OPEN_QUICK_SOURCE']"));
       setProbe("quick-source-close-count", root.querySelectorAll(".quick-source-close[data-focus-return-target='relation-quick-source-trigger'][data-touch-equivalent='CLOSE_QUICK_SOURCE']").length);
+      setProbe("rendered-interactable-close-control-count", renderedInteractableCount(rootSelector + " .relation-focus-close[data-focus-return-target='relation-origin-anchor']"));
       setProbe("close-control-count", root.querySelectorAll(".relation-focus-close[data-focus-return-target='relation-origin-anchor']").length);
       setProbe("quick-source-persistence", targetDocument.body.dataset.quickSourcePersistence || "");
     } else {
@@ -977,13 +1035,22 @@ write_hvd02_selector_probe() {
       setProbe("original-reading-anchor", targetDocument.body.dataset.originalReadingAnchor || "");
       setProbe("canonical-target", root.dataset.canonicalTarget || "");
       setProbe("proposition-count", root.querySelectorAll(".verification-proposition").length);
+      setProbe("rendered-document-count", renderedCount(rootSelector));
+      setProbe("rendered-proposition-count", renderedCount(rootSelector + " .verification-proposition"));
       setProbe("support-matrix-count", root.querySelectorAll(".source-support-matrix").length);
+      setProbe("rendered-support-matrix-count", renderedCount(rootSelector + " .source-support-matrix"));
       setProbe("support-row-count", root.querySelectorAll(".support-matrix-grid [role='row']:not(.support-matrix-head)").length);
+      setProbe("rendered-support-row-count", renderedCount(rootSelector + " .support-matrix-grid [role='row']:not(.support-matrix-head)"));
       setProbe("support-scope-count", root.querySelectorAll(".source-support-scope").length);
+      setProbe("rendered-support-scope-count", renderedCount(rootSelector + " .source-support-scope"));
       setProbe("conflict-count", root.querySelectorAll(".source-conflict").length);
+      setProbe("rendered-conflict-count", renderedCount(rootSelector + " .source-conflict"));
       setProbe("gap-count", root.querySelectorAll(".source-gap").length);
+      setProbe("rendered-gap-count", renderedCount(rootSelector + " .source-gap"));
       setProbe("return-target-count", fixture.querySelectorAll("#source-origin-anchor.source-return-anchor").length);
+      setProbe("rendered-interactable-return-target-count", renderedInteractableCount(fixtureSelector + " #source-origin-anchor.source-return-anchor"));
       setProbe("close-control-count", root.querySelectorAll(".source-verification-close[data-focus-return-target='source-origin-anchor']").length);
+      setProbe("rendered-interactable-close-control-count", renderedInteractableCount(rootSelector + " .source-verification-close[data-focus-return-target='source-origin-anchor']"));
     }
     setProbe("status", "READY");
   };
@@ -1150,40 +1217,6 @@ if [[ "${active_number}" -ge 3 ]]; then
   relation_quick_source_panel_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-quick-source-panel-count')"
   [[ "${relation_quick_source_panel_count}" -eq 1 ]] ||
     fail "relation-focus must contain exactly one transient Quick Source panel"
-  for relation_contract in \
-    'data-probe-status|READY' \
-    'data-probe-fixture-status|ACCEPTED' \
-    'data-probe-state-fixture|relation-focus' \
-    'data-probe-document-count|1' \
-    'data-probe-state-code|RELATION_PINNED_FOCUS' \
-    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
-    'data-probe-primary-focus-kind|RELATION' \
-    'data-probe-origin-anchor-declaration|relation-origin-anchor' \
-    'data-probe-quick-source-persistence|EPHEMERAL_NOT_URL' \
-    'data-probe-close-control-count|1' \
-    'data-probe-focus-return-status|RESTORED' \
-    'data-probe-focus-returned-to|relation-origin-anchor' \
-    'data-probe-active-element|relation-origin-anchor' \
-    'data-probe-last-transition|ESCAPE_CLOSE' \
-    'data-probe-keyboard-enter-action|OPEN_QUICK_SOURCE' \
-    'data-probe-touch-equivalent-action|OPEN_QUICK_SOURCE' \
-    'data-probe-quick-source-initially-hidden|true' \
-    'data-probe-quick-source-visible-after-enter|true' \
-    'data-probe-quick-source-hidden-after-explicit-close|true' \
-    'data-probe-quick-source-explicit-close-focus|relation-quick-source-trigger' \
-    'data-probe-quick-source-explicit-close-transition|QUICK_SOURCE_EXPLICIT_CLOSE' \
-    'data-probe-quick-source-hidden-after-escape|true' \
-    'data-probe-quick-source-focus-return|relation-quick-source-trigger' \
-    'data-probe-quick-source-close-transition|QUICK_SOURCE_ESCAPE_CLOSE' \
-    'data-probe-quick-source-trigger-count|1' \
-    'data-probe-quick-source-close-count|1' \
-    'data-probe-button-count|8' \
-    'data-probe-touch-equivalent-control-count|8'; do
-    relation_attribute="${relation_contract%%|*}"
-    relation_expected="${relation_contract#*|}"
-    require_hvd02_probe_value relation-focus "${relation_probe_dom}" \
-      "${relation_attribute}" "${relation_expected}"
-  done
   relation_primary_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-primary-focus-count')"
   [[ "${relation_primary_count}" -eq 1 ]] ||
     fail "relation-focus must contain exactly one real primary Relation focus"
@@ -1208,7 +1241,67 @@ if [[ "${active_number}" -ge 3 ]]; then
   relation_independent_fact_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-independent-fact-declaration')"
   [[ "${relation_independent_fact_count}" -eq 0 ]] ||
     fail "relation-focus must declare zero independent facts"
-
+  relation_rendered_document_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-rendered-document-count')"
+  [[ "${relation_rendered_document_count}" -eq 1 ]] ||
+    fail "relation-focus rendered document count must be 1, got ${relation_rendered_document_count}"
+  relation_rendered_primary_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-rendered-primary-focus-count')"
+  [[ "${relation_rendered_primary_count}" -eq 1 ]] ||
+    fail "relation-focus rendered primary Relation focus count must be 1, got ${relation_rendered_primary_count}"
+  relation_rendered_statement_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-rendered-statement-count')"
+  [[ "${relation_rendered_statement_count}" -eq 1 ]] ||
+    fail "relation-focus rendered complete Relation statement count must be 1, got ${relation_rendered_statement_count}"
+  relation_rendered_endpoint_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-rendered-endpoint-count')"
+  [[ "${relation_rendered_endpoint_count}" -eq 2 ]] ||
+    fail "relation-focus rendered secondary endpoint count must be 2, got ${relation_rendered_endpoint_count}"
+  relation_rendered_support_scope_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-rendered-support-scope-count')"
+  [[ "${relation_rendered_support_scope_count}" -eq 1 ]] ||
+    fail "relation-focus rendered evidence support scope count must be 1, got ${relation_rendered_support_scope_count}"
+  relation_rendered_origin_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-rendered-origin-anchor-count')"
+  relation_interactable_origin_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-interactable-origin-anchor-count')"
+  [[ "${relation_rendered_origin_count}" -eq 1 && "${relation_interactable_origin_count}" -eq 1 ]] ||
+    fail "relation-focus must contain exactly one rendered and keyboard-interactable origin anchor"
+  relation_interactable_quick_source_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-rendered-interactable-quick-source-trigger-count')"
+  [[ "${relation_interactable_quick_source_count}" -eq 1 ]] ||
+    fail "relation-focus must contain exactly one rendered and keyboard-interactable Quick Source trigger"
+  relation_interactable_close_count="$(hvd02_probe_attribute_value relation-focus "${relation_probe_dom}" 'data-probe-rendered-interactable-close-control-count')"
+  [[ "${relation_interactable_close_count}" -eq 1 ]] ||
+    fail "relation-focus must contain exactly one rendered and keyboard-interactable close control"
+  for relation_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|relation-focus' \
+    'data-probe-document-count|1' \
+    'data-probe-state-code|RELATION_PINNED_FOCUS' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-primary-focus-kind|RELATION' \
+    'data-probe-origin-anchor-declaration|relation-origin-anchor' \
+    'data-probe-quick-source-persistence|EPHEMERAL_NOT_URL' \
+    'data-probe-close-control-count|1' \
+    'data-probe-focus-return-status|RESTORED' \
+    'data-probe-focus-returned-to|relation-origin-anchor' \
+    'data-probe-active-element|relation-origin-anchor' \
+    'data-probe-last-transition|ESCAPE_CLOSE' \
+    'data-probe-keyboard-enter-action|OPEN_QUICK_SOURCE' \
+    'data-probe-touch-equivalent-action|OPEN_QUICK_SOURCE' \
+    'data-probe-quick-source-initially-hidden|true' \
+    'data-probe-quick-source-visible-after-enter|true' \
+    'data-probe-quick-source-rendered-after-enter|true' \
+    'data-probe-quick-source-close-interactable-after-enter|true' \
+    'data-probe-quick-source-hidden-after-explicit-close|true' \
+    'data-probe-quick-source-explicit-close-focus|relation-quick-source-trigger' \
+    'data-probe-quick-source-explicit-close-transition|QUICK_SOURCE_EXPLICIT_CLOSE' \
+    'data-probe-quick-source-hidden-after-escape|true' \
+    'data-probe-quick-source-focus-return|relation-quick-source-trigger' \
+    'data-probe-quick-source-close-transition|QUICK_SOURCE_ESCAPE_CLOSE' \
+    'data-probe-quick-source-trigger-count|1' \
+    'data-probe-quick-source-close-count|1' \
+    'data-probe-button-count|8' \
+    'data-probe-touch-equivalent-control-count|8'; do
+    relation_attribute="${relation_contract%%|*}"
+    relation_expected="${relation_contract#*|}"
+    require_hvd02_probe_value relation-focus "${relation_probe_dom}" \
+      "${relation_attribute}" "${relation_expected}"
+  done
   source_probe_file="${runtime_tmp}/source-verification-selector-probe.html"
   write_hvd02_selector_probe \
     "${source_probe_file}" \
@@ -1225,6 +1318,42 @@ if [[ "${active_number}" -ge 3 ]]; then
   source_return_target_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-return-target-count')"
   [[ "${source_return_target_count}" -eq 1 ]] ||
     fail "source-verification must contain exactly one Escape focus return target"
+  source_conflict_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-conflict-count')"
+  [[ "${source_conflict_count}" -eq 1 ]] ||
+    fail "source-verification must contain exactly one explicit conflict state"
+  source_gap_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-gap-count')"
+  [[ "${source_gap_count}" -eq 1 ]] ||
+    fail "source-verification must contain exactly one explicit source gap"
+  source_independent_fact_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-independent-fact-declaration')"
+  [[ "${source_independent_fact_count}" -eq 0 ]] ||
+    fail "source-verification must declare zero independent facts"
+  source_rendered_document_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-document-count')"
+  [[ "${source_rendered_document_count}" -eq 1 ]] ||
+    fail "source-verification rendered document count must be 1, got ${source_rendered_document_count}"
+  source_rendered_proposition_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-proposition-count')"
+  [[ "${source_rendered_proposition_count}" -eq 1 ]] ||
+    fail "source-verification rendered proposition count must be 1, got ${source_rendered_proposition_count}"
+  source_rendered_matrix_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-support-matrix-count')"
+  [[ "${source_rendered_matrix_count}" -eq 1 ]] ||
+    fail "source-verification rendered support matrix count must be 1, got ${source_rendered_matrix_count}"
+  source_rendered_row_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-support-row-count')"
+  [[ "${source_rendered_row_count}" -eq 4 ]] ||
+    fail "source-verification rendered support row count must be 4, got ${source_rendered_row_count}"
+  source_rendered_scope_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-support-scope-count')"
+  [[ "${source_rendered_scope_count}" -eq 1 ]] ||
+    fail "source-verification rendered evidence support scope count must be 1, got ${source_rendered_scope_count}"
+  source_rendered_conflict_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-conflict-count')"
+  [[ "${source_rendered_conflict_count}" -eq 1 ]] ||
+    fail "source-verification rendered explicit conflict count must be 1, got ${source_rendered_conflict_count}"
+  source_rendered_gap_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-gap-count')"
+  [[ "${source_rendered_gap_count}" -eq 1 ]] ||
+    fail "source-verification rendered explicit source gap count must be 1, got ${source_rendered_gap_count}"
+  source_interactable_return_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-interactable-return-target-count')"
+  [[ "${source_interactable_return_count}" -eq 1 ]] ||
+    fail "source-verification must contain exactly one rendered and keyboard-interactable Escape focus return target"
+  source_interactable_close_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-rendered-interactable-close-control-count')"
+  [[ "${source_interactable_close_count}" -eq 1 ]] ||
+    fail "source-verification must contain exactly one rendered and keyboard-interactable close control"
   for source_contract in \
     'data-probe-status|READY' \
     'data-probe-fixture-status|ACCEPTED' \
@@ -1247,6 +1376,7 @@ if [[ "${active_number}" -ge 3 ]]; then
     'data-probe-last-transition|ESCAPE_CLOSE' \
     'data-probe-keyboard-enter-action|CONFIRM_VERIFICATION' \
     'data-probe-touch-equivalent-action|CONFIRM_VERIFICATION' \
+    'data-probe-rendered-interactable-enter-control-count|1' \
     'data-probe-button-count|4' \
     'data-probe-touch-equivalent-control-count|4'; do
     source_attribute="${source_contract%%|*}"
@@ -1254,16 +1384,6 @@ if [[ "${active_number}" -ge 3 ]]; then
     require_hvd02_probe_value source-verification "${source_probe_dom}" \
       "${source_attribute}" "${source_expected}"
   done
-  source_conflict_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-conflict-count')"
-  [[ "${source_conflict_count}" -eq 1 ]] ||
-    fail "source-verification must contain exactly one explicit conflict state"
-  source_gap_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-gap-count')"
-  [[ "${source_gap_count}" -eq 1 ]] ||
-    fail "source-verification must contain exactly one explicit source gap"
-  source_independent_fact_count="$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" 'data-probe-independent-fact-declaration')"
-  [[ "${source_independent_fact_count}" -eq 0 ]] ||
-    fail "source-verification must declare zero independent facts"
-
   relation_evidence_png="${evidence_dir}/module-relation-focus-desktop.png"
   [[ -f "${relation_evidence_png}" ]] || fail "relation-focus visual evidence is missing"
   relation_png_description="$(file "${relation_evidence_png}" 2>/dev/null || true)"
@@ -1303,6 +1423,7 @@ printf 'DoneTaskCardCount = %s\n' "${done_count}"
 printf 'ReadyTaskCardCount = %s\n' "${ready_count}"
 printf 'BlockedTaskCardCount = %s\n' "${blocked_count}"
 printf 'Task6WriteSetItemCount = 22\n'
+printf 'CurrentStageProjectionValidation = PASS\n'
 printf 'VisualFoundationPrototypeValidation = PASS\n'
 printf 'VisualFoundationEvidence = 1440x1100\n'
 printf 'UnknownFixtureStateRejection = PASS\n'

@@ -231,6 +231,7 @@ for expected_line in \
   "ReadyTaskCardCount = 1" \
   "BlockedTaskCardCount = 2" \
   "Task6WriteSetItemCount = 22" \
+  "CurrentStageProjectionValidation = PASS" \
   "VisualFoundationPrototypeValidation = PASS" \
   "VisualFoundationEvidence = 1440x1100" \
   "UnknownFixtureStateRejection = PASS" \
@@ -609,6 +610,68 @@ expect_hvd02_dom_failure "${broken_quick_source_explicit_close}" relation-focus 
   module-relation-focus-desktop.png \
   'relation-focus browser selector probe data-probe-quick-source-close-count must be 1, got 0'
 
+invisible_open_quick_source_panel="${test_tmp_root}/invisible-open-quick-source-panel"
+make_fixture "${invisible_open_quick_source_panel}"
+sed -i.bak 's/class="quick-source-panel"/class="quick-source-panel" style="display: none"/' \
+  "${invisible_open_quick_source_panel}/prototype/index.html"
+rm "${invisible_open_quick_source_panel}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${invisible_open_quick_source_panel}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus browser selector probe data-probe-quick-source-rendered-after-enter must be true, got false'
+
+hidden_relation_primary_focus="${test_tmp_root}/hidden-relation-primary-focus"
+make_fixture "${hidden_relation_primary_focus}"
+sed -i.bak 's/<section class="relation-focus-primary"/<section hidden class="relation-focus-primary"/' \
+  "${hidden_relation_primary_focus}/prototype/index.html"
+rm "${hidden_relation_primary_focus}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_relation_primary_focus}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus rendered primary Relation focus count must be 1, got 0'
+
+aria_hidden_relation_statement="${test_tmp_root}/aria-hidden-relation-statement"
+make_fixture "${aria_hidden_relation_statement}"
+sed -i.bak 's/class="relation-focus-statement"/aria-hidden="true" class="relation-focus-statement"/' \
+  "${aria_hidden_relation_statement}/prototype/index.html"
+rm "${aria_hidden_relation_statement}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${aria_hidden_relation_statement}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus rendered complete Relation statement count must be 1, got 0'
+
+display_none_relation_endpoint="${test_tmp_root}/display-none-relation-endpoint"
+make_fixture "${display_none_relation_endpoint}"
+perl -0pi -e 's/class="relation-endpoint"/class="relation-endpoint" style="display: none"/' \
+  "${display_none_relation_endpoint}/prototype/index.html"
+expect_hvd02_dom_failure "${display_none_relation_endpoint}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus rendered secondary endpoint count must be 2, got 1'
+
+disabled_quick_source_trigger="${test_tmp_root}/disabled-quick-source-trigger"
+make_fixture "${disabled_quick_source_trigger}"
+sed -i.bak 's/id="relation-quick-source-trigger"/disabled id="relation-quick-source-trigger"/' \
+  "${disabled_quick_source_trigger}/prototype/index.html"
+rm "${disabled_quick_source_trigger}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${disabled_quick_source_trigger}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-focus must contain exactly one rendered and keyboard-interactable Quick Source trigger'
+
+hidden_source_conflict="${test_tmp_root}/hidden-source-conflict"
+make_fixture "${hidden_source_conflict}"
+sed -i.bak 's/<article class="source-conflict"/<article hidden class="source-conflict"/' \
+  "${hidden_source_conflict}/prototype/index.html"
+rm "${hidden_source_conflict}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_source_conflict}" source-verification \
+  module-source-verification-desktop.png \
+  'source-verification rendered explicit conflict count must be 1, got 0'
+
+hidden_source_return_target="${test_tmp_root}/hidden-source-return-target"
+make_fixture "${hidden_source_return_target}"
+sed -i.bak 's/id="source-origin-anchor"/hidden id="source-origin-anchor"/' \
+  "${hidden_source_return_target}/prototype/index.html"
+rm "${hidden_source_return_target}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_source_return_target}" source-verification \
+  module-source-verification-desktop.png \
+  'source-verification must contain exactly one rendered and keyboard-interactable Escape focus return target'
+
 missing_source_conflict="${test_tmp_root}/missing-source-conflict"
 make_fixture "${missing_source_conflict}"
 sed -i.bak 's/class="source-conflict"/class="source-conflict-missing"/' \
@@ -700,5 +763,5 @@ printf 'ExistingNegativeFixtureCount = 44\n'
 printf 'HV-D01FixRound1DOMNegativeFixtureCount = 15\n'
 printf 'HV-D01FixRound2AdversarialNegativeFixtureCount = 1\n'
 printf 'HV-D01SelectorSemanticsPositiveFixtureCount = 2\n'
-printf 'HV-D02DOMNegativeFixtureCount = 11\n'
-printf 'NegativeFixtureCount = 79\n'
+printf 'HV-D02DOMNegativeFixtureCount = 18\n'
+printf 'NegativeFixtureCount = 86\n'

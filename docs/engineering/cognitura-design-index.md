@@ -3,6 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 RepositoryName = cognitura
+CurrentStage = HIGH_FIDELITY_FOCUS_AND_SOURCE_ESTABLISHED
 CurrentDesignBaseline = Cognitura-Overall-Design-1.2
 CanonicalSourceManifest =
   docs/engineering/cognitura-source-manifest.yaml
