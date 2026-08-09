@@ -334,6 +334,15 @@ expect_hvd02_dom_failure "${cross_domain_classless_fifth}" theme-default \
   cross-domain-reading-desktop.png \
   'theme-default browser selector probe data-probe-mechanism-direct-child-count must be 7, got 8'
 
+cross_domain_canonical_class_swap="${test_tmp_root}/cross-domain-canonical-class-swap"
+make_fixture "${cross_domain_canonical_class_swap}"
+sed -i.bak '/MVCC 一致性读/ s#<span class="canonical-level landscape-level">数据系统</span><i>→</i>#<span class="landscape-level">数据系统</span><i class="canonical-level">→</i>#' \
+  "${cross_domain_canonical_class_swap}/prototype/index.html"
+rm "${cross_domain_canonical_class_swap}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${cross_domain_canonical_class_swap}" theme-default \
+  cross-domain-reading-desktop.png \
+  'theme-default browser selector probe data-probe-mechanism-direct-child-topology must be SPAN.canonical-level.landscape-level,I.separator,SPAN.canonical-level.theme-level,I.separator,SPAN.canonical-level.module-level,I.separator,SPAN.canonical-level.element-level'
+
 small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
 make_fixture "${small_noninteractive_close}"
 sed -i.bak \
@@ -1005,7 +1014,7 @@ sed -i.bak 's/class="canonical-level module-level">MVCC/class="canonical-level">
 rm "${missing_mechanism_module_layer}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${missing_mechanism_module_layer}" theme-default \
   cross-domain-reading-desktop.png \
-  'theme-default browser selector probe data-probe-mechanism-direct-child-topology must be SPAN.landscape-level,I.separator,SPAN.theme-level,I.separator,SPAN.module-level,I.separator,SPAN.element-level, got SPAN.landscape-level,I.separator,SPAN.theme-level,I.separator,SPAN.,I.separator,SPAN.element-level'
+  'theme-default browser selector probe data-probe-mechanism-direct-child-topology must be SPAN.canonical-level.landscape-level,I.separator,SPAN.canonical-level.theme-level,I.separator,SPAN.canonical-level.module-level,I.separator,SPAN.canonical-level.element-level, got SPAN.canonical-level.landscape-level,I.separator,SPAN.canonical-level.theme-level,I.separator,SPAN.canonical-level.,I.separator,SPAN.canonical-level.element-level'
 
 cross_domain_graph_workspace="${test_tmp_root}/cross-domain-graph-workspace"
 make_fixture "${cross_domain_graph_workspace}"
@@ -1138,4 +1147,5 @@ printf 'HV-D03DOMNegativeFixtureCount = 12\n'
 printf 'HV-D04NegativeFixtureCount = 14\n'
 printf 'HV-D04FixRound1NegativeFixtureCount = 6\n'
 printf 'HV-D04FixRound2NegativeFixtureCount = 1\n'
-printf 'NegativeFixtureCount = 120\n'
+printf 'HV-D04FixRound3NegativeFixtureCount = 1\n'
+printf 'NegativeFixtureCount = 121\n'

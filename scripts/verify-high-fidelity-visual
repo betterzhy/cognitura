@@ -1365,14 +1365,27 @@ write_hvd04_selector_probe() {
       }
       return Array.prototype.map.call(hierarchy.children, function (element) {
         if (element.tagName === "I") {
-          return "I.separator";
+          const separatorClasses = Array.from(element.classList).sort();
+          return separatorClasses.length === 0
+            ? "I.separator"
+            : "I.separator+" + separatorClasses.join("+");
         }
         if (element.tagName !== "SPAN") {
           return element.tagName + ".unexpected";
         }
         const roles = ["landscape-level", "theme-level", "module-level", "element-level"]
           .filter(function (role) { return element.classList.contains(role); });
-        return "SPAN." + roles.join("+");
+        const allowedClasses = ["canonical-level"].concat(roles);
+        const unexpectedClasses = Array.from(element.classList)
+          .filter(function (className) { return !allowedClasses.includes(className); })
+          .sort();
+        const canonicalToken = element.classList.contains("canonical-level")
+          ? "canonical-level"
+          : "missing-canonical-level";
+        const unexpectedToken = unexpectedClasses.length === 0
+          ? ""
+          : "+unexpected(" + unexpectedClasses.join("+") + ")";
+        return "SPAN." + canonicalToken + "." + roles.join("+") + unexpectedToken;
       }).join(",");
     };
     setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
@@ -2139,8 +2152,8 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-rule-raw-layer-count|4' \
     'data-probe-mechanism-direct-child-count|7' \
     'data-probe-rule-direct-child-count|7' \
-    'data-probe-mechanism-direct-child-topology|SPAN.landscape-level,I.separator,SPAN.theme-level,I.separator,SPAN.module-level,I.separator,SPAN.element-level' \
-    'data-probe-rule-direct-child-topology|SPAN.landscape-level,I.separator,SPAN.theme-level,I.separator,SPAN.module-level,I.separator,SPAN.element-level' \
+    'data-probe-mechanism-direct-child-topology|SPAN.canonical-level.landscape-level,I.separator,SPAN.canonical-level.theme-level,I.separator,SPAN.canonical-level.module-level,I.separator,SPAN.canonical-level.element-level' \
+    'data-probe-rule-direct-child-topology|SPAN.canonical-level.landscape-level,I.separator,SPAN.canonical-level.theme-level,I.separator,SPAN.canonical-level.module-level,I.separator,SPAN.canonical-level.element-level' \
     'data-probe-mechanism-hierarchy-count|4' \
     'data-probe-rule-hierarchy-count|4' \
     'data-probe-mechanism-landscape-count|1' \
