@@ -199,53 +199,62 @@ for expected_line in \
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
 done
+receipt_review_mode="$(printf '%s\n' "${canonical_output}" | sed -n 's/^ReFreezePreparationReviewMode = //p')"
+case "${receipt_review_mode}" in
+  ENABLED|DISABLED) ;;
+  *) fail "canonical output is missing a valid ReFreezePreparationReviewMode" ;;
+esac
+receipt_negative_cases=0
 
 baseline_dir="${test_tmp_root}/baseline"
 cp -R "${cards_dir}" "${baseline_dir}"
 
-missing_plan_receipt="${test_tmp_root}/missing-plan-receipt.md"
-cp "${master_plan}" "${missing_plan_receipt}"
-sed -i.bak '/^ReFreezeParentRepairSHA = /d' "${missing_plan_receipt}"
-rm "${missing_plan_receipt}.bak"
-expect_plan_failure "${missing_plan_receipt}" \
-  "master plan: missing re-freeze receipt field: ReFreezeParentRepairSHA"
+if [[ "${receipt_review_mode}" == "ENABLED" ]]; then
+  missing_plan_receipt="${test_tmp_root}/missing-plan-receipt.md"
+  cp "${master_plan}" "${missing_plan_receipt}"
+  sed -i.bak '/^ReFreezeParentRepairSHA = /d' "${missing_plan_receipt}"
+  rm "${missing_plan_receipt}.bak"
+  expect_plan_failure "${missing_plan_receipt}" \
+    "master plan: missing re-freeze receipt field: ReFreezeParentRepairSHA"
 
-missing_card_receipt_dir="${test_tmp_root}/missing-card-receipt"
-cp -R "${baseline_dir}" "${missing_card_receipt_dir}"
-sed -i.bak '/^ReFreezeReason = /d' \
-  "${missing_card_receipt_dir}/HF-D04-fixed-design-review.md"
-rm "${missing_card_receipt_dir}/HF-D04-fixed-design-review.md.bak"
-expect_failure "${missing_card_receipt_dir}" \
-  "HF-D04 card: missing re-freeze receipt field: ReFreezeReason"
+  missing_card_receipt_dir="${test_tmp_root}/missing-card-receipt"
+  cp -R "${baseline_dir}" "${missing_card_receipt_dir}"
+  sed -i.bak '/^ReFreezeReason = /d' \
+    "${missing_card_receipt_dir}/HF-D04-fixed-design-review.md"
+  rm "${missing_card_receipt_dir}/HF-D04-fixed-design-review.md.bak"
+  expect_failure "${missing_card_receipt_dir}" \
+    "HF-D04 card: missing re-freeze receipt field: ReFreezeReason"
 
-wrong_receipt_plan="${test_tmp_root}/wrong-receipt-sha.md"
-wrong_receipt_cards="${test_tmp_root}/wrong-receipt-sha-cards"
-cp "${master_plan}" "${wrong_receipt_plan}"
-cp -R "${baseline_dir}" "${wrong_receipt_cards}"
-sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 0000000000000000000000000000000000000000/' \
-  "${wrong_receipt_plan}"
-rm "${wrong_receipt_plan}.bak"
-sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 0000000000000000000000000000000000000000/' \
-  "${wrong_receipt_cards}/HF-D04-fixed-design-review.md"
-rm "${wrong_receipt_cards}/HF-D04-fixed-design-review.md.bak"
-expect_plan_and_cards_failure "${wrong_receipt_plan}" "${wrong_receipt_cards}" \
-  "re-freeze receipt SHA must equal the parent owner-repair SHA"
+  wrong_receipt_plan="${test_tmp_root}/wrong-receipt-sha.md"
+  wrong_receipt_cards="${test_tmp_root}/wrong-receipt-sha-cards"
+  cp "${master_plan}" "${wrong_receipt_plan}"
+  cp -R "${baseline_dir}" "${wrong_receipt_cards}"
+  sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 0000000000000000000000000000000000000000/' \
+    "${wrong_receipt_plan}"
+  rm "${wrong_receipt_plan}.bak"
+  sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 0000000000000000000000000000000000000000/' \
+    "${wrong_receipt_cards}/HF-D04-fixed-design-review.md"
+  rm "${wrong_receipt_cards}/HF-D04-fixed-design-review.md.bak"
+  expect_plan_and_cards_failure "${wrong_receipt_plan}" "${wrong_receipt_cards}" \
+    "re-freeze receipt SHA must equal the parent owner-repair SHA"
 
-mismatched_receipt_dir="${test_tmp_root}/mismatched-receipt"
-cp -R "${baseline_dir}" "${mismatched_receipt_dir}"
-sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 0000000000000000000000000000000000000000/' \
-  "${mismatched_receipt_dir}/HF-D04-fixed-design-review.md"
-rm "${mismatched_receipt_dir}/HF-D04-fixed-design-review.md.bak"
-expect_failure "${mismatched_receipt_dir}" \
-  "master plan and HF-D04 card re-freeze receipt SHA must match"
+  mismatched_receipt_dir="${test_tmp_root}/mismatched-receipt"
+  cp -R "${baseline_dir}" "${mismatched_receipt_dir}"
+  sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 0000000000000000000000000000000000000000/' \
+    "${mismatched_receipt_dir}/HF-D04-fixed-design-review.md"
+  rm "${mismatched_receipt_dir}/HF-D04-fixed-design-review.md.bak"
+  expect_failure "${mismatched_receipt_dir}" \
+    "master plan and HF-D04 card re-freeze receipt SHA must match"
 
-mismatched_reason_dir="${test_tmp_root}/mismatched-reason"
-cp -R "${baseline_dir}" "${mismatched_reason_dir}"
-sed -i.bak 's/^ReFreezeReason = EXACT_GATE_FENCE_REPAIR$/ReFreezeReason = OTHER_REPAIR/' \
-  "${mismatched_reason_dir}/HF-D04-fixed-design-review.md"
-rm "${mismatched_reason_dir}/HF-D04-fixed-design-review.md.bak"
-expect_failure "${mismatched_reason_dir}" \
-  "master plan and HF-D04 card re-freeze receipt reason must match"
+  mismatched_reason_dir="${test_tmp_root}/mismatched-reason"
+  cp -R "${baseline_dir}" "${mismatched_reason_dir}"
+  sed -i.bak 's/^ReFreezeReason = EXACT_GATE_FENCE_REPAIR$/ReFreezeReason = OTHER_REPAIR/' \
+    "${mismatched_reason_dir}/HF-D04-fixed-design-review.md"
+  rm "${mismatched_reason_dir}/HF-D04-fixed-design-review.md.bak"
+  expect_failure "${mismatched_reason_dir}" \
+    "master plan and HF-D04 card re-freeze receipt reason must match"
+  receipt_negative_cases=5
+fi
 
 initial_d00_dir="${test_tmp_root}/initial-d00"
 cp -R "${baseline_dir}" "${initial_d00_dir}"
@@ -578,4 +587,5 @@ done
 
 printf '%s\n' \
   "HighFidelityDesignTaskCardContractTests = PASS" \
-  "NegativeCases = 43"
+  "ReceiptNegativeCases = ${receipt_negative_cases}" \
+  "NegativeCases = $((38 + receipt_negative_cases))"

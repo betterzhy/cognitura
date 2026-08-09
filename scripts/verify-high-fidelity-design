@@ -420,10 +420,17 @@ for expected_id in "${declared_ids[@]}"; do
   fi
 done
 
+if [[ "${preparation_review_mode}" -eq 1 ]]; then
+  receipt_review_mode_output="ENABLED"
+else
+  receipt_review_mode_output="DISABLED"
+fi
+
 printf '%s\n' \
   "HighFidelityDesignTaskCardValidation = PASS" \
   "TaskCardCount = 5" \
   "TaskCardSetStatus = READY_FOR_EXECUTION" \
   "ActiveTaskCard = ${active_card}" \
+  "ReFreezePreparationReviewMode = ${receipt_review_mode_output}" \
   "BusinessImplementation = NOT_AUTHORIZED" \
   "W1-I00Release = FORBIDDEN"
