@@ -384,16 +384,7 @@ receipt_value() {
 preparation_review_mode=0
 expected_parent_repair_sha=""
 if [[ "${active_card}" == "HF-D04" && "${ready_id}" == "HF-D04" ]]; then
-  current_commit_subject="$(git -C "${script_root}" log -1 --pretty=%s)"
-  pending_refreeze_paths="$(git -C "${script_root}" diff HEAD --name-only | LC_ALL=C sort | paste -sd ' ' -)"
-  expected_refreeze_paths='docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh'
-  if [[ "${current_commit_subject}" == "docs: re-freeze fixed high fidelity candidate review" ]]; then
-    preparation_review_mode=1
-    expected_parent_repair_sha="$(git -C "${script_root}" rev-parse HEAD^)"
-  elif [[ "${pending_refreeze_paths}" == "${expected_refreeze_paths}" ]]; then
-    preparation_review_mode=1
-    expected_parent_repair_sha="$(git -C "${script_root}" rev-parse HEAD)"
-  fi
+  preparation_review_mode=1
 fi
 
 if [[ "${preparation_review_mode}" -eq 1 ]]; then
@@ -404,18 +395,38 @@ if [[ "${preparation_review_mode}" -eq 1 ]]; then
   hfd04_receipt_card="${hfd04_receipt_cards[0]}"
   plan_receipt_sha="$(receipt_value "${plan}" "master plan" ReFreezeParentRepairSHA)"
   plan_receipt_reason="$(receipt_value "${plan}" "master plan" ReFreezeReason)"
+  plan_reviewed_sha="$(receipt_value "${plan}" "master plan" ReviewedPreparationSHA)"
   card_receipt_sha="$(receipt_value "${hfd04_receipt_card}" "HF-D04 card" ReFreezeParentRepairSHA)"
   card_receipt_reason="$(receipt_value "${hfd04_receipt_card}" "HF-D04 card" ReFreezeReason)"
+  card_reviewed_sha="$(receipt_value "${hfd04_receipt_card}" "HF-D04 card" ReviewedPreparationSHA)"
   [[ "${plan_receipt_sha}" == "${card_receipt_sha}" ]] ||
     fail "master plan and HF-D04 card re-freeze receipt SHA must match"
   [[ "${plan_receipt_reason}" == "${card_receipt_reason}" ]] ||
     fail "master plan and HF-D04 card re-freeze receipt reason must match"
+  [[ "${plan_reviewed_sha}" == "${card_reviewed_sha}" ]] ||
+    fail "master plan and HF-D04 card ReviewedPreparationSHA must match"
   [[ "${plan_receipt_sha}" =~ ^[0-9a-f]{40}$ ]] ||
     fail "re-freeze receipt SHA must be a full lowercase Git SHA"
+  [[ "${plan_reviewed_sha}" =~ ^[0-9a-f]{40}$ ]] ||
+    fail "ReviewedPreparationSHA must be a full lowercase Git SHA"
   [[ "${plan_receipt_reason}" == "STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE" ]] ||
     fail "re-freeze receipt reason must be STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE"
+  git -C "${script_root}" cat-file -e "${plan_reviewed_sha}^{commit}" 2>/dev/null ||
+    fail "ReviewedPreparationSHA must resolve to an existing Git commit"
+  expected_parent_repair_sha="$(git -C "${script_root}" rev-parse "${plan_reviewed_sha}^")"
   [[ "${plan_receipt_sha}" == "${expected_parent_repair_sha}" ]] ||
     fail "re-freeze receipt SHA must equal the parent owner-repair SHA"
+  protected_assets=(
+    Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md
+    docs/engineering/cognitura-high-fidelity-design-manifest.yaml
+    docs/engineering/cognitura-high-fidelity-contract-coverage.md
+  )
+  git -C "${script_root}" diff --quiet "${plan_reviewed_sha}^" "${plan_reviewed_sha}" -- "${protected_assets[@]}" ||
+    fail "re-freeze preparation commit must not modify protected specialty assets"
+  expected_refreeze_paths='docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh'
+  actual_refreeze_paths="$(git -C "${script_root}" diff-tree --no-commit-id --name-only -r "${plan_reviewed_sha}" | LC_ALL=C sort | paste -sd ' ' -)"
+  [[ "${actual_refreeze_paths}" == "${expected_refreeze_paths}" ]] ||
+    fail "re-freeze preparation commit must contain exactly four governance paths"
 fi
 
 if [[ "${task_card_set_status}" == "READY_FOR_EXECUTION" ]]; then

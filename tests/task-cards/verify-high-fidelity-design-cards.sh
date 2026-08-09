@@ -272,6 +272,57 @@ receipt_negative_cases=5
   expect_failure "${mismatched_reason_dir}" \
     "master plan and HF-D04 card re-freeze receipt reason must match"
 
+  nonexistent_reviewed_plan="${test_tmp_root}/nonexistent-reviewed-sha.md"
+  nonexistent_reviewed_cards="${test_tmp_root}/nonexistent-reviewed-sha-cards"
+  cp "${master_plan}" "${nonexistent_reviewed_plan}"
+  cp -R "${preparation_dir}" "${nonexistent_reviewed_cards}"
+  sed -i.bak -E 's/^ReviewedPreparationSHA = [0-9a-f]{40}$/ReviewedPreparationSHA = 0000000000000000000000000000000000000000/' \
+    "${nonexistent_reviewed_plan}"
+  rm "${nonexistent_reviewed_plan}.bak"
+  sed -i.bak -E 's/^ReviewedPreparationSHA = [0-9a-f]{40}$/ReviewedPreparationSHA = 0000000000000000000000000000000000000000/' \
+    "${nonexistent_reviewed_cards}/HF-D04-fixed-design-review.md"
+  rm "${nonexistent_reviewed_cards}/HF-D04-fixed-design-review.md.bak"
+  expect_plan_and_cards_failure "${nonexistent_reviewed_plan}" "${nonexistent_reviewed_cards}" \
+    "ReviewedPreparationSHA must resolve to an existing Git commit"
+
+  protected_asset_reviewed_plan="${test_tmp_root}/protected-asset-reviewed-sha.md"
+  protected_asset_reviewed_cards="${test_tmp_root}/protected-asset-reviewed-sha-cards"
+  cp "${master_plan}" "${protected_asset_reviewed_plan}"
+  cp -R "${preparation_dir}" "${protected_asset_reviewed_cards}"
+  sed -i.bak -E 's/^ReviewedPreparationSHA = [0-9a-f]{40}$/ReviewedPreparationSHA = 18ae0aa8aee57d9db3d277e8f9f2ea6349162956/' \
+    "${protected_asset_reviewed_plan}"
+  rm "${protected_asset_reviewed_plan}.bak"
+  sed -i.bak -E 's/^ReviewedPreparationSHA = [0-9a-f]{40}$/ReviewedPreparationSHA = 18ae0aa8aee57d9db3d277e8f9f2ea6349162956/' \
+    "${protected_asset_reviewed_cards}/HF-D04-fixed-design-review.md"
+  rm "${protected_asset_reviewed_cards}/HF-D04-fixed-design-review.md.bak"
+  sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf/' \
+    "${protected_asset_reviewed_plan}"
+  rm "${protected_asset_reviewed_plan}.bak"
+  sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf/' \
+    "${protected_asset_reviewed_cards}/HF-D04-fixed-design-review.md"
+  rm "${protected_asset_reviewed_cards}/HF-D04-fixed-design-review.md.bak"
+  expect_plan_and_cards_failure "${protected_asset_reviewed_plan}" "${protected_asset_reviewed_cards}" \
+    "re-freeze preparation commit must not modify protected specialty assets"
+
+  wrong_path_reviewed_plan="${test_tmp_root}/wrong-path-reviewed-sha.md"
+  wrong_path_reviewed_cards="${test_tmp_root}/wrong-path-reviewed-sha-cards"
+  cp "${master_plan}" "${wrong_path_reviewed_plan}"
+  cp -R "${preparation_dir}" "${wrong_path_reviewed_cards}"
+  sed -i.bak -E 's/^ReviewedPreparationSHA = [0-9a-f]{40}$/ReviewedPreparationSHA = 56285c9c6b3aef6dd748eeadfa684dd824389e07/' \
+    "${wrong_path_reviewed_plan}"
+  rm "${wrong_path_reviewed_plan}.bak"
+  sed -i.bak -E 's/^ReviewedPreparationSHA = [0-9a-f]{40}$/ReviewedPreparationSHA = 56285c9c6b3aef6dd748eeadfa684dd824389e07/' \
+    "${wrong_path_reviewed_cards}/HF-D04-fixed-design-review.md"
+  rm "${wrong_path_reviewed_cards}/HF-D04-fixed-design-review.md.bak"
+  sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 873aacaea9850e786a2ccc4356c592282a460c76/' \
+    "${wrong_path_reviewed_plan}"
+  rm "${wrong_path_reviewed_plan}.bak"
+  sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 873aacaea9850e786a2ccc4356c592282a460c76/' \
+    "${wrong_path_reviewed_cards}/HF-D04-fixed-design-review.md"
+  rm "${wrong_path_reviewed_cards}/HF-D04-fixed-design-review.md.bak"
+  expect_plan_and_cards_failure "${wrong_path_reviewed_plan}" "${wrong_path_reviewed_cards}" \
+    "re-freeze preparation commit must contain exactly four governance paths"
+
 initial_d00_dir="${test_tmp_root}/initial-d00"
 cp -R "${baseline_dir}" "${initial_d00_dir}"
 for card_file in "${initial_d00_dir}"/HF-D*.md; do
