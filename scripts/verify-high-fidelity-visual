@@ -1348,6 +1348,16 @@ write_hvd04_selector_probe() {
         root.querySelectorAll(selector), function (element) { return element.getAttribute(attribute); }
       ))).sort().join(",");
     };
+    const directLayerSignature = function (caseSelector) {
+      return Array.prototype.filter.call(
+        targetDocument.querySelectorAll(rootSelector + " " + caseSelector + " > .canonical-hierarchy > span"),
+        isRendered
+      ).map(function (element) {
+        const roles = ["landscape-level", "theme-level", "module-level", "element-level"]
+          .filter(function (role) { return element.classList.contains(role); });
+        return roles.join("+") + "=" + element.innerText.trim().replace(/\s+/g, " ");
+      }).join(";");
+    };
     setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
     setProbe("state-fixture", targetDocument.body.dataset.stateFixture || "");
     setProbe("document-count", targetDocument.querySelectorAll(rootSelector).length);
@@ -1389,16 +1399,38 @@ write_hvd04_selector_probe() {
       setProbe("case-count", renderedCount(rootSelector + " .cross-domain-case"));
       setProbe("mechanism-case-count", renderedCount(rootSelector + " .mechanism-domain"));
       setProbe("rule-case-count", renderedCount(rootSelector + " .rule-policy-domain"));
+      setProbe("independent-domain-raw-count", root.querySelectorAll(
+        ".independent-domain-object, .fifth-domain-object, [data-layer='IndependentDomain']"
+      ).length);
+      setProbe("independent-domain-rendered-count", renderedCount(
+        rootSelector + " .independent-domain-object, " + rootSelector + " .fifth-domain-object, " +
+        rootSelector + " [data-layer='IndependentDomain']"
+      ));
+      setProbe("mechanism-raw-layer-count", root.querySelectorAll(
+        ".mechanism-domain > .canonical-hierarchy > span"
+      ).length);
+      setProbe("rule-raw-layer-count", root.querySelectorAll(
+        ".rule-policy-domain > .canonical-hierarchy > span"
+      ).length);
       setProbe("mechanism-hierarchy-count", renderedCount(rootSelector + " .mechanism-domain .canonical-level"));
       setProbe("rule-hierarchy-count", renderedCount(rootSelector + " .rule-policy-domain .canonical-level"));
+      setProbe("mechanism-landscape-count", renderedCount(rootSelector + " .mechanism-domain .landscape-level"));
+      setProbe("mechanism-theme-count", renderedCount(rootSelector + " .mechanism-domain .theme-level"));
       setProbe("mechanism-module-count", renderedCount(rootSelector + " .mechanism-domain .module-level"));
+      setProbe("mechanism-element-count", renderedCount(rootSelector + " .mechanism-domain .element-level"));
+      setProbe("rule-landscape-count", renderedCount(rootSelector + " .rule-policy-domain .landscape-level"));
+      setProbe("rule-theme-count", renderedCount(rootSelector + " .rule-policy-domain .theme-level"));
       setProbe("rule-module-count", renderedCount(rootSelector + " .rule-policy-domain .module-level"));
+      setProbe("rule-element-count", renderedCount(rootSelector + " .rule-policy-domain .element-level"));
+      setProbe("mechanism-layer-signature", directLayerSignature(".mechanism-domain"));
+      setProbe("rule-layer-signature", directLayerSignature(".rule-policy-domain"));
       setProbe("closure-count", renderedCount(rootSelector + " .domain-closure"));
     }
 
     if (kind === "module-small-screen") {
       const trigger = root.querySelector("#small-element-trigger");
       const overlay = root.querySelector("#small-element-overlay");
+      const closeControl = root.querySelector("#small-overlay-close");
       setProbe("evidence-stage", targetDocument.body.dataset.smallScreenEvidence || "");
       setProbe("primary-surface", targetDocument.body.dataset.smallScreenPrimarySurface || "");
       setProbe("root-width", Math.round(root.getBoundingClientRect().width));
@@ -1410,6 +1442,7 @@ write_hvd04_selector_probe() {
       setProbe("boundary-count", renderedCount(rootSelector + " .small-boundaries"));
       setProbe("hover-only-count", renderedCount(rootSelector + " [data-hover-only]"));
       setProbe("trigger-count", interactableCount(rootSelector + " #small-element-trigger"));
+      setProbe("close-control-raw-count", root.querySelectorAll("#small-overlay-close").length);
       setProbe("trigger-touch-height", Math.round(trigger.getBoundingClientRect().height));
       setProbe("horizontal-overflow", root.scrollWidth > root.clientWidth);
       setProbe("overlay-rendered-before", isRendered(overlay));
@@ -1417,6 +1450,15 @@ write_hvd04_selector_probe() {
       setProbe("overlay-rendered-after-open", isRendered(overlay));
       setProbe("open-transition", targetDocument.body.dataset.lastTransition || "");
       setProbe("open-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+      setProbe("close-control-count", interactableCount(rootSelector + " #small-overlay-close"));
+      closeControl.click();
+      setProbe("overlay-hidden-after-explicit-close", overlay.hidden);
+      setProbe("explicit-close-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("explicit-close-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+      trigger.click();
+      setProbe("overlay-rendered-after-reopen", isRendered(overlay));
+      setProbe("reopen-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("reopen-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
       root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
       setProbe("overlay-hidden-after-escape", overlay.hidden);
       setProbe("escape-transition", targetDocument.body.dataset.lastTransition || "");
@@ -1439,9 +1481,13 @@ write_hvd04_selector_probe() {
       setProbe("boundary-count", renderedCount(rootSelector + " .export-boundary"));
       setProbe("relation-count", renderedCount(rootSelector + " .export-relation[data-relation-id]"));
       setProbe("source-count", renderedCount(rootSelector + " .export-source[data-source-id]"));
+      setProbe("raw-relation-identity-count", root.querySelectorAll("[data-relation-id]").length);
+      setProbe("raw-source-identity-count", root.querySelectorAll("[data-source-id]").length);
       setProbe("object-id-set", uniqueAttributeValues("[data-object-id]", "data-object-id"));
       setProbe("relation-id-set", uniqueAttributeValues("[data-relation-id]", "data-relation-id"));
       setProbe("source-id-set", uniqueAttributeValues("[data-source-id]", "data-source-id"));
+      setProbe("relation-source-object-id", root.querySelector(".export-relation").dataset.sourceObjectId || "");
+      setProbe("relation-target-object-id", root.querySelector(".export-relation").dataset.targetObjectId || "");
       setProbe("raw-id-visible-count", rawIds.filter(function (id) { return visibleText.includes(id); }).length);
     }
     setProbe("status", "READY");
@@ -2062,10 +2108,22 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-case-count|2' \
     'data-probe-mechanism-case-count|1' \
     'data-probe-rule-case-count|1' \
+    'data-probe-independent-domain-raw-count|0' \
+    'data-probe-independent-domain-rendered-count|0' \
+    'data-probe-mechanism-raw-layer-count|4' \
+    'data-probe-rule-raw-layer-count|4' \
     'data-probe-mechanism-hierarchy-count|4' \
     'data-probe-rule-hierarchy-count|4' \
+    'data-probe-mechanism-landscape-count|1' \
+    'data-probe-mechanism-theme-count|1' \
     'data-probe-mechanism-module-count|1' \
+    'data-probe-mechanism-element-count|1' \
+    'data-probe-rule-landscape-count|1' \
+    'data-probe-rule-theme-count|1' \
     'data-probe-rule-module-count|1' \
+    'data-probe-rule-element-count|1' \
+    'data-probe-mechanism-layer-signature|landscape-level=数据系统;theme-level=并发与一致性;module-level=MVCC 一致性读;element-level=Read View' \
+    'data-probe-rule-layer-signature|landscape-level=采购管理;theme-level=验收与付款;module-level=先验收后付款规则;element-level=验收凭证' \
     'data-probe-closure-count|2'; do
     cross_domain_attribute="${cross_domain_contract%%|*}"
     cross_domain_expected="${cross_domain_contract#*|}"
@@ -2100,12 +2158,20 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-boundary-count|1' \
     'data-probe-hover-only-count|0' \
     'data-probe-trigger-count|1' \
+    'data-probe-close-control-raw-count|1' \
     'data-probe-trigger-touch-height|44' \
     'data-probe-horizontal-overflow|false' \
     'data-probe-overlay-rendered-before|false' \
     'data-probe-overlay-rendered-after-open|true' \
     'data-probe-open-transition|SMALL_ELEMENT_OVERLAY_OPEN' \
     'data-probe-open-focus|small-element-overlay' \
+    'data-probe-close-control-count|1' \
+    'data-probe-overlay-hidden-after-explicit-close|true' \
+    'data-probe-explicit-close-transition|SMALL_ELEMENT_EXPLICIT_CLOSE' \
+    'data-probe-explicit-close-focus|small-element-trigger' \
+    'data-probe-overlay-rendered-after-reopen|true' \
+    'data-probe-reopen-transition|SMALL_ELEMENT_OVERLAY_OPEN' \
+    'data-probe-reopen-focus|small-element-overlay' \
     'data-probe-overlay-hidden-after-escape|true' \
     'data-probe-escape-transition|SMALL_ELEMENT_ESCAPE_CLOSE' \
     'data-probe-escape-focus|small-element-trigger'; do
@@ -2142,9 +2208,13 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-boundary-count|1' \
     'data-probe-relation-count|1' \
     'data-probe-source-count|1' \
+    'data-probe-raw-relation-identity-count|1' \
+    'data-probe-raw-source-identity-count|1' \
     'data-probe-object-id-set|element-read-view,element-version-chain,landscape-data-systems,module-mvcc-consistent-read,theme-concurrency-consistency' \
     'data-probe-relation-id-set|rel-read-view-selects-version' \
     'data-probe-source-id-set|src-mvcc-mechanism' \
+    'data-probe-relation-source-object-id|element-read-view' \
+    'data-probe-relation-target-object-id|element-version-chain' \
     'data-probe-raw-id-visible-count|0'; do
     static_export_attribute="${static_export_contract%%|*}"
     static_export_expected="${static_export_contract#*|}"
@@ -2184,7 +2254,9 @@ for (const source of manifest.sources) {
 process.stdout.write([
   objectIds.sort().join(","),
   relationIds.sort().join(","),
-  sourceIds.sort().join(",")
+  sourceIds.sort().join(","),
+  manifest.relations[0].sourceId + "->" + manifest.relations[0].targetId,
+  manifest.sources[0].supports.slice().sort().join(",")
 ].join("\n"));
 NODE
   )"; then
@@ -2193,12 +2265,21 @@ NODE
   manifest_objects="$(sed -n '1p' <<<"${manifest_summary}")"
   manifest_relations="$(sed -n '2p' <<<"${manifest_summary}")"
   manifest_sources="$(sed -n '3p' <<<"${manifest_summary}")"
+  manifest_relation_endpoints="$(sed -n '4p' <<<"${manifest_summary}")"
+  manifest_source_supports="$(sed -n '5p' <<<"${manifest_summary}")"
   [[ "${manifest_objects}" == "$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-object-id-set)" ]] ||
     fail "static export DOM object identities do not match companion manifest"
   [[ "${manifest_relations}" == "$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-relation-id-set)" ]] ||
     fail "static export DOM Relation identities do not match companion manifest"
   [[ "${manifest_sources}" == "$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-source-id-set)" ]] ||
     fail "static export DOM source identities do not match companion manifest"
+  [[ "${manifest_relation_endpoints}" == 'element-read-view->element-version-chain' ]] ||
+    fail "static export manifest Relation endpoints do not match canonical export"
+  dom_relation_endpoints="$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-relation-source-object-id)->$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-relation-target-object-id)"
+  [[ "${manifest_relation_endpoints}" == "${dom_relation_endpoints}" ]] ||
+    fail "static export DOM Relation endpoints do not match companion manifest"
+  [[ "${manifest_source_supports}" == 'module-mvcc-consistent-read,rel-read-view-selects-version' ]] ||
+    fail "static export manifest source supports do not match canonical export"
 
   for screenshot_contract in \
     "domain-default|knowledge-landscape-theme-desktop.png|1440,1100|${landscape_png_chrome_profile}" \

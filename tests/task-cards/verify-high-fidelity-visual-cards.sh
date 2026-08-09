@@ -114,20 +114,33 @@ recapture_hvd02_evidence() {
   local artifact_name="$3"
   local chrome_profile="${fixture_root}/chrome-profile-${state_id}-recapture"
   local staged_png="${fixture_root}/evidence/.${artifact_name}.recapture.png"
+  local viewport="1440,1100"
+  local expected_dimensions="1440 x 1100"
   local chrome_pid attempt artifact_ready
+
+  case "${state_id}" in
+    module-small-screen)
+      viewport="390,844"
+      expected_dimensions="390 x 844"
+      ;;
+    static-export)
+      viewport="1200,1600"
+      expected_dimensions="1200 x 1600"
+      ;;
+  esac
 
   "${chrome_bin}" \
     --headless=new --disable-gpu --hide-scrollbars \
     --user-data-dir="${chrome_profile}" --no-first-run --no-default-browser-check \
     --use-mock-keychain \
-    --window-size=1440,1100 \
+    --window-size="${viewport}" \
     --screenshot="${staged_png}" \
     "file://${fixture_root}/prototype/index.html?state=${state_id}" >/dev/null 2>&1 &
   chrome_pid=$!
   artifact_ready=NO
   attempt=0
   while [[ "${attempt}" -lt 300 ]]; do
-    if file "${staged_png}" 2>/dev/null | grep -Fq 'PNG image data, 1440 x 1100'; then
+    if file "${staged_png}" 2>/dev/null | grep -Fq "PNG image data, ${expected_dimensions}"; then
       artifact_ready=YES
       break
     fi
@@ -139,6 +152,9 @@ recapture_hvd02_evidence() {
   [[ "${artifact_ready}" == "YES" ]] ||
     fail "could not recapture ${state_id} mutation evidence: ${fixture_root}"
   mv -f "${staged_png}" "${fixture_root}/evidence/${artifact_name}"
+  file "${fixture_root}/evidence/${artifact_name}" |
+    grep -Fq "PNG image data, ${expected_dimensions}" ||
+    fail "recaptured ${state_id} mutation evidence must be ${expected_dimensions}: ${fixture_root}"
 }
 
 expect_hvd02_dom_failure() {
@@ -147,7 +163,21 @@ expect_hvd02_dom_failure() {
   local artifact_name="$3"
   local expected_message="$4"
 
-  recapture_hvd02_evidence "${fixture_root}" "${state_id}" "${artifact_name}"
+  case "${state_id}" in
+    domain-default|theme-default|module-small-screen|static-export)
+      recapture_hvd02_evidence "${fixture_root}" domain-default \
+        knowledge-landscape-theme-desktop.png
+      recapture_hvd02_evidence "${fixture_root}" theme-default \
+        cross-domain-reading-desktop.png
+      recapture_hvd02_evidence "${fixture_root}" module-small-screen \
+        module-default-reading-small-screen.png
+      recapture_hvd02_evidence "${fixture_root}" static-export \
+        static-export-example.png
+      ;;
+    *)
+      recapture_hvd02_evidence "${fixture_root}" "${state_id}" "${artifact_name}"
+      ;;
+  esac
   expect_failure "${fixture_root}" "${expected_message}"
 }
 
@@ -284,6 +314,66 @@ for expected_line in \
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
 done
+
+cross_domain_fifth_object="${test_tmp_root}/cross-domain-fifth-object"
+make_fixture "${cross_domain_fifth_object}"
+sed -i.bak \
+  's/<span class="canonical-level landscape-level">数据系统<\/span>/<span class="canonical-level independent-domain-object">第五领域对象<\/span>/' \
+  "${cross_domain_fifth_object}/prototype/index.html"
+rm "${cross_domain_fifth_object}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${cross_domain_fifth_object}" theme-default \
+  cross-domain-reading-desktop.png \
+  'theme-default browser selector probe data-probe-independent-domain-raw-count must be 0, got 1'
+
+small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
+make_fixture "${small_noninteractive_close}"
+sed -i.bak \
+  's#<button id="small-overlay-close" type="button" data-focus-return-target="small-element-trigger">关闭并返回正文</button>#<div id="small-overlay-close" data-focus-return-target="small-element-trigger">关闭并返回正文</div>#' \
+  "${small_noninteractive_close}/prototype/index.html"
+rm "${small_noninteractive_close}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_noninteractive_close}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
+
+manifest_wrong_endpoints="${test_tmp_root}/manifest-wrong-endpoints"
+make_fixture "${manifest_wrong_endpoints}"
+sed -i.bak \
+  -e 's/"sourceId": "element-read-view"/"sourceId": "landscape-data-systems"/' \
+  -e 's/"targetId": "element-version-chain"/"targetId": "theme-concurrency-consistency"/' \
+  "${manifest_wrong_endpoints}/evidence/static-export-manifest.json"
+rm "${manifest_wrong_endpoints}/evidence/static-export-manifest.json.bak"
+expect_failure "${manifest_wrong_endpoints}" \
+  'static export manifest Relation endpoints do not match canonical export'
+
+static_hidden_duplicate_relation="${test_tmp_root}/static-hidden-duplicate-relation"
+make_fixture "${static_hidden_duplicate_relation}"
+sed -i.bak \
+  's#<blockquote class="export-relation"#<span hidden data-relation-id="rel-read-view-selects-version"></span><blockquote class="export-relation"#' \
+  "${static_hidden_duplicate_relation}/prototype/index.html"
+rm "${static_hidden_duplicate_relation}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_hidden_duplicate_relation}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-raw-relation-identity-count must be 1, got 2'
+
+static_hidden_duplicate_source="${test_tmp_root}/static-hidden-duplicate-source"
+make_fixture "${static_hidden_duplicate_source}"
+sed -i.bak \
+  's#<footer class="export-source"#<span hidden data-source-id="src-mvcc-mechanism"></span><footer class="export-source"#' \
+  "${static_hidden_duplicate_source}/prototype/index.html"
+rm "${static_hidden_duplicate_source}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_hidden_duplicate_source}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-raw-source-identity-count must be 1, got 2'
+
+manifest_wrong_supports="${test_tmp_root}/manifest-wrong-supports"
+make_fixture "${manifest_wrong_supports}"
+sed -i.bak '/"supports": \[/,/]/ {
+  s/"module-mvcc-consistent-read"/"landscape-data-systems"/
+  s/"rel-read-view-selects-version"/"theme-concurrency-consistency"/
+}' "${manifest_wrong_supports}/evidence/static-export-manifest.json"
+rm "${manifest_wrong_supports}/evidence/static-export-manifest.json.bak"
+expect_failure "${manifest_wrong_supports}" \
+  'static export manifest source supports do not match canonical export'
 
 missing_card="${test_tmp_root}/missing-card"
 make_fixture "${missing_card}"
@@ -1037,4 +1127,5 @@ printf 'HV-D01SelectorSemanticsPositiveFixtureCount = 2\n'
 printf 'HV-D02DOMNegativeFixtureCount = 19\n'
 printf 'HV-D03DOMNegativeFixtureCount = 12\n'
 printf 'HV-D04NegativeFixtureCount = 14\n'
-printf 'NegativeFixtureCount = 113\n'
+printf 'HV-D04FixRound1NegativeFixtureCount = 6\n'
+printf 'NegativeFixtureCount = 119\n'

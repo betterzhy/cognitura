@@ -776,7 +776,7 @@
           <div><small>阅读结果</small><strong>Visible version</strong><p>选择第一个满足边界的候选。</p></div>
         </section>
         <section class="export-narrative"><h2>条件、结论与例外</h2><p>Read View 定义当前事务的观察范围，版本链提供候选。快照读遵循该边界；当前读则读取最新已提交结果。若没有候选满足条件，记录对本次快照不可见。</p></section>
-        <blockquote class="export-relation" data-relation-id="rel-read-view-selects-version">Read View <b>约束</b> 版本链中的可见版本；这条 Relation 在 Web、核验、修订与导出中保持同一身份。</blockquote>
+        <blockquote class="export-relation" data-relation-id="rel-read-view-selects-version" data-source-object-id="element-read-view" data-target-object-id="element-version-chain">Read View <b>约束</b> 版本链中的可见版本；这条 Relation 在 Web、核验、修订与导出中保持同一身份。</blockquote>
         <section class="export-boundary"><h2>Boundary</h2><p>静态图片只负责分享、离线降级和版本快照；它不是正式知识事实，也不能替代可访问正文。</p></section>
         <footer class="export-source" data-source-id="src-mvcc-mechanism"><span>Source trace 01</span><p>机制型合成证据 · 支持核心问题、结论和可见性 Relation。</p><small>Companion manifest preserves machine identity; technical IDs stay silent in normal reading.</small></footer>
       </article>
