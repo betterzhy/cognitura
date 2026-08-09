@@ -12,6 +12,8 @@ DesignOwner = FIXED_CANDIDATE_PROMOTION_AUTHORITY
 LocalCommitBoundary = REQUIRED
 WriteSetSource = APPROVED_TASK_PLAN_EXACT
 WriteSetItemCount = 19
+ReFreezeParentRepairSHA = df0ce0f238bf81ed722b79607321e0eaaa397018
+ReFreezeReason = EXACT_GATE_FENCE_REPAIR
 ```
 
 ## 1. 目标
@@ -56,7 +58,8 @@ WriteSetItemCount = 19
 finding 的 owner repair 提交不能直接作为准备 SHA；owner repair 全量 Gate 通过后，
 必须再形成只包含本卡四个治理文件的独立 re-freeze 提交并冻结准备 SHA。re-freeze
 提交不得修改专项候选正文、独立 manifest 或 coverage，且三资产必须与父 repair
-提交 byte-identical。两个相互独立的 `gpt-5.6-sol/high`
+提交 byte-identical。本卡与 master plan 的 re-freeze receipt 必须一致，并在已提交的
+preparation-review 模式下精确等于 re-freeze 的 `HEAD^` owner-repair SHA。两个相互独立的 `gpt-5.6-sol/high`
 reviewer 必须审查同一个准备 SHA，顺序固定为一般深审后最终门禁；两阶段均返回
 `GO / P0=0 / P1=0 / P2=0` 才允许进入 promotion closure，不使用 ultra。
 

@@ -362,6 +362,55 @@ done
 active_card="$(index_value ActiveTaskCard)"
 [[ "${active_card}" == "${ready_id}" ]] || fail "ActiveTaskCard ${active_card} is not READY"
 
+receipt_value() {
+  local receipt_file="$1"
+  local receipt_label="$2"
+  local receipt_field="$3"
+  local receipt_count
+
+  receipt_count="$(grep -c "^${receipt_field} = " "${receipt_file}" || true)"
+  [[ "${receipt_count}" -eq 1 ]] ||
+    fail "${receipt_label}: missing re-freeze receipt field: ${receipt_field}"
+  field_value "${receipt_file}" "${receipt_field}"
+}
+
+preparation_review_mode=0
+expected_parent_repair_sha=""
+if [[ "${active_card}" == "HF-D04" && "${ready_id}" == "HF-D04" ]]; then
+  current_commit_subject="$(git -C "${script_root}" log -1 --pretty=%s)"
+  pending_refreeze_paths="$(git -C "${script_root}" diff HEAD --name-only | LC_ALL=C sort | paste -sd ' ' -)"
+  expected_refreeze_paths='docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh'
+  if [[ "${current_commit_subject}" == "docs: re-freeze fixed high fidelity candidate review" ]]; then
+    preparation_review_mode=1
+    expected_parent_repair_sha="$(git -C "${script_root}" rev-parse HEAD^)"
+  elif [[ "${pending_refreeze_paths}" == "${expected_refreeze_paths}" ]]; then
+    preparation_review_mode=1
+    expected_parent_repair_sha="$(git -C "${script_root}" rev-parse HEAD)"
+  fi
+fi
+
+if [[ "${preparation_review_mode}" -eq 1 ]]; then
+  shopt -s nullglob
+  hfd04_receipt_cards=("${cards_dir}/HF-D04-"*.md)
+  shopt -u nullglob
+  [[ "${#hfd04_receipt_cards[@]}" -eq 1 ]] || fail "cannot resolve HF-D04 receipt card"
+  hfd04_receipt_card="${hfd04_receipt_cards[0]}"
+  plan_receipt_sha="$(receipt_value "${plan}" "master plan" ReFreezeParentRepairSHA)"
+  plan_receipt_reason="$(receipt_value "${plan}" "master plan" ReFreezeReason)"
+  card_receipt_sha="$(receipt_value "${hfd04_receipt_card}" "HF-D04 card" ReFreezeParentRepairSHA)"
+  card_receipt_reason="$(receipt_value "${hfd04_receipt_card}" "HF-D04 card" ReFreezeReason)"
+  [[ "${plan_receipt_sha}" == "${card_receipt_sha}" ]] ||
+    fail "master plan and HF-D04 card re-freeze receipt SHA must match"
+  [[ "${plan_receipt_reason}" == "${card_receipt_reason}" ]] ||
+    fail "master plan and HF-D04 card re-freeze receipt reason must match"
+  [[ "${plan_receipt_sha}" =~ ^[0-9a-f]{40}$ ]] ||
+    fail "re-freeze receipt SHA must be a full lowercase Git SHA"
+  [[ "${plan_receipt_reason}" == "EXACT_GATE_FENCE_REPAIR" ]] ||
+    fail "re-freeze receipt reason must be EXACT_GATE_FENCE_REPAIR"
+  [[ "${plan_receipt_sha}" == "${expected_parent_repair_sha}" ]] ||
+    fail "re-freeze receipt SHA must equal the parent owner-repair SHA"
+fi
+
 passed_ready=0
 for expected_id in "${declared_ids[@]}"; do
   file=("${cards_dir}/${expected_id}-"*.md)

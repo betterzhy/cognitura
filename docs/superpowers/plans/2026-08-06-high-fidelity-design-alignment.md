@@ -518,6 +518,9 @@ git commit -m "docs: define high fidelity evidence gates"
 - Produces: one immutable preparation SHA, two independent `gpt-5.6-sol/high` review results
   against that same SHA, and—only after both reviews clear—an exact 19-file promotion closure.
 
+ReFreezeParentRepairSHA = df0ce0f238bf81ed722b79607321e0eaaa397018
+ReFreezeReason = EXACT_GATE_FENCE_REPAIR
+
 - [ ] **Step 1: Freeze and verify the candidate**
 
 A finding-repair commit is an owner repair, not a reviewable preparation SHA. After every owner
@@ -538,7 +541,8 @@ git commit -m "docs: re-freeze fixed high fidelity candidate review"
 Only the resulting re-freeze commit is the immutable preparation SHA. Confirm it still has
 `HF-D04` as the sole READY card and that the specialty body, independent HF manifest, and
 independent HF coverage are byte-for-byte unchanged from its parent repair commit. Do not amend
-or push this commit.
+or push this commit. In preparation-review mode, the receipt above and the matching HF-D04 card
+receipt must identify this committed re-freeze's `HEAD^` owner-repair SHA exactly.
 
 Run against that frozen SHA:
 
