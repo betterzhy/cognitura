@@ -114,7 +114,7 @@ GitStatus =
   CANDIDATE_UNTRACKED_AT_HF_D00_START;
   HF_D00_LOCAL_COMMIT_REQUIRED_AFTER_VALIDATION
 
-ExistingCompletedContracts =
+CandidateInventoriedContracts =
   READING_FIRST_PRESENTATION
   + INTERACTIVE_COGNITIVE_DOCUMENT
   + ZERO_INTERACTION_READING
@@ -265,11 +265,9 @@ HighFidelityVisualDesignReady = NO
 本文件基于当前正式输入作出后续裁决：
 
 ```text
-SecondRoundLowFidelityPrototype =
-  COMPLETED_AS_CURRENT_INPUT
+SecondRoundLowFidelityPrototype = HISTORICAL_INPUT_RECORDED
 
-SecondRoundLowFidelityAssessment =
-  PASS_WITH_READING_FIRST_PRESENTATION_PATCH_REQUIRED
+SecondRoundLowFidelityAssessment = HISTORICAL_DIRECTION_RECORDED_READING_FIRST_PATCH_REQUIRED
 
 SecondRoundLowFidelityValidationStage =
   CONTRACT_AND_LOW_FIDELITY_DIRECTION_ACCEPTANCE
@@ -277,8 +275,7 @@ SecondRoundLowFidelityValidationStage =
 HighFidelityVisualValidation =
   NOT_RUN
 
-RemainingInteractionStateP0 =
-  CLOSED_BY_THIS_DOCUMENT
+RemainingInteractionStateP0 = CANDIDATE_INVENTORIED
 
 HighFidelityInputReady = CANDIDATE_ONLY
 
@@ -3773,7 +3770,7 @@ HighFidelityStateAcceptance = NOT_RUN
 | RF-AC-17 | 执行 URL/History/Refresh 矩阵 | 只恢复稳定语义状态和草稿 | CONTRACT | DEFERRED | NOT_RUN |
 | RF-AC-18 | 执行异常恢复矩阵 | 保存边界、重试、回退和去重明确 | CONTRACT | DEFERRED | NOT_RUN |
 | RF-AC-19 | 检查导出身份 | 稳定 ID 机器可读且默认不打扰读者 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-20 | 检查第二轮追溯 | 已接受结论与当前关闭位置可定位 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-20 | 检查第二轮追溯 | 已接受结论与当前候选追溯位置可定位 | CONTRACT | DEFERRED | NOT_RUN |
 
 ### 19.3 当前候选合同状态（不得声明 PASS）
 
@@ -4003,20 +4000,20 @@ TraceEvidence =
 
 ### A.2 验收结论追溯矩阵
 
-| 第二轮结论 | 原状态 | 当前正式关闭位置 | 当前阶段裁决 |
+| 第二轮结论 | 历史低保真状态 | 候选追溯位置 | 当前阶段裁决 |
 |---|---|---|---|
-| Domain 页面结构成立 | ACCEPTED | 页面结构专项；本文件 Domain 零交互与呈现克制规则 | CONTRACT_CLOSED |
-| Theme 页面结构成立 | ACCEPTED | 页面结构专项；本文件 Theme 零交互与呈现克制规则 | CONTRACT_CLOSED |
-| Module 页面结构成立 | ACCEPTED | 页面结构专项；本文件 Module 默认阅读叙事与状态证据 | CONTRACT_CLOSED |
-| Relation Revision 主流程成立 | ACCEPTED | 前序交互状态专项 R1～R6；本文件修订、提交后与异常矩阵 | CONTRACT_CLOSED |
-| 渐进式关系展开成立 | ACCEPTED | 前序 `L0～L3` 契约；本文件状态矩阵继承 | CONTRACT_CLOSED |
-| 当前对象中心化成立 | ACCEPTED | `One Primary Focus`；Element/Relation Focus Priority | CONTRACT_CLOSED |
-| Relation 一等对象成立 | ACCEPTED | Relation Focus、Stable Identity、统一投影 | CONTRACT_CLOSED |
-| 阅读、核验、修订闭环成立 | ACCEPTED | Mode、Workspace、URL/History/Refresh 和返回契约 | CONTRACT_CLOSED |
-| 多视图一致性成立 | ACCEPTED | Canonical ID、Projection、机器可读导出身份 | CONTRACT_CLOSED |
-| 六项交互状态缺口 | CLOSED | 本文件第 4～8 章及提交后处理状态 | CONTRACT_CLOSED |
-| 过度交互与卡片化风险 | CLOSED_AT_CONTRACT_LEVEL | Reading First、Document Continuity、预算与呈现克制 | CONTRACT_CLOSED_VISUAL_NOT_RUN |
-| 完整高保真状态输入缺口 | CLOSED | High-Fidelity Interaction State Matrix 与 Exception Matrix | CONTRACT_CLOSED |
+| Domain 页面结构成立 | ACCEPTED | 页面结构专项；本文件 Domain 零交互与呈现克制规则 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| Theme 页面结构成立 | ACCEPTED | 页面结构专项；本文件 Theme 零交互与呈现克制规则 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| Module 页面结构成立 | ACCEPTED | 页面结构专项；本文件 Module 默认阅读叙事与状态证据 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| Relation Revision 主流程成立 | ACCEPTED | 前序交互状态专项 R1～R6；本文件修订、提交后与异常矩阵 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| 渐进式关系展开成立 | ACCEPTED | 前序 `L0～L3` 契约；本文件状态矩阵继承 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| 当前对象中心化成立 | ACCEPTED | `One Primary Focus`；Element/Relation Focus Priority | DEFERRED_TO_APPLICABLE_HF_GATE |
+| Relation 一等对象成立 | ACCEPTED | Relation Focus、Stable Identity、统一投影 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| 阅读、核验、修订闭环成立 | ACCEPTED | Mode、Workspace、URL/History/Refresh 和返回契约 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| 多视图一致性成立 | ACCEPTED | Canonical ID、Projection、机器可读导出身份 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| 六项交互状态缺口 | CANDIDATE_INVENTORIED | 本文件第 4～8 章及提交后处理状态 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| 过度交互与卡片化风险 | CANDIDATE_INVENTORIED | Reading First、Document Continuity、预算与呈现克制 | DEFERRED_TO_APPLICABLE_HF_GATE |
+| 完整高保真状态输入缺口 | CANDIDATE_INVENTORIED | High-Fidelity Interaction State Matrix 与 Exception Matrix | DEFERRED_TO_APPLICABLE_HF_GATE |
 | 高保真视觉验证 | NOT_RUN | 下一阶段真实高保真页面 | NOT_RUN |
 | 高保真可用性验证 | NOT_RUN | 下一阶段真实交互原型 | NOT_RUN |
 | 小屏视觉验证 | NOT_RUN | 下一阶段 SmallScreenReadingState | NOT_RUN |
@@ -4024,9 +4021,9 @@ TraceEvidence =
 ### A.3 第三轮整体低保真裁决
 
 ```text
-SecondRoundLowFidelityDirectionAccepted = YES
-ReadingFirstRiskClosedAtContractLevel = YES
-StateInputGapsClosed = YES
+SecondRoundLowFidelityDirectionRecord = HISTORICAL_ACCEPTANCE_RECORDED
+ReadingFirstRiskDisposition = DEFERRED_TO_APPLICABLE_HF_GATE
+StateInputGapDisposition = CANDIDATE_INVENTORIED
 ThirdRoundOverallLowFidelityRequired = NO
 
 HighFidelityVisualValidationImplied = NO

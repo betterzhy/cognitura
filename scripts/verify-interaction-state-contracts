@@ -53,14 +53,14 @@ require_exact_line_once \
   'legacy hierarchy composite must only be a historical alias'
 [[ "$(grep -Fxc 'DomainPanorama_Theme_Module_Element' "${document}" || true)" -eq 0 ]] ||
   fail "legacy hierarchy composite must only be a historical alias"
-if grep -Eq '= PASS$|\| PASS \|' "${document}"; then
-  fail "candidate must not declare contract PASS before applicable HF Gates"
-fi
 
-contract_p0_count="$(grep -c '^ContractP0Remaining = ' "${document}" || true)"
-contract_p0_deferred_count="$(grep -Fxc 'ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04' "${document}" || true)"
-[[ "${contract_p0_count}" -ge 1 && "${contract_p0_count}" -eq "${contract_p0_deferred_count}" ]] ||
-  fail "ContractP0Remaining must remain deferred through HF-D04"
+contract_p0_values="$(sed -n 's/^ContractP0Remaining = //p' "${document}" | sort -u)"
+[[ -n "${contract_p0_values}" && "$(printf '%s\n' "${contract_p0_values}" | wc -l | tr -d ' ')" -eq 1 ]] ||
+  fail "ContractP0Remaining projections must use one stage-aware deferred value"
+case "${contract_p0_values}" in
+  DEFERRED_TO_HF_D01_THROUGH_HF_D04|DEFERRED_TO_HF_D02_THROUGH_HF_D04|DEFERRED_TO_HF_D03_THROUGH_HF_D04|DEFERRED_TO_HF_D04) ;;
+  *) fail "ContractP0Remaining must remain deferred to an applicable HF Gate" ;;
+esac
 input_ready_count="$(grep -c '^HighFidelityInputReady = ' "${document}" || true)"
 input_candidate_count="$(grep -Fxc 'HighFidelityInputReady = CANDIDATE_ONLY' "${document}" || true)"
 [[ "${input_ready_count}" -ge 1 && "${input_ready_count}" -eq "${input_candidate_count}" ]] ||
@@ -68,12 +68,99 @@ input_candidate_count="$(grep -Fxc 'HighFidelityInputReady = CANDIDATE_ONLY' "${
 require_exact_line_once \
   'ContractDefined = CANDIDATE_ONLY' \
   'ContractDefined must remain CANDIDATE_ONLY'
-require_exact_line_once \
-  'ContractCompleteness = DEFERRED_TO_HF_D01_THROUGH_HF_D04' \
-  'ContractCompleteness must remain deferred through HF-D04'
+contract_completeness="$(sed -n 's/^ContractCompleteness = //p' "${document}")"
+case "${contract_completeness}" in
+  DEFERRED_TO_HF_D01_THROUGH_HF_D04|DEFERRED_TO_HF_D02_THROUGH_HF_D04|DEFERRED_TO_HF_D03_THROUGH_HF_D04|DEFERRED_TO_HF_D04) ;;
+  *) fail "ContractCompleteness must remain stage-aware and deferred" ;;
+esac
 require_exact_line_once \
   'FormalDesignInputCompletion = DEFERRED_TO_HF_D04' \
   'FormalDesignInputCompletion must remain deferred to HF-D04'
+
+field_values() {
+  local key="$1"
+  awk -v key="${key}" '
+    $0 == key " =" {
+      getline
+      value=$0
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      print value
+      next
+    }
+    index($0, key " = ") == 1 {
+      value=substr($0, length(key " = ") + 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      print value
+    }
+  ' "${document}"
+}
+
+for later_stage_field in \
+  HighFidelityVisualDesign \
+  HighFidelityVisualValidation \
+  HighFidelityUsabilityValidation \
+  CrossDomainVisualValidation \
+  CrossDomainUsabilityValidation \
+  SmallScreenVisualValidation \
+  HighFidelityStateAcceptance \
+  ImplementationValidation \
+  HighFidelityVisualResult \
+  HighFidelityUsabilityResult; do
+  later_stage_values="$(field_values "${later_stage_field}")"
+  [[ -n "${later_stage_values}" ]] || fail "${later_stage_field} status is missing"
+  while IFS= read -r later_stage_value; do
+    [[ "${later_stage_value}" == "NOT_RUN" ]] ||
+      fail "${later_stage_field} must remain NOT_RUN"
+  done <<<"${later_stage_values}"
+done
+
+for later_stage in HIGH_FIDELITY_VISUAL HIGH_FIDELITY_USABILITY IMPLEMENTATION; do
+  later_stage_status="$(awk -F'|' -v target="${later_stage}" '
+    /^\|/ {
+      stage=$2
+      status=$4
+      gsub(/^[[:space:]`]+|[[:space:]`]+$/, "", stage)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
+      if (stage == target) print status
+    }
+  ' "${document}")"
+  [[ "${later_stage_status}" == "NOT_RUN" ]] ||
+    fail "${later_stage} stage must remain NOT_RUN"
+done
+for forbidden_closure in \
+  'CLOSED_BY_THIS_DOCUMENT' \
+  'CONTRACT_CLOSED' \
+  'CLOSED_AT_CONTRACT_LEVEL' \
+  'ReadingFirstRiskClosedAtContractLevel' \
+  'StateInputGapsClosed' \
+  'COMPLETED_AS_CURRENT_INPUT' \
+  'PASS_WITH_READING_FIRST_PRESENTATION_PATCH_REQUIRED' \
+  'SecondRoundLowFidelityDirectionAccepted = YES' \
+  '| CLOSED |'; do
+  if grep -Fq "${forbidden_closure}" "${document}"; then
+    fail "candidate must not claim closure before the applicable HF Gate: ${forbidden_closure}"
+  fi
+done
+require_exact_line_once \
+  'RemainingInteractionStateP0 = CANDIDATE_INVENTORIED' \
+  'RemainingInteractionStateP0 must remain CANDIDATE_INVENTORIED'
+require_exact_line_once \
+  'SecondRoundLowFidelityPrototype = HISTORICAL_INPUT_RECORDED' \
+  'SecondRoundLowFidelityPrototype must remain a historical record'
+require_exact_line_once \
+  'SecondRoundLowFidelityAssessment = HISTORICAL_DIRECTION_RECORDED_READING_FIRST_PATCH_REQUIRED' \
+  'SecondRoundLowFidelityAssessment must remain a historical record'
+require_exact_line_once \
+  'SecondRoundLowFidelityDirectionRecord = HISTORICAL_ACCEPTANCE_RECORDED' \
+  'SecondRoundLowFidelityDirectionRecord must remain a historical record'
+require_exact_line_once \
+  'ReadingFirstRiskDisposition = DEFERRED_TO_APPLICABLE_HF_GATE' \
+  'ReadingFirstRiskDisposition must remain deferred'
+require_exact_line_once \
+  'StateInputGapDisposition = CANDIDATE_INVENTORIED' \
+  'StateInputGapDisposition must remain CANDIDATE_INVENTORIED'
+[[ "$(grep -c '| DEFERRED_TO_APPLICABLE_HF_GATE |$' "${document}" || true)" -eq 12 ]] ||
+  fail "second-round trace rows must remain deferred to applicable HF Gates"
 canonical_hierarchy="$(awk '
   /^CanonicalHierarchy =$/ {
     getline; one=$0
@@ -132,6 +219,22 @@ exception_counts="$(count_unique_rows ExceptionCode)"
 rf_counts="$(awk -F'|' '/^\| RF-AC-[0-9][0-9] / {gsub(/ /, "", $2); seen[$2]=1; rows++} END {unique=0; for (v in seen) unique++; print rows ":" unique}' "${document}")"
 [[ "${rf_counts}" == "20:20" ]] ||
   fail "expected 20 unique RF-AC rows, found ${rf_counts}"
+rf_stage_boundary="$(awk -F'|' '
+  /^\| RF-AC-[0-9][0-9] / {
+    contract=$6
+    high_fidelity=$7
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", contract)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", high_fidelity)
+    if (contract != "DEFERRED" && contract != "PASS") contract_invalid++
+    if (high_fidelity != "NOT_RUN") high_fidelity_invalid++
+  }
+  END {print contract_invalid + 0 ":" high_fidelity_invalid + 0}
+' "${document}")"
+[[ "${rf_stage_boundary}" == "0:0" ]] || {
+  [[ "${rf_stage_boundary##*:}" == "0" ]] ||
+    fail "high-fidelity RF-AC results must remain NOT_RUN"
+  fail "RF-AC contract results must be DEFERRED or PASS"
+}
 rm_counts="$(awk '/^ISHFI-RM-[0-9][0-9] =$/ {seen[$1]=1; rows++} END {unique=0; for (v in seen) unique++; print rows ":" unique}' "${document}")"
 [[ "${rm_counts}" == "30:30" ]] ||
   fail "expected 30 unique reverse-migration items, found ${rm_counts}"
