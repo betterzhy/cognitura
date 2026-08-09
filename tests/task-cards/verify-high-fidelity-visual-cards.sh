@@ -746,6 +746,18 @@ expect_hvd02_dom_failure "${hidden_revision_blocker}" revision-impact \
   module-revision-impact-desktop.png \
   'revision-impact browser selector probe data-probe-rendered-impact-lane-count must be 3, got 2'
 
+decoy_revision_categories="${test_tmp_root}/decoy-revision-categories"
+make_fixture "${decoy_revision_categories}"
+sed -i.bak \
+  -e 's/<div class="impact-lanes">/<div class="impact-lanes"><article class="impact-lane"><h3>Decoy lane<\/h3><\/article>/' \
+  -e 's/<article class="impact-lane impact-semantic blocker"/<article hidden class="impact-semantic"/' \
+  -e 's/class="impact-lane impact-structural" data-severity="REVIEW_REQUIRED"/class="impact-lane impact-structural blocker" data-severity="BLOCKER"/' \
+  "${decoy_revision_categories}/prototype/index.html"
+rm "${decoy_revision_categories}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${decoy_revision_categories}" revision-impact \
+  module-revision-impact-desktop.png \
+  'revision-impact browser selector probe data-probe-rendered-semantic-count must be 1, got 0'
+
 enabled_revision_commit="${test_tmp_root}/enabled-revision-commit"
 make_fixture "${enabled_revision_commit}"
 sed -i.bak 's/type="button" disabled aria-disabled="true">提交 ChangeSet/type="button">提交 ChangeSet/' \
@@ -788,6 +800,15 @@ sed -i.bak 's/class="query-original-result"/disabled class="query-original-resul
   "${disabled_result_query}/prototype/index.html"
 rm "${disabled_result_query}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${disabled_result_query}" partial-failure \
+  module-recovery-desktop.png \
+  'partial-failure browser selector probe data-probe-query-count must be 1, got 0'
+
+inert_result_query="${test_tmp_root}/inert-result-query"
+make_fixture "${inert_result_query}"
+sed -i.bak 's/class="query-original-result"/inert class="query-original-result"/' \
+  "${inert_result_query}/prototype/index.html"
+rm "${inert_result_query}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${inert_result_query}" partial-failure \
   module-recovery-desktop.png \
   'partial-failure browser selector probe data-probe-query-count must be 1, got 0'
 
@@ -875,5 +896,5 @@ printf 'HV-D01FixRound1DOMNegativeFixtureCount = 15\n'
 printf 'HV-D01FixRound2AdversarialNegativeFixtureCount = 1\n'
 printf 'HV-D01SelectorSemanticsPositiveFixtureCount = 2\n'
 printf 'HV-D02DOMNegativeFixtureCount = 19\n'
-printf 'HV-D03DOMNegativeFixtureCount = 10\n'
-printf 'NegativeFixtureCount = 97\n'
+printf 'HV-D03DOMNegativeFixtureCount = 12\n'
+printf 'NegativeFixtureCount = 99\n'

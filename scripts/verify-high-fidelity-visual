@@ -1143,7 +1143,8 @@ write_hvd03_selector_probe() {
     };
     const isKeyboardInteractable = function (element) {
       return isRendered(element) && element.tagName === "BUTTON" && !element.disabled &&
-        element.getAttribute("aria-disabled") !== "true" && element.tabIndex >= 0;
+        element.getAttribute("aria-disabled") !== "true" && !element.closest("[inert]") &&
+        element.tabIndex >= 0;
     };
     const interactableCount = function (selector) {
       return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isKeyboardInteractable).length;
@@ -1170,6 +1171,9 @@ write_hvd03_selector_probe() {
       setProbe("semantic-count", root.querySelectorAll(".impact-semantic").length);
       setProbe("structural-count", root.querySelectorAll(".impact-structural").length);
       setProbe("expression-count", root.querySelectorAll(".impact-expression").length);
+      setProbe("rendered-semantic-count", renderedCount(rootSelector + " .impact-lane.impact-semantic"));
+      setProbe("rendered-structural-count", renderedCount(rootSelector + " .impact-lane.impact-structural"));
+      setProbe("rendered-expression-count", renderedCount(rootSelector + " .impact-lane.impact-expression"));
       setProbe("blocker-count", root.querySelectorAll(".impact-lane.blocker[data-severity='BLOCKER'][aria-expanded='true']").length);
       setProbe("rendered-blocker-count", renderedCount(rootSelector + " .impact-lane.blocker[data-severity='BLOCKER'][aria-expanded='true']"));
       setProbe("draft-preserved-count", root.querySelectorAll(".draft-preserved").length);
@@ -1650,6 +1654,9 @@ if [[ "${active_number}" -ge 4 ]]; then
     'data-probe-semantic-count|1' \
     'data-probe-structural-count|1' \
     'data-probe-expression-count|1' \
+    'data-probe-rendered-semantic-count|1' \
+    'data-probe-rendered-structural-count|1' \
+    'data-probe-rendered-expression-count|1' \
     'data-probe-blocker-count|1' \
     'data-probe-rendered-blocker-count|1' \
     'data-probe-draft-preserved-count|1' \
