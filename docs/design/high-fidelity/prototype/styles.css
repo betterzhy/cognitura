@@ -2168,7 +2168,12 @@ kbd {
 }
 
 .cross-domain-case .canonical-hierarchy i {
-  padding-left: 0.4rem;
+  width: 1em;
+  height: 1em;
+  padding: 0;
+  justify-self: start;
+  line-height: 1;
+  text-align: center;
   transform: rotate(90deg);
 }
 
@@ -2361,7 +2366,7 @@ body[data-state-fixture="module-small-screen"] {
 }
 
 .export-header h1 {
-  max-width: 720px;
+  max-width: 800px;
   margin: 0.4rem 0 0;
   font-family: var(--font-reading);
   font-size: 3.15rem;

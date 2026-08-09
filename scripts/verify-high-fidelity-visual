@@ -1349,14 +1349,22 @@ write_hvd04_selector_probe() {
         pointerTarget = pointerTarget.parentElement;
       }
       const rect = element.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      if (centerX < 0 || centerY < 0 || centerX >= targetDocument.defaultView.innerWidth ||
-          centerY >= targetDocument.defaultView.innerHeight) {
+      if (rect.width < 44 || rect.height < 44 || rect.left < 0 || rect.top < 0 ||
+          rect.right > targetDocument.defaultView.innerWidth ||
+          rect.bottom > targetDocument.defaultView.innerHeight) {
         return false;
       }
-      const hitTarget = targetDocument.elementFromPoint(centerX, centerY);
-      return hitTarget === element || element.contains(hitTarget);
+      const hitPoints = [
+        [rect.left + rect.width / 2, rect.top + rect.height / 2],
+        [rect.left + 1, rect.top + 1],
+        [rect.right - 1, rect.top + 1],
+        [rect.left + 1, rect.bottom - 1],
+        [rect.right - 1, rect.bottom - 1]
+      ];
+      return hitPoints.every(function (point) {
+        const hitTarget = targetDocument.elementFromPoint(point[0], point[1]);
+        return hitTarget === element || element.contains(hitTarget);
+      });
     };
     const interactableCount = function (selector) {
       return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isInteractable).length;
@@ -1405,6 +1413,22 @@ write_hvd04_selector_probe() {
           : "+unexpected(" + unexpectedClasses.join("+") + ")";
         return "SPAN." + canonicalToken + "." + roles.join("+") + unexpectedToken;
       }).join(",");
+    };
+    const safeSeparatorCount = function (caseSelector) {
+      const hierarchy = root.querySelector(caseSelector + " > .canonical-hierarchy");
+      if (!hierarchy) {
+        return 0;
+      }
+      const hierarchyRect = hierarchy.getBoundingClientRect();
+      return Array.prototype.filter.call(hierarchy.querySelectorAll(":scope > i"), function (separator) {
+        if (!isRendered(separator)) {
+          return false;
+        }
+        const rect = separator.getBoundingClientRect();
+        return rect.width <= 24 && rect.height <= 24 &&
+          rect.left >= hierarchyRect.left && rect.top >= hierarchyRect.top &&
+          rect.right <= hierarchyRect.right && rect.bottom <= hierarchyRect.bottom;
+      }).length;
     };
     setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
     setProbe("state-fixture", targetDocument.body.dataset.stateFixture || "");
@@ -1468,6 +1492,8 @@ write_hvd04_selector_probe() {
       ).children.length);
       setProbe("mechanism-direct-child-topology", directHierarchyTopology(".mechanism-domain"));
       setProbe("rule-direct-child-topology", directHierarchyTopology(".rule-policy-domain"));
+      setProbe("mechanism-safe-separator-count", safeSeparatorCount(".mechanism-domain"));
+      setProbe("rule-safe-separator-count", safeSeparatorCount(".rule-policy-domain"));
       setProbe("mechanism-hierarchy-count", renderedCount(rootSelector + " .mechanism-domain .canonical-level"));
       setProbe("rule-hierarchy-count", renderedCount(rootSelector + " .rule-policy-domain .canonical-level"));
       setProbe("mechanism-landscape-count", renderedCount(rootSelector + " .mechanism-domain .landscape-level"));
@@ -1522,6 +1548,9 @@ write_hvd04_selector_probe() {
     }
 
     if (kind === "static-export") {
+      const exportTitle = root.querySelector(".export-header h1");
+      const exportTitleRange = targetDocument.createRange();
+      exportTitleRange.selectNodeContents(exportTitle);
       const rawIds = ["landscape-data-systems", "theme-concurrency-consistency",
         "module-mvcc-consistent-read", "element-read-view", "element-version-chain",
         "rel-read-view-selects-version", "src-mvcc-mechanism"];
@@ -1530,6 +1559,9 @@ write_hvd04_selector_probe() {
       setProbe("machine-identity-source", targetDocument.body.dataset.machineIdentitySource || "");
       setProbe("raw-technical-ids-visible", targetDocument.body.dataset.rawTechnicalIdsVisible || "");
       setProbe("image-canonical-authority", targetDocument.body.dataset.imageCanonicalAuthority || "");
+      setProbe("title-line-count", Array.from(exportTitleRange.getClientRects()).filter(function (rect) {
+        return rect.width > 0 && rect.height > 0;
+      }).length);
       setProbe("hierarchy-count", renderedCount(rootSelector + " .export-hierarchy [data-object-id]"));
       setProbe("core-question-count", renderedCount(rootSelector + " .export-opening"));
       setProbe("mechanism-count", renderedCount(rootSelector + " .export-mechanism"));
@@ -2172,6 +2204,8 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-rule-direct-child-count|7' \
     'data-probe-mechanism-direct-child-topology|SPAN.canonical-level.landscape-level,I.separator,SPAN.canonical-level.theme-level,I.separator,SPAN.canonical-level.module-level,I.separator,SPAN.canonical-level.element-level' \
     'data-probe-rule-direct-child-topology|SPAN.canonical-level.landscape-level,I.separator,SPAN.canonical-level.theme-level,I.separator,SPAN.canonical-level.module-level,I.separator,SPAN.canonical-level.element-level' \
+    'data-probe-mechanism-safe-separator-count|3' \
+    'data-probe-rule-safe-separator-count|3' \
     'data-probe-mechanism-hierarchy-count|4' \
     'data-probe-rule-hierarchy-count|4' \
     'data-probe-mechanism-landscape-count|1' \
@@ -2261,6 +2295,7 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-raw-technical-ids-visible|false' \
     'data-probe-image-canonical-authority|NONE' \
     'data-probe-forbidden-surface-count|0' \
+    'data-probe-title-line-count|1' \
     'data-probe-hierarchy-count|4' \
     'data-probe-core-question-count|1' \
     'data-probe-mechanism-count|1' \

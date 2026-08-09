@@ -343,6 +343,24 @@ expect_hvd02_dom_failure "${cross_domain_canonical_class_swap}" theme-default \
   cross-domain-reading-desktop.png \
   'theme-default browser selector probe data-probe-mechanism-direct-child-topology must be SPAN.canonical-level.landscape-level,I.separator,SPAN.canonical-level.theme-level,I.separator,SPAN.canonical-level.module-level,I.separator,SPAN.canonical-level.element-level'
 
+cross_domain_separator_overflow="${test_tmp_root}/cross-domain-separator-overflow"
+make_fixture "${cross_domain_separator_overflow}"
+sed -i.bak '/MVCC 一致性读/ s#<i>→</i>#<i style="width: auto; height: auto; justify-self: stretch; transform: rotate(90deg);">→</i>#g' \
+  "${cross_domain_separator_overflow}/prototype/index.html"
+rm "${cross_domain_separator_overflow}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${cross_domain_separator_overflow}" theme-default \
+  cross-domain-reading-desktop.png \
+  'theme-default browser selector probe data-probe-mechanism-safe-separator-count must be 3, got 0'
+
+static_orphan_title="${test_tmp_root}/static-orphan-title"
+make_fixture "${static_orphan_title}"
+sed -i.bak 's/max-width: 800px;/max-width: 720px;/' \
+  "${static_orphan_title}/prototype/styles.css"
+rm "${static_orphan_title}/prototype/styles.css.bak"
+expect_hvd02_dom_failure "${static_orphan_title}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-title-line-count must be 1, got 2'
+
 small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
 make_fixture "${small_noninteractive_close}"
 sed -i.bak \
@@ -380,6 +398,36 @@ sed -i.bak \
   "${small_occluded_close}/prototype/index.html"
 rm "${small_occluded_close}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${small_occluded_close}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
+
+small_clipped_close="${test_tmp_root}/small-clipped-close"
+make_fixture "${small_clipped_close}"
+sed -i.bak \
+  's#<button id="small-overlay-close" type="button" data-focus-return-target="small-element-trigger">关闭并返回正文</button>#<button id="small-overlay-close" type="button" data-focus-return-target="small-element-trigger" style="position: fixed; left: -150px; top: 20px; width: 320px; z-index: 20;">关闭并返回正文</button>#' \
+  "${small_clipped_close}/prototype/index.html"
+rm "${small_clipped_close}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_clipped_close}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
+
+small_clipped_trigger="${test_tmp_root}/small-clipped-trigger"
+make_fixture "${small_clipped_trigger}"
+sed -i.bak \
+  's#<button id="small-element-trigger" class="small-element-trigger" type="button"#<button id="small-element-trigger" class="small-element-trigger" type="button" style="position: fixed; left: -150px; bottom: 20px; width: 320px; z-index: 20;"#' \
+  "${small_clipped_trigger}/prototype/index.html"
+rm "${small_clipped_trigger}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_clipped_trigger}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-trigger-count must be 1, got 0'
+
+small_tiny_close="${test_tmp_root}/small-tiny-close"
+make_fixture "${small_tiny_close}"
+sed -i.bak \
+  's#<button id="small-overlay-close" type="button" data-focus-return-target="small-element-trigger">关闭并返回正文</button>#<button id="small-overlay-close" type="button" data-focus-return-target="small-element-trigger" style="width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; font-size: 0;">关闭并返回正文</button>#' \
+  "${small_tiny_close}/prototype/index.html"
+rm "${small_tiny_close}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_tiny_close}" module-small-screen \
   module-default-reading-small-screen.png \
   'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
 
@@ -1179,4 +1227,5 @@ printf 'HV-D04FixRound1NegativeFixtureCount = 6\n'
 printf 'HV-D04FixRound2NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound3NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound4NegativeFixtureCount = 3\n'
-printf 'NegativeFixtureCount = 124\n'
+printf 'HV-D04FixRound5NegativeFixtureCount = 5\n'
+printf 'NegativeFixtureCount = 129\n'
