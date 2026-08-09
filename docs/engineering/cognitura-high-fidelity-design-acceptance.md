@@ -17,7 +17,7 @@ ReviewStage2P1 = 0
 ReviewStage2P2 = 0
 UltraReviewUsed = NO
 EvidenceArtifactCapture = NOT_RUN
-HVExecutionArtifactCapture = PARTIAL_HV_D02
+HVExecutionArtifactCapture = PARTIAL_HV_D03
 VisualFoundationArtifactCapture = PASS
 VisualFoundationArtifact = docs/design/high-fidelity/evidence/visual-foundation-desktop.png
 VisualFoundationViewport = DESKTOP_1440x1100
@@ -32,6 +32,16 @@ SourceVerificationArtifactCapture = PASS
 SourceVerificationArtifact = docs/design/high-fidelity/evidence/module-source-verification-desktop.png
 SourceVerificationViewport = DESKTOP_1440x1100
 FocusAndSourceValidationStage = HIGH_FIDELITY_VISUAL
+RevisionImpactArtifactCapture = PASS
+RevisionImpactArtifact = docs/design/high-fidelity/evidence/module-revision-impact-desktop.png
+RevisionImpactViewport = DESKTOP_1440x1100
+RecoveryArtifactCapture = PASS
+RecoveryArtifact = docs/design/high-fidelity/evidence/module-recovery-desktop.png
+RecoveryViewport = DESKTOP_1440x1100
+ConflictedDraftArtifactCapture = PASS
+ConflictedDraftArtifact = docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png
+ConflictedDraftViewport = DESKTOP_1440x1100
+RevisionAndRecoveryValidationStage = HIGH_FIDELITY_VISUAL
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
@@ -43,9 +53,10 @@ RemotePush = NOT_AUTHORIZED
 `HV-D00` 已产生一张不绑定 RF 行的 foundation 截图与 docs-only 原型；`HV-D01`
 又以求值后 DOM 和 Module 默认阅读截图，只推进其正式 Owner 集
 `RF-AC-02,04,05,06,08,11,12` 的 `HIGH_FIDELITY_VISUAL` 结果；`HV-D02` 再以
-Relation 聚焦、完整来源核验 DOM 与两张桌面截图，只推进
-`RF-AC-03,07,09,16`。其他 RF、全部异常、整体视觉、可用性和实现结果仍为
-`NOT_RUN`。
+Relation 聚焦、完整来源核验 DOM 与两张桌面截图，只推进 `RF-AC-03,07,09,16`；
+`HV-D03` 再以修订影响、部分失败恢复、冲突草稿 DOM 与三张桌面截图，只推进
+`RF-AC-13,14,17,18`。其他 RF、全部正式异常输入行、整体视觉、可用性和实现结果
+仍为 `NOT_RUN`。
 
 ## 1. RF-AC 证据验收
 
@@ -179,6 +190,10 @@ HVVisualAcceptanceObservation = RF-AC-03|Owner=HV-D02|Artifact=docs/design/high-
 HVVisualAcceptanceObservation = RF-AC-07|Owner=HV-D02|Artifact=docs/design/high-fidelity/evidence/module-source-verification-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
 HVVisualAcceptanceObservation = RF-AC-09|Owner=HV-D02|Artifact=docs/design/high-fidelity/evidence/module-source-verification-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
 HVVisualAcceptanceObservation = RF-AC-16|Owner=HV-D02|Artifact=docs/design/high-fidelity/evidence/module-relation-focus-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-13|Owner=HV-D03|Artifact=docs/design/high-fidelity/evidence/module-revision-impact-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-14|Owner=HV-D03|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-17|Owner=HV-D03|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-18|Owner=HV-D03|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
 ```
 
 ## 7. 当前 Gate 结论
@@ -195,4 +210,5 @@ GateImplementationStatus = NOT_RUN
 
 `HF-DG4` 只关闭合同设计固定候选审查；`HV-D00` 只关闭视觉基础，`HV-D01` 关闭
 Module 默认阅读的七项 RF Owner 视觉结果，`HV-D02` 关闭 Relation/Source 的四项
-RF Owner 视觉结果并释放 `HV-D03`。其余 HV 视觉结果与 W1-I 业务实现仍未授权。
+RF Owner 视觉结果，`HV-D03` 关闭 Revision/Recovery 的四项 RF Owner 视觉结果并
+释放 `HV-D04`。其余 HV 视觉结果与 W1-I 业务实现仍未授权。

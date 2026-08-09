@@ -3,12 +3,14 @@
 ```text
 CanonicalProjectName = Cognitura
 DesignKind = HIGH_FIDELITY_VISUAL_DESIGN
-DesignStatus = MODULE_DEFAULT_READING_EVIDENCE_ESTABLISHED
+DesignStatus = REVISION_AND_RECOVERY_EVIDENCE_ESTABLISHED
 ContractSource = Cognitura-High-Fidelity-Interaction-Specialty-1.0
 ContractGate = HF-DG4 PASS
 FoundationGate = HV-D00 PASS
 ModuleDefaultReadingGate = HV-D01 PASS
 HighFidelityModuleDefaultReading = PASS
+HighFidelityFocusAndSource = PASS
+HighFidelityRevisionAndRecovery = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
@@ -232,6 +234,41 @@ Target 和原阅读 Anchor，以支持矩阵区分直接支持、结构重组、
 来源缺口。真实浏览器探针分别以 Enter、显式点击和 Escape 验证键盘/触控等价与焦点
 归还；两个状态都只投影正式 Relation 和 EvidenceBinding，不创建独立事实。
 
+### 6.3 HV-D03 Revision、Impact 与 Recovery 证据
+
+```text
+RevisionImpactArtifact = docs/design/high-fidelity/evidence/module-revision-impact-desktop.png
+RevisionImpactArtifactState = revision-impact
+RevisionImpactArtifactViewport = 1440x1100
+RevisionImpactArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+RevisionImpactArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
+RevisionImpactStateCode = REVISION_MODE+COMMIT_BLOCKED
+RevisionImpactLaneCount = 3
+RevisionImpactBlockerDefaultExpanded = YES
+RevisionImpactCanonicalWrite = NONE
+RecoveryArtifact = docs/design/high-fidelity/evidence/module-recovery-desktop.png
+RecoveryArtifactState = partial-failure
+RecoveryArtifactViewport = 1440x1100
+RecoveryArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+RecoveryArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
+RecoveryStateCode = CANONICAL_SAVED+PARTIAL_FAILURE
+RecoveryCanonicalVersion = v13
+RecoveryChangeSet = cs-1042
+RecoveryProcessingStateCount = 4
+ConflictedDraftArtifact = docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png
+ConflictedDraftArtifactState = conflicted-draft
+ConflictedDraftArtifactViewport = 1440x1100
+ConflictedDraftArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+ConflictedDraftArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
+ConflictedDraftStateCode = CONFLICTED_DRAFT+COMMIT_BLOCKED
+```
+
+修订证据同屏展示 Before/After 与 Semantic、Structural、Expression 三类影响，唯一
+高风险 Blocker 默认展开且真实提交控件禁用。恢复主证据明确区分 `Canonical v13`
+已经保存与后续重算/生成/核验的部分失败，旧投影保持可读但标记 `OUTDATED`；重试、
+同幂等键结果查询和 Revert-as-new-ChangeSet 都是非生产确定性转换。冲突草稿补充证据
+保留 Before/Latest/Draft 三方差异、草稿和原 Focus，在重新基线化前阻止提交。
+
 ## 7. 阶段边界
 
 ```text
@@ -239,7 +276,7 @@ HF-DG4 FixedDesignReview = PASS
 HV-D00 VisualFoundation = PASS
 HV-D01 ModuleDefaultReading = PASS
 HV-D02 FocusAndSource = PASS
-HV-D03 RevisionAndRecovery = NOT_RUN
+HV-D03 RevisionAndRecovery = PASS
 HV-D04 CrossLayerResponsiveAndExport = NOT_RUN
 HV-D05 FixedVisualUsabilityReview = NOT_RUN
 ```

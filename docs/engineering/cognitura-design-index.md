@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 RepositoryName = cognitura
-CurrentStage = HIGH_FIDELITY_FOCUS_AND_SOURCE_ESTABLISHED
+CurrentStage = HIGH_FIDELITY_REVISION_AND_RECOVERY_ESTABLISHED
 CurrentDesignBaseline = Cognitura-Overall-Design-1.2
 CanonicalSourceManifest =
   docs/engineering/cognitura-source-manifest.yaml
@@ -52,9 +52,10 @@ HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
 HighFidelityVisualFoundation = PASS
 HighFidelityModuleDefaultReading = PASS
 HighFidelityFocusAndSource = PASS
+HighFidelityRevisionAndRecovery = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
-ActiveDesignTaskCard = HV-D03
+ActiveDesignTaskCard = HV-D04
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -200,11 +201,12 @@ HF-D02 已关闭正交状态与恢复边界，HF-D03 已关闭证据输入合同
 
 | 工程引用名 | 实际路径 | 状态 | Gate |
 |---|---|---|---|
-| `Cognitura-High-Fidelity-Visual-Design-1.0` | `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md` | `FOCUS_AND_SOURCE_EVIDENCE_ESTABLISHED` | `HV-D02 PASS` |
+| `Cognitura-High-Fidelity-Visual-Design-1.0` | `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md` | `REVISION_AND_RECOVERY_EVIDENCE_ESTABLISHED` | `HV-D03 PASS` |
 
 `HV-D00` 只建立视觉 token、桌面/小屏阈值、a11y focus、Reading First 零常驻治理
 侧栏、按需 SourceEvidence、确定性 URL fixture 和 1440×1100 foundation 截图。
 `HV-D01` 已建立 Module 默认阅读的确定性 DOM 与 1440×1100 证据；`HV-D02` 已建立
 Relation 主聚焦与完整来源核验的两张 1440×1100 证据，仅关闭各卡 Owner 的
-`HIGH_FIDELITY_VISUAL` 观察，并释放 `HV-D03` 为唯一 `READY`。正式 HF 专项与
+`HIGH_FIDELITY_VISUAL` 观察；`HV-D03` 已建立修订影响、部分失败恢复与冲突草稿
+三张 1440×1100 证据并释放 `HV-D04` 为唯一 `READY`。正式 HF 专项与
 `HF-DG4 PASS` 不变；整体视觉设计、可用性、实现、正式数据库写入和远程推送仍未执行。

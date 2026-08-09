@@ -11,6 +11,7 @@ ImplementationValidation = NOT_RUN
 HighFidelityVisualFoundation = PASS
 HighFidelityModuleDefaultReading = PASS
 HighFidelityFocusAndSource = PASS
+HighFidelityRevisionAndRecovery = PASS
 VisualTaskCardArtifactsActual = CREATED
 HV-D00ReleaseCondition = HF_D04_FIXED_CANDIDATE_DOUBLE_REVIEW_PASS
 BusinessImplementation = NOT_AUTHORIZED
@@ -20,8 +21,9 @@ RemotePush = NOT_AUTHORIZED
 
 本文件固定后续证据路径、输入状态和 Gate。`HV-D00` 已建立 docs-only 非生产原型
 基础和一张 1440×1100 foundation 截图；`HV-D01` 已建立 Module 默认阅读证据；
-`HV-D02` 已建立 Relation 聚焦与完整来源核验的两张桌面证据，只关闭各卡所属的
-正式 RF Owner 视觉观察。其余五类路径、整体视觉设计与可用性结果仍为 `NOT_RUN`。
+`HV-D02` 已建立 Relation 聚焦与完整来源核验的两张桌面证据；`HV-D03` 已建立修订
+影响、部分失败恢复和冲突草稿三张桌面证据，只关闭各卡所属的正式 RF Owner 视觉
+观察。其余三类路径、整体视觉设计与可用性结果仍为 `NOT_RUN`。
 
 ## 1. 八类有序证据路径
 
@@ -60,7 +62,7 @@ CrossDomainScenario = RULE_POLICY_DOMAIN|EvidenceClass=KnowledgeLandscapeAndKnow
 以下 `HVDesignTask` 六行是 `HF-DG4` 关闭时的历史投影快照，继续供合同 Gate
 复验；`VisualTaskCardArtifacts = NOT_CREATED` 也只表示该历史时点。Task 6 此后已
 创建精确六卡集合、视觉基础、确定性原型和 foundation 截图并关闭 `HV-D00`。
-当前实际状态由 `HVExecutionTask` 六行承担，仅 `HV-D03` 被释放为唯一 `READY`。
+当前实际状态由 `HVExecutionTask` 六行承担，仅 `HV-D04` 被释放为唯一 `READY`。
 
 ```text
 VisualTaskCardArtifacts = NOT_CREATED
@@ -74,8 +76,8 @@ HVDesignTask = HV-D05|FixedVisualUsabilityReview|BLOCKED|NOT_RELEASED
 HVExecutionTask = HV-D00|VisualFoundation|DONE|PASS
 HVExecutionTask = HV-D01|ModuleDefaultReading|DONE|PASS
 HVExecutionTask = HV-D02|FocusAndSource|DONE|PASS
-HVExecutionTask = HV-D03|RevisionAndRecovery|READY|RELEASED
-HVExecutionTask = HV-D04|CrossLayerResponsiveAndExport|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
+HVExecutionTask = HV-D03|RevisionAndRecovery|DONE|PASS
+HVExecutionTask = HV-D04|CrossLayerResponsiveAndExport|READY|RELEASED
 HVExecutionTask = HV-D05|FixedVisualUsabilityReview|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
 ```
 
@@ -120,7 +122,29 @@ HVExecutionEvidence = HV-D02|EvidencePath=02|EvidenceClass=RelationFocus|Artifac
 HVExecutionEvidence = HV-D02|EvidencePath=03|EvidenceClass=SourceEvidenceVerification|Artifact=docs/design/high-fidelity/evidence/module-source-verification-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D02 PASS
 ```
 
-## 7. 阶段隔离
+## 7. 修订、影响与恢复证据
+
+```text
+RevisionImpactArtifact = docs/design/high-fidelity/evidence/module-revision-impact-desktop.png
+RevisionImpactViewport = DESKTOP_1440x1100
+RevisionImpactPrototypeState = revision-impact
+RevisionImpactStatus = PASS
+RecoveryArtifact = docs/design/high-fidelity/evidence/module-recovery-desktop.png
+RecoveryViewport = DESKTOP_1440x1100
+RecoveryPrototypeState = partial-failure
+RecoveryStatus = PASS
+ConflictedDraftArtifact = docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png
+ConflictedDraftViewport = DESKTOP_1440x1100
+ConflictedDraftPrototypeState = conflicted-draft
+ConflictedDraftStatus = PASS
+RevisionAndRecoveryValidationStage = HIGH_FIDELITY_VISUAL
+RevisionAndRecoveryRFOwnerPass = RF-AC-13,14,17,18
+RevisionAndRecoveryDoesNotClose = RF-AC-01,02,03,04,05,06,07,08,09,10,11,12,15,16,19,20
+HVExecutionEvidence = HV-D03|EvidencePath=04|EvidenceClass=RevisionAndImpact|Artifact=docs/design/high-fidelity/evidence/module-revision-impact-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D03 PASS
+HVExecutionEvidence = HV-D03|EvidencePath=05|EvidenceClass=Recovery|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D03 PASS
+```
+
+## 8. 阶段隔离
 
 ```text
 CONTRACT = HF-DG3_EVIDENCE_INPUT_CONTRACT_PASS

@@ -6,9 +6,9 @@
     "module-default": "Module default reading · HV-D01 evidence",
     "relation-focus": "Relation focus · HV-D02 evidence",
     "source-verification": "Source verification · HV-D02 evidence",
-    "revision-impact": "Revision impact · reserved for HV-D03",
-    "partial-failure": "Partial failure · reserved for HV-D03",
-    "conflicted-draft": "Conflicted draft · reserved for HV-D03",
+    "revision-impact": "Revision impact · HV-D03 evidence",
+    "partial-failure": "Partial failure · HV-D03 evidence",
+    "conflicted-draft": "Conflicted draft · HV-D03 evidence",
     "domain-default": "Knowledge Landscape · reserved for HV-D04",
     "theme-default": "Knowledge Theme · reserved for HV-D04",
     "module-small-screen": "Small-screen Module · reserved for HV-D04",
@@ -21,12 +21,18 @@
   const moduleDefaultFixture = document.getElementById("module-default-fixture");
   const relationFocusFixture = document.getElementById("relation-focus-fixture");
   const sourceVerificationFixture = document.getElementById("source-verification-fixture");
+  const revisionImpactFixture = document.getElementById("revision-impact-fixture");
+  const partialFailureFixture = document.getElementById("partial-failure-fixture");
+  const conflictedDraftFixture = document.getElementById("conflicted-draft-fixture");
 
   if (!Object.prototype.hasOwnProperty.call(fixtures, requestedState)) {
     foundationFixture.hidden = true;
     moduleDefaultFixture.hidden = true;
     relationFocusFixture.hidden = true;
     sourceVerificationFixture.hidden = true;
+    revisionImpactFixture.hidden = true;
+    partialFailureFixture.hidden = true;
+    conflictedDraftFixture.hidden = true;
     document.documentElement.dataset.fixtureStatus = "REJECTED_UNKNOWN_STATE";
     document.body.dataset.stateFixture = "REJECTED";
     document.getElementById("fixture-label").textContent = `Rejected fixture state: ${requestedState}`;
@@ -41,6 +47,9 @@
   moduleDefaultFixture.hidden = requestedState !== "module-default";
   relationFocusFixture.hidden = requestedState !== "relation-focus";
   sourceVerificationFixture.hidden = requestedState !== "source-verification";
+  revisionImpactFixture.hidden = requestedState !== "revision-impact";
+  partialFailureFixture.hidden = requestedState !== "partial-failure";
+  conflictedDraftFixture.hidden = requestedState !== "conflicted-draft";
 
   if (requestedState === "module-default") {
     document.title = "Cognitura · Module Default Reading Fixture";
@@ -139,5 +148,93 @@
     document.body.dataset.workspaceHistory = "URL_AND_HISTORY";
     document.body.dataset.originalReadingAnchor = "RETAINED";
     bindDeterministicControls(sourceVerificationFixture, "source-origin-anchor");
+  }
+
+  const bindHvd03Controls = function (root, defaultReturnTarget) {
+    root.querySelectorAll("[data-touch-equivalent]").forEach(function (control) {
+      control.addEventListener("click", function () {
+        document.body.dataset.touchEquivalentAction = control.dataset.touchEquivalent;
+        if (control.classList.contains("retry-recompute")) {
+          document.body.dataset.lastTransition = "RETRY_FAILED_CHANNEL";
+          document.body.dataset.retryScope = "RECOMPUTING_ONLY";
+        }
+        if (control.classList.contains("query-original-result")) {
+          document.body.dataset.lastTransition = "QUERY_ORIGINAL_RESULT_SAME_KEY";
+          document.body.dataset.resultQueryKey = "idem-hv-d03-1042";
+          const feedback = root.querySelector(".result-query-feedback");
+          if (feedback) {
+            feedback.textContent = "原 ChangeSet cs-1042 已确认；未创建第二次提交。";
+          }
+        }
+        if (control.classList.contains("restore-draft")) {
+          document.body.dataset.draftRestoreStatus = "RESTORED";
+          document.body.dataset.restoredDraft = "draft-r7";
+          document.body.dataset.restoredSemanticAnchor = "module-results";
+          restoreFocus(defaultReturnTarget, "REFRESH_DRAFT_RESTORED");
+        }
+        if (control.classList.contains("revert-changeset")) {
+          document.body.dataset.lastTransition = "REVERT_CHANGESET_DRAFTED";
+          document.body.dataset.revertDisposition = "CREATE_NEW_CHANGESET";
+        }
+        if (control.classList.contains("rebase-draft")) {
+          document.body.dataset.lastTransition = "REBASE_PREVIEWED";
+          document.body.dataset.rebaseStatus = "DRAFT_PRESERVED";
+          document.body.dataset.canonicalWrite = "NONE";
+        }
+      });
+    });
+    root.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        restoreFocus(defaultReturnTarget, "ESCAPE_CLOSE");
+      }
+    });
+  };
+
+  if (requestedState === "revision-impact") {
+    document.title = "Cognitura · Revision Impact Fixture";
+    document.body.dataset.revisionImpactEvidence = "HIGH_FIDELITY_VISUAL_PASS";
+    document.body.dataset.impactLaneCount = "3";
+    document.body.dataset.blockerDefaultExpanded = "true";
+    document.body.dataset.commitAllowed = "false";
+    document.body.dataset.draftPersistence = "SESSION_RESTORE_ONLY";
+    bindHvd03Controls(revisionImpactFixture, "revision-origin-anchor");
+  }
+
+  if (requestedState === "partial-failure") {
+    document.title = "Cognitura · Partial Failure Recovery Fixture";
+    document.body.dataset.recoveryEvidence = "HIGH_FIDELITY_VISUAL_PASS";
+    document.body.dataset.canonicalSavedBoundary = "CONFIRMED";
+    document.body.dataset.processingStateCount = "4";
+    document.body.dataset.staleProjection = "EXPLICIT";
+    document.body.dataset.submitUnknownDisposition = "QUERY_SAME_IDEMPOTENCY_KEY";
+    document.body.dataset.revertDisposition = "CREATE_NEW_CHANGESET";
+    bindHvd03Controls(partialFailureFixture, "recovery-origin-anchor");
+  }
+
+  if (requestedState === "conflicted-draft") {
+    document.title = "Cognitura · Conflicted Draft Fixture";
+    document.body.dataset.conflictedDraftEvidence = "HIGH_FIDELITY_VISUAL_PASS";
+    document.body.dataset.rebaseRequired = "true";
+    document.body.dataset.draftPreserved = "true";
+    document.body.dataset.commitAllowed = "false";
+    const conflictRoot = document.getElementById("conflicted-draft-document");
+    const conflictPanel = document.getElementById("conflict-detail-panel");
+    const conflictTrigger = document.getElementById("conflict-detail-trigger");
+    bindHvd03Controls(conflictedDraftFixture, "conflict-origin-anchor");
+    conflictTrigger.addEventListener("click", function () {
+      conflictPanel.hidden = false;
+      conflictPanel.focus();
+      document.body.dataset.lastTransition = "CONFLICT_DETAIL_OPEN";
+    });
+    conflictRoot.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape" || conflictPanel.hidden) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      conflictPanel.hidden = true;
+      restoreFocus("conflict-detail-trigger", "CONFLICT_DETAIL_ESCAPE_CLOSE");
+    }, true);
   }
 })();

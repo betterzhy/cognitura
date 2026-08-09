@@ -493,6 +493,169 @@
       </div>
     </div>
 
+    <div id="revision-impact-fixture" hidden>
+      <div class="revision-shell">
+        <header class="workspace-context">
+          <button id="revision-origin-anchor" class="workspace-return-anchor" type="button" data-touch-equivalent="RETURN_TO_MODULE">
+            <span aria-hidden="true">←</span><span><small>Original reading anchor</small><strong>一致性读的版本选择</strong></span>
+          </button>
+          <div><p class="eyebrow">Canonical target</p><strong>module-consistent-read · v12 → draft r7</strong></div>
+          <span class="workspace-mode danger">REVISION · COMMIT BLOCKED</span>
+        </header>
+
+        <main id="revision-impact-document" class="revision-document" tabindex="-1"
+          data-state-code="REVISION_MODE" data-processing-state="COMMIT_BLOCKED"
+          data-impact-lane-count="3" data-origin-anchor-id="revision-origin-anchor"
+          data-draft-state="DIRTY_DRAFT" data-canonical-write="NONE">
+          <section class="revision-heading">
+            <div><p class="eyebrow">Full revision · ChangeSet draft</p><h1>调整一致性读的适用边界</h1></div>
+            <p>快速修订触及条件语义后已明确升级；草稿被保留，影响分析绑定 <b>draft r7</b>。</p>
+          </section>
+
+          <section class="before-after" aria-label="Before and After revision comparison">
+            <article class="revision-before"><p class="eyebrow">Before · v12</p><h2>一致性读受 Read View 约束</h2><p>适用于事务级一致性读；当前读明确排除。</p></article>
+            <div class="revision-arrow" aria-hidden="true">→</div>
+            <article class="revision-after"><p class="eyebrow">After · draft r7</p><h2>一致性读受稳定 Read View 约束</h2><p>新增“活跃事务集合稳定”条件，并保留当前读例外。</p></article>
+          </section>
+
+          <section class="impact-section" aria-labelledby="impact-title">
+            <div class="section-title-row"><div><p class="eyebrow">Unified impact preview</p><h2 id="impact-title">三类影响同屏判断</h2></div><span>analysis · 3/3 channels</span></div>
+            <div class="impact-lanes">
+              <article class="impact-lane impact-semantic blocker" data-severity="BLOCKER" aria-expanded="true">
+                <div><span>01 · Semantic</span><strong>BLOCKER · 默认展开</strong></div>
+                <h3>“稳定”改变条件真值范围</h3>
+                <p><b>Why</b> 新条件会排除活跃事务集合变化中的读取。</p>
+                <ol class="causal-chain"><li>条件收紧</li><li>Relation scope 改变</li><li>CoreConclusion 需复核</li></ol>
+                <dl><div><dt>Canonical</dt><dd>Relation + Module v12</dd></div><div><dt>Decision</dt><dd>确认条件或返回草稿</dd></div></dl>
+              </article>
+              <article class="impact-lane impact-structural" data-severity="REVIEW_REQUIRED" aria-expanded="true">
+                <div><span>02 · Structural</span><strong>REVIEW REQUIRED</strong></div>
+                <h3>Theme Closure 需重新计算</h3>
+                <p><b>Chain</b> Relation → Module closure → Theme question map。</p>
+                <dl><div><dt>Canonical</dt><dd>Module / Theme</dd></div><div><dt>Automatic</dt><dd>Recompute after save</dd></div></dl>
+              </article>
+              <article class="impact-lane impact-expression" data-severity="AUTO_REFRESH" aria-expanded="true">
+                <div><span>03 · Expression</span><strong>AUTO REFRESH</strong></div>
+                <h3>两处阅读投影将过期</h3>
+                <p><b>Chain</b> Canonical change → local explanation → static summary。</p>
+                <dl><div><dt>Projection</dt><dd>Module + export</dd></div><div><dt>Automatic</dt><dd>Local regenerate</dd></div></dl>
+              </article>
+            </div>
+          </section>
+
+          <section class="revision-blocker-summary">
+            <div><p class="eyebrow">Submission gate</p><h2>1 个语义 Blocker 未解决</h2><p class="draft-preserved">草稿已保留 · Durable draft r7 · 未发生正式写入</p></div>
+            <div class="workspace-actions">
+              <button type="button" data-touch-equivalent="SAVE_DRAFT">保存草稿</button>
+              <button type="button" data-touch-equivalent="RETRY_SEMANTIC_ANALYSIS">仅重试语义通道</button>
+              <button class="commit-control" type="button" disabled aria-disabled="true">提交 ChangeSet</button>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="partial-failure-fixture" hidden>
+      <div class="revision-shell recovery-shell">
+        <header class="workspace-context">
+          <button id="recovery-origin-anchor" class="workspace-return-anchor" type="button" data-touch-equivalent="RETURN_TO_MODULE">
+            <span aria-hidden="true">←</span><span><small>Original reading anchor</small><strong>一致性读 · 结果段</strong></span>
+          </button>
+          <div><p class="eyebrow">ChangeSet result</p><strong>cs-1042 · canonical v13</strong></div>
+          <span class="workspace-mode warning">CANONICAL SAVED · PARTIAL FAILURE</span>
+        </header>
+
+        <main id="partial-failure-document" class="revision-document recovery-document" tabindex="-1"
+          data-state-code="PARTIAL_FAILURE" data-processing-state="CANONICAL_SAVED"
+          data-canonical-version="v13" data-changeset-id="cs-1042"
+          data-idempotency-key="idem-hv-d03-1042" data-origin-anchor-id="recovery-origin-anchor"
+          data-draft-state="RECOVERABLE_DRAFT" data-recovery-axis="REFRESH_RESTORING">
+          <section class="saved-boundary">
+            <div class="saved-mark" aria-hidden="true">✓</div>
+            <div><p class="eyebrow">Canonical boundary · confirmed</p><h1>正式结构已保存为 v13</h1><p>ChangeSet 与当前指针已确认；失败只发生在后续投影处理，禁止伪装成未提交。</p></div>
+            <span>ONE CANONICAL VERSION</span>
+          </section>
+
+          <section class="processing-section" aria-labelledby="processing-title">
+            <div class="section-title-row"><div><p class="eyebrow">Post-commit processing</p><h2 id="processing-title">四类处理状态</h2></div><span>2 complete · 1 failed · 1 pending</span></div>
+            <div class="processing-grid">
+              <article class="processing-state complete"><span>01</span><div><strong>IMMEDIATE SYNC</strong><p>Canonical target 与 Relation 已读取 v13。</p></div><em>COMPLETE</em></article>
+              <article class="processing-state failed"><span>02</span><div><strong>RECOMPUTING</strong><p>Theme Closure 计算超时；可按同一任务键重试。</p></div><em>FAILED</em></article>
+              <article class="processing-state stale"><span>03</span><div><strong>LOCAL REGENERATING</strong><p>旧解释继续可读，但已明确标记 OUTDATED。</p></div><em>STALE</em></article>
+              <article class="processing-state pending"><span>04</span><div><strong>PENDING VERIFICATION</strong><p>新表达等待来源范围复核。</p></div><em>PENDING</em></article>
+            </div>
+          </section>
+
+          <section class="recovery-grid">
+            <article class="stale-projection">
+              <div><p class="eyebrow">Current projection</p><span class="stale-badge">OUTDATED · based on v12</span></div>
+              <h2>一致性读受 Read View 约束</h2>
+              <p>旧表达保留用于阅读对照；在重新基线化前禁止基于它继续正式修订。</p>
+              <div class="mini-diff"><span><b>Before</b> Read View</span><span><b>After canonical</b> 稳定 Read View</span></div>
+            </article>
+            <aside class="recovery-actions-panel">
+              <p class="eyebrow">Recovery · same result identity</p>
+              <h2>只重试失败通道</h2>
+              <p class="result-query-feedback">刷新已恢复 Target、Workspace、draft r7 与语义 Anchor。</p>
+              <button class="retry-recompute" type="button" data-touch-equivalent="RETRY_RECOMPUTE">重试 Theme Closure</button>
+              <button class="query-original-result" type="button" data-touch-equivalent="QUERY_ORIGINAL_RESULT">用同一幂等键查询原结果</button>
+              <button class="restore-draft" type="button" data-touch-equivalent="RESTORE_DRAFT">验证刷新恢复</button>
+              <button class="revert-changeset" type="button" data-touch-equivalent="DRAFT_REVERT_CHANGESET">创建 Revert ChangeSet 草稿</button>
+              <small>Revert 是新的变更；不删除 v13 或物理回滚历史。</small>
+            </aside>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="conflicted-draft-fixture" hidden>
+      <div class="revision-shell conflict-shell">
+        <header class="workspace-context">
+          <button id="conflict-origin-anchor" class="workspace-return-anchor" type="button" data-touch-equivalent="RETURN_TO_REVISION">
+            <span aria-hidden="true">←</span><span><small>Revision return anchor</small><strong>Full revision · draft r7</strong></span>
+          </button>
+          <div><p class="eyebrow">Draft axis</p><strong>base v12 · latest v13 · draft r7</strong></div>
+          <span class="workspace-mode danger">CONFLICTED DRAFT · REBASE REQUIRED</span>
+        </header>
+
+        <main id="conflicted-draft-document" class="revision-document conflict-document" tabindex="-1"
+          data-state-code="CONFLICTED_DRAFT" data-processing-state="COMMIT_BLOCKED"
+          data-draft-preserved="true" data-origin-anchor-id="conflict-origin-anchor"
+          data-base-version="v12" data-latest-version="v13">
+          <section class="conflict-heading">
+            <div><p class="eyebrow">Version conflict · no canonical write</p><h1>草稿基线已落后于最新正式版本</h1></div>
+            <p>最新 v13 由另一 ChangeSet 保存。当前 draft r7 保持原样，提交在重新基线化前被阻止。</p>
+          </section>
+
+          <section class="three-way-diff" aria-label="Before Latest Draft three way comparison">
+            <article class="diff-base"><p class="eyebrow">Before · base v12</p><h2>Read View 约束可见版本</h2><p>适用于一致性读。</p></article>
+            <article class="diff-latest"><p class="eyebrow">Latest · canonical v13</p><h2>稳定 Read View 约束可见版本</h2><p>新增活跃事务集合稳定条件。</p></article>
+            <article class="diff-draft"><p class="eyebrow">Draft · r7 preserved</p><h2>Read View 限定历史版本窗口</h2><p>拟加入边界说明，尚未提交。</p></article>
+          </section>
+
+          <section id="conflict-detail-panel" class="conflict-detail-panel" tabindex="-1" aria-labelledby="conflict-detail-title">
+            <div class="section-title-row"><div><p class="eyebrow">Conflict field · condition scope</p><h2 id="conflict-detail-title">同一条件被 v13 与 draft r7 分别修改</h2></div><span>BLOCKER · expanded</span></div>
+            <div class="conflict-resolution-grid">
+              <p><b>Canonical truth</b><br>v13 保持当前正式事实，不因打开草稿而回滚。</p>
+              <p><b>Unsaved boundary</b><br>draft r7 仍在 session draft store，未发布。</p>
+              <p><b>Required decision</b><br>选择重新基线化、手工合并或保留草稿副本。</p>
+            </div>
+          </section>
+
+          <section class="conflict-guard">
+            <div><p class="eyebrow">Draft protection</p><h2>离开前必须处理未提交草稿</h2><p class="conflict-feedback">草稿和原 Focus 均已保留。</p></div>
+            <div class="workspace-actions">
+              <button id="conflict-detail-trigger" type="button" data-touch-equivalent="SHOW_CONFLICT_DETAIL">查看冲突字段</button>
+              <button class="rebase-draft" type="button" data-touch-equivalent="REBASE_DRAFT">重新基线化预览</button>
+              <button type="button" data-touch-equivalent="PRESERVE_DRAFT_COPY">保留草稿副本</button>
+              <button type="button" data-touch-equivalent="CONTINUE_EDITING">继续编辑</button>
+              <button class="conflict-commit" type="button" disabled aria-disabled="true">提交</button>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
     <script src="prototype.js"></script>
   </body>
 </html>

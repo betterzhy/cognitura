@@ -612,6 +612,12 @@ if [[ "${active_number}" -ge 3 ]]; then
 fi
 grep -Eq '^EvidencePath = 05\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-recovery-desktop\.png\|Status=NOT_RUN\|Gate=HV-D03$' "${evidence_plan}" ||
   fail "EvidencePath 05 canonical primary artifact must be module-recovery-desktop.png"
+grep -Eq '^EvidencePath = 04\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-revision-impact-desktop\.png\|Status=NOT_RUN\|Gate=HV-D03$' "${evidence_plan}" ||
+  fail "EvidencePath 04 canonical input contract must remain PLANNED/NOT_RUN"
+if [[ "${active_number}" -ge 4 ]]; then
+  require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D03|EvidencePath=04|EvidenceClass=RevisionAndImpact|Artifact=docs/design/high-fidelity/evidence/module-revision-impact-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D03 PASS'
+  require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D03|EvidencePath=05|EvidenceClass=Recovery|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D03 PASS'
+fi
 grep -Eq '^EvidencePath = 06\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop\.png\|Status=NOT_RUN\|Gate=HV-D04$' "${evidence_plan}" ||
   fail "EvidencePath 06 canonical primary artifact must be knowledge-landscape-theme-desktop.png"
 
@@ -710,6 +716,12 @@ relation_dom_chrome_profile="${runtime_tmp}/chrome-profile-relation-dom"
 relation_png_chrome_profile="${runtime_tmp}/chrome-profile-relation-png"
 source_dom_chrome_profile="${runtime_tmp}/chrome-profile-source-dom"
 source_png_chrome_profile="${runtime_tmp}/chrome-profile-source-png"
+revision_dom_chrome_profile="${runtime_tmp}/chrome-profile-revision-dom"
+revision_png_chrome_profile="${runtime_tmp}/chrome-profile-revision-png"
+recovery_dom_chrome_profile="${runtime_tmp}/chrome-profile-recovery-dom"
+recovery_png_chrome_profile="${runtime_tmp}/chrome-profile-recovery-png"
+conflict_dom_chrome_profile="${runtime_tmp}/chrome-profile-conflict-dom"
+conflict_png_chrome_profile="${runtime_tmp}/chrome-profile-conflict-png"
 cleanup_runtime() {
   rm -rf "${runtime_tmp}"
 }
@@ -1057,6 +1069,181 @@ write_hvd02_selector_probe() {
       setProbe("rendered-interactable-return-target-count", renderedInteractableCount(fixtureSelector + " #source-origin-anchor.source-return-anchor"));
       setProbe("close-control-count", root.querySelectorAll(".source-verification-close[data-focus-return-target='source-origin-anchor']").length);
       setProbe("rendered-interactable-close-control-count", renderedInteractableCount(rootSelector + " .source-verification-close[data-focus-return-target='source-origin-anchor']"));
+    }
+    setProbe("status", "READY");
+  };
+  frame.addEventListener("load", evaluateTarget);
+  if (frame.contentDocument && frame.contentDocument.readyState === "complete") {
+    window.setTimeout(evaluateTarget, 0);
+  }
+}());
+</script>
+</body></html>
+EOF
+  } >"${output_file}"
+}
+
+write_hvd03_selector_probe() {
+  local output_file="$1"
+  local target_url="$2"
+  local fixture_kind="$3"
+  {
+    printf '%s\n' '<!doctype html>' '<html><head><meta charset="utf-8"><title>HV-D03 selector probe</title></head><body>'
+    printf '<iframe id="target" src="%s"></iframe>\n' "${target_url}"
+    printf '<script>document.documentElement.setAttribute("data-probe-requested-kind", "%s");</script>\n' "${fixture_kind}"
+    cat <<'EOF'
+<script>
+(function () {
+  "use strict";
+  const frame = document.getElementById("target");
+  let evaluationStarted = false;
+  const setProbe = function (name, value) {
+    document.documentElement.setAttribute("data-probe-" + name, String(value));
+  };
+  const evaluateTarget = function () {
+    const targetDocument = frame.contentDocument;
+    if (!targetDocument || targetDocument.readyState !== "complete" ||
+        targetDocument.documentElement.dataset.fixtureStatus !== "ACCEPTED") {
+      window.setTimeout(evaluateTarget, 10);
+      return;
+    }
+    if (evaluationStarted) {
+      return;
+    }
+    evaluationStarted = true;
+    const kind = document.documentElement.getAttribute("data-probe-requested-kind");
+    const fixtureSelector = "#" + kind + "-fixture";
+    const rootSelector = kind === "revision-impact" ? "#revision-impact-document" :
+      kind === "partial-failure" ? "#partial-failure-document" : "#conflicted-draft-document";
+    const fixture = targetDocument.querySelector(fixtureSelector);
+    const root = targetDocument.querySelector(rootSelector);
+    if (!fixture || !root) {
+      setProbe("document-count", 0);
+      setProbe("status", "READY");
+      return;
+    }
+    const isRendered = function (element) {
+      if (!element || element.closest("[hidden], [aria-hidden='true']")) {
+        return false;
+      }
+      let current = element;
+      while (current) {
+        const style = targetDocument.defaultView.getComputedStyle(current);
+        if (style.display === "none" || style.visibility === "hidden" ||
+            style.visibility === "collapse" || Number(style.opacity) === 0) {
+          return false;
+        }
+        current = current.parentElement;
+      }
+      const rect = element.getBoundingClientRect();
+      return element.getClientRects().length > 0 && rect.width > 0 && rect.height > 0;
+    };
+    const renderedCount = function (selector) {
+      return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isRendered).length;
+    };
+    const isKeyboardInteractable = function (element) {
+      return isRendered(element) && element.tagName === "BUTTON" && !element.disabled &&
+        element.getAttribute("aria-disabled") !== "true" && element.tabIndex >= 0;
+    };
+    const interactableCount = function (selector) {
+      return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isKeyboardInteractable).length;
+    };
+    setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
+    setProbe("state-fixture", targetDocument.body.dataset.stateFixture || "");
+    setProbe("document-count", targetDocument.querySelectorAll(rootSelector).length);
+    setProbe("rendered-document-count", renderedCount(rootSelector));
+    setProbe("state-code", root.dataset.stateCode || "");
+    setProbe("processing-state", root.dataset.processingState || "");
+    setProbe("draft-state", root.dataset.draftState || "");
+    setProbe("origin-anchor-declaration", root.dataset.originAnchorId || "");
+    setProbe("origin-anchor-count", fixture.querySelectorAll(".workspace-return-anchor").length);
+    setProbe("interactable-origin-anchor-count", interactableCount(fixtureSelector + " .workspace-return-anchor"));
+
+    if (kind === "revision-impact") {
+      setProbe("evidence-stage", targetDocument.body.dataset.revisionImpactEvidence || "");
+      setProbe("before-count", root.querySelectorAll(".revision-before").length);
+      setProbe("after-count", root.querySelectorAll(".revision-after").length);
+      setProbe("rendered-before-count", renderedCount(rootSelector + " .revision-before"));
+      setProbe("rendered-after-count", renderedCount(rootSelector + " .revision-after"));
+      setProbe("impact-lane-count", root.querySelectorAll(".impact-lane").length);
+      setProbe("rendered-impact-lane-count", renderedCount(rootSelector + " .impact-lane"));
+      setProbe("semantic-count", root.querySelectorAll(".impact-semantic").length);
+      setProbe("structural-count", root.querySelectorAll(".impact-structural").length);
+      setProbe("expression-count", root.querySelectorAll(".impact-expression").length);
+      setProbe("blocker-count", root.querySelectorAll(".impact-lane.blocker[data-severity='BLOCKER'][aria-expanded='true']").length);
+      setProbe("rendered-blocker-count", renderedCount(rootSelector + " .impact-lane.blocker[data-severity='BLOCKER'][aria-expanded='true']"));
+      setProbe("draft-preserved-count", root.querySelectorAll(".draft-preserved").length);
+      setProbe("commit-control-count", root.querySelectorAll("button.commit-control").length);
+      setProbe("disabled-commit-count", root.querySelectorAll("button.commit-control:disabled[aria-disabled='true']").length);
+      root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+      setProbe("escape-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("escape-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+    }
+
+    if (kind === "partial-failure") {
+      setProbe("evidence-stage", targetDocument.body.dataset.recoveryEvidence || "");
+      setProbe("canonical-saved-boundary", targetDocument.body.dataset.canonicalSavedBoundary || "");
+      setProbe("canonical-version", root.dataset.canonicalVersion || "");
+      setProbe("changeset-id", root.dataset.changesetId || "");
+      setProbe("idempotency-key", root.dataset.idempotencyKey || "");
+      setProbe("saved-boundary-count", root.querySelectorAll(".saved-boundary").length);
+      setProbe("rendered-saved-boundary-count", renderedCount(rootSelector + " .saved-boundary"));
+      setProbe("processing-state-count", root.querySelectorAll(".processing-state").length);
+      setProbe("rendered-processing-state-count", renderedCount(rootSelector + " .processing-state"));
+      setProbe("complete-count", root.querySelectorAll(".processing-state.complete").length);
+      setProbe("failed-count", root.querySelectorAll(".processing-state.failed").length);
+      setProbe("stale-count", root.querySelectorAll(".processing-state.stale").length);
+      setProbe("pending-count", root.querySelectorAll(".processing-state.pending").length);
+      setProbe("stale-projection-count", root.querySelectorAll(".stale-projection .stale-badge").length);
+      setProbe("rendered-stale-projection-count", renderedCount(rootSelector + " .stale-projection .stale-badge"));
+      setProbe("before-after-count", root.querySelectorAll(".mini-diff span").length);
+      setProbe("rendered-before-after-count", renderedCount(rootSelector + " .mini-diff span"));
+      setProbe("retry-count", interactableCount(rootSelector + " .retry-recompute"));
+      setProbe("query-count", interactableCount(rootSelector + " .query-original-result"));
+      setProbe("restore-count", interactableCount(rootSelector + " .restore-draft"));
+      setProbe("revert-count", interactableCount(rootSelector + " .revert-changeset"));
+      root.querySelector(".retry-recompute").click();
+      setProbe("retry-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("retry-scope", targetDocument.body.dataset.retryScope || "");
+      root.querySelector(".query-original-result").click();
+      setProbe("query-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("result-query-key", targetDocument.body.dataset.resultQueryKey || "");
+      root.querySelector(".restore-draft").click();
+      setProbe("restore-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("restored-draft", targetDocument.body.dataset.restoredDraft || "");
+      setProbe("restored-anchor", targetDocument.body.dataset.restoredSemanticAnchor || "");
+      setProbe("restore-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+      root.querySelector(".revert-changeset").click();
+      setProbe("revert-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("revert-disposition", targetDocument.body.dataset.revertDisposition || "");
+    }
+
+    if (kind === "conflicted-draft") {
+      setProbe("evidence-stage", targetDocument.body.dataset.conflictedDraftEvidence || "");
+      setProbe("base-version", root.dataset.baseVersion || "");
+      setProbe("latest-version", root.dataset.latestVersion || "");
+      setProbe("draft-preserved", root.dataset.draftPreserved || "");
+      setProbe("three-way-count", root.querySelectorAll(".three-way-diff > article").length);
+      setProbe("rendered-three-way-count", renderedCount(rootSelector + " .three-way-diff > article"));
+      setProbe("base-count", root.querySelectorAll(".diff-base").length);
+      setProbe("latest-count", root.querySelectorAll(".diff-latest").length);
+      setProbe("draft-count", root.querySelectorAll(".diff-draft").length);
+      setProbe("conflict-panel-count", root.querySelectorAll("#conflict-detail-panel").length);
+      setProbe("rendered-conflict-panel-count", renderedCount(rootSelector + " #conflict-detail-panel"));
+      setProbe("guard-count", root.querySelectorAll(".conflict-guard").length);
+      setProbe("rendered-guard-count", renderedCount(rootSelector + " .conflict-guard"));
+      setProbe("rebase-count", interactableCount(rootSelector + " .rebase-draft"));
+      setProbe("disabled-commit-count", root.querySelectorAll("button.conflict-commit:disabled[aria-disabled='true']").length);
+      root.querySelector(".rebase-draft").click();
+      setProbe("rebase-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("rebase-status", targetDocument.body.dataset.rebaseStatus || "");
+      root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+      setProbe("first-escape-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("first-escape-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+      setProbe("panel-hidden-after-escape", targetDocument.getElementById("conflict-detail-panel").hidden);
+      root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+      setProbe("second-escape-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("second-escape-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
     }
     setProbe("status", "READY");
   };
@@ -1421,6 +1608,187 @@ if [[ "${active_number}" -ge 3 ]]; then
     fail "source-verification visual evidence is stale for the current prototype"
 fi
 
+if [[ "${active_number}" -ge 4 ]]; then
+  require_line_once "${visual_design}" 'HV-D03 RevisionAndRecovery = PASS'
+  for evidence_contract in \
+    'module-revision-impact-desktop.png|state=revision-impact' \
+    'module-recovery-desktop.png|state=partial-failure' \
+    'module-conflicted-draft-desktop.png|state=conflicted-draft'; do
+    evidence_name="${evidence_contract%%|*}"
+    evidence_state="${evidence_contract#*|}"
+    require_text "${evidence_dir}/README.md" "${evidence_name}"
+    require_text "${evidence_dir}/README.md" "${evidence_state}"
+  done
+
+  revision_probe_file="${runtime_tmp}/revision-impact-selector-probe.html"
+  write_hvd03_selector_probe "${revision_probe_file}" \
+    "file://${prototype_dir}/index.html?state=revision-impact" 'revision-impact'
+  revision_probe_dom_file="${runtime_tmp}/revision-impact-selector-probe-dom.html"
+  run_headless_dump_dom "${revision_dom_chrome_profile}" "${revision_probe_dom_file}" \
+    "file://${revision_probe_file}" --allow-file-access-from-files ||
+    fail "Chrome could not evaluate the revision-impact browser selector probe"
+  revision_probe_dom="$(<"${revision_probe_dom_file}")"
+  for revision_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|revision-impact' \
+    'data-probe-document-count|1' \
+    'data-probe-rendered-document-count|1' \
+    'data-probe-state-code|REVISION_MODE' \
+    'data-probe-processing-state|COMMIT_BLOCKED' \
+    'data-probe-draft-state|DIRTY_DRAFT' \
+    'data-probe-origin-anchor-declaration|revision-origin-anchor' \
+    'data-probe-origin-anchor-count|1' \
+    'data-probe-interactable-origin-anchor-count|1' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-before-count|1' \
+    'data-probe-after-count|1' \
+    'data-probe-rendered-before-count|1' \
+    'data-probe-rendered-after-count|1' \
+    'data-probe-impact-lane-count|3' \
+    'data-probe-rendered-impact-lane-count|3' \
+    'data-probe-semantic-count|1' \
+    'data-probe-structural-count|1' \
+    'data-probe-expression-count|1' \
+    'data-probe-blocker-count|1' \
+    'data-probe-rendered-blocker-count|1' \
+    'data-probe-draft-preserved-count|1' \
+    'data-probe-commit-control-count|1' \
+    'data-probe-disabled-commit-count|1' \
+    'data-probe-escape-transition|ESCAPE_CLOSE' \
+    'data-probe-escape-focus|revision-origin-anchor'; do
+    revision_attribute="${revision_contract%%|*}"
+    revision_expected="${revision_contract#*|}"
+    require_hvd02_probe_value revision-impact "${revision_probe_dom}" \
+      "${revision_attribute}" "${revision_expected}"
+  done
+
+  recovery_probe_file="${runtime_tmp}/partial-failure-selector-probe.html"
+  write_hvd03_selector_probe "${recovery_probe_file}" \
+    "file://${prototype_dir}/index.html?state=partial-failure" 'partial-failure'
+  recovery_probe_dom_file="${runtime_tmp}/partial-failure-selector-probe-dom.html"
+  run_headless_dump_dom "${recovery_dom_chrome_profile}" "${recovery_probe_dom_file}" \
+    "file://${recovery_probe_file}" --allow-file-access-from-files ||
+    fail "Chrome could not evaluate the partial-failure browser selector probe"
+  recovery_probe_dom="$(<"${recovery_probe_dom_file}")"
+  for recovery_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|partial-failure' \
+    'data-probe-document-count|1' \
+    'data-probe-rendered-document-count|1' \
+    'data-probe-state-code|PARTIAL_FAILURE' \
+    'data-probe-processing-state|CANONICAL_SAVED' \
+    'data-probe-draft-state|RECOVERABLE_DRAFT' \
+    'data-probe-origin-anchor-declaration|recovery-origin-anchor' \
+    'data-probe-origin-anchor-count|1' \
+    'data-probe-interactable-origin-anchor-count|1' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-canonical-saved-boundary|CONFIRMED' \
+    'data-probe-canonical-version|v13' \
+    'data-probe-changeset-id|cs-1042' \
+    'data-probe-idempotency-key|idem-hv-d03-1042' \
+    'data-probe-saved-boundary-count|1' \
+    'data-probe-rendered-saved-boundary-count|1' \
+    'data-probe-processing-state-count|4' \
+    'data-probe-rendered-processing-state-count|4' \
+    'data-probe-complete-count|1' \
+    'data-probe-failed-count|1' \
+    'data-probe-stale-count|1' \
+    'data-probe-pending-count|1' \
+    'data-probe-stale-projection-count|1' \
+    'data-probe-rendered-stale-projection-count|1' \
+    'data-probe-before-after-count|2' \
+    'data-probe-rendered-before-after-count|2' \
+    'data-probe-retry-count|1' \
+    'data-probe-query-count|1' \
+    'data-probe-restore-count|1' \
+    'data-probe-revert-count|1' \
+    'data-probe-retry-transition|RETRY_FAILED_CHANNEL' \
+    'data-probe-retry-scope|RECOMPUTING_ONLY' \
+    'data-probe-query-transition|QUERY_ORIGINAL_RESULT_SAME_KEY' \
+    'data-probe-result-query-key|idem-hv-d03-1042' \
+    'data-probe-restore-transition|REFRESH_DRAFT_RESTORED' \
+    'data-probe-restored-draft|draft-r7' \
+    'data-probe-restored-anchor|module-results' \
+    'data-probe-restore-focus|recovery-origin-anchor' \
+    'data-probe-revert-transition|REVERT_CHANGESET_DRAFTED' \
+    'data-probe-revert-disposition|CREATE_NEW_CHANGESET'; do
+    recovery_attribute="${recovery_contract%%|*}"
+    recovery_expected="${recovery_contract#*|}"
+    require_hvd02_probe_value partial-failure "${recovery_probe_dom}" \
+      "${recovery_attribute}" "${recovery_expected}"
+  done
+
+  conflict_probe_file="${runtime_tmp}/conflicted-draft-selector-probe.html"
+  write_hvd03_selector_probe "${conflict_probe_file}" \
+    "file://${prototype_dir}/index.html?state=conflicted-draft" 'conflicted-draft'
+  conflict_probe_dom_file="${runtime_tmp}/conflicted-draft-selector-probe-dom.html"
+  run_headless_dump_dom "${conflict_dom_chrome_profile}" "${conflict_probe_dom_file}" \
+    "file://${conflict_probe_file}" --allow-file-access-from-files ||
+    fail "Chrome could not evaluate the conflicted-draft browser selector probe"
+  conflict_probe_dom="$(<"${conflict_probe_dom_file}")"
+  for conflict_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|conflicted-draft' \
+    'data-probe-document-count|1' \
+    'data-probe-rendered-document-count|1' \
+    'data-probe-state-code|CONFLICTED_DRAFT' \
+    'data-probe-processing-state|COMMIT_BLOCKED' \
+    'data-probe-origin-anchor-declaration|conflict-origin-anchor' \
+    'data-probe-origin-anchor-count|1' \
+    'data-probe-interactable-origin-anchor-count|1' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-base-version|v12' \
+    'data-probe-latest-version|v13' \
+    'data-probe-draft-preserved|true' \
+    'data-probe-three-way-count|3' \
+    'data-probe-rendered-three-way-count|3' \
+    'data-probe-base-count|1' \
+    'data-probe-latest-count|1' \
+    'data-probe-draft-count|1' \
+    'data-probe-conflict-panel-count|1' \
+    'data-probe-rendered-conflict-panel-count|1' \
+    'data-probe-guard-count|1' \
+    'data-probe-rendered-guard-count|1' \
+    'data-probe-rebase-count|1' \
+    'data-probe-disabled-commit-count|1' \
+    'data-probe-rebase-transition|REBASE_PREVIEWED' \
+    'data-probe-rebase-status|DRAFT_PRESERVED' \
+    'data-probe-first-escape-transition|CONFLICT_DETAIL_ESCAPE_CLOSE' \
+    'data-probe-first-escape-focus|conflict-detail-trigger' \
+    'data-probe-panel-hidden-after-escape|true' \
+    'data-probe-second-escape-transition|ESCAPE_CLOSE' \
+    'data-probe-second-escape-focus|conflict-origin-anchor'; do
+    conflict_attribute="${conflict_contract%%|*}"
+    conflict_expected="${conflict_contract#*|}"
+    require_hvd02_probe_value conflicted-draft "${conflict_probe_dom}" \
+      "${conflict_attribute}" "${conflict_expected}"
+  done
+
+  for screenshot_contract in \
+    "revision-impact|module-revision-impact-desktop.png|${revision_png_chrome_profile}" \
+    "partial-failure|module-recovery-desktop.png|${recovery_png_chrome_profile}" \
+    "conflicted-draft|module-conflicted-draft-desktop.png|${conflict_png_chrome_profile}"; do
+    screenshot_state="${screenshot_contract%%|*}"
+    screenshot_remaining="${screenshot_contract#*|}"
+    screenshot_name="${screenshot_remaining%%|*}"
+    screenshot_profile="${screenshot_remaining#*|}"
+    screenshot_evidence="${evidence_dir}/${screenshot_name}"
+    [[ -f "${screenshot_evidence}" ]] || fail "${screenshot_state} visual evidence is missing"
+    screenshot_description="$(file "${screenshot_evidence}" 2>/dev/null || true)"
+    [[ "${screenshot_description}" == *"PNG image data, 1440 x 1100"* ]] ||
+      fail "${screenshot_state} visual evidence must be a 1440x1100 PNG"
+    captured_screenshot="${runtime_tmp}/${screenshot_name}"
+    run_headless_screenshot "${screenshot_profile}" "${captured_screenshot}" '1440,1100' \
+      "file://${prototype_dir}/index.html?state=${screenshot_state}" ||
+      fail "Chrome could not recapture the ${screenshot_state} evidence"
+    cmp -s "${captured_screenshot}" "${screenshot_evidence}" ||
+      fail "${screenshot_state} visual evidence is stale for the current prototype"
+  done
+fi
+
 printf 'HighFidelityVisualTaskCardValidation = PASS\n'
 printf 'TaskCardCount = 6\n'
 printf 'TaskCardSetStatus = READY_FOR_EXECUTION\n'
@@ -1450,6 +1818,20 @@ if [[ "${active_number}" -ge 3 ]]; then
   printf 'SourceVerificationInteractionTransitionValidation = PASS\n'
   printf 'SourceVerificationEvidence = 1440x1100\n'
   printf 'SourceVerificationEvidenceFreshness = PASS\n'
+fi
+if [[ "${active_number}" -ge 4 ]]; then
+  printf 'RevisionImpactBrowserSelectorValidation = PASS\n'
+  printf 'RevisionImpactInteractionTransitionValidation = PASS\n'
+  printf 'RevisionImpactEvidence = 1440x1100\n'
+  printf 'RevisionImpactEvidenceFreshness = PASS\n'
+  printf 'RecoveryBrowserSelectorValidation = PASS\n'
+  printf 'RecoveryInteractionTransitionValidation = PASS\n'
+  printf 'RecoveryEvidence = 1440x1100\n'
+  printf 'RecoveryEvidenceFreshness = PASS\n'
+  printf 'ConflictedDraftBrowserSelectorValidation = PASS\n'
+  printf 'ConflictedDraftInteractionTransitionValidation = PASS\n'
+  printf 'ConflictedDraftEvidence = 1440x1100\n'
+  printf 'ConflictedDraftEvidenceFreshness = PASS\n'
 fi
 printf 'HighFidelityVisualDesign = NOT_RUN\n'
 printf 'HighFidelityUsabilityValidation = NOT_RUN\n'

@@ -5,12 +5,13 @@ CanonicalProjectName = Cognitura
 TaskCardSet = HIGH_FIDELITY_VISUAL
 TaskCardIDs = HV-D00,HV-D01,HV-D02,HV-D03,HV-D04,HV-D05
 TaskCardCount = 6
-ActiveTaskCard = HV-D03
+ActiveTaskCard = HV-D04
 TaskCardSetStatus = READY_FOR_EXECUTION
 HighFidelityContractGate = HF-DG4 PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityModuleDefaultReading = PASS
 HighFidelityFocusAndSource = PASS
+HighFidelityRevisionAndRecovery = PASS
 HighFidelityUsabilityValidation = NOT_RUN
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -30,8 +31,8 @@ W1-I00Release = FORBIDDEN
 | `HV-D00` | [视觉基础与原型治理](HV-D00-visual-foundation.md) | `DONE` | `NONE` | `HV-D00 PASS` |
 | `HV-D01` | [Module 默认阅读证据](HV-D01-module-default-reading.md) | `DONE` | `HV-D00` | `HV-D01 PASS` |
 | `HV-D02` | [Relation 聚焦与来源核验](HV-D02-focus-and-source.md) | `DONE` | `HV-D01` | `HV-D02 PASS` |
-| `HV-D03` | [修订、影响与恢复](HV-D03-revision-and-recovery.md) | `READY` | `HV-D02` | `HV-D03 NOT_RUN` |
-| `HV-D04` | [跨层、小屏与静态导出](HV-D04-cross-layer-responsive-export.md) | `BLOCKED_BY_DEPENDENCY` | `HV-D03` | `HV-D04 NOT_RUN` |
+| `HV-D03` | [修订、影响与恢复](HV-D03-revision-and-recovery.md) | `DONE` | `HV-D02` | `HV-D03 PASS` |
+| `HV-D04` | [跨层、小屏与静态导出](HV-D04-cross-layer-responsive-export.md) | `READY` | `HV-D03` | `HV-D04 NOT_RUN` |
 | `HV-D05` | [固定视觉与可用性复核](HV-D05-fixed-visual-usability-review.md) | `BLOCKED_BY_DEPENDENCY` | `HV-D04` | `HV-D05 NOT_RUN` |
 
 ## 2. 状态规则
@@ -39,8 +40,8 @@ W1-I00Release = FORBIDDEN
 卡片严格串行；任何时刻最多一张 `READY`。`HV-D00` 只建立视觉 token、静态
 fixture 治理和基础截图；`HV-D01` 只关闭 Module 默认阅读的七项 RF Owner 视觉
 结果，不把后续页面证据或可用性状态标为 PASS；`HV-D02` 只关闭
-`RF-AC-03,07,09,16` 的视觉观察。当前唯一允许执行的卡是 `HV-D03`，其余两张
-排队卡不得提前修改。
+`RF-AC-03,07,09,16` 的视觉观察；`HV-D03` 只关闭 `RF-AC-13,14,17,18` 的视觉
+观察。当前唯一允许执行的卡是 `HV-D04`，`HV-D05` 不得提前修改。
 
 ## 3. 验证
 

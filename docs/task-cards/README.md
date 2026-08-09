@@ -8,7 +8,7 @@ ActiveTaskCard = NONE
 TaskCardSetStatus = COMPLETE
 Wave1FeatureDevelopmentEntry = GO
 HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
-HighFidelityVisualActiveTaskCard = HV-D03
+HighFidelityVisualActiveTaskCard = HV-D04
 ```
 
 本目录将
@@ -102,6 +102,6 @@ ExpectedActiveTaskCard = NONE
 - [Wave 1 设计卡集](wave-1/README.md)：已完成。
 - [高保真合同设计卡集](high-fidelity-design/README.md)：已完成，`HF-DG4 PASS`。
 - [高保真视觉设计卡集](high-fidelity-visual/README.md)：`HV-D00`、`HV-D01`、
-  `HV-D02` 已 `DONE`，当前唯一 `READY` 为 `HV-D03`。
+  `HV-D03` 已 `DONE`，当前唯一 `READY` 为 `HV-D04`。
 
 这些卡集拥有各自的状态机和验证器；Wave 0 九卡状态仍保持 `COMPLETE`。

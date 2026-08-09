@@ -3,8 +3,8 @@
 ```text
 TaskCardID = HV-D03
 CardKind = HIGH_FIDELITY_VISUAL_DESIGN
-Status = READY
-Gate = HV-D03 NOT_RUN
+Status = DONE
+Gate = HV-D03 PASS
 Risk = HIGH
 DependsOn = HV-D02
 ReviewRoute = MAIN_AGENT_LOCAL_GATE
@@ -71,3 +71,16 @@ git diff --check
 ## 8. 提交与审查
 
 形成独立本地提交 `docs: design revision and recovery evidence`；不 push。
+
+```text
+ExecutionResult = PASS
+RevisionImpactArtifact = docs/design/high-fidelity/evidence/module-revision-impact-desktop.png
+RecoveryPrimaryArtifact = docs/design/high-fidelity/evidence/module-recovery-desktop.png
+ConflictedDraftSupplementalArtifact = docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png
+ArtifactViewport = 1440x1100
+BrowserSelectorValidation = PASS
+DuplicateRefreshRebaseEscapeTransitionValidation = PASS
+RFOwnerVisualPass = RF-AC-13,14,17,18
+UsabilityValidation = NOT_RUN
+ImplementationValidation = NOT_RUN
+```

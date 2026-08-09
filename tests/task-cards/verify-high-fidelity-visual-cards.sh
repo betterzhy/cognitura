@@ -226,10 +226,10 @@ for expected_line in \
   "HighFidelityVisualTaskCardValidation = PASS" \
   "TaskCardCount = 6" \
   "TaskCardSetStatus = READY_FOR_EXECUTION" \
-  "ActiveTaskCard = HV-D03" \
-  "DoneTaskCardCount = 3" \
+  "ActiveTaskCard = HV-D04" \
+  "DoneTaskCardCount = 4" \
   "ReadyTaskCardCount = 1" \
-  "BlockedTaskCardCount = 2" \
+  "BlockedTaskCardCount = 1" \
   "Task6WriteSetItemCount = 22" \
   "CurrentStageProjectionValidation = PASS" \
   "VisualFoundationPrototypeValidation = PASS" \
@@ -249,6 +249,18 @@ for expected_line in \
   "SourceVerificationInteractionTransitionValidation = PASS" \
   "SourceVerificationEvidence = 1440x1100" \
   "SourceVerificationEvidenceFreshness = PASS" \
+  "RevisionImpactBrowserSelectorValidation = PASS" \
+  "RevisionImpactInteractionTransitionValidation = PASS" \
+  "RevisionImpactEvidence = 1440x1100" \
+  "RevisionImpactEvidenceFreshness = PASS" \
+  "RecoveryBrowserSelectorValidation = PASS" \
+  "RecoveryInteractionTransitionValidation = PASS" \
+  "RecoveryEvidence = 1440x1100" \
+  "RecoveryEvidenceFreshness = PASS" \
+  "ConflictedDraftBrowserSelectorValidation = PASS" \
+  "ConflictedDraftInteractionTransitionValidation = PASS" \
+  "ConflictedDraftEvidence = 1440x1100" \
+  "ConflictedDraftEvidenceFreshness = PASS" \
   "HighFidelityVisualDesign = NOT_RUN" \
   "HighFidelityUsabilityValidation = NOT_RUN" \
   "BusinessImplementation = NOT_AUTHORIZED" \
@@ -266,8 +278,8 @@ expect_failure "${missing_card}" "actual visual task card count 5 does not match
 second_ready="${test_tmp_root}/second-ready"
 make_fixture "${second_ready}"
 sed -i.bak 's/^Status = BLOCKED_BY_DEPENDENCY$/Status = READY/' \
-  "${second_ready}/cards/HV-D04-cross-layer-responsive-export.md"
-rm "${second_ready}/cards/HV-D04-cross-layer-responsive-export.md.bak"
+  "${second_ready}/cards/HV-D05-fixed-visual-usability-review.md"
+rm "${second_ready}/cards/HV-D05-fixed-visual-usability-review.md.bak"
 expect_failure "${second_ready}" "exactly one READY card is required"
 
 wrong_write_set="${test_tmp_root}/wrong-write-set"
@@ -716,6 +728,96 @@ expect_hvd02_dom_failure "${independent_source_fact}" source-verification \
   module-source-verification-desktop.png \
   'source-verification must declare zero independent facts'
 
+missing_revision_before="${test_tmp_root}/missing-revision-before"
+make_fixture "${missing_revision_before}"
+sed -i.bak 's/class="revision-before"/class="revision-before-missing"/' \
+  "${missing_revision_before}/prototype/index.html"
+rm "${missing_revision_before}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_revision_before}" revision-impact \
+  module-revision-impact-desktop.png \
+  'revision-impact browser selector probe data-probe-before-count must be 1, got 0'
+
+hidden_revision_blocker="${test_tmp_root}/hidden-revision-blocker"
+make_fixture "${hidden_revision_blocker}"
+sed -i.bak 's/<article class="impact-lane impact-semantic blocker"/<article hidden class="impact-lane impact-semantic blocker"/' \
+  "${hidden_revision_blocker}/prototype/index.html"
+rm "${hidden_revision_blocker}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_revision_blocker}" revision-impact \
+  module-revision-impact-desktop.png \
+  'revision-impact browser selector probe data-probe-rendered-impact-lane-count must be 3, got 2'
+
+enabled_revision_commit="${test_tmp_root}/enabled-revision-commit"
+make_fixture "${enabled_revision_commit}"
+sed -i.bak 's/type="button" disabled aria-disabled="true">提交 ChangeSet/type="button">提交 ChangeSet/' \
+  "${enabled_revision_commit}/prototype/index.html"
+rm "${enabled_revision_commit}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${enabled_revision_commit}" revision-impact \
+  module-revision-impact-desktop.png \
+  'revision-impact browser selector probe data-probe-disabled-commit-count must be 1, got 0'
+
+hidden_saved_boundary="${test_tmp_root}/hidden-saved-boundary"
+make_fixture "${hidden_saved_boundary}"
+sed -i.bak 's/<section class="saved-boundary"/<section hidden class="saved-boundary"/' \
+  "${hidden_saved_boundary}/prototype/index.html"
+rm "${hidden_saved_boundary}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_saved_boundary}" partial-failure \
+  module-recovery-desktop.png \
+  'partial-failure browser selector probe data-probe-rendered-saved-boundary-count must be 1, got 0'
+
+missing_processing_state="${test_tmp_root}/missing-processing-state"
+make_fixture "${missing_processing_state}"
+sed -i.bak 's/class="processing-state failed"/class="processing-state-failed"/' \
+  "${missing_processing_state}/prototype/index.html"
+rm "${missing_processing_state}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_processing_state}" partial-failure \
+  module-recovery-desktop.png \
+  'partial-failure browser selector probe data-probe-processing-state-count must be 4, got 3'
+
+hidden_stale_projection="${test_tmp_root}/hidden-stale-projection"
+make_fixture "${hidden_stale_projection}"
+sed -i.bak 's/<span class="stale-badge"/<span hidden class="stale-badge"/' \
+  "${hidden_stale_projection}/prototype/index.html"
+rm "${hidden_stale_projection}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_stale_projection}" partial-failure \
+  module-recovery-desktop.png \
+  'partial-failure browser selector probe data-probe-rendered-stale-projection-count must be 1, got 0'
+
+disabled_result_query="${test_tmp_root}/disabled-result-query"
+make_fixture "${disabled_result_query}"
+sed -i.bak 's/class="query-original-result"/disabled class="query-original-result"/' \
+  "${disabled_result_query}/prototype/index.html"
+rm "${disabled_result_query}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${disabled_result_query}" partial-failure \
+  module-recovery-desktop.png \
+  'partial-failure browser selector probe data-probe-query-count must be 1, got 0'
+
+hidden_latest_conflict="${test_tmp_root}/hidden-latest-conflict"
+make_fixture "${hidden_latest_conflict}"
+sed -i.bak 's/<article class="diff-latest"/<article hidden class="diff-latest"/' \
+  "${hidden_latest_conflict}/prototype/index.html"
+rm "${hidden_latest_conflict}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_latest_conflict}" conflicted-draft \
+  module-conflicted-draft-desktop.png \
+  'conflicted-draft browser selector probe data-probe-rendered-three-way-count must be 3, got 2'
+
+disabled_conflict_rebase="${test_tmp_root}/disabled-conflict-rebase"
+make_fixture "${disabled_conflict_rebase}"
+sed -i.bak 's/class="rebase-draft"/disabled class="rebase-draft"/' \
+  "${disabled_conflict_rebase}/prototype/index.html"
+rm "${disabled_conflict_rebase}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${disabled_conflict_rebase}" conflicted-draft \
+  module-conflicted-draft-desktop.png \
+  'conflicted-draft browser selector probe data-probe-rebase-count must be 1, got 0'
+
+hidden_conflict_detail="${test_tmp_root}/hidden-conflict-detail"
+make_fixture "${hidden_conflict_detail}"
+sed -i.bak 's/<section id="conflict-detail-panel"/<section hidden id="conflict-detail-panel"/' \
+  "${hidden_conflict_detail}/prototype/index.html"
+rm "${hidden_conflict_detail}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_conflict_detail}" conflicted-draft \
+  module-conflicted-draft-desktop.png \
+  'conflicted-draft browser selector probe data-probe-rendered-conflict-panel-count must be 1, got 0'
+
 missing_module_source_label="${test_tmp_root}/missing-module-source-label"
 make_fixture "${missing_module_source_label}"
 sed -i.bak \
@@ -773,4 +875,5 @@ printf 'HV-D01FixRound1DOMNegativeFixtureCount = 15\n'
 printf 'HV-D01FixRound2AdversarialNegativeFixtureCount = 1\n'
 printf 'HV-D01SelectorSemanticsPositiveFixtureCount = 2\n'
 printf 'HV-D02DOMNegativeFixtureCount = 19\n'
-printf 'NegativeFixtureCount = 87\n'
+printf 'HV-D03DOMNegativeFixtureCount = 10\n'
+printf 'NegativeFixtureCount = 97\n'

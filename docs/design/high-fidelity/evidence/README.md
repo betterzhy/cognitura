@@ -93,6 +93,61 @@ HighFidelityFocusAndSource = PASS
 `RF-AC-03,07,09,16` 的 `HIGH_FIDELITY_VISUAL` 阶段为 PASS；正式 RF 输入行、异常、
 整体视觉、可用性与实现状态仍不变。
 
+## HV-D03 修订、影响与恢复证据
+
+```text
+Artifact = module-revision-impact-desktop.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=revision-impact
+Viewport = 1440x1100
+CaptureKind = CHROME_HEADLESS_LOCAL_FILE
+ArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+EvidenceClass = RevisionAndImpact
+ValidationStage = HIGH_FIDELITY_VISUAL
+EvidenceMeaning = BEFORE_AFTER_THREE_LANE_IMPACT_WITH_EXPANDED_BLOCKER
+FreshnessCheck = CHROME_RECAPTURE_1440x1100_BYTE_IDENTICAL
+StateCode = REVISION_MODE+COMMIT_BLOCKED
+ImpactLaneCount = 3
+CommitControl = DISABLED
+DraftPreserved = YES
+
+Artifact = module-recovery-desktop.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=partial-failure
+Viewport = 1440x1100
+CaptureKind = CHROME_HEADLESS_LOCAL_FILE
+ArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+EvidenceClass = Recovery
+ValidationStage = HIGH_FIDELITY_VISUAL
+EvidenceMeaning = CANONICAL_SAVED_PARTIAL_FAILURE_AND_EXPLICIT_RECOVERY
+FreshnessCheck = CHROME_RECAPTURE_1440x1100_BYTE_IDENTICAL
+StateCode = CANONICAL_SAVED+PARTIAL_FAILURE
+CanonicalVersion = v13
+ChangeSet = cs-1042
+ProcessingStateCount = 4
+StaleProjection = EXPLICIT_OUTDATED
+SubmitUnknownDisposition = QUERY_ORIGINAL_RESULT_WITH_SAME_KEY
+RevertDisposition = CREATE_NEW_REVERT_CHANGESET
+
+Artifact = module-conflicted-draft-desktop.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=conflicted-draft
+Viewport = 1440x1100
+CaptureKind = CHROME_HEADLESS_LOCAL_FILE
+ArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+EvidenceClass = Recovery
+ValidationStage = HIGH_FIDELITY_VISUAL
+EvidenceMeaning = BEFORE_LATEST_DRAFT_CONFLICT_WITH_REBASE_AND_DRAFT_PROTECTION
+FreshnessCheck = CHROME_RECAPTURE_1440x1100_BYTE_IDENTICAL
+StateCode = CONFLICTED_DRAFT+COMMIT_BLOCKED
+DraftPreserved = YES
+HighFidelityRevisionAndRecovery = PASS
+```
+
+`module-recovery-desktop.png` 是 HV-D03 唯一主证据；其余两张是必要补充证据。
+浏览器探针验证三类影响同屏、默认展开 Blocker、真实禁用提交、正式保存边界、四类
+后处理、显式 stale、同幂等键结果查询、失败通道重试、刷新恢复、Revert 新变更、
+冲突重新基线化与 Escape 分层焦点归还。该证据只使 `RF-AC-13,14,17,18` 的
+`HIGH_FIDELITY_VISUAL` 阶段为 PASS；正式 RF/Exception 输入行、整体视觉、可用性和
+实现状态仍不变。
+
 ## 后续主证据与 RF Owner
 
 ```text

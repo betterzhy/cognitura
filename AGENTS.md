@@ -13,7 +13,7 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 ## 2. 当前阶段与允许范围
 
 ```text
-CurrentStage = HIGH_FIDELITY_FOCUS_AND_SOURCE_ESTABLISHED
+CurrentStage = HIGH_FIDELITY_REVISION_AND_RECOVERY_ESTABLISHED
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
@@ -37,11 +37,12 @@ HighFidelityEvidenceContract = PASS
 HighFidelityVisualFoundation = PASS
 HighFidelityModuleDefaultReading = PASS
 HighFidelityFocusAndSource = PASS
+HighFidelityRevisionAndRecovery = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
-HighFidelityVisualProjectedEntry = HV-D03 READY / RELEASED
-ActiveDesignTaskCard = HV-D03
+HighFidelityVisualProjectedEntry = HV-D04 READY / RELEASED
+ActiveDesignTaskCard = HV-D04
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
@@ -65,8 +66,9 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 的输入合同，`HF-D04` 仅关闭固定合同候选审查。`HV-D00` 已建立 docs-only
 非生产视觉 token、确定性 URL fixture、基础截图和六卡串行治理；`HV-D01` 已以
 机制型合成内容和 1440×1100 证据关闭 Module 默认阅读视觉 Owner 集；`HV-D02`
-已以 Relation 主聚焦与完整来源核验的两张桌面证据关闭其四项视觉 Owner，并仅释放
-`HV-D03`。修订/恢复及后续高保真视觉、整体可用性和实现仍未执行。
+已以 Relation 主聚焦与完整来源核验的两张桌面证据关闭其四项视觉 Owner；`HV-D03`
+已以修订影响、正式保存后部分失败和冲突草稿三张证据关闭其四项视觉 Owner，并仅释放
+`HV-D04`。跨层、小屏、静态导出、整体可用性和实现仍未执行。
 
 ## 3. 正式事实来源
 
