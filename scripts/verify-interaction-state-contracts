@@ -481,7 +481,7 @@ evidence_classes=(
 [[ "$(grep -c '^HFD03EvidenceClass = ' "${document}" || true)" -eq 8 ]] ||
   fail "expected exact eight canonical evidence classes in candidate"
 [[ "$(grep -c '^EvidencePath = ' "${plan}" || true)" -eq 8 ]] ||
-  fail "expected exact eight canonical evidence classes in plan"
+  fail "evidence path contract mismatch"
 evidence_sequence=0
 for evidence_class in "${evidence_classes[@]}"; do
   evidence_sequence=$((evidence_sequence + 1))
@@ -489,7 +489,22 @@ for evidence_class in "${evidence_classes[@]}"; do
   [[ "$(grep -Fxc "HFD03EvidenceClass = ${evidence_class}" "${document}" || true)" -eq 1 ]] ||
     fail "expected exact eight canonical evidence classes in candidate"
   [[ "$(grep -c "^EvidencePath = ${evidence_ordinal}|${evidence_class}|" "${plan}" || true)" -eq 1 ]] ||
-    fail "expected exact eight canonical evidence classes in plan"
+    fail "evidence path contract mismatch"
+done
+
+evidence_path_contracts=(
+  'EvidencePath = 01|CognitiveModuleDefaultReading|Scenario=DEFAULT_READING_CLOSURE|Viewport=DESKTOP_WEB|InputState=READING_MODE+IDLE|Coverage=CoreQuestion,CoreConclusion,PrimaryCognitiveSpine,KnowledgeElementLocationAndExpansion,Relation,SourceEntry|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=NOT_RUN|Gate=HV-D01'
+  'EvidencePath = 02|RelationFocus|Scenario=SINGLE_PRIMARY_RELATION_FOCUS|Viewport=DESKTOP_WEB|InputState=READING_MODE+RELATION_PINNED|Coverage=OriginAnchor,Endpoints,SourceScope,KeyboardFocusReturn,Feedback|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-relation-focus-desktop.png|Status=NOT_RUN|Gate=HV-D02'
+  'EvidencePath = 03|SourceEvidenceVerification|Scenario=QUICK_AND_FULL_SOURCE_VERIFICATION|Viewport=DESKTOP_WEB|InputState=VERIFICATION_MODE+FULL_VERIFICATION|Coverage=SourceSupportScope,Conflict,Gap,PermissionDenied,Unavailable,A11y|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-source-verification-desktop.png|Status=NOT_RUN|Gate=HV-D02'
+  'EvidencePath = 04|RevisionAndImpact|Scenario=REVISION_THREE_LANE_IMPACT|Viewport=DESKTOP_WEB|InputState=REVISION_MODE+IMPACT_ANALYZING|Coverage=BeforeAfter,SemanticImpact,StructuralImpact,ExpressionImpact,CommitBlocker,Feedback|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-revision-impact-desktop.png|Status=NOT_RUN|Gate=HV-D03'
+  'EvidencePath = 05|Recovery|Scenario=REFRESH_HISTORY_CONFLICT_AND_PARTIAL_FAILURE|Viewport=DESKTOP_WEB|InputState=RECOVERABLE_DRAFT+PARTIAL_FAILURE|Coverage=Loading,Empty,Error,Retry,SubmitUnknown,Stale,Revert,FocusRestore|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-recovery-desktop.png|Status=NOT_RUN|Gate=HV-D03'
+  'EvidencePath = 06|KnowledgeLandscapeAndKnowledgeTheme|Scenario=CROSS_LAYER_DEFAULT_READING|Viewport=DESKTOP_WEB|InputState=READING_MODE+IDLE|Coverage=KnowledgeLandscape,KnowledgeTheme,CognitiveModule,KnowledgeElement,UnderstandingRoute,Closure|Artifact=PLANNED:docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png|Status=NOT_RUN|Gate=HV-D04'
+  'EvidencePath = 07|SmallScreenSafeReadable|Scenario=RESPONSIVE_SAFE_READING|Viewport=SMALL_SCREEN_390x844|InputState=READING_MODE+IDLE|Coverage=DocumentFlow,NoPersistentSidePanel,KnowledgeElementExpansion,TouchEquivalent,KeyboardFocus,A11y|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-default-reading-small-screen.png|Status=NOT_RUN|Gate=HV-D04'
+  'EvidencePath = 08|StaticExport|Scenario=STABLE_IDENTITY_EXPORT|Viewport=STATIC_EXPORT_1200x1600|InputState=PUBLISHED_CANONICAL_PROJECTION|Coverage=StableObjectIdentity,StableRelationIdentity,SourceTrace,DefaultReaderSilence|Artifact=PLANNED:docs/design/high-fidelity/evidence/static-export-example.png|Status=NOT_RUN|Gate=HV-D04'
+)
+for evidence_path_contract in "${evidence_path_contracts[@]}"; do
+  [[ "$(grep -Fxc "${evidence_path_contract}" "${plan}" || true)" -eq 1 ]] ||
+    fail "evidence path contract mismatch"
 done
 
 for contract_link in \
@@ -566,8 +581,18 @@ cross_domain_result="$(awk -F'|' '
     print rows ":" seen["MECHANISM_DOMAIN"] ":" seen["RULE_POLICY_DOMAIN"] ":" invalid+0
   }
 ' "${plan}")"
-[[ "${cross_domain_result}" == "2:1:1:0" ]] ||
+IFS=: read -r cross_domain_rows mechanism_domain_rows rule_policy_domain_rows cross_domain_invalid <<<"${cross_domain_result}"
+[[ "${mechanism_domain_rows}" -ge 1 && "${rule_policy_domain_rows}" -ge 1 ]] ||
   fail "mechanism and rule-policy cross-domain scenarios required"
+[[ "${cross_domain_rows}:${cross_domain_invalid}" == "2:0" ]] || fail "cross-domain scenario contract mismatch"
+cross_domain_contracts=(
+  'CrossDomainScenario = MECHANISM_DOMAIN|EvidenceClass=CognitiveModuleDefaultReading|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=MVCC_CONSISTENT_READ_MECHANISM|Status=NOT_RUN|Gate=HV-D04'
+  'CrossDomainScenario = RULE_POLICY_DOMAIN|EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=PROCUREMENT_ACCEPTANCE_BEFORE_PAYMENT_POLICY|Status=NOT_RUN|Gate=HV-D04'
+)
+for cross_domain_contract in "${cross_domain_contracts[@]}"; do
+  [[ "$(grep -Fxc "${cross_domain_contract}" "${plan}" || true)" -eq 1 ]] ||
+    fail "cross-domain scenario contract mismatch"
+done
 [[ "$(grep -c '^HFD03CrossDomainScenario = ' "${document}" || true)" -eq 2 ]] ||
   fail "candidate must contain exactly two cross-domain scenarios"
 for cross_domain_type in MECHANISM_DOMAIN RULE_POLICY_DOMAIN; do
@@ -666,6 +691,91 @@ for exception_id in "${exception_ids[@]}"; do
     fail "expected exact 20 exception acceptance set"
 done
 
+validate_acceptance_binding() {
+  local prefix="$1"
+  local id="$2"
+  local evidence_class="$3"
+  local scenario="$4"
+  local expected="$5"
+  local gate="$6"
+  local result
+  result="$(awk -F'|' -v prefix="${prefix}" -v id="${id}" \
+    -v evidence_class="${evidence_class}" -v scenario="${scenario}" \
+    -v expected="${expected}" -v gate="${gate}" '
+    index($0, prefix " = " id "|") == 1 {
+      rows++
+      if ($2 != "EvidenceClass=" evidence_class ||
+          $3 != "Scenario=" scenario ||
+          $6 != "Expected=" expected ||
+          $9 != "Gate=" gate) invalid++
+    }
+    END {print rows ":" invalid+0}
+  ' "${acceptance}")"
+  [[ "${result}" == "1:0" ]]
+}
+
+rf_bindings=(
+  'RF-AC-01|四层页面仍能完成主要认知任务|KnowledgeLandscapeAndKnowledgeTheme|FOUR_LAYER_ZERO_INTERACTION_TASK|FourLayerPrimaryCognitiveTaskCompletes|HV-D04'
+  'RF-AC-02|获得完整认知闭环|CognitiveModuleDefaultReading|MODULE_DEFAULT_READING|CompleteCognitiveClosureWithoutInteraction|HV-D01'
+  'RF-AC-03|关键 Relation 仍可理解|RelationFocus|NO_PERSISTENT_RIGHT_PANEL|PrimaryRelationRemainsUnderstandable|HV-D02'
+  'RF-AC-04|禁止同规格卡片网格作为主体|CognitiveModuleDefaultReading|NO_CARD_GRID_PRIMARY_BODY|StructuredContinuousNarrativeIsPrimary|HV-D01'
+  'RF-AC-05|禁止大量异形组件集合|CognitiveModuleDefaultReading|VISUAL_PRIMITIVE_RESTRAINT|NoMassCollectionOfIrregularComponents|HV-D01'
+  'RF-AC-06|必须连接机制、关系、条件和边界|CognitiveModuleDefaultReading|CONTINUOUS_COGNITIVE_NARRATIVE|MechanismRelationConditionAndBoundaryConnected|HV-D01'
+  'RF-AC-07|禁止常驻治理面板|SourceEvidenceVerification|ON_DEMAND_GOVERNANCE_SURFACE|NoPersistentGovernancePanel|HV-D02'
+  'RF-AC-08|必须符合页面级与 Section 级预算|CognitiveModuleDefaultReading|DEFAULT_CONTROL_BUDGET|PageAndSectionBudgetsSatisfied|HV-D01'
+  'RF-AC-09|同一事实只来自 Canonical Model|SourceEvidenceVerification|CANONICAL_FACT_TRACE|EachFactComesOnlyFromCanonicalModel|HV-D02'
+  'RF-AC-10|Object 和 Relation 身份一致|StaticExport|CROSS_PROJECTION_IDENTITY|ObjectAndRelationIdentityStableAcrossOutputs|HV-D04'
+  'RF-AC-11|普通 Element 不全部卡片化或节点化|CognitiveModuleDefaultReading|KNOWLEDGE_ELEMENT_LOCATION_AND_EXPANSION|OrdinaryElementsAreNotAllCardsOrNodes|HV-D01'
+  'RF-AC-12|核心正文不依赖视角切换|CognitiveModuleDefaultReading|PERSPECTIVE_OPTIONALITY|CoreNarrativeDoesNotDependOnPerspectiveSwitch|HV-D01'
+  'RF-AC-13|高风险影响默认展开并阻断提交|RevisionAndImpact|HIGH_RISK_IMPACT_BLOCKER|HighRiskImpactExpandedAndCommitBlocked|HV-D03'
+  'RF-AC-14|四类处理、部分失败和撤销明确|Recovery|POST_COMMIT_PROCESSING_AND_REVERT|FourProcessingStatesPartialFailureAndRevertExplicit|HV-D03'
+  'RF-AC-15|默认仍为连续文档阅读|SmallScreenSafeReadable|SMALL_SCREEN_DOCUMENT_FLOW|ContinuousDocumentRemainsSafeReadable|HV-D04'
+  'RF-AC-16|所有切换结果唯一且不丢上下文|RelationFocus|CLICK_ESCAPE_BLANK_KEYBOARD_MATRIX|UniqueTransitionWithContextAndFocusRestored|HV-D02'
+  'RF-AC-17|只恢复稳定语义状态和草稿|Recovery|URL_HISTORY_REFRESH_RESTORE|OnlyStableSemanticStateAndDraftRestore|HV-D03'
+  'RF-AC-18|保存边界、重试、回退和去重明确|Recovery|EXCEPTION_RECOVERY_MATRIX|SaveBoundaryRetryFallbackDedupAndFeedbackExplicit|HV-D03'
+  'RF-AC-19|稳定 ID 机器可读且默认不打扰读者|StaticExport|MACHINE_IDENTITY_READER_SILENCE|StableIdsMachineReadableAndReaderSilent|HV-D04'
+  'RF-AC-20|已接受结论与当前候选追溯位置可定位|KnowledgeLandscapeAndKnowledgeTheme|LOW_TO_HIGH_FIDELITY_TRACE|AcceptedConclusionsTraceToCurrentCandidate|HV-D05'
+)
+for rf_binding in "${rf_bindings[@]}"; do
+  IFS='|' read -r rf_id candidate_criterion rf_class rf_scenario rf_expected rf_gate <<<"${rf_binding}"
+  candidate_criterion_count="$(awk -F'|' -v id="${rf_id}" -v criterion="${candidate_criterion}" '
+    function trim(value) {gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); return value}
+    trim($2) == id && trim($4) == criterion {count++}
+    END {print count+0}
+  ' "${document}")"
+  [[ "${candidate_criterion_count}" -eq 1 ]] || fail "RF candidate criterion binding mismatch"
+  validate_acceptance_binding RFAcceptance "${rf_id}" "${rf_class}" "${rf_scenario}" "${rf_expected}" "${rf_gate}" ||
+    fail "RF acceptance binding mismatch"
+done
+
+exception_bindings=(
+  'EX-PREVIEW-TARGET-DELETED|RelationFocus|PREVIEW_TARGET_DELETED|PreviewClosesAndStableFocusReturnsWithFeedback|HV-D02'
+  'EX-RELATION-SUPERSEDED|RelationFocus|RELATION_SUPERSEDED|SupersededRelationExplainedAndOriginRestored|HV-D02'
+  'EX-ELEMENT-PRIMARY-PARENT-CHANGED|CognitiveModuleDefaultReading|ELEMENT_PARENT_CHANGED|CanonicalLocationRebasedWithoutSecondTree|HV-D01'
+  'EX-AUTO-UPGRADE-FAILED|RevisionAndImpact|AUTO_UPGRADE_FAILED|DraftPreservedAndFullRevisionFallbackOffered|HV-D03'
+  'EX-IMPACT-ANALYSIS-FAILED|RevisionAndImpact|IMPACT_ANALYSIS_FAILED|CommitBlockedAndRetryScopeExplicit|HV-D03'
+  'EX-CANONICAL-SAVED-RECOMPUTE-FAILED|Recovery|CANONICAL_SAVED_RECOMPUTE_FAILED|CanonicalSaveBoundaryAndRecomputeRetryExplicit|HV-D03'
+  'EX-CANONICAL-SAVED-GENERATION-FAILED|Recovery|CANONICAL_SAVED_GENERATION_FAILED|CanonicalSaveBoundaryAndGenerationRetryExplicit|HV-D03'
+  'EX-GENERATED-CONFLICTS-LOCKED|Recovery|GENERATED_CONFLICTS_LOCKED|LockedContentConflictBlocksReplacement|HV-D03'
+  'EX-DRAFT-CONFLICTS-LATEST|Recovery|DRAFT_CONFLICTS_LATEST|RebaseChoicePreservesDraftAndLatestCanonical|HV-D03'
+  'EX-SOURCE-INVALIDATED|SourceEvidenceVerification|SOURCE_INVALIDATED|InvalidSourceMarkedAndReverificationRequired|HV-D02'
+  'EX-REFRESH-FOCUS-RESTORE-FAILED|Recovery|REFRESH_FOCUS_RESTORE_FAILED|NearestCanonicalParentAndFailureFeedbackShown|HV-D03'
+  'EX-SEMANTIC-ANCHOR-MOVED|Recovery|SEMANTIC_ANCHOR_MOVED|AnchorRebasedExplicitlyWithoutSilentDefault|HV-D03'
+  'EX-SMALL-SCREEN-PANEL-OVERFLOW|SmallScreenSafeReadable|SMALL_SCREEN_PANEL_OVERFLOW|WorkspaceBecomesSafeOverlayWithoutContentLoss|HV-D04'
+  'EX-TOUCH-NO-HOVER|SmallScreenSafeReadable|TOUCH_NO_HOVER|ExplicitTouchActionEqualsHoverInformation|HV-D04'
+  'EX-KEYBOARD-ENTERS-GRAPH|RelationFocus|KEYBOARD_ENTERS_GRAPH|FocusOrderA11yLabelAndEscapeReturnDeterministic|HV-D02'
+  'EX-DUPLICATE-SUBMIT-CLICK|RevisionAndImpact|DUPLICATE_SUBMIT_CLICK|DuplicateSubmissionDeduplicatedWithFeedback|HV-D03'
+  'EX-NETWORK-TIMEOUT-SAVE-UNKNOWN|Recovery|NETWORK_TIMEOUT_SAVE_UNKNOWN|SameIdempotencyKeyQueriesOriginalResult|HV-D03'
+  'EX-UI-FAILED-CANONICAL-SAVED|Recovery|UI_FAILED_CANONICAL_SAVED|CanonicalSavedTruthShownAndNoFalseRollback|HV-D03'
+  'EX-REVERT-AFFECTS-LATER-CHANGES|Recovery|REVERT_AFFECTS_LATER_CHANGES|RevertCreatesNewChangeSetAfterImpactReview|HV-D03'
+  'EX-WORKSPACE-SWITCH-WITH-DRAFT|Recovery|WORKSPACE_SWITCH_WITH_DRAFT|SaveDiscardCancelGuardPreservesFocusAndDraft|HV-D03'
+)
+for exception_binding in "${exception_bindings[@]}"; do
+  IFS='|' read -r exception_id exception_class exception_scenario exception_expected exception_gate <<<"${exception_binding}"
+  validate_acceptance_binding ExceptionAcceptance "${exception_id}" "${exception_class}" "${exception_scenario}" "${exception_expected}" "${exception_gate}" ||
+    fail "exception acceptance binding mismatch"
+done
+
 rm_index=1
 while [[ "${rm_index}" -le 30 ]]; do
   printf -v rm_number '%02d' "${rm_index}"
@@ -676,19 +786,58 @@ while [[ "${rm_index}" -le 30 ]]; do
     fail "expected exact ISHFI-RM-01..30 trace set"
   rm_index=$((rm_index + 1))
 done
-rm_trace_result="$(awk -F'|' '
-  /^ReverseMigrationTrace = ISHFI-RM-[0-9][0-9]\|/ {
-    if (NF != 5 ||
-        $2 !~ /^Candidate=ISHFI-RM-[0-9][0-9]$/ ||
-        $3 != "Plan=HFD03EvidenceContract" ||
-        $4 != "Acceptance=NOT_RUN" ||
-        $5 != "Status=TRACED") invalid++
-    rows++
-  }
-  END {print rows ":" invalid+0}
-' "${acceptance}")"
-[[ "${rm_trace_result}" == "30:0" ]] ||
-  fail "reverse-migration trace row field mismatch"
+rm_bindings=(
+  'ISHFI-RM-01|RelationFocus|02|RF-AC-03,EX-PREVIEW-TARGET-DELETED'
+  'ISHFI-RM-02|SmallScreenSafeReadable|07|RF-AC-15,EX-TOUCH-NO-HOVER'
+  'ISHFI-RM-03|RelationFocus|02|RF-AC-16,EX-RELATION-SUPERSEDED'
+  'ISHFI-RM-04|RevisionAndImpact|04|RF-AC-13,EX-AUTO-UPGRADE-FAILED'
+  'ISHFI-RM-05|RevisionAndImpact|04|RF-AC-13,EX-IMPACT-ANALYSIS-FAILED'
+  'ISHFI-RM-06|RevisionAndImpact|04|RF-AC-13,EX-IMPACT-ANALYSIS-FAILED'
+  'ISHFI-RM-07|Recovery|05|RF-AC-14,EX-CANONICAL-SAVED-RECOMPUTE-FAILED,EX-CANONICAL-SAVED-GENERATION-FAILED'
+  'ISHFI-RM-08|Recovery|05|RF-AC-18,EX-CANONICAL-SAVED-RECOMPUTE-FAILED,EX-CANONICAL-SAVED-GENERATION-FAILED'
+  'ISHFI-RM-09|Recovery|05|RF-AC-17,EX-REFRESH-FOCUS-RESTORE-FAILED'
+  'ISHFI-RM-10|Recovery|05|RF-AC-18,EX-DRAFT-CONFLICTS-LATEST,EX-REVERT-AFFECTS-LATER-CHANGES'
+  'ISHFI-RM-11|SmallScreenSafeReadable|07|RF-AC-15,EX-SMALL-SCREEN-PANEL-OVERFLOW,EX-TOUCH-NO-HOVER'
+  'ISHFI-RM-12|CognitiveModuleDefaultReading|01|RF-AC-02'
+  'ISHFI-RM-13|CognitiveModuleDefaultReading|01|RF-AC-02'
+  'ISHFI-RM-14|Recovery|05|RF-AC-18'
+  'ISHFI-RM-15|KnowledgeLandscapeAndKnowledgeTheme|06|RF-AC-01,RF-AC-20'
+  'ISHFI-RM-16|CognitiveModuleDefaultReading|01|RF-AC-02,RF-AC-06'
+  'ISHFI-RM-17|CognitiveModuleDefaultReading|01|RF-AC-02'
+  'ISHFI-RM-18|CognitiveModuleDefaultReading|01|RF-AC-06'
+  'ISHFI-RM-19|CognitiveModuleDefaultReading|01|RF-AC-04,RF-AC-11'
+  'ISHFI-RM-20|CognitiveModuleDefaultReading|01|RF-AC-05,RF-AC-08'
+  'ISHFI-RM-21|CognitiveModuleDefaultReading|01|RF-AC-08'
+  'ISHFI-RM-22|SourceEvidenceVerification|03|RF-AC-07,RF-AC-09'
+  'ISHFI-RM-23|StaticExport|08|RF-AC-10,RF-AC-19'
+  'ISHFI-RM-24|KnowledgeLandscapeAndKnowledgeTheme|06|RF-AC-20'
+  'ISHFI-RM-25|Recovery|05|RF-AC-17,RF-AC-18'
+  'ISHFI-RM-26|RelationFocus|02|RF-AC-16,EX-KEYBOARD-ENTERS-GRAPH'
+  'ISHFI-RM-27|Recovery|05|RF-AC-18,EX-NETWORK-TIMEOUT-SAVE-UNKNOWN,EX-UI-FAILED-CANONICAL-SAVED'
+  'ISHFI-RM-28|CognitiveModuleDefaultReading|01|RF-AC-08'
+  'ISHFI-RM-29|StaticExport|08|RF-AC-19'
+  'ISHFI-RM-30|KnowledgeLandscapeAndKnowledgeTheme|06|RF-AC-20'
+)
+for rm_binding in "${rm_bindings[@]}"; do
+  IFS='|' read -r rm_id rm_class rm_path rm_acceptance_ids <<<"${rm_binding}"
+  expected_rm_trace="ReverseMigrationTrace = ${rm_id}|Candidate=${rm_id}|EvidenceClass=${rm_class}|EvidencePath=${rm_path}|AcceptanceIds=${rm_acceptance_ids}|Status=TRACED"
+  [[ "$(grep -Fxc "${expected_rm_trace}" "${acceptance}" || true)" -eq 1 ]] ||
+    fail "reverse-migration trace binding mismatch"
+  [[ "$(grep -c "^EvidencePath = ${rm_path}|${rm_class}|" "${plan}" || true)" -eq 1 ]] ||
+    fail "reverse-migration trace binding mismatch"
+  IFS=',' read -r -a rm_references <<<"${rm_acceptance_ids}"
+  [[ "${#rm_references[@]}" -ge 1 ]] || fail "reverse-migration trace binding mismatch"
+  for rm_reference in "${rm_references[@]}"; do
+    rm_reference_count="$(awk -F'|' -v id="${rm_reference}" -v evidence_class="${rm_class}" '
+      index($0, "RFAcceptance = " id "|") == 1 || index($0, "ExceptionAcceptance = " id "|") == 1 {
+        rows++
+        if ($2 != "EvidenceClass=" evidence_class) invalid++
+      }
+      END {print rows ":" invalid+0}
+    ' "${acceptance}")"
+    [[ "${rm_reference_count}" == "1:0" ]] || fail "reverse-migration trace binding mismatch"
+  done
+done
 
 evidence_class_coverage="$(awk -F'|' '
   /^(RFAcceptance|ExceptionAcceptance) = / {

@@ -186,7 +186,7 @@ expect_evidence_failure \
   "${missing_evidence_class_root}/candidate.md" \
   "${missing_evidence_class_root}/docs/engineering/plan.md" \
   "${missing_evidence_class_root}/docs/engineering/acceptance.md" \
-  "expected exact eight canonical evidence classes"
+  "evidence path contract mismatch"
 
 legacy_evidence_name_root="${test_tmp_root}/legacy-evidence-name"
 make_evidence_fixture "${legacy_evidence_name_root}"
@@ -198,7 +198,7 @@ expect_evidence_failure \
   "${legacy_evidence_name_root}/candidate.md" \
   "${legacy_evidence_name_root}/docs/engineering/plan.md" \
   "${legacy_evidence_name_root}/docs/engineering/acceptance.md" \
-  "expected exact eight canonical evidence classes"
+  "evidence path contract mismatch"
 
 missing_rf_acceptance_root="${test_tmp_root}/missing-rf-acceptance"
 make_evidence_fixture "${missing_rf_acceptance_root}"
@@ -314,6 +314,276 @@ expect_evidence_failure \
   "${premature_hv_ready_root}/docs/engineering/plan.md" \
   "${premature_hv_ready_root}/docs/engineering/acceptance.md" \
   "visual design tasks must remain BLOCKED and NOT_RELEASED"
+
+evidence_path_captured_root="${test_tmp_root}/evidence-path-captured"
+make_evidence_fixture "${evidence_path_captured_root}"
+sed -i.bak '/^EvidencePath = 01|/s/Artifact=PLANNED:/Artifact=CAPTURED:/' \
+  "${evidence_path_captured_root}/docs/engineering/plan.md"
+rm "${evidence_path_captured_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${evidence_path_captured_root}/candidate.md" \
+  "${evidence_path_captured_root}/docs/engineering/plan.md" \
+  "${evidence_path_captured_root}/docs/engineering/acceptance.md" \
+  "evidence path contract mismatch"
+
+evidence_path_pass_root="${test_tmp_root}/evidence-path-pass"
+make_evidence_fixture "${evidence_path_pass_root}"
+sed -i.bak '/^EvidencePath = 01|/s/Status=NOT_RUN/Status=PASS/' \
+  "${evidence_path_pass_root}/docs/engineering/plan.md"
+rm "${evidence_path_pass_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${evidence_path_pass_root}/candidate.md" \
+  "${evidence_path_pass_root}/docs/engineering/plan.md" \
+  "${evidence_path_pass_root}/docs/engineering/acceptance.md" \
+  "evidence path contract mismatch"
+
+evidence_path_missing_field_root="${test_tmp_root}/evidence-path-missing-field"
+make_evidence_fixture "${evidence_path_missing_field_root}"
+sed -i.bak '/^EvidencePath = 02|/s/|Scenario=[^|]*|/||/' \
+  "${evidence_path_missing_field_root}/docs/engineering/plan.md"
+rm "${evidence_path_missing_field_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${evidence_path_missing_field_root}/candidate.md" \
+  "${evidence_path_missing_field_root}/docs/engineering/plan.md" \
+  "${evidence_path_missing_field_root}/docs/engineering/acceptance.md" \
+  "evidence path contract mismatch"
+
+evidence_path_wrong_gate_root="${test_tmp_root}/evidence-path-wrong-gate"
+make_evidence_fixture "${evidence_path_wrong_gate_root}"
+sed -i.bak '/^EvidencePath = 03|/s/Gate=HV-D02/Gate=HV-D03/' \
+  "${evidence_path_wrong_gate_root}/docs/engineering/plan.md"
+rm "${evidence_path_wrong_gate_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${evidence_path_wrong_gate_root}/candidate.md" \
+  "${evidence_path_wrong_gate_root}/docs/engineering/plan.md" \
+  "${evidence_path_wrong_gate_root}/docs/engineering/acceptance.md" \
+  "evidence path contract mismatch"
+
+duplicate_evidence_path_root="${test_tmp_root}/duplicate-evidence-path"
+make_evidence_fixture "${duplicate_evidence_path_root}"
+sed -i.bak '/^EvidencePath = 04|/p' \
+  "${duplicate_evidence_path_root}/docs/engineering/plan.md"
+rm "${duplicate_evidence_path_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${duplicate_evidence_path_root}/candidate.md" \
+  "${duplicate_evidence_path_root}/docs/engineering/plan.md" \
+  "${duplicate_evidence_path_root}/docs/engineering/acceptance.md" \
+  "evidence path contract mismatch"
+
+appended_evidence_path_root="${test_tmp_root}/appended-evidence-path"
+make_evidence_fixture "${appended_evidence_path_root}"
+sed -i.bak '/^EvidencePath = 08|/a\
+EvidencePath = 09|StaticExport|Scenario=CONFLICT|Viewport=DESKTOP_WEB|InputState=READING_MODE+IDLE|Coverage=Conflict|Artifact=PLANNED:conflict.png|Status=NOT_RUN|Gate=HV-D04' \
+  "${appended_evidence_path_root}/docs/engineering/plan.md"
+rm "${appended_evidence_path_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${appended_evidence_path_root}/candidate.md" \
+  "${appended_evidence_path_root}/docs/engineering/plan.md" \
+  "${appended_evidence_path_root}/docs/engineering/acceptance.md" \
+  "evidence path contract mismatch"
+
+rf_expected_swap_root="${test_tmp_root}/rf-expected-swap"
+make_evidence_fixture "${rf_expected_swap_root}"
+sed -i.bak '/^RFAcceptance = RF-AC-01|/s/Expected=FourLayerPrimaryCognitiveTaskCompletes/Expected=CompleteCognitiveClosureWithoutInteraction/' \
+  "${rf_expected_swap_root}/docs/engineering/acceptance.md"
+rm "${rf_expected_swap_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${rf_expected_swap_root}/candidate.md" \
+  "${rf_expected_swap_root}/docs/engineering/plan.md" \
+  "${rf_expected_swap_root}/docs/engineering/acceptance.md" \
+  "RF acceptance binding mismatch"
+
+rf_scenario_swap_root="${test_tmp_root}/rf-scenario-swap"
+make_evidence_fixture "${rf_scenario_swap_root}"
+sed -i.bak '/^RFAcceptance = RF-AC-01|/s/Scenario=FOUR_LAYER_ZERO_INTERACTION_TASK/Scenario=MODULE_DEFAULT_READING/' \
+  "${rf_scenario_swap_root}/docs/engineering/acceptance.md"
+rm "${rf_scenario_swap_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${rf_scenario_swap_root}/candidate.md" \
+  "${rf_scenario_swap_root}/docs/engineering/plan.md" \
+  "${rf_scenario_swap_root}/docs/engineering/acceptance.md" \
+  "RF acceptance binding mismatch"
+
+rf_wrong_class_root="${test_tmp_root}/rf-wrong-class"
+make_evidence_fixture "${rf_wrong_class_root}"
+sed -i.bak '/^RFAcceptance = RF-AC-01|/s/EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme/EvidenceClass=CognitiveModuleDefaultReading/' \
+  "${rf_wrong_class_root}/docs/engineering/acceptance.md"
+rm "${rf_wrong_class_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${rf_wrong_class_root}/candidate.md" \
+  "${rf_wrong_class_root}/docs/engineering/plan.md" \
+  "${rf_wrong_class_root}/docs/engineering/acceptance.md" \
+  "RF acceptance binding mismatch"
+
+duplicate_rf_binding_root="${test_tmp_root}/duplicate-rf-binding"
+make_evidence_fixture "${duplicate_rf_binding_root}"
+sed -i.bak '/^RFAcceptance = RF-AC-02|/p' \
+  "${duplicate_rf_binding_root}/docs/engineering/acceptance.md"
+rm "${duplicate_rf_binding_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${duplicate_rf_binding_root}/candidate.md" \
+  "${duplicate_rf_binding_root}/docs/engineering/plan.md" \
+  "${duplicate_rf_binding_root}/docs/engineering/acceptance.md" \
+  "expected exact RF-AC-01..20 acceptance set"
+
+appended_rf_conflict_root="${test_tmp_root}/appended-rf-conflict"
+make_evidence_fixture "${appended_rf_conflict_root}"
+sed -i.bak '/^RFAcceptance = RF-AC-20|/a\
+RFAcceptance = RF-AC-01|EvidenceClass=CognitiveModuleDefaultReading|Scenario=CONFLICT|Viewport=DESKTOP_1440x1100|InputState=READING_MODE+IDLE|Expected=Conflict|Artifact=PLANNED:conflict.png|Status=NOT_RUN|Gate=HV-D01' \
+  "${appended_rf_conflict_root}/docs/engineering/acceptance.md"
+rm "${appended_rf_conflict_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${appended_rf_conflict_root}/candidate.md" \
+  "${appended_rf_conflict_root}/docs/engineering/plan.md" \
+  "${appended_rf_conflict_root}/docs/engineering/acceptance.md" \
+  "expected exact RF-AC-01..20 acceptance set"
+
+exception_expected_swap_root="${test_tmp_root}/exception-expected-swap"
+make_evidence_fixture "${exception_expected_swap_root}"
+sed -i.bak '/^ExceptionAcceptance = EX-PREVIEW-TARGET-DELETED|/s/Expected=PreviewClosesAndStableFocusReturnsWithFeedback/Expected=SupersededRelationExplainedAndOriginRestored/' \
+  "${exception_expected_swap_root}/docs/engineering/acceptance.md"
+rm "${exception_expected_swap_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${exception_expected_swap_root}/candidate.md" \
+  "${exception_expected_swap_root}/docs/engineering/plan.md" \
+  "${exception_expected_swap_root}/docs/engineering/acceptance.md" \
+  "exception acceptance binding mismatch"
+
+exception_scenario_swap_root="${test_tmp_root}/exception-scenario-swap"
+make_evidence_fixture "${exception_scenario_swap_root}"
+sed -i.bak '/^ExceptionAcceptance = EX-PREVIEW-TARGET-DELETED|/s/Scenario=PREVIEW_TARGET_DELETED/Scenario=RELATION_SUPERSEDED/' \
+  "${exception_scenario_swap_root}/docs/engineering/acceptance.md"
+rm "${exception_scenario_swap_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${exception_scenario_swap_root}/candidate.md" \
+  "${exception_scenario_swap_root}/docs/engineering/plan.md" \
+  "${exception_scenario_swap_root}/docs/engineering/acceptance.md" \
+  "exception acceptance binding mismatch"
+
+exception_wrong_class_root="${test_tmp_root}/exception-wrong-class"
+make_evidence_fixture "${exception_wrong_class_root}"
+sed -i.bak '/^ExceptionAcceptance = EX-PREVIEW-TARGET-DELETED|/s/EvidenceClass=RelationFocus/EvidenceClass=Recovery/' \
+  "${exception_wrong_class_root}/docs/engineering/acceptance.md"
+rm "${exception_wrong_class_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${exception_wrong_class_root}/candidate.md" \
+  "${exception_wrong_class_root}/docs/engineering/plan.md" \
+  "${exception_wrong_class_root}/docs/engineering/acceptance.md" \
+  "exception acceptance binding mismatch"
+
+duplicate_exception_binding_root="${test_tmp_root}/duplicate-exception-binding"
+make_evidence_fixture "${duplicate_exception_binding_root}"
+sed -i.bak '/^ExceptionAcceptance = EX-RELATION-SUPERSEDED|/p' \
+  "${duplicate_exception_binding_root}/docs/engineering/acceptance.md"
+rm "${duplicate_exception_binding_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${duplicate_exception_binding_root}/candidate.md" \
+  "${duplicate_exception_binding_root}/docs/engineering/plan.md" \
+  "${duplicate_exception_binding_root}/docs/engineering/acceptance.md" \
+  "expected exact 20 exception acceptance set"
+
+appended_exception_conflict_root="${test_tmp_root}/appended-exception-conflict"
+make_evidence_fixture "${appended_exception_conflict_root}"
+sed -i.bak '/^ExceptionAcceptance = EX-WORKSPACE-SWITCH-WITH-DRAFT|/a\
+ExceptionAcceptance = EX-PREVIEW-TARGET-DELETED|EvidenceClass=Recovery|Scenario=CONFLICT|Viewport=DESKTOP_1440x1100|InputState=FAILED|Expected=Conflict|Artifact=PLANNED:conflict.png|Status=NOT_RUN|Gate=HV-D03' \
+  "${appended_exception_conflict_root}/docs/engineering/acceptance.md"
+rm "${appended_exception_conflict_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${appended_exception_conflict_root}/candidate.md" \
+  "${appended_exception_conflict_root}/docs/engineering/plan.md" \
+  "${appended_exception_conflict_root}/docs/engineering/acceptance.md" \
+  "expected exact 20 exception acceptance set"
+
+rm_candidate_cross_link_root="${test_tmp_root}/rm-candidate-cross-link"
+make_evidence_fixture "${rm_candidate_cross_link_root}"
+sed -i.bak '/^ReverseMigrationTrace = ISHFI-RM-01|/s/Candidate=ISHFI-RM-01/Candidate=ISHFI-RM-02/' \
+  "${rm_candidate_cross_link_root}/docs/engineering/acceptance.md"
+rm "${rm_candidate_cross_link_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${rm_candidate_cross_link_root}/candidate.md" \
+  "${rm_candidate_cross_link_root}/docs/engineering/plan.md" \
+  "${rm_candidate_cross_link_root}/docs/engineering/acceptance.md" \
+  "reverse-migration trace binding mismatch"
+
+rm_empty_acceptance_root="${test_tmp_root}/rm-empty-acceptance"
+make_evidence_fixture "${rm_empty_acceptance_root}"
+sed -i.bak '/^ReverseMigrationTrace = ISHFI-RM-02|/s/AcceptanceIds=[^|]*/AcceptanceIds=/' \
+  "${rm_empty_acceptance_root}/docs/engineering/acceptance.md"
+rm "${rm_empty_acceptance_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${rm_empty_acceptance_root}/candidate.md" \
+  "${rm_empty_acceptance_root}/docs/engineering/plan.md" \
+  "${rm_empty_acceptance_root}/docs/engineering/acceptance.md" \
+  "reverse-migration trace binding mismatch"
+
+rm_unknown_acceptance_root="${test_tmp_root}/rm-unknown-acceptance"
+make_evidence_fixture "${rm_unknown_acceptance_root}"
+sed -i.bak '/^ReverseMigrationTrace = ISHFI-RM-03|/s/AcceptanceIds=[^|]*/AcceptanceIds=RF-AC-99/' \
+  "${rm_unknown_acceptance_root}/docs/engineering/acceptance.md"
+rm "${rm_unknown_acceptance_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${rm_unknown_acceptance_root}/candidate.md" \
+  "${rm_unknown_acceptance_root}/docs/engineering/plan.md" \
+  "${rm_unknown_acceptance_root}/docs/engineering/acceptance.md" \
+  "reverse-migration trace binding mismatch"
+
+rm_wrong_path_root="${test_tmp_root}/rm-wrong-path"
+make_evidence_fixture "${rm_wrong_path_root}"
+sed -i.bak '/^ReverseMigrationTrace = ISHFI-RM-04|/s/EvidencePath=04/EvidencePath=05/' \
+  "${rm_wrong_path_root}/docs/engineering/acceptance.md"
+rm "${rm_wrong_path_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${rm_wrong_path_root}/candidate.md" \
+  "${rm_wrong_path_root}/docs/engineering/plan.md" \
+  "${rm_wrong_path_root}/docs/engineering/acceptance.md" \
+  "reverse-migration trace binding mismatch"
+
+appended_rm_conflict_root="${test_tmp_root}/appended-rm-conflict"
+make_evidence_fixture "${appended_rm_conflict_root}"
+sed -i.bak '/^ReverseMigrationTrace = ISHFI-RM-01|/p' \
+  "${appended_rm_conflict_root}/docs/engineering/acceptance.md"
+rm "${appended_rm_conflict_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${appended_rm_conflict_root}/candidate.md" \
+  "${appended_rm_conflict_root}/docs/engineering/plan.md" \
+  "${appended_rm_conflict_root}/docs/engineering/acceptance.md" \
+  "expected exact ISHFI-RM-01..30 trace set"
+
+cross_domain_binding_root="${test_tmp_root}/cross-domain-binding"
+make_evidence_fixture "${cross_domain_binding_root}"
+sed -i.bak '/^CrossDomainScenario = MECHANISM_DOMAIN|/s/EvidenceClass=CognitiveModuleDefaultReading/EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme/' \
+  "${cross_domain_binding_root}/docs/engineering/plan.md"
+sed -i.bak '/^CrossDomainScenario = MECHANISM_DOMAIN|/s/Scenario=MVCC_CONSISTENT_READ_MECHANISM/Scenario=PROCUREMENT_ACCEPTANCE_BEFORE_PAYMENT_POLICY/' \
+  "${cross_domain_binding_root}/docs/engineering/plan.md"
+rm "${cross_domain_binding_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${cross_domain_binding_root}/candidate.md" \
+  "${cross_domain_binding_root}/docs/engineering/plan.md" \
+  "${cross_domain_binding_root}/docs/engineering/acceptance.md" \
+  "cross-domain scenario contract mismatch"
+
+cross_domain_rule_swap_root="${test_tmp_root}/cross-domain-rule-swap"
+make_evidence_fixture "${cross_domain_rule_swap_root}"
+sed -i.bak '/^CrossDomainScenario = RULE_POLICY_DOMAIN|/s/Scenario=PROCUREMENT_ACCEPTANCE_BEFORE_PAYMENT_POLICY/Scenario=MVCC_CONSISTENT_READ_MECHANISM/' \
+  "${cross_domain_rule_swap_root}/docs/engineering/plan.md"
+rm "${cross_domain_rule_swap_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${cross_domain_rule_swap_root}/candidate.md" \
+  "${cross_domain_rule_swap_root}/docs/engineering/plan.md" \
+  "${cross_domain_rule_swap_root}/docs/engineering/acceptance.md" \
+  "cross-domain scenario contract mismatch"
+
+appended_cross_domain_root="${test_tmp_root}/appended-cross-domain"
+make_evidence_fixture "${appended_cross_domain_root}"
+sed -i.bak '/^CrossDomainScenario = RULE_POLICY_DOMAIN|/a\
+CrossDomainScenario = MECHANISM_DOMAIN|EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=CONFLICT|Status=NOT_RUN|Gate=HV-D04' \
+  "${appended_cross_domain_root}/docs/engineering/plan.md"
+rm "${appended_cross_domain_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${appended_cross_domain_root}/candidate.md" \
+  "${appended_cross_domain_root}/docs/engineering/plan.md" \
+  "${appended_cross_domain_root}/docs/engineering/acceptance.md" \
+  "cross-domain scenario contract mismatch"
 
 legal_hfdg1_pass="${test_tmp_root}/legal-hfdg1-pass.md"
 cp "${document}" "${legal_hfdg1_pass}"
@@ -680,4 +950,4 @@ expect_failure "${premature_real_high_fidelity_page}" \
 printf '%s\n' \
   "InteractionStateContractTests = PASS" \
   "StageAwarePositiveCases = 2" \
-  "NegativeCases = 59"
+  "NegativeCases = 84"

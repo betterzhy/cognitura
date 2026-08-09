@@ -68,39 +68,40 @@ ExceptionAcceptance = EX-WORKSPACE-SWITCH-WITH-DRAFT|EvidenceClass=Recovery|Scen
 
 ## 3. Reverse Migration 追溯
 
-以下 30 行只确认候选、计划与验收台账之间仍可定位；它们不宣称视觉证据已执行。
+以下 30 行把候选条目绑定到具体证据类、八类证据路径和真实 RF/Exception
+验收 ID；它们只证明追溯可定位，不宣称视觉证据已执行。
 
 ```text
-ReverseMigrationTrace = ISHFI-RM-01|Candidate=ISHFI-RM-01|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-02|Candidate=ISHFI-RM-02|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-03|Candidate=ISHFI-RM-03|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-04|Candidate=ISHFI-RM-04|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-05|Candidate=ISHFI-RM-05|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-06|Candidate=ISHFI-RM-06|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-07|Candidate=ISHFI-RM-07|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-08|Candidate=ISHFI-RM-08|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-09|Candidate=ISHFI-RM-09|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-10|Candidate=ISHFI-RM-10|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-11|Candidate=ISHFI-RM-11|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-12|Candidate=ISHFI-RM-12|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-13|Candidate=ISHFI-RM-13|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-14|Candidate=ISHFI-RM-14|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-15|Candidate=ISHFI-RM-15|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-16|Candidate=ISHFI-RM-16|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-17|Candidate=ISHFI-RM-17|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-18|Candidate=ISHFI-RM-18|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-19|Candidate=ISHFI-RM-19|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-20|Candidate=ISHFI-RM-20|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-21|Candidate=ISHFI-RM-21|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-22|Candidate=ISHFI-RM-22|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-23|Candidate=ISHFI-RM-23|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-24|Candidate=ISHFI-RM-24|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-25|Candidate=ISHFI-RM-25|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-26|Candidate=ISHFI-RM-26|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-27|Candidate=ISHFI-RM-27|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-28|Candidate=ISHFI-RM-28|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-29|Candidate=ISHFI-RM-29|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
-ReverseMigrationTrace = ISHFI-RM-30|Candidate=ISHFI-RM-30|Plan=HFD03EvidenceContract|Acceptance=NOT_RUN|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-01|Candidate=ISHFI-RM-01|EvidenceClass=RelationFocus|EvidencePath=02|AcceptanceIds=RF-AC-03,EX-PREVIEW-TARGET-DELETED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-02|Candidate=ISHFI-RM-02|EvidenceClass=SmallScreenSafeReadable|EvidencePath=07|AcceptanceIds=RF-AC-15,EX-TOUCH-NO-HOVER|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-03|Candidate=ISHFI-RM-03|EvidenceClass=RelationFocus|EvidencePath=02|AcceptanceIds=RF-AC-16,EX-RELATION-SUPERSEDED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-04|Candidate=ISHFI-RM-04|EvidenceClass=RevisionAndImpact|EvidencePath=04|AcceptanceIds=RF-AC-13,EX-AUTO-UPGRADE-FAILED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-05|Candidate=ISHFI-RM-05|EvidenceClass=RevisionAndImpact|EvidencePath=04|AcceptanceIds=RF-AC-13,EX-IMPACT-ANALYSIS-FAILED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-06|Candidate=ISHFI-RM-06|EvidenceClass=RevisionAndImpact|EvidencePath=04|AcceptanceIds=RF-AC-13,EX-IMPACT-ANALYSIS-FAILED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-07|Candidate=ISHFI-RM-07|EvidenceClass=Recovery|EvidencePath=05|AcceptanceIds=RF-AC-14,EX-CANONICAL-SAVED-RECOMPUTE-FAILED,EX-CANONICAL-SAVED-GENERATION-FAILED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-08|Candidate=ISHFI-RM-08|EvidenceClass=Recovery|EvidencePath=05|AcceptanceIds=RF-AC-18,EX-CANONICAL-SAVED-RECOMPUTE-FAILED,EX-CANONICAL-SAVED-GENERATION-FAILED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-09|Candidate=ISHFI-RM-09|EvidenceClass=Recovery|EvidencePath=05|AcceptanceIds=RF-AC-17,EX-REFRESH-FOCUS-RESTORE-FAILED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-10|Candidate=ISHFI-RM-10|EvidenceClass=Recovery|EvidencePath=05|AcceptanceIds=RF-AC-18,EX-DRAFT-CONFLICTS-LATEST,EX-REVERT-AFFECTS-LATER-CHANGES|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-11|Candidate=ISHFI-RM-11|EvidenceClass=SmallScreenSafeReadable|EvidencePath=07|AcceptanceIds=RF-AC-15,EX-SMALL-SCREEN-PANEL-OVERFLOW,EX-TOUCH-NO-HOVER|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-12|Candidate=ISHFI-RM-12|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-02|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-13|Candidate=ISHFI-RM-13|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-02|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-14|Candidate=ISHFI-RM-14|EvidenceClass=Recovery|EvidencePath=05|AcceptanceIds=RF-AC-18|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-15|Candidate=ISHFI-RM-15|EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme|EvidencePath=06|AcceptanceIds=RF-AC-01,RF-AC-20|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-16|Candidate=ISHFI-RM-16|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-02,RF-AC-06|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-17|Candidate=ISHFI-RM-17|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-02|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-18|Candidate=ISHFI-RM-18|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-06|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-19|Candidate=ISHFI-RM-19|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-04,RF-AC-11|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-20|Candidate=ISHFI-RM-20|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-05,RF-AC-08|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-21|Candidate=ISHFI-RM-21|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-08|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-22|Candidate=ISHFI-RM-22|EvidenceClass=SourceEvidenceVerification|EvidencePath=03|AcceptanceIds=RF-AC-07,RF-AC-09|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-23|Candidate=ISHFI-RM-23|EvidenceClass=StaticExport|EvidencePath=08|AcceptanceIds=RF-AC-10,RF-AC-19|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-24|Candidate=ISHFI-RM-24|EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme|EvidencePath=06|AcceptanceIds=RF-AC-20|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-25|Candidate=ISHFI-RM-25|EvidenceClass=Recovery|EvidencePath=05|AcceptanceIds=RF-AC-17,RF-AC-18|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-26|Candidate=ISHFI-RM-26|EvidenceClass=RelationFocus|EvidencePath=02|AcceptanceIds=RF-AC-16,EX-KEYBOARD-ENTERS-GRAPH|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-27|Candidate=ISHFI-RM-27|EvidenceClass=Recovery|EvidencePath=05|AcceptanceIds=RF-AC-18,EX-NETWORK-TIMEOUT-SAVE-UNKNOWN,EX-UI-FAILED-CANONICAL-SAVED|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-28|Candidate=ISHFI-RM-28|EvidenceClass=CognitiveModuleDefaultReading|EvidencePath=01|AcceptanceIds=RF-AC-08|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-29|Candidate=ISHFI-RM-29|EvidenceClass=StaticExport|EvidencePath=08|AcceptanceIds=RF-AC-19|Status=TRACED
+ReverseMigrationTrace = ISHFI-RM-30|Candidate=ISHFI-RM-30|EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme|EvidencePath=06|AcceptanceIds=RF-AC-20|Status=TRACED
 ```
 
 ## 4. 当前 Gate 结论
