@@ -17,6 +17,9 @@ ReviewStage2P1 = 0
 ReviewStage2P2 = 0
 UltraReviewUsed = NO
 EvidenceArtifactCapture = NOT_RUN
+VisualFoundationArtifactCapture = PASS
+VisualFoundationArtifact = docs/design/high-fidelity/evidence/visual-foundation-desktop.png
+VisualFoundationViewport = DESKTOP_1440x1100
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
@@ -25,8 +28,9 @@ FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
 
-本台账仅定义未来验收行。所有 `Artifact` 都以 `PLANNED:` 标识，当前没有截图、
-原型或执行记录；`Status=NOT_RUN` 不得改写为 PASS，直到所属 HV Gate 真实执行。
+本台账中的 RF/Exception 行仍只定义未来验收。`HV-D00` 已产生一张不绑定 RF 行的
+foundation 截图与 docs-only 原型；它只证明视觉 token 与原型治理，不改变任何
+`PLANNED:` 行的 `Status=NOT_RUN`，也不构成视觉或可用性阶段 PASS。
 
 ## 1. RF-AC 证据验收
 
@@ -116,7 +120,15 @@ ReverseMigrationTrace = ISHFI-RM-29|Candidate=ISHFI-RM-29|EvidenceClass=StaticEx
 ReverseMigrationTrace = ISHFI-RM-30|Candidate=ISHFI-RM-30|EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme|EvidencePath=06|AcceptanceIds=RF-AC-20|Status=TRACED
 ```
 
-## 4. 当前 Gate 结论
+## 4. HV-D00 视觉基础记录
+
+```text
+VisualFoundationAcceptance = HV-D00|Scenario=VISUAL_FOUNDATION|Viewport=DESKTOP_1440x1100|InputState=READING_MODE+IDLE|Artifact=docs/design/high-fidelity/evidence/visual-foundation-desktop.png|Status=PASS
+VisualFoundationScope = TOKENS,RESPONSIVE_THRESHOLDS,A11Y_FOCUS,READING_FIRST_ZERO_PERSISTENT_GOVERNANCE_SIDEBAR,ON_DEMAND_SOURCE_EVIDENCE,URL_ONLY_FIXTURE
+VisualFoundationDoesNotClose = HV-D01,HV-D02,HV-D03,HV-D04,HV-D05
+```
+
+## 5. 当前 Gate 结论
 
 ```text
 HF-DG3 HighFidelityEvidenceContract = PASS
@@ -128,5 +140,5 @@ GateUsabilityEvidenceStatus = NOT_RUN
 GateImplementationStatus = NOT_RUN
 ```
 
-`HF-DG4` 只关闭合同设计固定候选审查并投影释放 `HV-D00`；实际 HV 卡集仍未创建，
-任何 HV 视觉结果与 W1-I 业务实现仍未授权。
+`HF-DG4` 只关闭合同设计固定候选审查；`HV-D00` 只关闭视觉基础并释放 `HV-D01`。
+其余 HV 视觉结果与 W1-I 业务实现仍未授权。

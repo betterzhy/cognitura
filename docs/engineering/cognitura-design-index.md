@@ -45,9 +45,13 @@ HighFidelityEvidencePlan =
 HighFidelityEvidenceAcceptance =
   docs/engineering/cognitura-high-fidelity-design-acceptance.md
 HighFidelityEvidenceContract = PASS
+HighFidelityVisualBaseline =
+  docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md
+HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
+HighFidelityVisualFoundation = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
-ActiveDesignTaskCard = NONE
+ActiveDesignTaskCard = HV-D01
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
@@ -140,6 +144,8 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 - `docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md`
 - `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
+- `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
+- `docs/task-cards/high-fidelity-visual/README.md`
 
 这些工程记录只描述当前落地事实、缺口、计划和门禁，不替代正式设计。
 
@@ -186,3 +192,14 @@ HF-D02 已关闭正交状态与恢复边界，HF-D03 已关闭证据输入合同
 固定候选双阶段审查并将专项晋级正式基线；视觉、可用性与实现均未验收，当前没有
 活动设计卡；
 本分支不创建或释放 `W1-I00`，业务实现、正式数据库写入和远程推送均未授权。
+
+## 9. 高保真视觉基础登记
+
+| 工程引用名 | 实际路径 | 状态 | Gate |
+|---|---|---|---|
+| `Cognitura-High-Fidelity-Visual-Design-1.0` | `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md` | `VISUAL_FOUNDATION_ESTABLISHED` | `HV-D00 PASS` |
+
+`HV-D00` 只建立视觉 token、桌面/小屏阈值、a11y focus、Reading First 零常驻治理
+侧栏、按需 SourceEvidence、确定性 URL fixture 和 1440×1100 foundation 截图。
+六卡集合已创建，`HV-D01` 是唯一 `READY`；正式 HF 专项与 `HF-DG4 PASS` 不变，
+Module 等真实视觉证据、可用性、实现、正式数据库写入和远程推送仍未执行。

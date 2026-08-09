@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN" data-prototype-kind="DOCUMENTATION_ONLY_NON_PRODUCTION_FIXTURE">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Cognitura · Visual Foundation Fixture</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body
+    data-state-fixture="visual-foundation"
+    data-default-reading-persistent-side-panels="0"
+    data-source-evidence="ON_DEMAND"
+  >
+    <a class="skip-link" href="#reading-document">跳到认知正文</a>
+    <header class="masthead" aria-label="Cognitura 文档头部">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <div>
+          <strong>Cognitura</strong>
+          <span>Interactive cognitive document</span>
+        </div>
+      </div>
+      <div class="fixture-status" aria-label="原型状态">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="fixture-label">Visual foundation</span>
+        <span class="fixture-boundary">Docs-only fixture</span>
+      </div>
+    </header>
+
+    <div class="reading-shell">
+      <nav class="hierarchy-rail" aria-label="认知层级位置">
+        <p class="rail-label">当前位置</p>
+        <ol>
+          <li><span>01</span><div><small>Knowledge Landscape</small><strong>数据系统</strong></div></li>
+          <li><span>02</span><div><small>Knowledge Theme</small><strong>并发与一致性</strong></div></li>
+          <li class="current"><span>03</span><div><small>Cognitive Module</small><strong>一致性读机制</strong></div></li>
+          <li><span>04</span><div><small>Knowledge Element</small><strong>Read View</strong></div></li>
+        </ol>
+        <p class="rail-note">层级轨道只保留阅读位置，不承载治理控制。</p>
+      </nav>
+
+      <main id="reading-document" class="reading-document" tabindex="-1">
+        <div class="document-meta">
+          <span>VISUAL FOUNDATION</span>
+          <span>READING MODE · IDLE</span>
+        </div>
+
+        <section class="opening" aria-labelledby="module-title">
+          <p class="eyebrow">核心问题</p>
+          <h1 id="module-title">并发写入发生时，读取如何保持一个一致的观察边界？</h1>
+          <p class="lead">
+            一致性读不是把数据冻结成静态副本，而是在事务语义、版本链与可见性条件之间，
+            选择一个稳定且可解释的读取结果。
+          </p>
+        </section>
+
+        <section class="conclusion" aria-labelledby="conclusion-title">
+          <div class="section-index">01</div>
+          <div>
+            <p class="eyebrow">核心结论</p>
+            <h2 id="conclusion-title">Read View 定义可见范围，版本链提供候选版本。</h2>
+            <p>
+              两者共同决定当前事务能看见哪一个记录版本。隔离级别改变 Read View 的创建时机，
+              当前读则绕过快照语义，因此边界必须在正文中直接说明，而不能藏在图或面板里。
+            </p>
+          </div>
+        </section>
+
+        <section class="mechanism" aria-labelledby="mechanism-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">主要认知投影</p>
+              <h2 id="mechanism-title">从观察边界到可见版本</h2>
+            </div>
+            <span class="primitive-budget">1 projection · 4 families</span>
+          </div>
+          <div class="mechanism-flow" role="img" aria-label="Read View 经由可见性判断选择当前版本或 Undo 历史版本，得到一致性读结果">
+            <div class="flow-node primary"><small>观察边界</small><strong>Read View</strong></div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-node"><small>规则判断</small><strong>可见性检查</strong></div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-branch">
+              <span>当前版本</span>
+              <span>Undo 历史版本</span>
+            </div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="flow-result"><small>读取结果</small><strong>一致视图</strong></div>
+          </div>
+          <p class="narrative">
+            判断先比较记录版本与观察边界，再沿版本链回溯第一个可见候选。这个投影负责压缩结构；
+            真实的隔离级别条件、当前读例外和冲突边界仍由连续正文说明。
+          </p>
+        </section>
+
+        <section class="boundary-grid" aria-label="条件与边界">
+          <div class="boundary-copy">
+            <p class="eyebrow">成立条件</p>
+            <h2>快照语义必须与读取类型一致</h2>
+            <p>一致性读消费 Read View；锁定读与写操作遵循当前版本和并发控制路径。</p>
+          </div>
+          <div class="boundary-copy exception">
+            <p class="eyebrow">边界与例外</p>
+            <h2>当前读不由历史快照回答</h2>
+            <p>当任务要求最新已提交结果或加锁语义时，应切换到当前读，而不是扩大快照含义。</p>
+          </div>
+        </section>
+
+        <section class="relation-line" aria-labelledby="relation-title">
+          <div class="relation-rule" aria-hidden="true"></div>
+          <div>
+            <p class="eyebrow">关键 Relation · 内联表达</p>
+            <h2 id="relation-title">隔离级别 <span>决定</span> Read View 的稳定范围</h2>
+            <p>关系保持在正文中可理解；固定聚焦与完整来源核验只在用户明确请求时打开。</p>
+          </div>
+          <button class="source-marker" type="button" aria-label="按需查看来源说明">
+            <span aria-hidden="true">↗</span> 来源
+          </button>
+        </section>
+
+        <footer class="document-footer">
+          <p>HV-D00 foundation fixture · not production UI · no user data</p>
+          <p>HF-DG4 contract baseline retained</p>
+        </footer>
+      </main>
+    </div>
+
+    <script src="prototype.js"></script>
+  </body>
+</html>

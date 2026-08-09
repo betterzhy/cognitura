@@ -1,0 +1,341 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s [--cards-dir <path>] [--visual-design <path>] [--prototype-dir <path>] [--evidence-dir <path>] [--plan <path>]\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'HighFidelityVisualTaskCardValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cards_dir="${script_root}/docs/task-cards/high-fidelity-visual"
+visual_design="${script_root}/docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md"
+prototype_dir="${script_root}/docs/design/high-fidelity/prototype"
+evidence_dir="${script_root}/docs/design/high-fidelity/evidence"
+plan="${script_root}/docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md"
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --cards-dir)
+      [[ "$#" -ge 2 ]] || usage
+      cards_dir="$2"
+      shift 2
+      ;;
+    --visual-design)
+      [[ "$#" -ge 2 ]] || usage
+      visual_design="$2"
+      shift 2
+      ;;
+    --prototype-dir)
+      [[ "$#" -ge 2 ]] || usage
+      prototype_dir="$2"
+      shift 2
+      ;;
+    --evidence-dir)
+      [[ "$#" -ge 2 ]] || usage
+      evidence_dir="$2"
+      shift 2
+      ;;
+    --plan)
+      [[ "$#" -ge 2 ]] || usage
+      plan="$2"
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+
+field_value() {
+  local file="$1"
+  local field="$2"
+  local count
+  count="$(grep -c "^${field} = " "${file}" || true)"
+  [[ "${count}" -eq 1 ]] || fail "$(basename "${file}"): expected one ${field} field, found ${count}"
+  sed -n "s/^${field} = //p" "${file}"
+}
+
+require_line() {
+  local file="$1"
+  local line="$2"
+  grep -Fqx "${line}" "${file}" || fail "$(basename "${file}"): missing contract line: ${line}"
+}
+
+require_line_once() {
+  local file="$1"
+  local line="$2"
+  [[ "$(grep -Fxc "${line}" "${file}" || true)" -eq 1 ]] ||
+    fail "$(basename "${file}"): expected one contract line: ${line}"
+}
+
+require_text() {
+  local file="$1"
+  local text="$2"
+  grep -Fq -- "${text}" "${file}" || fail "$(basename "${file}"): missing contract text: ${text}"
+}
+
+[[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
+[[ -f "${cards_dir}/README.md" ]] || fail "visual task card index is missing"
+[[ -f "${visual_design}" ]] || fail "visual design baseline is missing"
+[[ -d "${prototype_dir}" ]] || fail "prototype directory is missing"
+[[ -d "${evidence_dir}" ]] || fail "evidence directory is missing"
+[[ -f "${plan}" ]] || fail "high-fidelity master plan is missing"
+
+index="${cards_dir}/README.md"
+[[ "$(field_value "${index}" CanonicalProjectName)" == "Cognitura" ]] ||
+  fail "CanonicalProjectName must be Cognitura"
+[[ "$(field_value "${index}" TaskCardSet)" == "HIGH_FIDELITY_VISUAL" ]] ||
+  fail "TaskCardSet must be HIGH_FIDELITY_VISUAL"
+[[ "$(field_value "${index}" TaskCardIDs)" == "HV-D00,HV-D01,HV-D02,HV-D03,HV-D04,HV-D05" ]] ||
+  fail "TaskCardIDs must be HV-D00..HV-D05"
+[[ "$(field_value "${index}" TaskCardCount)" == "6" ]] || fail "TaskCardCount must be 6"
+[[ "$(field_value "${index}" TaskCardSetStatus)" == "READY_FOR_EXECUTION" ]] ||
+  fail "TaskCardSetStatus must be READY_FOR_EXECUTION"
+[[ "$(field_value "${index}" ActiveTaskCard)" == "HV-D01" ]] ||
+  fail "ActiveTaskCard must be HV-D01"
+for boundary in \
+  "BusinessImplementation=NOT_AUTHORIZED" \
+  "FormalDatabaseWrite=NOT_AUTHORIZED" \
+  "RemotePush=NOT_AUTHORIZED" \
+  "W1-I00Creation=FORBIDDEN" \
+  "W1-I00Release=FORBIDDEN"; do
+  field="${boundary%%=*}"
+  value="${boundary#*=}"
+  [[ "$(field_value "${index}" "${field}")" == "${value}" ]] ||
+    fail "${field} must be ${value}"
+done
+
+declared_ids=(HV-D00 HV-D01 HV-D02 HV-D03 HV-D04 HV-D05)
+expected_status=(DONE READY BLOCKED_BY_DEPENDENCY BLOCKED_BY_DEPENDENCY BLOCKED_BY_DEPENDENCY BLOCKED_BY_DEPENDENCY)
+expected_dependency=(NONE HV-D00 HV-D01 HV-D02 HV-D03 HV-D04)
+expected_write_count=(22 8 9 10 12 6)
+required_sections=("## 1. 目标" "## 2. 前置条件与输入" "## 3. 写集" "## 4. 禁止写集" "## 5. 执行步骤" "## 6. 验证命令" "## 7. Gate 与完成定义" "## 8. 提交与审查")
+
+shopt -s nullglob
+actual_cards=("${cards_dir}"/HV-D*.md)
+shopt -u nullglob
+[[ "${#actual_cards[@]}" -eq 6 ]] ||
+  fail "actual visual task card count ${#actual_cards[@]} does not match 6"
+
+preflight_ready_count=0
+for preflight_card in "${actual_cards[@]}"; do
+  if [[ "$(sed -n 's/^Status = //p' "${preflight_card}")" == "READY" ]]; then
+    preflight_ready_count=$((preflight_ready_count + 1))
+  fi
+done
+[[ "${preflight_ready_count}" -eq 1 ]] || fail "exactly one READY card is required"
+
+ready_count=0
+done_count=0
+blocked_count=0
+card_index=0
+for task_id in "${declared_ids[@]}"; do
+  shopt -s nullglob
+  matches=("${cards_dir}/${task_id}-"*.md)
+  shopt -u nullglob
+  [[ "${#matches[@]}" -eq 1 ]] || fail "cannot resolve declared TaskCardID: ${task_id}"
+  card="${matches[0]}"
+  [[ "$(field_value "${card}" TaskCardID)" == "${task_id}" ]] ||
+    fail "${task_id}: TaskCardID does not match filename"
+  [[ "$(field_value "${card}" CardKind)" == "HIGH_FIDELITY_VISUAL_DESIGN" ]] ||
+    fail "${task_id}: CardKind must be HIGH_FIDELITY_VISUAL_DESIGN"
+  status="$(field_value "${card}" Status)"
+  [[ "${status}" == "${expected_status[${card_index}]}" ]] ||
+    fail "${task_id}: Status must be ${expected_status[${card_index}]}"
+  [[ "$(field_value "${card}" DependsOn)" == "${expected_dependency[${card_index}]}" ]] ||
+    fail "${task_id}: DependsOn must be ${expected_dependency[${card_index}]}"
+  [[ "$(field_value "${card}" WriteSetItemCount)" == "${expected_write_count[${card_index}]}" ]] ||
+    fail "${task_id}: WriteSetItemCount must be ${expected_write_count[${card_index}]}"
+  for section in "${required_sections[@]}"; do
+    grep -Fqx "${section}" "${card}" || fail "${task_id}: missing required section: ${section}"
+  done
+  if grep -Fq 'docs/design/high-fidelity/prototype/*' "${card}"; then
+    fail "${task_id}: prototype wildcard paths are forbidden"
+  fi
+  write_path_count="$(awk '
+    $0 == "## 3. 写集" {inside=1; next}
+    $0 == "## 4. 禁止写集" {inside=0}
+    inside && $0 ~ /^- `[^`]+`$/ {count++}
+    END {print count+0}
+  ' "${card}")"
+  [[ "${write_path_count}" -eq "${expected_write_count[${card_index}]}" ]] ||
+    fail "${task_id}: write-set path count ${write_path_count} does not match ${expected_write_count[${card_index}]}"
+  case "${status}" in
+    READY) ready_count=$((ready_count + 1)) ;;
+    DONE) done_count=$((done_count + 1)) ;;
+    BLOCKED_BY_DEPENDENCY) blocked_count=$((blocked_count + 1)) ;;
+    *) fail "${task_id}: illegal status ${status}" ;;
+  esac
+  card_index=$((card_index + 1))
+done
+[[ "${ready_count}" -eq 1 ]] || fail "exactly one READY card is required"
+[[ "${done_count}" -eq 1 ]] || fail "exactly one DONE card is required"
+[[ "${blocked_count}" -eq 4 ]] || fail "exactly four dependency-blocked cards are required"
+
+require_text "${plan}" 'WriteSetItemCount = 22'
+task6_body="$(awk '
+  $0 == "### Task 6: HV-D00 Visual Foundation and Prototype Governance" {inside=1}
+  $0 == "### Task 7: HV-D01 Module Default Reading Evidence" {inside=0}
+  inside {print}
+' "${plan}")"
+task6_expected_paths=(
+  'docs/task-cards/high-fidelity-visual/README.md'
+  'docs/task-cards/high-fidelity-visual/HV-D00-visual-foundation.md'
+  'docs/task-cards/high-fidelity-visual/HV-D01-module-default-reading.md'
+  'docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md'
+  'docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md'
+  'docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md'
+  'docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md'
+  'tests/task-cards/verify-high-fidelity-visual-cards.sh'
+  'scripts/verify-high-fidelity-visual'
+  'docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md'
+  'docs/design/high-fidelity/prototype/index.html'
+  'docs/design/high-fidelity/prototype/styles.css'
+  'docs/design/high-fidelity/prototype/prototype.js'
+  'docs/design/high-fidelity/evidence/README.md'
+  'docs/engineering/cognitura-high-fidelity-design-plan.md'
+  'README.md'
+  'AGENTS.md'
+  'docs/design/high-fidelity/evidence/visual-foundation-desktop.png'
+  'docs/engineering/cognitura-design-index.md'
+  'docs/engineering/cognitura-high-fidelity-design-acceptance.md'
+  'docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md'
+  'docs/task-cards/README.md'
+)
+for path in "${task6_expected_paths[@]}"; do
+  [[ "$(printf '%s\n' "${task6_body}" | grep -Fxc -- "- Create: \`${path}\`" || true)" -eq 1 ||
+     "$(printf '%s\n' "${task6_body}" | grep -Fxc -- "- Modify: \`${path}\`" || true)" -eq 1 ]] ||
+    fail "master plan Task 6 missing exact write-set path: ${path}"
+done
+task6_path_count="$(printf '%s\n' "${task6_body}" | grep -Ec '^- (Create|Modify): `[^`]+`$' || true)"
+[[ "${task6_path_count}" -eq 22 ]] || fail "master plan Task 6 write-set path count must be 22"
+if grep -Fq 'docs/design/high-fidelity/prototype/*' "${plan}"; then
+  fail "master plan must not use prototype wildcard paths"
+fi
+future_task_write_counts=(8 9 10 12 6 4)
+future_task_index=0
+for task in 7 8 9 10 11 12; do
+  require_text "${plan}" "WriteSetItemCount = ${future_task_write_counts[${future_task_index}]}"
+  future_task_index=$((future_task_index + 1))
+done
+
+evidence_plan="${script_root}/docs/engineering/cognitura-high-fidelity-design-plan.md"
+acceptance="${script_root}/docs/engineering/cognitura-high-fidelity-design-acceptance.md"
+design_index="${script_root}/docs/engineering/cognitura-design-index.md"
+root_task_index="${script_root}/docs/task-cards/README.md"
+for sync_file in \
+  "${script_root}/AGENTS.md" \
+  "${script_root}/README.md" \
+  "${evidence_plan}" \
+  "${acceptance}" \
+  "${design_index}" \
+  "${root_task_index}"; do
+  [[ -f "${sync_file}" ]] || fail "state synchronization file is missing: ${sync_file}"
+done
+for project_status in \
+  'HighFidelityVisualFoundation = PASS' \
+  'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION' \
+  'HighFidelityVisualProjectedEntry = HV-D01 READY / RELEASED' \
+  'ActiveDesignTaskCard = HV-D01'; do
+  require_line_once "${script_root}/AGENTS.md" "${project_status}"
+  require_line_once "${script_root}/README.md" "${project_status}"
+done
+for execution_line in \
+  'HVExecutionTask = HV-D00|VisualFoundation|DONE|PASS' \
+  'HVExecutionTask = HV-D01|ModuleDefaultReading|READY|RELEASED' \
+  'HVExecutionTask = HV-D02|FocusAndSource|BLOCKED_BY_DEPENDENCY|NOT_RELEASED' \
+  'HVExecutionTask = HV-D03|RevisionAndRecovery|BLOCKED_BY_DEPENDENCY|NOT_RELEASED' \
+  'HVExecutionTask = HV-D04|CrossLayerResponsiveAndExport|BLOCKED_BY_DEPENDENCY|NOT_RELEASED' \
+  'HVExecutionTask = HV-D05|FixedVisualUsabilityReview|BLOCKED_BY_DEPENDENCY|NOT_RELEASED'; do
+  require_line_once "${evidence_plan}" "${execution_line}"
+done
+require_line_once "${acceptance}" 'VisualFoundationArtifactCapture = PASS'
+require_line_once "${acceptance}" 'HighFidelityVisualDesign = NOT_RUN'
+require_line_once "${acceptance}" 'HighFidelityUsabilityValidation = NOT_RUN'
+require_line_once "${design_index}" 'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION'
+require_line_once "${design_index}" 'HighFidelityVisualFoundation = PASS'
+require_line_once "${design_index}" 'ActiveDesignTaskCard = HV-D01'
+require_line_once "${root_task_index}" 'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION'
+require_line_once "${root_task_index}" 'HighFidelityVisualActiveTaskCard = HV-D01'
+
+for artifact in index.html styles.css prototype.js; do
+  [[ -f "${prototype_dir}/${artifact}" ]] || fail "prototype artifact is missing: ${artifact}"
+done
+[[ -f "${evidence_dir}/README.md" ]] || fail "evidence contract is missing"
+
+for line in \
+  'HighFidelityVisualDesign = NOT_RUN' \
+  'HighFidelityUsabilityValidation = NOT_RUN' \
+  'PrototypeKind = DOCUMENTATION_ONLY_NON_PRODUCTION_FIXTURE' \
+  'FixtureDataSource = EMBEDDED_DETERMINISTIC_DATA' \
+  'FixtureStateTransport = URL_QUERY_ONLY' \
+  'DesktopViewport = 1440x1100' \
+  'SmallScreenViewport = 390x844' \
+  'DesktopContentThreshold = 1180px' \
+  'CompactLayoutThreshold = 900px' \
+  'FocusRingToken = --focus-ring' \
+  'DocumentWidthToken = --document-width' \
+  'HierarchyRailToken = --hierarchy-rail-width' \
+  'SourceMarkerToken = --source-marker' \
+  'StaleToken = --status-stale' \
+  'ErrorToken = --status-error'; do
+  require_line "${visual_design}" "${line}"
+done
+for state_id in visual-foundation module-default relation-focus source-verification revision-impact partial-failure conflicted-draft domain-default theme-default module-small-screen static-export; do
+  require_text "${visual_design}" "FixtureState = ${state_id}"
+  require_text "${prototype_dir}/prototype.js" "${state_id}"
+done
+
+require_text "${prototype_dir}/index.html" 'data-prototype-kind="DOCUMENTATION_ONLY_NON_PRODUCTION_FIXTURE"'
+require_text "${prototype_dir}/index.html" 'data-default-reading-persistent-side-panels="0"'
+require_text "${prototype_dir}/index.html" 'data-source-evidence="ON_DEMAND"'
+require_text "${prototype_dir}/index.html" 'data-state-fixture="visual-foundation"'
+require_text "${prototype_dir}/prototype.js" 'URLSearchParams'
+require_text "${prototype_dir}/prototype.js" 'window.location.search'
+for token in --font-reading --space-section --color-ink --focus-ring --document-width --hierarchy-rail-width --source-marker --status-stale --status-error; do
+  require_text "${prototype_dir}/styles.css" "${token}"
+done
+require_text "${prototype_dir}/styles.css" '@media (max-width: 900px)'
+require_text "${prototype_dir}/styles.css" ':focus-visible'
+
+combined_prototype="$(printf '%s\n' \
+  "$(sed 's/[[:space:]]//g' "${prototype_dir}/index.html")" \
+  "$(sed 's/[[:space:]]//g' "${prototype_dir}/prototype.js")")"
+if printf '%s\n' "${combined_prototype}" | grep -Eqi 'fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon'; then
+  fail "prototype must not use network APIs"
+fi
+if printf '%s\n' "${combined_prototype}" | grep -Eqi 'localStorage|sessionStorage|indexedDB|document\.cookie'; then
+  fail "prototype must not persist user data"
+fi
+if printf '%s\n' "${combined_prototype}" | grep -Eqi '(src|href|import[^[:alnum:]])[^\n]*(web/|server/|https?://)'; then
+  fail "prototype must not import production web/server assets or remote resources"
+fi
+
+require_text "${evidence_dir}/README.md" 'visual-foundation-desktop.png'
+require_text "${evidence_dir}/README.md" '1440x1100'
+require_text "${evidence_dir}/README.md" 'state=visual-foundation'
+evidence_png="${evidence_dir}/visual-foundation-desktop.png"
+[[ -f "${evidence_png}" ]] || fail "visual foundation evidence is missing"
+png_description="$(file "${evidence_png}" 2>/dev/null || true)"
+[[ "${png_description}" == *"PNG image data, 1440 x 1100"* ]] ||
+  fail "visual foundation evidence must be a 1440x1100 PNG"
+
+printf 'HighFidelityVisualTaskCardValidation = PASS\n'
+printf 'TaskCardCount = 6\n'
+printf 'TaskCardSetStatus = READY_FOR_EXECUTION\n'
+printf 'ActiveTaskCard = HV-D01\n'
+printf 'DoneTaskCardCount = %s\n' "${done_count}"
+printf 'ReadyTaskCardCount = %s\n' "${ready_count}"
+printf 'BlockedTaskCardCount = %s\n' "${blocked_count}"
+printf 'Task6WriteSetItemCount = 22\n'
+printf 'VisualFoundationPrototypeValidation = PASS\n'
+printf 'VisualFoundationEvidence = 1440x1100\n'
+printf 'HighFidelityVisualDesign = NOT_RUN\n'
+printf 'HighFidelityUsabilityValidation = NOT_RUN\n'
+printf 'BusinessImplementation = NOT_AUTHORIZED\n'
+printf 'FormalDatabaseWrite = NOT_AUTHORIZED\n'
+printf 'RemotePush = NOT_AUTHORIZED\n'

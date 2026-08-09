@@ -696,16 +696,25 @@ The command above names all 19 files individually. Directory-level `git add` is 
 - Modify: `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
+- Create: `docs/design/high-fidelity/evidence/visual-foundation-desktop.png`
+- Modify: `docs/engineering/cognitura-design-index.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
+- Modify: `docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md`
+- Modify: `docs/task-cards/README.md`
 
 **Interfaces:**
 - Consumes: closed HF contract design and the eight evidence classes.
 - Produces: a documentation-only prototype shell, visual tokens, interaction-state fixture selector, screenshot contract, and six-card visual design state machine.
 
-- [ ] **Step 1: Write failing visual card and artifact validators**
+`WriteSetItemCount = 22`。Task 6 按主 Agent 裁决补齐原计划遗漏的 foundation PNG、
+设计索引、验收台账、计划自身与根任务卡索引。Task 7 至 Task 12 同步使用真实逐文件
+路径和计数；禁止 `prototype/*` wildcard 与目录级模糊暂存。
+
+- [x] **Step 1: Write failing visual card and artifact validators**
 
 Require six cards, one READY card, non-production prototype labels, desktop/small-screen viewports, visual token names, state fixture IDs, screenshot naming, and no imports from `web/` or server APIs.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run:
 
@@ -715,11 +724,11 @@ bash tests/task-cards/verify-high-fidelity-visual-cards.sh
 
 Expected: fail because the visual set and prototype do not exist.
 
-- [ ] **Step 3: Create the visual system and prototype shell**
+- [x] **Step 3: Create the visual system and prototype shell**
 
 Define typography, spacing, colors, focus ring, document width, hierarchy rail, inline relation treatment, source marker, stale/error tokens, and responsive thresholds. The prototype must use embedded deterministic fixture data and URL query parameters only; it must not call HTTP or persist user data.
 
-- [ ] **Step 4: Capture the foundation screen**
+- [x] **Step 4: Capture the foundation screen**
 
 Run Chrome headless against the local prototype and capture a 1440×1100 screenshot into `docs/design/high-fidelity/evidence/`:
 
@@ -733,16 +742,33 @@ Run Chrome headless against the local prototype and capture a 1440×1100 screens
 
 Inspect the PNG locally before acceptance.
 
-- [ ] **Step 5: Close HV-D00 and release HV-D01**
+- [x] **Step 5: Close HV-D00 and release HV-D01**
 
 Run validators, update projections, and commit:
 
 ```bash
-git add AGENTS.md README.md docs/design/high-fidelity \
-  docs/engineering/cognitura-high-fidelity-design-plan.md \
-  docs/task-cards/high-fidelity-visual \
-  scripts/verify-high-fidelity-visual \
-  tests/task-cards/verify-high-fidelity-visual-cards.sh
+git add AGENTS.md
+git add README.md
+git add docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md
+git add docs/design/high-fidelity/evidence/README.md
+git add docs/design/high-fidelity/evidence/visual-foundation-desktop.png
+git add docs/design/high-fidelity/prototype/index.html
+git add docs/design/high-fidelity/prototype/prototype.js
+git add docs/design/high-fidelity/prototype/styles.css
+git add docs/engineering/cognitura-design-index.md
+git add docs/engineering/cognitura-high-fidelity-design-acceptance.md
+git add docs/engineering/cognitura-high-fidelity-design-plan.md
+git add docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md
+git add docs/task-cards/README.md
+git add docs/task-cards/high-fidelity-visual/HV-D00-visual-foundation.md
+git add docs/task-cards/high-fidelity-visual/HV-D01-module-default-reading.md
+git add docs/task-cards/high-fidelity-visual/HV-D02-focus-and-source.md
+git add docs/task-cards/high-fidelity-visual/HV-D03-revision-and-recovery.md
+git add docs/task-cards/high-fidelity-visual/HV-D04-cross-layer-responsive-export.md
+git add docs/task-cards/high-fidelity-visual/HV-D05-fixed-visual-usability-review.md
+git add docs/task-cards/high-fidelity-visual/README.md
+git add scripts/verify-high-fidelity-visual
+git add tests/task-cards/verify-high-fidelity-visual-cards.sh
 git commit -m "docs: establish high fidelity visual foundation"
 ```
 
@@ -761,6 +787,8 @@ git commit -m "docs: establish high fidelity visual foundation"
 **Interfaces:**
 - Consumes: visual foundation and MySQL mechanism-type synthetic cognitive fixture.
 - Produces: the primary desktop Module reading page proving zero-interaction cognitive closure.
+
+`WriteSetItemCount = 8`。本卡只拥有上述八个精确路径。
 
 - [ ] **Step 1: Add failing DOM and screenshot assertions**
 
@@ -791,7 +819,9 @@ Run visual/card/interaction validators and commit `docs: design module default r
 ### Task 8: HV-D02 Relation Focus and Source Verification Evidence
 
 **Files:**
-- Modify: `docs/design/high-fidelity/prototype/*`
+- Modify: `docs/design/high-fidelity/prototype/index.html`
+- Modify: `docs/design/high-fidelity/prototype/styles.css`
+- Modify: `docs/design/high-fidelity/prototype/prototype.js`
 - Create: `docs/design/high-fidelity/evidence/module-relation-focus-desktop.png`
 - Create: `docs/design/high-fidelity/evidence/module-source-verification-desktop.png`
 - Modify: `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
@@ -802,6 +832,8 @@ Run visual/card/interaction validators and commit `docs: design module default r
 **Interfaces:**
 - Consumes: Module default reading state.
 - Produces: single-primary Relation focus, endpoint hierarchy, Quick Source, full verification, keyboard focus return, and explicit source-gap visuals.
+
+`WriteSetItemCount = 9`。本卡只拥有上述九个精确路径。
 
 - [ ] **Step 1: Add failing state-fixture assertions**
 
@@ -822,7 +854,9 @@ Run all visual validators and commit `docs: design focus and source verification
 ### Task 9: HV-D03 Revision, Impact, and Recovery Evidence
 
 **Files:**
-- Modify: `docs/design/high-fidelity/prototype/*`
+- Modify: `docs/design/high-fidelity/prototype/index.html`
+- Modify: `docs/design/high-fidelity/prototype/styles.css`
+- Modify: `docs/design/high-fidelity/prototype/prototype.js`
 - Create: `docs/design/high-fidelity/evidence/module-revision-impact-desktop.png`
 - Create: `docs/design/high-fidelity/evidence/module-partial-failure-desktop.png`
 - Create: `docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png`
@@ -834,6 +868,8 @@ Run all visual validators and commit `docs: design focus and source verification
 **Interfaces:**
 - Consumes: state axes, 20 exception contracts, and source verification design.
 - Produces: Quick-to-Full upgrade, three-lane impact, commit boundaries, partial failure, stale projection, conflict draft, and Revert evidence.
+
+`WriteSetItemCount = 10`。本卡只拥有上述十个精确路径。
 
 - [ ] **Step 1: Add failing revision/recovery assertions**
 
@@ -854,7 +890,9 @@ Run all visual validators and commit `docs: design revision and recovery evidenc
 ### Task 10: HV-D04 Cross-Layer, Responsive, and Export Evidence
 
 **Files:**
-- Modify: `docs/design/high-fidelity/prototype/*`
+- Modify: `docs/design/high-fidelity/prototype/index.html`
+- Modify: `docs/design/high-fidelity/prototype/styles.css`
+- Modify: `docs/design/high-fidelity/prototype/prototype.js`
 - Create: `docs/design/high-fidelity/evidence/domain-default-reading-desktop.png`
 - Create: `docs/design/high-fidelity/evidence/theme-default-reading-desktop.png`
 - Create: `docs/design/high-fidelity/evidence/module-default-reading-small-screen.png`
@@ -868,6 +906,8 @@ Run all visual validators and commit `docs: design revision and recovery evidenc
 **Interfaces:**
 - Consumes: validated Module states.
 - Produces: Domain, Theme, small-screen, and static export evidence with stable machine-readable identity.
+
+`WriteSetItemCount = 12`。本卡只拥有上述十二个精确路径。
 
 - [ ] **Step 1: Add failing cross-layer and export assertions**
 
@@ -898,6 +938,8 @@ Run all visual validators and commit `docs: complete cross layer visual evidence
 **Interfaces:**
 - Consumes: all eight evidence classes, screenshots, prototype transitions, RF-AC results, and exception recovery observations.
 - Produces: independent visual/usability GO results and `HighFidelityDesignStatus = COMPLETE` without authorizing implementation.
+
+`WriteSetItemCount = 6`。本卡只拥有上述六个精确路径。
 
 - [ ] **Step 1: Run complete local evidence validation**
 
@@ -944,6 +986,8 @@ Commit `docs: close high fidelity visual design gate`.
 **Interfaces:**
 - Consumes: closed contract, visual, and usability design Gates.
 - Produces: a copyable next-session prompt that asks for implementation task-card planning and explicit business authorization without authorizing code itself.
+
+`WriteSetItemCount = 4`。本卡只拥有上述四个精确路径。
 
 - [ ] **Step 1: Write the development-entry prompt**
 

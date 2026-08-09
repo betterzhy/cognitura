@@ -8,15 +8,17 @@ EvidenceInputContract = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
-VisualTaskCardArtifacts = NOT_CREATED
+HighFidelityVisualFoundation = PASS
+VisualTaskCardArtifactsActual = CREATED
 HV-D00ReleaseCondition = HF_D04_FIXED_CANDIDATE_DOUBLE_REVIEW_PASS
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
 
-本文件只固定后续证据路径、输入状态和 Gate，不包含视觉页面、原型、截图或可用性
-结果。`HF-DG4 = PASS` 只关闭合同设计固定候选审查；所有真实证据仍为 `NOT_RUN`。
+本文件固定后续证据路径、输入状态和 Gate。`HV-D00` 已建立 docs-only 非生产原型
+基础和一张 1440×1100 foundation 截图；这只证明视觉 token 与原型治理基线，
+不构成 Module 等八类真实视觉证据或可用性结果，二者仍为 `NOT_RUN`。
 
 ## 1. 八类有序证据路径
 
@@ -52,20 +54,39 @@ CrossDomainScenario = RULE_POLICY_DOMAIN|EvidenceClass=KnowledgeLandscapeAndKnow
 
 ## 3. 后续视觉设计任务序列
 
-本卡只登记序列，不创建 `docs/task-cards/high-fidelity-visual/`、原型或视觉稿。
-HF-D04 固定候选双阶段审查已通过，因此仅投影 `HV-D00 = READY / RELEASED`。
-实际 HV 卡集仍为 `NOT_CREATED`，由 Task 6 创建；其余五项继续阻断。
+以下 `HVDesignTask` 六行是 `HF-DG4` 关闭时的历史投影快照，继续供合同 Gate
+复验；`VisualTaskCardArtifacts = NOT_CREATED` 也只表示该历史时点。Task 6 此后已
+创建精确六卡集合、视觉基础、确定性原型和 foundation 截图并关闭 `HV-D00`。
+当前实际状态由 `HVExecutionTask` 六行承担，仅 `HV-D01` 被释放为唯一 `READY`。
 
 ```text
+VisualTaskCardArtifacts = NOT_CREATED
 HVDesignTask = HV-D00|VisualFoundation|READY|RELEASED
 HVDesignTask = HV-D01|ModuleDefaultReading|BLOCKED|NOT_RELEASED
 HVDesignTask = HV-D02|FocusAndSource|BLOCKED|NOT_RELEASED
 HVDesignTask = HV-D03|RevisionAndRecovery|BLOCKED|NOT_RELEASED
 HVDesignTask = HV-D04|CrossLayerResponsiveAndExport|BLOCKED|NOT_RELEASED
 HVDesignTask = HV-D05|FixedVisualUsabilityReview|BLOCKED|NOT_RELEASED
+
+HVExecutionTask = HV-D00|VisualFoundation|DONE|PASS
+HVExecutionTask = HV-D01|ModuleDefaultReading|READY|RELEASED
+HVExecutionTask = HV-D02|FocusAndSource|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
+HVExecutionTask = HV-D03|RevisionAndRecovery|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
+HVExecutionTask = HV-D04|CrossLayerResponsiveAndExport|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
+HVExecutionTask = HV-D05|FixedVisualUsabilityReview|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
 ```
 
-## 4. 阶段隔离
+## 4. 视觉基础证据
+
+```text
+VisualFoundationArtifact = docs/design/high-fidelity/evidence/visual-foundation-desktop.png
+VisualFoundationViewport = DESKTOP_1440x1100
+VisualFoundationPrototypeState = visual-foundation
+VisualFoundationStatus = PASS
+VisualFoundationMeaning = TOKEN_AND_PROTOTYPE_GOVERNANCE_BASELINE_ONLY
+```
+
+## 5. 阶段隔离
 
 ```text
 CONTRACT = HF-DG3_EVIDENCE_INPUT_CONTRACT_PASS

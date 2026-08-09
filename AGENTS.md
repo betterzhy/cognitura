@@ -14,7 +14,7 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  HIGH_FIDELITY_CONTRACT_DESIGN_COMPLETE
+  HIGH_FIDELITY_VISUAL_FOUNDATION_ESTABLISHED
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
@@ -35,11 +35,12 @@ HighFidelityReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
 HighFidelityReadingPresentationContract = PASS
 HighFidelityInteractionStateModel = PASS
 HighFidelityEvidenceContract = PASS
+HighFidelityVisualFoundation = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
-HighFidelityVisualTaskCardSet = NOT_CREATED
-HighFidelityVisualProjectedEntry = HV-D00 READY / RELEASED
-ActiveDesignTaskCard = NONE
+HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
+HighFidelityVisualProjectedEntry = HV-D01 READY / RELEASED
+ActiveDesignTaskCard = HV-D01
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
@@ -60,8 +61,9 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 改变 `BusinessImplementation = NOT_AUTHORIZED`、正式数据库写入和远程推送边界。
 `HF-D01` 仅关闭 Reading First 页面与呈现合同，`HF-D02` 仅关闭正交状态、持久化
 与恢复边界，`HF-D03` 仅关闭八类证据、20 项 RF-AC、20 异常、30 RM 和跨域场景
-的输入合同，`HF-D04` 仅关闭固定合同候选审查。`HV-D00` 只在计划中投影为
-`READY / RELEASED`，实际 HV 卡集仍未创建；高保真视觉、可用性和实现仍未执行。
+的输入合同，`HF-D04` 仅关闭固定合同候选审查。`HV-D00` 已建立 docs-only
+非生产视觉 token、确定性 URL fixture、基础截图和六卡串行治理，并仅释放
+`HV-D01`；Module 默认阅读及后续高保真视觉、可用性和实现仍未执行。
 
 ## 3. 正式事实来源
 
