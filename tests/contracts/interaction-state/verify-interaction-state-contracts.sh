@@ -5,6 +5,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-interaction-state-contracts"
 document="${repo_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md"
+plan="${repo_root}/docs/engineering/cognitura-high-fidelity-design-plan.md"
+acceptance="${repo_root}/docs/engineering/cognitura-high-fidelity-design-acceptance.md"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-interaction-state.XXXXXX")"
 
 cleanup() {
@@ -17,31 +19,36 @@ fail() {
   exit 1
 }
 
-hfd02_stage_fail() {
-  printf 'HFD02StageSeparation = FAIL\n%s\n' "$1" >&2
+hfd03_stage_fail() {
+  printf 'HFD03StageSeparation = FAIL\n%s\n' "$1" >&2
   return 1
 }
 
-validate_hfd02_stage_separation() {
+validate_hfd03_stage_separation() {
   local fixture="$1"
 
-  [[ "$(grep -Fxc '  HF_D03_HIGH_FIDELITY_EVIDENCE_CONTRACT' "${fixture}" || true)" -eq 2 ]] ||
-    { hfd02_stage_fail "HFD03_STAGE_ENTRY_MISMATCH"; return 1; }
+  [[ "$(grep -Fxc '  HF_D04_FIXED_DESIGN_REVIEW' "${fixture}" || true)" -eq 2 ]] ||
+    { hfd03_stage_fail "HFD04_STAGE_ENTRY_MISMATCH"; return 1; }
   grep -Fqx \
-    'HFD02Scope = ORTHOGONAL_STATE_CLASSIFICATION_RECOVERY_AND_PERSISTENCE_ONLY' \
-    "${fixture}" || { hfd02_stage_fail "HFD02_STAGE_SCOPE_MISMATCH"; return 1; }
+    'HFD03Scope = HIGH_FIDELITY_EVIDENCE_INPUT_CONTRACT_ONLY' \
+    "${fixture}" || { hfd03_stage_fail "HFD03_STAGE_SCOPE_MISMATCH"; return 1; }
   grep -Fqx \
     'RealHighFidelityPageDesign = DEFERRED_UNTIL_HF_D04_PASS_AND_SEPARATE_HV_GATE' \
-    "${fixture}" || { hfd02_stage_fail "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD02"; return 1; }
+    "${fixture}" || { hfd03_stage_fail "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD03"; return 1; }
   grep -Fqx \
     'HighFidelityVisualAndUsabilityValidation = DEFERRED_UNTIL_SEPARATE_HV_GATE' \
-    "${fixture}" || { hfd02_stage_fail "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD02"; return 1; }
+    "${fixture}" || { hfd03_stage_fail "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD03"; return 1; }
 }
 
 run_validation() {
   local fixture="$1"
-  "${verifier}" --document "${fixture}" || return 1
-  validate_hfd02_stage_separation "${fixture}"
+  local fixture_plan="${2:-${plan}}"
+  local fixture_acceptance="${3:-${acceptance}}"
+  "${verifier}" \
+    --document "${fixture}" \
+    --plan "${fixture_plan}" \
+    --acceptance "${fixture_acceptance}" || return 1
+  validate_hfd03_stage_separation "${fixture}"
 }
 
 expect_failure() {
@@ -64,8 +71,32 @@ expect_success() {
     fail "valid stage-aware fixture output is missing PASS: ${fixture}"
 }
 
+expect_evidence_failure() {
+  local fixture_document="$1"
+  local fixture_plan="$2"
+  local fixture_acceptance="$3"
+  local expected_message="$4"
+  local output
+  if output="$(run_validation \
+    "${fixture_document}" "${fixture_plan}" "${fixture_acceptance}" 2>&1)"; then
+    fail "invalid evidence fixture unexpectedly passed: ${fixture_document}"
+  fi
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "expected evidence error '${expected_message}', got: ${output}"
+}
+
+make_evidence_fixture() {
+  local fixture_root="$1"
+  mkdir -p "${fixture_root}/docs/engineering"
+  cp "${document}" "${fixture_root}/candidate.md"
+  cp "${plan}" "${fixture_root}/docs/engineering/plan.md"
+  cp "${acceptance}" "${fixture_root}/docs/engineering/acceptance.md"
+}
+
 [[ -x "${verifier}" ]] || fail "interaction-state verifier is missing or not executable"
 [[ -f "${document}" ]] || fail "interaction-state specialty candidate is missing"
+[[ -f "${plan}" ]] || fail "high-fidelity evidence plan is missing"
+[[ -f "${acceptance}" ]] || fail "high-fidelity evidence acceptance is missing"
 
 for required_identity in \
   'PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING' \
@@ -133,10 +164,156 @@ for expected_line in \
   "PageStateMappingCount = 12" \
   "ExceptionCodeCount = 20" \
   "RFAcceptanceCount = 20" \
-  "ReverseMigrationCount = 30"; do
+  "ReverseMigrationCount = 30" \
+  "EvidenceClassCount = 8" \
+  "RFAcceptanceEvidenceCount = 20" \
+  "ExceptionAcceptanceEvidenceCount = 20" \
+  "ReverseMigrationTraceCount = 30" \
+  "CrossDomainScenarioCount = 2" \
+  "VisualDesignTaskCount = 6" \
+  "HighFidelityVisualDesign = NOT_RUN" \
+  "HighFidelityUsabilityValidation = NOT_RUN"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
 done
+
+missing_evidence_class_root="${test_tmp_root}/missing-evidence-class"
+make_evidence_fixture "${missing_evidence_class_root}"
+sed -i.bak '/^EvidencePath = 08|StaticExport|/d' \
+  "${missing_evidence_class_root}/docs/engineering/plan.md"
+rm "${missing_evidence_class_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${missing_evidence_class_root}/candidate.md" \
+  "${missing_evidence_class_root}/docs/engineering/plan.md" \
+  "${missing_evidence_class_root}/docs/engineering/acceptance.md" \
+  "expected exact eight canonical evidence classes"
+
+legacy_evidence_name_root="${test_tmp_root}/legacy-evidence-name"
+make_evidence_fixture "${legacy_evidence_name_root}"
+sed -i.bak \
+  's/^EvidencePath = 06|KnowledgeLandscapeAndKnowledgeTheme|/EvidencePath = 06|DomainAndTheme|/' \
+  "${legacy_evidence_name_root}/docs/engineering/plan.md"
+rm "${legacy_evidence_name_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${legacy_evidence_name_root}/candidate.md" \
+  "${legacy_evidence_name_root}/docs/engineering/plan.md" \
+  "${legacy_evidence_name_root}/docs/engineering/acceptance.md" \
+  "expected exact eight canonical evidence classes"
+
+missing_rf_acceptance_root="${test_tmp_root}/missing-rf-acceptance"
+make_evidence_fixture "${missing_rf_acceptance_root}"
+sed -i.bak '/^RFAcceptance = RF-AC-20|/d' \
+  "${missing_rf_acceptance_root}/docs/engineering/acceptance.md"
+rm "${missing_rf_acceptance_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${missing_rf_acceptance_root}/candidate.md" \
+  "${missing_rf_acceptance_root}/docs/engineering/plan.md" \
+  "${missing_rf_acceptance_root}/docs/engineering/acceptance.md" \
+  "expected exact RF-AC-01..20 acceptance set"
+
+wrong_rf_acceptance_root="${test_tmp_root}/wrong-rf-acceptance"
+make_evidence_fixture "${wrong_rf_acceptance_root}"
+sed -i.bak 's/^RFAcceptance = RF-AC-20|/RFAcceptance = RF-AC-21|/' \
+  "${wrong_rf_acceptance_root}/docs/engineering/acceptance.md"
+rm "${wrong_rf_acceptance_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${wrong_rf_acceptance_root}/candidate.md" \
+  "${wrong_rf_acceptance_root}/docs/engineering/plan.md" \
+  "${wrong_rf_acceptance_root}/docs/engineering/acceptance.md" \
+  "expected exact RF-AC-01..20 acceptance set"
+
+missing_exception_acceptance_root="${test_tmp_root}/missing-exception-acceptance"
+make_evidence_fixture "${missing_exception_acceptance_root}"
+sed -i.bak '/^ExceptionAcceptance = EX-WORKSPACE-SWITCH-WITH-DRAFT|/d' \
+  "${missing_exception_acceptance_root}/docs/engineering/acceptance.md"
+rm "${missing_exception_acceptance_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${missing_exception_acceptance_root}/candidate.md" \
+  "${missing_exception_acceptance_root}/docs/engineering/plan.md" \
+  "${missing_exception_acceptance_root}/docs/engineering/acceptance.md" \
+  "expected exact 20 exception acceptance set"
+
+missing_rm_trace_root="${test_tmp_root}/missing-rm-trace"
+make_evidence_fixture "${missing_rm_trace_root}"
+sed -i.bak '/^ReverseMigrationTrace = ISHFI-RM-30|/d' \
+  "${missing_rm_trace_root}/docs/engineering/acceptance.md"
+rm "${missing_rm_trace_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${missing_rm_trace_root}/candidate.md" \
+  "${missing_rm_trace_root}/docs/engineering/plan.md" \
+  "${missing_rm_trace_root}/docs/engineering/acceptance.md" \
+  "expected exact ISHFI-RM-01..30 trace set"
+
+missing_cross_domain_root="${test_tmp_root}/missing-cross-domain"
+make_evidence_fixture "${missing_cross_domain_root}"
+sed -i.bak '/^CrossDomainScenario = RULE_POLICY_DOMAIN|/d' \
+  "${missing_cross_domain_root}/docs/engineering/plan.md"
+rm "${missing_cross_domain_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${missing_cross_domain_root}/candidate.md" \
+  "${missing_cross_domain_root}/docs/engineering/plan.md" \
+  "${missing_cross_domain_root}/docs/engineering/acceptance.md" \
+  "mechanism and rule-policy cross-domain scenarios required"
+
+extra_cross_domain_root="${test_tmp_root}/extra-cross-domain"
+make_evidence_fixture "${extra_cross_domain_root}"
+sed -i.bak '/^HFD03CrossDomainScenario = RULE_POLICY_DOMAIN|/a\
+HFD03CrossDomainScenario = UNAUTHORIZED_DOMAIN|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=UNAUTHORIZED' \
+  "${extra_cross_domain_root}/candidate.md"
+rm "${extra_cross_domain_root}/candidate.md.bak"
+expect_evidence_failure \
+  "${extra_cross_domain_root}/candidate.md" \
+  "${extra_cross_domain_root}/docs/engineering/plan.md" \
+  "${extra_cross_domain_root}/docs/engineering/acceptance.md" \
+  "candidate must contain exactly two cross-domain scenarios"
+
+premature_acceptance_pass_root="${test_tmp_root}/premature-acceptance-pass"
+make_evidence_fixture "${premature_acceptance_pass_root}"
+sed -i.bak \
+  '/^RFAcceptance = RF-AC-01|/s/|Status=NOT_RUN|/|Status=PASS|/' \
+  "${premature_acceptance_pass_root}/docs/engineering/acceptance.md"
+rm "${premature_acceptance_pass_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${premature_acceptance_pass_root}/candidate.md" \
+  "${premature_acceptance_pass_root}/docs/engineering/plan.md" \
+  "${premature_acceptance_pass_root}/docs/engineering/acceptance.md" \
+  "acceptance evidence status must remain NOT_RUN"
+
+missing_acceptance_field_root="${test_tmp_root}/missing-acceptance-field"
+make_evidence_fixture "${missing_acceptance_field_root}"
+sed -i.bak \
+  '/^RFAcceptance = RF-AC-02|/s/|Expected=[^|]*|/|/' \
+  "${missing_acceptance_field_root}/docs/engineering/acceptance.md"
+rm "${missing_acceptance_field_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${missing_acceptance_field_root}/candidate.md" \
+  "${missing_acceptance_field_root}/docs/engineering/plan.md" \
+  "${missing_acceptance_field_root}/docs/engineering/acceptance.md" \
+  "acceptance evidence row field mismatch"
+
+fabricated_artifact_root="${test_tmp_root}/fabricated-artifact"
+make_evidence_fixture "${fabricated_artifact_root}"
+sed -i.bak \
+  '/^RFAcceptance = RF-AC-03|/s/|Artifact=PLANNED:/|Artifact=CAPTURED:/' \
+  "${fabricated_artifact_root}/docs/engineering/acceptance.md"
+rm "${fabricated_artifact_root}/docs/engineering/acceptance.md.bak"
+expect_evidence_failure \
+  "${fabricated_artifact_root}/candidate.md" \
+  "${fabricated_artifact_root}/docs/engineering/plan.md" \
+  "${fabricated_artifact_root}/docs/engineering/acceptance.md" \
+  "acceptance artifacts must remain PLANNED"
+
+premature_hv_ready_root="${test_tmp_root}/premature-hv-ready"
+make_evidence_fixture "${premature_hv_ready_root}"
+sed -i.bak \
+  's/^HVDesignTask = HV-D00|VisualFoundation|BLOCKED|NOT_RELEASED$/HVDesignTask = HV-D00|VisualFoundation|READY|RELEASED/' \
+  "${premature_hv_ready_root}/docs/engineering/plan.md"
+rm "${premature_hv_ready_root}/docs/engineering/plan.md.bak"
+expect_evidence_failure \
+  "${premature_hv_ready_root}/candidate.md" \
+  "${premature_hv_ready_root}/docs/engineering/plan.md" \
+  "${premature_hv_ready_root}/docs/engineering/acceptance.md" \
+  "visual design tasks must remain BLOCKED and NOT_RELEASED"
 
 legal_hfdg1_pass="${test_tmp_root}/legal-hfdg1-pass.md"
 cp "${document}" "${legal_hfdg1_pass}"
@@ -375,7 +552,7 @@ expect_failure "${premature_contract_pass}" \
 premature_p0_close="${test_tmp_root}/premature-p0-close.md"
 cp "${document}" "${premature_p0_close}"
 sed -i.bak -E \
-  's/^ContractP0Remaining = DEFERRED_TO_HF_D0(1|2|3)_THROUGH_HF_D04$/ContractP0Remaining = 0/' \
+  's/^ContractP0Remaining = (DEFERRED_TO_HF_D0(1|2|3)_THROUGH_HF_D04|DEFERRED_TO_HF_D04)$/ContractP0Remaining = 0/' \
   "${premature_p0_close}"
 rm "${premature_p0_close}.bak"
 expect_failure "${premature_p0_close}" \
@@ -474,7 +651,7 @@ expect_failure "${premature_implementation_pass}" \
 premature_rf_visual_pass="${test_tmp_root}/premature-rf-visual-pass.md"
 cp "${document}" "${premature_rf_visual_pass}"
 sed -i.bak \
-  '/^| RF-AC-01 /s/| CONTRACT | DEFERRED | NOT_RUN |$/| CONTRACT | DEFERRED | PASS |/' \
+  '/^| RF-AC-01 /s/| CONTRACT | PASS | NOT_RUN |$/| CONTRACT | PASS | PASS |/' \
   "${premature_rf_visual_pass}"
 rm "${premature_rf_visual_pass}.bak"
 expect_failure "${premature_rf_visual_pass}" \
@@ -498,9 +675,9 @@ sed -i.bak \
   "${premature_real_high_fidelity_page}"
 rm "${premature_real_high_fidelity_page}.bak"
 expect_failure "${premature_real_high_fidelity_page}" \
-  "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD02"
+  "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD03"
 
 printf '%s\n' \
   "InteractionStateContractTests = PASS" \
   "StageAwarePositiveCases = 2" \
-  "NegativeCases = 47"
+  "NegativeCases = 59"

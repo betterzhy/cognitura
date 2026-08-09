@@ -345,8 +345,8 @@ StaticImageMarkdownPdfProjectionBoundaryNotExplicit = TRUE
 
 ```text
 CurrentRemainingReadingFirstGaps = 0
-CurrentRemainingHighFidelityStateInputGaps = DEFERRED_TO_HF_D03_EVIDENCE_CONTRACT
-ContractP0Remaining = DEFERRED_TO_HF_D03_THROUGH_HF_D04
+CurrentRemainingHighFidelityStateInputGaps = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
+ContractP0Remaining = DEFERRED_TO_HF_D04
 ```
 
 ### 0.8 PlannedMinimalPatchScope
@@ -3543,24 +3543,24 @@ Markdown/PDF 不需要复制全部交互状态，但不能丢失核心理解。
 
 ## 16. 局部高保真状态证据输入
 
-本轮不制作第三轮整体低保真。高保真阶段只需制作以下局部状态证据：
+本轮不制作第三轮整体低保真。后续高保真阶段的八类证据使用 Cognitura 正式命名：
 
 ```text
-DomainDefaultReadingState
-ThemeDefaultReadingState
-ModuleDefaultReadingState
-ModuleFocusedRelationState
-ModuleSourceVerificationState
-ModuleRevisionState
-SmallScreenReadingState
-StaticExportExample
+HFD03EvidenceClass = CognitiveModuleDefaultReading
+HFD03EvidenceClass = RelationFocus
+HFD03EvidenceClass = SourceEvidenceVerification
+HFD03EvidenceClass = RevisionAndImpact
+HFD03EvidenceClass = Recovery
+HFD03EvidenceClass = KnowledgeLandscapeAndKnowledgeTheme
+HFD03EvidenceClass = SmallScreenSafeReadable
+HFD03EvidenceClass = StaticExport
 ```
 
 ### 16.1 最重要状态
 
 ```text
 PrimaryHighFidelityDesignTarget =
-  ModuleDefaultReadingState
+  CognitiveModuleDefaultReading
 ```
 
 其验收优先于：
@@ -3571,7 +3571,7 @@ PrimaryHighFidelityDesignTarget =
 - 复杂二跳关系；
 - 品牌和装饰。
 
-### 16.2 ModuleDefaultReadingState 最低要求
+### 16.2 CognitiveModuleDefaultReading 最低要求
 
 不进行点击时直接显示：
 
@@ -3596,7 +3596,7 @@ VisiblePrimaryActionsPerSection <= 2
 PrimaryVisualProjectionPerSection <= 1
 ```
 
-### 16.3 ModuleFocusedRelationState
+### 16.3 RelationFocus
 
 Relation 成为唯一主聚焦对象：
 
@@ -3608,7 +3608,7 @@ Relation 成为唯一主聚焦对象：
 - 修订入口；
 - 关闭后恢复原 Element 或 Module Anchor。
 
-### 16.4 ModuleSourceVerificationState
+### 16.4 SourceEvidenceVerification
 
 必须展示：
 
@@ -3617,7 +3617,7 @@ Relation 成为唯一主聚焦对象：
 - 来源直接支持、结构重组、系统推断和冲突；
 - 返回原阅读位置。
 
-### 16.5 ModuleRevisionState
+### 16.5 RevisionAndImpact
 
 必须展示：
 
@@ -3627,6 +3627,28 @@ Relation 成为唯一主聚焦对象：
 - Blocker 默认展开；
 - 提交后处理方式；
 - 草稿和返回状态。
+
+### 16.6 HF-D03 高保真证据输入合同
+
+```text
+HFD03EvidencePlan = docs/engineering/cognitura-high-fidelity-design-plan.md
+HFD03EvidenceAcceptance = docs/engineering/cognitura-high-fidelity-design-acceptance.md
+HFD03EvidenceContract = PASS
+HFD03GateMeaning = EVIDENCE_INPUT_CONTRACT_COMPLETE_ONLY
+```
+
+八类证据按 `CognitiveModule` 默认阅读、Relation 聚焦、SourceEvidence 核验、
+Revision/Impact、Recovery、KnowledgeLandscape/KnowledgeTheme、小屏安全可读和静态
+导出依次规划。计划覆盖 KnowledgeElement 定位与展开、加载/空/错误/权限/不可用、
+键盘焦点、无障碍、反馈、Desktop Web 和基础响应式；所有真实产物仍为 `NOT_RUN`。
+
+```text
+HFD03CrossDomainScenario = MECHANISM_DOMAIN|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=MVCC_CONSISTENT_READ_MECHANISM
+HFD03CrossDomainScenario = RULE_POLICY_DOMAIN|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=PROCUREMENT_ACCEPTANCE_BEFORE_PAYMENT_POLICY
+```
+
+机制域与规则/政策域都只是 `CognitiveModule` 的认知内容类型，不创建新的正式层级、
+产品对象、第二棵知识树或全局图谱。HF-DG3 PASS 不表示视觉或可用性 PASS。
 
 ---
 
@@ -3765,7 +3787,7 @@ HighFidelityUsabilityResult = NOT_RUN
 ValidationStage = CONTRACT
 MechanismTypeScenarioContract = CANDIDATE_AWAITING_HF_DG1
 RuleTypeScenarioContract = CANDIDATE_AWAITING_HF_DG1
-CrossDomainScenarioContractValidation = CANDIDATE_AWAITING_HF_DG1
+CrossDomainScenarioContractValidation = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
 
 SingleDomainPageModelRequired = NO
 GlobalKnowledgeGraphRequired = NO
@@ -3778,7 +3800,7 @@ CrossDomainUsabilityValidation = NOT_RUN
 
 以上只证明本文件的契约能够覆盖两类领域案例。字体、间距、视觉层级、真实操作成本
 和跨领域视觉一致性必须在 HF-D04 固定候选审查通过后的独立 HV Gate，基于真实
-高保真页面验收；不得与 HF-D02 状态合同设计同阶段执行。
+高保真页面验收；不得与 HF-D03 证据输入合同同阶段执行。
 
 ---
 
@@ -3919,14 +3941,14 @@ ContractPASSDoesNotImplyUsabilityPASS = REQUIRED
 
 | 阶段 | 验收对象 | 当前状态 |
 |---|---|---|
-| `CONTRACT` | 规则、状态、字段、边界、矩阵和可执行验收输入是否完整 | HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY_PASS_REMAINDER_DEFERRED_TO_HF_D03 |
+| `CONTRACT` | 规则、状态、字段、边界、矩阵和可执行验收输入是否完整 | HF-DG3_HIGH_FIDELITY_EVIDENCE_CONTRACT_PASS_REMAINDER_DEFERRED_TO_HF_D04 |
 | `HIGH_FIDELITY_VISUAL` | 真实高保真页面是否满足层级、密度、连续性和状态表达 | NOT_RUN |
 | `HIGH_FIDELITY_USABILITY` | 用户是否能在真实原型中理解、操作、返回和恢复 | NOT_RUN |
 | `IMPLEMENTATION` | 前端代码是否实现并通过自动化与人工验收 | NOT_RUN |
 
 ```text
 ContractDefined = CANDIDATE_ONLY
-ContractCompleteness = DEFERRED_TO_HF_D03_THROUGH_HF_D04
+ContractCompleteness = DEFERRED_TO_HF_D04
 HighFidelityInputReady = CANDIDATE_ONLY
 
 HighFidelityVisualDesign = NOT_RUN
@@ -3941,32 +3963,32 @@ HighFidelityStateAcceptance = NOT_RUN
 
 | ID | 验收动作 | 通过标准 | ValidationStage | Contract Result | High-Fidelity Result |
 |---|---|---|---|---|---|
-| RF-AC-01 | 关闭所有非必要交互 | 四层页面仍能完成主要认知任务 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-02 | 只阅读默认 Module | 获得完整认知闭环 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-03 | 删除右侧面板 | 关键 Relation 仍可理解 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-04 | 检查页面主体 | 禁止同规格卡片网格作为主体 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-05 | 检查视觉组件 | 禁止大量异形组件集合 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-06 | 阅读连续正文 | 必须连接机制、关系、条件和边界 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-07 | 检查默认状态 | 禁止常驻治理面板 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-08 | 统计默认控件 | 必须符合页面级与 Section 级预算 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-09 | 追溯事实来源 | 同一事实只来自 Canonical Model | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-10 | 比较 Web/图片/Markdown/PDF | Object 和 Relation 身份一致 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-11 | 检查 Element 表达 | 普通 Element 不全部卡片化或节点化 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-12 | 检查 Perspective | 核心正文不依赖视角切换 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-13 | 检查 Revision | 高风险影响默认展开并阻断提交 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-14 | 检查提交后状态 | 四类处理、部分失败和撤销明确 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-15 | 检查小屏 | 默认仍为连续文档阅读 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-16 | 执行点击/Escape/空白区矩阵 | 所有切换结果唯一且不丢上下文 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-17 | 执行 URL/History/Refresh 矩阵 | 只恢复稳定语义状态和草稿 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-18 | 执行异常恢复矩阵 | 保存边界、重试、回退和去重明确 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-19 | 检查导出身份 | 稳定 ID 机器可读且默认不打扰读者 | CONTRACT | DEFERRED | NOT_RUN |
-| RF-AC-20 | 检查第二轮追溯 | 已接受结论与当前候选追溯位置可定位 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-01 | 关闭所有非必要交互 | 四层页面仍能完成主要认知任务 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-02 | 只阅读默认 Module | 获得完整认知闭环 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-03 | 删除右侧面板 | 关键 Relation 仍可理解 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-04 | 检查页面主体 | 禁止同规格卡片网格作为主体 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-05 | 检查视觉组件 | 禁止大量异形组件集合 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-06 | 阅读连续正文 | 必须连接机制、关系、条件和边界 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-07 | 检查默认状态 | 禁止常驻治理面板 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-08 | 统计默认控件 | 必须符合页面级与 Section 级预算 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-09 | 追溯事实来源 | 同一事实只来自 Canonical Model | CONTRACT | PASS | NOT_RUN |
+| RF-AC-10 | 比较 Web/图片/Markdown/PDF | Object 和 Relation 身份一致 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-11 | 检查 Element 表达 | 普通 Element 不全部卡片化或节点化 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-12 | 检查 Perspective | 核心正文不依赖视角切换 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-13 | 检查 Revision | 高风险影响默认展开并阻断提交 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-14 | 检查提交后状态 | 四类处理、部分失败和撤销明确 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-15 | 检查小屏 | 默认仍为连续文档阅读 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-16 | 执行点击/Escape/空白区矩阵 | 所有切换结果唯一且不丢上下文 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-17 | 执行 URL/History/Refresh 矩阵 | 只恢复稳定语义状态和草稿 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-18 | 执行异常恢复矩阵 | 保存边界、重试、回退和去重明确 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-19 | 检查导出身份 | 稳定 ID 机器可读且默认不打扰读者 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-20 | 检查第二轮追溯 | 已接受结论与当前候选追溯位置可定位 | CONTRACT | PASS | NOT_RUN |
 
 ### 19.3 当前候选合同的分阶段状态
 
-HF-D01 只允许 Reading First 页面与呈现合同在 `CONTRACT` 阶段为 PASS。
-状态与恢复、高保真证据、固定候选审查仍按 HF-D02～HF-D04 延后；任何
-视觉、可用性或实现 PASS 声明仍被禁止。
+HF-D01、HF-D02 与 HF-D03 已依次使 Reading First、状态恢复和高保真证据输入
+合同在 `CONTRACT` 阶段为 PASS。固定候选审查仍延后到 HF-D04；任何视觉、
+可用性或实现 PASS 声明仍被禁止。
 
 ```text
 ReadingFirstPresentationContract = PASS
@@ -3978,7 +4000,7 @@ VisualPrimitiveDensityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 InteractionExposureContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 ReadingGovernanceSeparationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 StaticProjectionContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-CrossDomainScenarioContractValidation = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+CrossDomainScenarioContractValidation = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
 
 PreviewAndPinnedFocusContract = PASS
 ElementRelationFocusPriorityContract = PASS
@@ -3992,8 +4014,9 @@ URLHistoryAndRefreshContract = PASS
 BudgetMeasurementDefinition = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 StableIdentityExportContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 SecondRoundLowFidelityTraceability = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+HighFidelityEvidenceContract = PASS
 
-ContractP0Remaining = DEFERRED_TO_HF_D03_THROUGH_HF_D04
+ContractP0Remaining = DEFERRED_TO_HF_D04
 HighFidelityInputReady = CANDIDATE_ONLY
 ```
 
@@ -4251,10 +4274,10 @@ GitRepositoryConnected =
   YES
 
 GitCommitPerformed =
-  PENDING_HF_D02_LOCAL_GATE_AND_COMMIT
+  PENDING_HF_D03_LOCAL_GATE_AND_COMMIT
 
 RecommendedCommit =
-  docs: normalize interaction state and recovery model
+  docs: define high fidelity evidence gates
 ```
 
 本次产物级检查：
@@ -4316,9 +4339,10 @@ URLHistoryAndRefreshContract = PASS
 BudgetMeasurementDefinition = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 StableIdentityExportContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 SecondRoundLowFidelityTraceability = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-CrossDomainScenarioContractValidation = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+CrossDomainScenarioContractValidation = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
 
-ContractP0Remaining = DEFERRED_TO_HF_D03_THROUGH_HF_D04
+HighFidelityEvidenceContract = PASS
+ContractP0Remaining = DEFERRED_TO_HF_D04
 HighFidelityInputReady = CANDIDATE_ONLY
 
 HighFidelityVisualDesign = NOT_RUN
@@ -4338,7 +4362,7 @@ FrontendTechnologySelectionReady = NO
 FrontendImplementationReady = NO
 
 NextStage =
-  HF_D03_HIGH_FIDELITY_EVIDENCE_CONTRACT
+  HF_D04_FIXED_DESIGN_REVIEW
 ```
 
 ---
@@ -4347,14 +4371,14 @@ NextStage =
 
 ```text
 NextStage =
-  HF_D03_HIGH_FIDELITY_EVIDENCE_CONTRACT
+  HF_D04_FIXED_DESIGN_REVIEW
 
-HFD02Scope = ORTHOGONAL_STATE_CLASSIFICATION_RECOVERY_AND_PERSISTENCE_ONLY
+HFD03Scope = HIGH_FIDELITY_EVIDENCE_INPUT_CONTRACT_ONLY
 RealHighFidelityPageDesign = DEFERRED_UNTIL_HF_D04_PASS_AND_SEPARATE_HV_GATE
 HighFidelityVisualAndUsabilityValidation = DEFERRED_UNTIL_SEPARATE_HV_GATE
 ```
 
-HF-D02 只设计：
+HF-D03 只定义证据输入与验收合同；以下 HF-D02 已通过的状态范围继续作为输入：
 
 ```text
 ModuleDefaultReadingState
@@ -4364,7 +4388,7 @@ URLHistoryAndRefreshPersistence
 ```
 
 真实高保真页面设计必须等 HF-D04 固定候选审查通过后，再进入独立 HV Gate；
-下列视觉与可用性验收不得与 HF-D02 同阶段执行：
+下列视觉与可用性验收不得与 HF-D03 同阶段执行：
 
 ```text
 ZeroInteractionCompleteness
@@ -4395,6 +4419,6 @@ AdditionalDesignSpecialtyBeforeHighFidelity = FORBIDDEN
 FormalDesignInputCompletion = DEFERRED_TO_HF_D04
 ```
 
-本文件现为 Cognitura 唯一已登记的高保真交互专项候选。HF-D01 仅使
-Reading First 页面与呈现合同在 `CONTRACT` 阶段通过，不使候选成为正式基线；
-状态与恢复合同、固定审查、真实高保真视觉与可用性验收仍按后续独立 Gate 推进。
+本文件现为 Cognitura 唯一已登记的高保真交互专项候选。HF-D01、HF-D02、HF-D03
+分别使 Reading First、状态恢复与证据输入合同在 `CONTRACT` 阶段通过，但不使
+候选成为正式基线；固定审查、真实高保真视觉与可用性验收仍按后续独立 Gate 推进。

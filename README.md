@@ -15,7 +15,7 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  HIGH_FIDELITY_EVIDENCE_CONTRACT_READY
+  HIGH_FIDELITY_FIXED_CANDIDATE_REVIEW_READY
 
 Wave0ExecutionStatus = COMPLETE
 ActiveTaskCard = NONE
@@ -35,10 +35,13 @@ Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
 HighFidelityDesignTaskCardSet = READY_FOR_EXECUTION
 HighFidelityDesignStatus = CANDIDATE_AWAITING_REPOSITORY_GATE
-HighFidelityDesignGate = HF-DG2 PASS
+HighFidelityDesignGate = HF-DG3 PASS
 HighFidelityReadingPresentationContract = PASS
 HighFidelityInteractionStateModel = PASS
-ActiveDesignTaskCard = HF-D03
+HighFidelityEvidenceContract = PASS
+HighFidelityVisualDesign = NOT_RUN
+HighFidelityUsabilityValidation = NOT_RUN
+ActiveDesignTaskCard = HF-D04
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
@@ -119,16 +122,19 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [高保真设计任务卡索引](docs/task-cards/high-fidelity-design/README.md)
 - [高保真专项独立 Manifest](docs/engineering/cognitura-high-fidelity-design-manifest.yaml)
 - [高保真专项合同覆盖](docs/engineering/cognitura-high-fidelity-contract-coverage.md)
+- [高保真证据执行计划](docs/engineering/cognitura-high-fidelity-design-plan.md)
+- [高保真证据验收台账](docs/engineering/cognitura-high-fidelity-design-acceptance.md)
 
 当前分支已启动独立 `HIGH_FIDELITY_DESIGN` 卡集；`HF-D01` 已通过页面与呈现合同
-Gate，`HF-D02` 已通过正交状态与恢复 Gate，`HF-D03` 是唯一活动设计卡。
+Gate，`HF-D02` 已通过正交状态与恢复 Gate，`HF-D03` 已通过证据输入合同 Gate，
+`HF-D04` 是唯一活动设计卡。
 新增交互状态正文仅为 `CANDIDATE_AWAITING_REPOSITORY_GATE`；候选原有 46 个状态、
 20 个异常、20 项 RF-AC 和 30 项反向迁移已登记；46 个原始状态已恰好一次分类到
-六轴、临时 UI、流程、事件或派生结果，五级持久化与恢复边界已通过
-`HF-DG2`。当前只允许 `ReadingFirstPresentationContract = PASS` 与
-`HighFidelityInteractionStateModel = PASS`；整体专项晋级、高保真视觉、可用性和
-实现仍保持延后。本轮不创建或释放 `W1-I00`，也不授权业务实现、正式数据库写入
-或远程推送。
+六轴、临时 UI、流程、事件或派生结果，五级持久化与恢复边界已通过 `HF-DG2`。
+八类 Canonical 证据路径、20 项 RF-AC、20 异常、30 RM、机制域/规则政策域场景和
+六项全阻断 HV 序列已通过 `HF-DG3`；所有 Artifact、视觉与可用性状态仍为
+`NOT_RUN`。整体专项晋级和实现继续延后。本轮不创建或释放 `W1-I00`，也不授权
+业务实现、正式数据库写入或远程推送。
 
 ## 当前准入
 

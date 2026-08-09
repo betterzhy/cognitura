@@ -48,7 +48,7 @@ for expected_line in \
   "SourceBodyManifestCoupling = REQUIRED" \
   "SourceCount = 1" \
   "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE" \
-  "SourceFingerprintScope = HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY"; do
+  "SourceFingerprintScope = HF-DG3_HIGH_FIDELITY_EVIDENCE_CONTRACT"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
 done
@@ -88,7 +88,7 @@ expect_failure "${premature_status_root}" "STATUS_MISMATCH"
 stale_scope_root="${test_tmp_root}/stale-scope"
 make_fixture "${stale_scope_root}"
 sed -i.bak \
-  's/^    fingerprintScope: HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY$/    fingerprintScope: HF-DG1_READING_PRESENTATION/' \
+  's/^    fingerprintScope: HF-DG3_HIGH_FIDELITY_EVIDENCE_CONTRACT$/    fingerprintScope: HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY/' \
   "${stale_scope_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml"
 rm "${stale_scope_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
 expect_failure "${stale_scope_root}" "FINGERPRINT_SCOPE_MISMATCH"

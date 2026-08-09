@@ -137,7 +137,7 @@ for expected_id in "${declared_ids[@]}"; do
     case "${task_id}" in
       HF-D01) expected_write_count=21 ;;
       HF-D02) expected_write_count=16 ;;
-      HF-D03) expected_write_count=12 ;;
+      HF-D03) expected_write_count=17 ;;
       HF-D04) expected_write_count=13 ;;
     esac
   fi
@@ -177,6 +177,31 @@ for expected_id in "${declared_ids[@]}"; do
       'tests/task-cards/verify-high-fidelity-design-cards.sh'; do
       grep -Fqx -- "- Modify: \`${required_hfd02_path}\`" "${file}" ||
         fail "${filename}: missing exact HF-D02 write-set path: ${required_hfd02_path}"
+    done
+  fi
+  if [[ "${task_id}" == "HF-D03" ]]; then
+    for required_hfd03_path in \
+      'AGENTS.md' \
+      'README.md' \
+      'Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md' \
+      'docs/engineering/cognitura-design-index.md' \
+      'docs/engineering/cognitura-high-fidelity-design-manifest.yaml' \
+      'docs/engineering/cognitura-high-fidelity-design-plan.md' \
+      'docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+      'docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md' \
+      'docs/task-cards/high-fidelity-design/HF-D03-high-fidelity-evidence-contract.md' \
+      'docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md' \
+      'docs/task-cards/high-fidelity-design/README.md' \
+      'scripts/verify-high-fidelity-design' \
+      'scripts/verify-high-fidelity-design-manifest' \
+      'scripts/verify-interaction-state-contracts' \
+      'tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh' \
+      'tests/contracts/interaction-state/verify-interaction-state-contracts.sh' \
+      'tests/task-cards/verify-high-fidelity-design-cards.sh'; do
+      if ! grep -Fqx -- "- Modify: \`${required_hfd03_path}\`" "${file}" &&
+        ! grep -Fqx -- "- Create: \`${required_hfd03_path}\`" "${file}"; then
+        fail "${filename}: missing exact HF-D03 write-set path: ${required_hfd03_path}"
+      fi
     done
   fi
 

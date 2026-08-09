@@ -380,9 +380,14 @@ git commit -m "docs: normalize interaction state and recovery model"
 - Modify: `Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md`
 - Modify: `docs/engineering/cognitura-design-index.md`
 - Modify: `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`
+- Modify: `docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md`
+- Modify: `docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md`
+- Modify: `scripts/verify-high-fidelity-design`
 - Modify: `scripts/verify-high-fidelity-design-manifest`
+- Modify: `scripts/verify-interaction-state-contracts`
 - Modify: `tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
+- Modify: `tests/task-cards/verify-high-fidelity-design-cards.sh`
 - Modify: `docs/task-cards/high-fidelity-design/HF-D03-high-fidelity-evidence-contract.md`
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
 - Modify: `README.md`
@@ -392,11 +397,16 @@ git commit -m "docs: normalize interaction state and recovery model"
 - Consumes: HF-D02 normalized state model.
 - Produces: eight required visual evidence classes, 20 RF-AC acceptance rows, two cross-domain scenarios, and a second small task-card set for visual design.
 
-- [ ] **Step 1: Add failing evidence-stage assertions**
+`WriteSetItemCount = 17`。执行前预检确认原 12 项计划遗漏本计划自身、HF-D04
+释放卡、HF 卡集核心验证器、interaction-state 核心验证器和 HF 卡集测试；本卡按
+上述累计 17 项精确写集执行。HF-D00、HF-D01、HF-D02 与 HF-D04 的既有写集计数
+分别保持 `20`、`21`、`16` 与 `13`。
+
+- [x] **Step 1: Add failing evidence-stage assertions**
 
 Require the eight evidence classes, 20 RF-AC rows, 20 exceptions, mechanism/rule cross-domain coverage, and explicit `HighFidelityVisualDesign = NOT_RUN`, `HighFidelityUsabilityValidation = NOT_RUN`.
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run:
 
@@ -406,11 +416,11 @@ bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 
 Expected: fail because plan/acceptance records and visual task-card set do not exist.
 
-- [ ] **Step 3: Write the visual design plan and acceptance record**
+- [x] **Step 3: Write the visual design plan and acceptance record**
 
 Define the ordered evidence path: Module default reading, Relation focus, source verification, revision/impact, recovery, Domain/Theme, small screen, static export. Record every stage as NOT_RUN until real artifacts are captured.
 
-- [ ] **Step 4: Bootstrap the visual design card set**
+- [x] **Step 4: Bootstrap the visual design card set**
 
 Add to the engineering plan:
 
@@ -425,23 +435,33 @@ HV-D05 FixedVisualUsabilityReview
 
 Only `HV-D00` becomes READY after HF-D04 closes; no visual card is READY during HF-D03.
 
-- [ ] **Step 5: Refresh and test the independent HF manifest**
+- [x] **Step 5: Refresh and test the independent HF manifest**
 
 After the evidence contract is final, recalculate the specialty body's exact byte count and
 SHA-256 in `docs/engineering/cognitura-high-fidelity-design-manifest.yaml`. Extend the manifest
 wrapper and test so the HF-D03 candidate cannot advance with stale specialty metadata.
 
-- [ ] **Step 6: Run the Gate and close the card**
+- [x] **Step 6: Run the Gate and close the card**
 
 Run:
 
 ```bash
 bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
-bash tests/task-cards/verify-high-fidelity-design-cards.sh
-scripts/verify-high-fidelity-design-manifest
+bash tests/contracts/ui/verify-ui-contracts.sh
+npm exec --yes --package=node@24.18.0 -- sh -c 'bash tests/contracts/schema/verify-json-schemas.sh'
 bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
+scripts/verify-high-fidelity-design-manifest
+bash tests/task-cards/verify-high-fidelity-design-cards.sh
+scripts/verify-high-fidelity-design --cards-dir docs/task-cards/high-fidelity-design
 bash tests/source-manifest/verify-source-manifest.sh
+bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 bash tests/ci/verify-markdown-links.sh
+bash -n scripts/verify-high-fidelity-design \
+  scripts/verify-high-fidelity-design-manifest \
+  scripts/verify-interaction-state-contracts \
+  tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
+  tests/contracts/interaction-state/verify-interaction-state-contracts.sh \
+  tests/task-cards/verify-high-fidelity-design-cards.sh
 git diff --check
 ```
 
@@ -457,10 +477,16 @@ git add AGENTS.md README.md \
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
   docs/engineering/cognitura-high-fidelity-design-plan.md \
   docs/engineering/cognitura-high-fidelity-design-acceptance.md \
-  docs/task-cards/high-fidelity-design \
+  docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md \
+  docs/task-cards/high-fidelity-design/HF-D03-high-fidelity-evidence-contract.md \
+  docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md \
+  docs/task-cards/high-fidelity-design/README.md \
+  scripts/verify-high-fidelity-design \
   scripts/verify-high-fidelity-design-manifest \
+  scripts/verify-interaction-state-contracts \
   tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
-  tests/contracts/interaction-state/verify-interaction-state-contracts.sh
+  tests/contracts/interaction-state/verify-interaction-state-contracts.sh \
+  tests/task-cards/verify-high-fidelity-design-cards.sh
 git commit -m "docs: define high fidelity evidence gates"
 ```
 

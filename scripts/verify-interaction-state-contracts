@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s --document <path>\n' "$0" >&2
+  printf 'Usage: %s [--document <path>] [--plan <path>] [--acceptance <path>]\n' "$0" >&2
   exit 2
 }
 
@@ -13,6 +13,8 @@ fail() {
 }
 
 document=""
+plan=""
+acceptance=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --document)
@@ -20,14 +22,28 @@ while [[ "$#" -gt 0 ]]; do
       document="$2"
       shift 2
       ;;
+    --plan)
+      [[ "$#" -ge 2 ]] || usage
+      plan="$2"
+      shift 2
+      ;;
+    --acceptance)
+      [[ "$#" -ge 2 ]] || usage
+      acceptance="$2"
+      shift 2
+      ;;
     *) usage ;;
   esac
 done
+script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 if [[ -z "${document}" ]]; then
-  script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
   document="${script_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md"
 fi
+[[ -n "${plan}" ]] || plan="${script_root}/docs/engineering/cognitura-high-fidelity-design-plan.md"
+[[ -n "${acceptance}" ]] || acceptance="${script_root}/docs/engineering/cognitura-high-fidelity-design-acceptance.md"
 [[ -f "${document}" ]] || fail "MISSING_DOCUMENT: ${document}"
+[[ -f "${plan}" ]] || fail "MISSING_PLAN: ${plan}"
+[[ -f "${acceptance}" ]] || fail "MISSING_ACCEPTANCE: ${acceptance}"
 
 require_exact_line_once() {
   local line="$1"
@@ -452,6 +468,239 @@ rm_counts="$(awk '/^ISHFI-RM-[0-9][0-9] =$/ {seen[$1]=1; rows++} END {unique=0; 
 [[ "${rm_counts}" == "30:30" ]] ||
   fail "expected 30 unique reverse-migration items, found ${rm_counts}"
 
+evidence_classes=(
+  CognitiveModuleDefaultReading
+  RelationFocus
+  SourceEvidenceVerification
+  RevisionAndImpact
+  Recovery
+  KnowledgeLandscapeAndKnowledgeTheme
+  SmallScreenSafeReadable
+  StaticExport
+)
+[[ "$(grep -c '^HFD03EvidenceClass = ' "${document}" || true)" -eq 8 ]] ||
+  fail "expected exact eight canonical evidence classes in candidate"
+[[ "$(grep -c '^EvidencePath = ' "${plan}" || true)" -eq 8 ]] ||
+  fail "expected exact eight canonical evidence classes in plan"
+evidence_sequence=0
+for evidence_class in "${evidence_classes[@]}"; do
+  evidence_sequence=$((evidence_sequence + 1))
+  printf -v evidence_ordinal '%02d' "${evidence_sequence}"
+  [[ "$(grep -Fxc "HFD03EvidenceClass = ${evidence_class}" "${document}" || true)" -eq 1 ]] ||
+    fail "expected exact eight canonical evidence classes in candidate"
+  [[ "$(grep -c "^EvidencePath = ${evidence_ordinal}|${evidence_class}|" "${plan}" || true)" -eq 1 ]] ||
+    fail "expected exact eight canonical evidence classes in plan"
+done
+
+for contract_link in \
+  'HFD03EvidencePlan = docs/engineering/cognitura-high-fidelity-design-plan.md' \
+  'HFD03EvidenceAcceptance = docs/engineering/cognitura-high-fidelity-design-acceptance.md' \
+  'HFD03EvidenceContract = PASS' \
+  'HFD03GateMeaning = EVIDENCE_INPUT_CONTRACT_COMPLETE_ONLY'; do
+  require_exact_line_once "${contract_link}" "HF-DG3 candidate evidence link is missing or duplicated"
+done
+
+for plan_contract in \
+  'CanonicalProjectName = Cognitura' \
+  'PlanKind = HIGH_FIDELITY_EVIDENCE_EXECUTION_PLAN' \
+  'EvidenceInputContract = PASS' \
+  'HighFidelityVisualDesign = NOT_RUN' \
+  'HighFidelityUsabilityValidation = NOT_RUN' \
+  'ImplementationValidation = NOT_RUN' \
+  'VisualTaskCardArtifacts = NOT_CREATED' \
+  'HV-D00ReleaseCondition = HF_D04_FIXED_CANDIDATE_DOUBLE_REVIEW_PASS'; do
+  [[ "$(grep -Fxc "${plan_contract}" "${plan}" || true)" -eq 1 ]] ||
+    fail "high-fidelity evidence plan contract mismatch: ${plan_contract}"
+done
+
+for acceptance_contract in \
+  'CanonicalProjectName = Cognitura' \
+  'AcceptanceKind = HIGH_FIDELITY_EVIDENCE_ACCEPTANCE_LEDGER' \
+  'EvidenceArtifactCapture = NOT_RUN' \
+  'HighFidelityVisualDesign = NOT_RUN' \
+  'HighFidelityUsabilityValidation = NOT_RUN' \
+  'ImplementationValidation = NOT_RUN'; do
+  [[ "$(grep -Fxc "${acceptance_contract}" "${acceptance}" || true)" -eq 1 ]] ||
+    fail "high-fidelity acceptance stage mismatch: ${acceptance_contract}"
+done
+
+for coverage_contract in \
+  'CoverageRequirement = KnowledgeElementLocationAndExpansion|REQUIRED|Status=NOT_RUN' \
+  'CoverageRequirement = PageLifecycle|LOADING,EMPTY,ERROR,PERMISSION_DENIED,UNAVAILABLE|Status=NOT_RUN' \
+  'CoverageRequirement = KeyboardFocusAccessibilityFeedback|KEYBOARD_FOCUS,A11Y,FEEDBACK|Status=NOT_RUN' \
+  'CoverageRequirement = Viewport|DESKTOP_WEB,SMALL_SCREEN_SAFE_READABLE|Status=NOT_RUN'; do
+  [[ "$(grep -Fxc "${coverage_contract}" "${plan}" || true)" -eq 1 ]] ||
+    fail "evidence coverage requirement mismatch: ${coverage_contract}"
+done
+
+visual_tasks=(
+  'HV-D00|VisualFoundation'
+  'HV-D01|ModuleDefaultReading'
+  'HV-D02|FocusAndSource'
+  'HV-D03|RevisionAndRecovery'
+  'HV-D04|CrossLayerResponsiveAndExport'
+  'HV-D05|FixedVisualUsabilityReview'
+)
+[[ "$(grep -c '^HVDesignTask = ' "${plan}" || true)" -eq 6 ]] ||
+  fail "expected exact HV-D00..HV-D05 task sequence"
+for visual_task in "${visual_tasks[@]}"; do
+  [[ "$(grep -Fxc "HVDesignTask = ${visual_task}|BLOCKED|NOT_RELEASED" "${plan}" || true)" -eq 1 ]] ||
+    fail "visual design tasks must remain BLOCKED and NOT_RELEASED"
+done
+[[ "$(grep -Ec '^HVDesignTask = .*\|(READY|RELEASED)(\||$)' "${plan}" || true)" -eq 0 ]] ||
+  fail "visual design tasks must remain BLOCKED and NOT_RELEASED"
+
+cross_domain_result="$(awk -F'|' '
+  /^CrossDomainScenario = / {
+    split($1, prefix, " = ")
+    type=prefix[2]
+    seen[type]++
+    if ($2 !~ /^EvidenceClass=[^|]+$/) invalid++
+    if ($3 != "CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement") invalid++
+    if ($4 !~ /^Scenario=[^|]+$/) invalid++
+    if ($5 != "Status=NOT_RUN") invalid++
+    if ($6 != "Gate=HV-D04") invalid++
+    rows++
+  }
+  END {
+    print rows ":" seen["MECHANISM_DOMAIN"] ":" seen["RULE_POLICY_DOMAIN"] ":" invalid+0
+  }
+' "${plan}")"
+[[ "${cross_domain_result}" == "2:1:1:0" ]] ||
+  fail "mechanism and rule-policy cross-domain scenarios required"
+[[ "$(grep -c '^HFD03CrossDomainScenario = ' "${document}" || true)" -eq 2 ]] ||
+  fail "candidate must contain exactly two cross-domain scenarios"
+for cross_domain_type in MECHANISM_DOMAIN RULE_POLICY_DOMAIN; do
+  [[ "$(grep -c "^HFD03CrossDomainScenario = ${cross_domain_type}|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|" "${document}" || true)" -eq 1 ]] ||
+    fail "candidate cross-domain canonical projection mismatch"
+done
+
+validate_acceptance_rows() {
+  local prefix="$1"
+  awk -F'|' -v prefix="${prefix}" '
+    index($0, prefix " = ") == 1 {
+      split($1, head, " = ")
+      id=head[2]
+      if (id == "") invalid++
+      if (NF != 9) field_invalid++
+      if ($2 !~ /^EvidenceClass=[^|]+$/ ||
+          $3 !~ /^Scenario=[^|]+$/ ||
+          $4 !~ /^Viewport=[^|]+$/ ||
+          $5 !~ /^InputState=[^|]+$/ ||
+          $6 !~ /^Expected=[^|]+$/ ||
+          $9 !~ /^Gate=HV-D0[1-5]$/) field_invalid++
+      if ($7 !~ /^Artifact=PLANNED:/) artifact_invalid++
+      if ($8 != "Status=NOT_RUN") status_invalid++
+      evidence=$2
+      sub(/^EvidenceClass=/, "", evidence)
+      allowed="|CognitiveModuleDefaultReading|RelationFocus|SourceEvidenceVerification|RevisionAndImpact|Recovery|KnowledgeLandscapeAndKnowledgeTheme|SmallScreenSafeReadable|StaticExport|"
+      if (index(allowed, "|" evidence "|") == 0) evidence_invalid++
+      rows++
+    }
+    END {print rows ":" invalid+0 ":" field_invalid+0 ":" artifact_invalid+0 ":" status_invalid+0 ":" evidence_invalid+0}
+  ' "${acceptance}"
+}
+
+rf_acceptance_result="$(validate_acceptance_rows RFAcceptance)"
+exception_acceptance_result="$(validate_acceptance_rows ExceptionAcceptance)"
+[[ "${rf_acceptance_result}" == "20:0:0:0:0:0" ]] || {
+  [[ "$(printf '%s' "${rf_acceptance_result}" | cut -d: -f1)" -eq 20 ]] ||
+    fail "expected exact RF-AC-01..20 acceptance set"
+  [[ "$(printf '%s' "${rf_acceptance_result}" | cut -d: -f3)" -eq 0 ]] ||
+    fail "acceptance evidence row field mismatch"
+  [[ "$(printf '%s' "${rf_acceptance_result}" | cut -d: -f4)" -eq 0 ]] ||
+    fail "acceptance artifacts must remain PLANNED"
+  [[ "$(printf '%s' "${rf_acceptance_result}" | cut -d: -f5)" -eq 0 ]] ||
+    fail "acceptance evidence status must remain NOT_RUN"
+  fail "acceptance evidence row field mismatch"
+}
+[[ "${exception_acceptance_result}" == "20:0:0:0:0:0" ]] || {
+  [[ "$(printf '%s' "${exception_acceptance_result}" | cut -d: -f1)" -eq 20 ]] ||
+    fail "expected exact 20 exception acceptance set"
+  [[ "$(printf '%s' "${exception_acceptance_result}" | cut -d: -f3)" -eq 0 ]] ||
+    fail "acceptance evidence row field mismatch"
+  [[ "$(printf '%s' "${exception_acceptance_result}" | cut -d: -f4)" -eq 0 ]] ||
+    fail "acceptance artifacts must remain PLANNED"
+  [[ "$(printf '%s' "${exception_acceptance_result}" | cut -d: -f5)" -eq 0 ]] ||
+    fail "acceptance evidence status must remain NOT_RUN"
+  fail "acceptance evidence row field mismatch"
+}
+
+rf_index=1
+while [[ "${rf_index}" -le 20 ]]; do
+  printf -v rf_number '%02d' "${rf_index}"
+  rf_id="RF-AC-${rf_number}"
+  [[ "$(grep -c "^| ${rf_id} |" "${document}" || true)" -eq 1 ]] ||
+    fail "candidate expected exact RF-AC-01..20 set"
+  [[ "$(grep -c "^RFAcceptance = ${rf_id}|" "${acceptance}" || true)" -eq 1 ]] ||
+    fail "expected exact RF-AC-01..20 acceptance set"
+  rf_index=$((rf_index + 1))
+done
+
+exception_ids=(
+  EX-PREVIEW-TARGET-DELETED
+  EX-RELATION-SUPERSEDED
+  EX-ELEMENT-PRIMARY-PARENT-CHANGED
+  EX-AUTO-UPGRADE-FAILED
+  EX-IMPACT-ANALYSIS-FAILED
+  EX-CANONICAL-SAVED-RECOMPUTE-FAILED
+  EX-CANONICAL-SAVED-GENERATION-FAILED
+  EX-GENERATED-CONFLICTS-LOCKED
+  EX-DRAFT-CONFLICTS-LATEST
+  EX-SOURCE-INVALIDATED
+  EX-REFRESH-FOCUS-RESTORE-FAILED
+  EX-SEMANTIC-ANCHOR-MOVED
+  EX-SMALL-SCREEN-PANEL-OVERFLOW
+  EX-TOUCH-NO-HOVER
+  EX-KEYBOARD-ENTERS-GRAPH
+  EX-DUPLICATE-SUBMIT-CLICK
+  EX-NETWORK-TIMEOUT-SAVE-UNKNOWN
+  EX-UI-FAILED-CANONICAL-SAVED
+  EX-REVERT-AFFECTS-LATER-CHANGES
+  EX-WORKSPACE-SWITCH-WITH-DRAFT
+)
+for exception_id in "${exception_ids[@]}"; do
+  [[ "$(grep -Fxc "| \`ExceptionCode\` | ${exception_id} |" "${document}" || true)" -eq 1 ]] ||
+    fail "candidate expected exact 20 exception set"
+  [[ "$(grep -c "^ExceptionAcceptance = ${exception_id}|" "${acceptance}" || true)" -eq 1 ]] ||
+    fail "expected exact 20 exception acceptance set"
+done
+
+rm_index=1
+while [[ "${rm_index}" -le 30 ]]; do
+  printf -v rm_number '%02d' "${rm_index}"
+  rm_id="ISHFI-RM-${rm_number}"
+  [[ "$(grep -Fxc "${rm_id} =" "${document}" || true)" -eq 1 ]] ||
+    fail "candidate expected exact ISHFI-RM-01..30 set"
+  [[ "$(grep -c "^ReverseMigrationTrace = ${rm_id}|" "${acceptance}" || true)" -eq 1 ]] ||
+    fail "expected exact ISHFI-RM-01..30 trace set"
+  rm_index=$((rm_index + 1))
+done
+rm_trace_result="$(awk -F'|' '
+  /^ReverseMigrationTrace = ISHFI-RM-[0-9][0-9]\|/ {
+    if (NF != 5 ||
+        $2 !~ /^Candidate=ISHFI-RM-[0-9][0-9]$/ ||
+        $3 != "Plan=HFD03EvidenceContract" ||
+        $4 != "Acceptance=NOT_RUN" ||
+        $5 != "Status=TRACED") invalid++
+    rows++
+  }
+  END {print rows ":" invalid+0}
+' "${acceptance}")"
+[[ "${rm_trace_result}" == "30:0" ]] ||
+  fail "reverse-migration trace row field mismatch"
+
+evidence_class_coverage="$(awk -F'|' '
+  /^(RFAcceptance|ExceptionAcceptance) = / {
+    value=$2
+    sub(/^EvidenceClass=/, "", value)
+    seen[value]=1
+  }
+  END {count=0; for (value in seen) count++; print count}
+' "${acceptance}")"
+[[ "${evidence_class_coverage}" -eq 8 ]] ||
+  fail "acceptance must cover every canonical evidence class"
+
 printf '%s\n' \
   "InteractionStateContractValidation = PASS" \
   "OriginalStateCodeCount = 46" \
@@ -461,4 +710,12 @@ printf '%s\n' \
   "PageStateMappingCount = 12" \
   "ExceptionCodeCount = 20" \
   "RFAcceptanceCount = 20" \
-  "ReverseMigrationCount = 30"
+  "ReverseMigrationCount = 30" \
+  "EvidenceClassCount = 8" \
+  "RFAcceptanceEvidenceCount = 20" \
+  "ExceptionAcceptanceEvidenceCount = 20" \
+  "ReverseMigrationTraceCount = 30" \
+  "CrossDomainScenarioCount = 2" \
+  "VisualDesignTaskCount = 6" \
+  "HighFidelityVisualDesign = NOT_RUN" \
+  "HighFidelityUsabilityValidation = NOT_RUN"
