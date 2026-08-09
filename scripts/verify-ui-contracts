@@ -51,6 +51,49 @@ duplicate_id() {
   ' "$1"
 }
 
+assert_unique_machine_field() {
+  local document="$1"
+  local key="$2"
+  local separator="$3"
+  local expected_value="$4"
+  local conflict_message="$5"
+  local mismatch_message="$6"
+  local prefix="${key} ${separator} "
+  local extracted_values
+  local distinct_values
+  local distinct_count
+
+  extracted_values="$(awk -v prefix="${prefix}" '
+    index($0, prefix) == 1 {
+      print substr($0, length(prefix) + 1)
+    }
+  ' "${document}")"
+  [[ -n "${extracted_values}" ]] || fail "${mismatch_message}"
+
+  distinct_values="$(printf '%s\n' "${extracted_values}" | LC_ALL=C sort -u)"
+  distinct_count="$(printf '%s\n' "${distinct_values}" | awk 'NF { count++ } END { print count + 0 }')"
+  [[ "${distinct_count}" -eq 1 ]] || fail "${conflict_message}"
+  [[ "${distinct_values}" == "${expected_value}" ]] || fail "${mismatch_message}"
+}
+
+assert_exact_projection_record() {
+  local document="$1"
+  local record_type="$2"
+  local projection_key="$3"
+  local expected_record="$4"
+  local conflict_message="$5"
+  local mismatch_message="$6"
+  local prefix="${record_type} = ${projection_key}|"
+  local matching_records
+  local record_count
+
+  matching_records="$(awk -v prefix="${prefix}" 'index($0, prefix) == 1 { print }' "${document}")"
+  [[ -n "${matching_records}" ]] || fail "${mismatch_message}"
+  record_count="$(printf '%s\n' "${matching_records}" | awk 'NF { count++ } END { print count + 0 }')"
+  [[ "${record_count}" -eq 1 ]] || fail "${conflict_message}"
+  [[ "${matching_records}" == "${expected_record}" ]] || fail "${mismatch_message}"
+}
+
 candidate=""
 overall=""
 page_contracts=""
@@ -89,92 +132,98 @@ done
 [[ -f "${page_contracts}" ]] || fail "MISSING_PAGE_CONTRACT_DOCUMENT"
 [[ -f "${renderer_contract}" ]] || fail "MISSING_RENDERER_CONTRACT_DOCUMENT"
 
-for required_overall_projection in \
-  'PrimaryPresentationModel = INTERACTIVE_COGNITIVE_DOCUMENT' \
-  'PrimaryExperienceModel = READING_FIRST' \
-  'PureUnstructuredLongArticle = FORBIDDEN' \
-  'StructuredContinuousCognitiveNarrative = REQUIRED_WHEN_NEEDED' \
-  'ModuleReadingDefaultPersistentSidePanel = 0' \
-  'KnowledgeHierarchyOrientation = RETAINED' \
-  'QuickSourcePanel = ON_DEMAND_TRANSIENT' \
-  'FullSourceEvidence = ON_DEMAND_WORKSPACE_OR_ROUTE' \
-  'RelatedModules = INLINE_OR_ON_DEMAND' \
-  'KnownGaps = INLINE_WHEN_UNDERSTANDING_CHANGES' \
-  'DefaultReadingPersistentPrimaryActionsPerPage <= 2' \
-  'PrimaryVisualPrimitiveFamiliesPerModule <= 4' \
-  'PrimaryVisualProjectionPerCognitiveSection <= 1' \
-  'SimultaneouslyEmphasizedVisualObjects <= 7' \
-  'RendererCreatesIndependentFacts = NO'; do
-  grep -Fqx "${required_overall_projection}" "${overall}" ||
-    fail "OVERALL_PRESENTATION_PROJECTION_MISMATCH"
+if grep -Fq '三栏 Module Reading' "${overall}" ||
+  grep -Fq 'ModuleReading 三栏页面' "${overall}"; then
+  fail "OVERALL_THREE_COLUMN_READING_RESIDUE"
+fi
+
+for projection_document in "${overall}|OVERALL" "${candidate}|CANDIDATE"; do
+  projection_file="${projection_document%%|*}"
+  projection_scope="${projection_document##*|}"
+  projection_conflict="${projection_scope}_PRESENTATION_PROJECTION_CONFLICT"
+  projection_mismatch="${projection_scope}_PRESENTATION_PROJECTION_MISMATCH"
+
+  assert_unique_machine_field "${projection_file}" PrimaryPresentationModel = \
+    INTERACTIVE_COGNITIVE_DOCUMENT "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" PrimaryExperienceModel = \
+    READING_FIRST "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" PureUnstructuredLongArticle = \
+    FORBIDDEN "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" StructuredContinuousCognitiveNarrative = \
+    REQUIRED_WHEN_NEEDED "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" KnowledgeHierarchyOrientation = \
+    RETAINED "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" QuickSourcePanel = \
+    ON_DEMAND_TRANSIENT "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" FullSourceEvidence = \
+    ON_DEMAND_WORKSPACE_OR_ROUTE "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" RelatedModules = \
+    INLINE_OR_ON_DEMAND "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" KnownGaps = \
+    INLINE_WHEN_UNDERSTANDING_CHANGES "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" DefaultReadingPersistentPrimaryActionsPerPage '<=' \
+    2 "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" PrimaryVisualPrimitiveFamiliesPerModule '<=' \
+    4 "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" PrimaryVisualProjectionPerCognitiveSection '<=' \
+    1 "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" SimultaneouslyEmphasizedVisualObjects '<=' \
+    7 "${projection_conflict}" "${projection_mismatch}"
+  assert_unique_machine_field "${projection_file}" RendererCreatesIndependentFacts = \
+    NO "${projection_conflict}" "${projection_mismatch}"
 done
 
-for required_candidate_projection in \
-  'PrimaryPresentationModel = INTERACTIVE_COGNITIVE_DOCUMENT' \
-  'PrimaryExperienceModel = READING_FIRST' \
-  'PureUnstructuredLongArticle = FORBIDDEN' \
-  'StructuredContinuousCognitiveNarrative = REQUIRED_WHEN_NEEDED' \
-  'DefaultReadingPersistentSidePanels = 0' \
-  'KnowledgeHierarchyOrientation = RETAINED' \
-  'QuickSourcePanel = ON_DEMAND_TRANSIENT' \
-  'FullSourceEvidence = ON_DEMAND_WORKSPACE_OR_ROUTE' \
-  'RelatedModules = INLINE_OR_ON_DEMAND' \
-  'KnownGaps = INLINE_WHEN_UNDERSTANDING_CHANGES' \
-  'DefaultReadingPersistentPrimaryActionsPerPage <= 2' \
-  'PrimaryVisualPrimitiveFamiliesPerModule <= 4' \
-  'PrimaryVisualProjectionPerCognitiveSection <= 1' \
-  'SimultaneouslyEmphasizedVisualObjects <= 7' \
-  'RendererCreatesIndependentFacts = NO'; do
-  grep -Fqx "${required_candidate_projection}" "${candidate}" ||
-    fail "CANDIDATE_PRESENTATION_PROJECTION_MISMATCH"
-done
+assert_unique_machine_field "${overall}" ModuleReadingDefaultPersistentSidePanel = 0 \
+  OVERALL_PRESENTATION_PROJECTION_CONFLICT OVERALL_PRESENTATION_PROJECTION_MISMATCH
+assert_unique_machine_field "${candidate}" DefaultReadingPersistentSidePanels = 0 \
+  CANDIDATE_PRESENTATION_PROJECTION_CONFLICT CANDIDATE_PRESENTATION_PROJECTION_MISMATCH
 
-grep -Fqx \
+assert_exact_projection_record "${page_contracts}" ReadingPresentationContract PRIMARY_PRESENTATION_MODEL \
   'ReadingPresentationContract = PRIMARY_PRESENTATION_MODEL|INTERACTIVE_COGNITIVE_DOCUMENT|HF-SPECIALTY§3,18' \
-  "${page_contracts}" || fail "MISSING_INTERACTIVE_COGNITIVE_DOCUMENT"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_INTERACTIVE_COGNITIVE_DOCUMENT
+assert_exact_projection_record "${page_contracts}" ReadingPresentationContract PRIMARY_EXPERIENCE_MODEL \
   'ReadingPresentationContract = PRIMARY_EXPERIENCE_MODEL|READING_FIRST|HF-SPECIALTY§3,18' \
-  "${page_contracts}" || fail "MISSING_READING_FIRST"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_READING_FIRST
+assert_exact_projection_record "${page_contracts}" ReadingPresentationContract PURE_UNSTRUCTURED_LONG_ARTICLE \
   'ReadingPresentationContract = PURE_UNSTRUCTURED_LONG_ARTICLE|FORBIDDEN|HF-SPECIALTY§10,18' \
-  "${page_contracts}" || fail "PURE_UNSTRUCTURED_LONG_ARTICLE_FORBIDDEN"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT PURE_UNSTRUCTURED_LONG_ARTICLE_FORBIDDEN
+assert_exact_projection_record "${page_contracts}" ReadingPresentationContract STRUCTURED_CONTINUOUS_COGNITIVE_NARRATIVE \
   'ReadingPresentationContract = STRUCTURED_CONTINUOUS_COGNITIVE_NARRATIVE|REQUIRED_WHEN_NEEDED|HF-SPECIALTY§10,18' \
-  "${page_contracts}" || fail "MISSING_STRUCTURED_CONTINUOUS_COGNITIVE_NARRATIVE"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_STRUCTURED_CONTINUOUS_COGNITIVE_NARRATIVE
+assert_exact_projection_record "${page_contracts}" ModuleReadingDefault KNOWLEDGE_HIERARCHY_ORIENTATION \
   'ModuleReadingDefault = KNOWLEDGE_HIERARCHY_ORIENTATION|RETAINED|HF-SPECIALTY§13,14,16' \
-  "${page_contracts}" || fail "MISSING_HIERARCHY_ORIENTATION"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_HIERARCHY_ORIENTATION
+assert_exact_projection_record "${page_contracts}" ModuleReadingDefault PERSISTENT_GOVERNANCE_SIDE_PANEL \
   'ModuleReadingDefault = PERSISTENT_GOVERNANCE_SIDE_PANEL|0|HF-SPECIALTY§12,14,16' \
-  "${page_contracts}" || fail "PERMANENT_GOVERNANCE_SIDE_PANEL_FORBIDDEN"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT PERMANENT_GOVERNANCE_SIDE_PANEL_FORBIDDEN
+assert_exact_projection_record "${page_contracts}" ModuleReadingDefault QUICK_SOURCE_PANEL \
   'ModuleReadingDefault = QUICK_SOURCE_PANEL|ON_DEMAND_TRANSIENT|HF-SPECIALTY§12,14,16' \
-  "${page_contracts}" || fail "MISSING_ON_DEMAND_QUICK_SOURCE"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_ON_DEMAND_QUICK_SOURCE
+assert_exact_projection_record "${page_contracts}" ModuleReadingDefault FULL_SOURCE_EVIDENCE \
   'ModuleReadingDefault = FULL_SOURCE_EVIDENCE|ON_DEMAND_WORKSPACE_OR_ROUTE|HF-SPECIALTY§14,16,18' \
-  "${page_contracts}" || fail "MISSING_FULL_SOURCE_EVIDENCE_ROUTE"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_FULL_SOURCE_EVIDENCE_ROUTE
+assert_exact_projection_record "${page_contracts}" ModuleReadingDefault RELATED_MODULES \
   'ModuleReadingDefault = RELATED_MODULES|INLINE_OR_ON_DEMAND|HF-SPECIALTY§13,14,16' \
-  "${page_contracts}" || fail "MISSING_RELATED_MODULE_CONTEXT"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_RELATED_MODULE_CONTEXT
+assert_exact_projection_record "${page_contracts}" ModuleReadingDefault KNOWN_GAPS \
   'ModuleReadingDefault = KNOWN_GAPS|INLINE_WHEN_UNDERSTANDING_CHANGES|HF-SPECIALTY§13,14,16' \
-  "${page_contracts}" || fail "MISSING_KNOWN_GAPS_CONTEXT"
-grep -Fqx \
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_KNOWN_GAPS_CONTEXT
+assert_exact_projection_record "${page_contracts}" ReadingPresentationBudget DEFAULT_READING_PERSISTENT_PRIMARY_ACTIONS_PER_PAGE \
   'ReadingPresentationBudget = DEFAULT_READING_PERSISTENT_PRIMARY_ACTIONS_PER_PAGE|AT_MOST_2|HF-SPECIALTY§12' \
-  "${page_contracts}" || fail "MISSING_PRIMARY_ACTION_BUDGET"
+  PAGE_PRESENTATION_PROJECTION_CONFLICT MISSING_PRIMARY_ACTION_BUDGET
 
-grep -Fqx \
+assert_exact_projection_record "${renderer_contract}" RendererPresentationBudget PRIMARY_VISUAL_PRIMITIVE_FAMILIES_PER_MODULE \
   'RendererPresentationBudget = PRIMARY_VISUAL_PRIMITIVE_FAMILIES_PER_MODULE|AT_MOST_4|HF-SPECIALTY§11,12' \
-  "${renderer_contract}" || fail "MISSING_VISUAL_PRIMITIVE_FAMILY_BUDGET"
-grep -Fqx \
+  RENDERER_PRESENTATION_PROJECTION_CONFLICT MISSING_VISUAL_PRIMITIVE_FAMILY_BUDGET
+assert_exact_projection_record "${renderer_contract}" RendererPresentationBudget PRIMARY_VISUAL_PROJECTION_PER_COGNITIVE_SECTION \
   'RendererPresentationBudget = PRIMARY_VISUAL_PROJECTION_PER_COGNITIVE_SECTION|AT_MOST_1|HF-SPECIALTY§11,12' \
-  "${renderer_contract}" || fail "PRIMARY_VISUAL_BUDGET_EXCEEDED"
-grep -Fqx \
+  RENDERER_PRESENTATION_PROJECTION_CONFLICT PRIMARY_VISUAL_BUDGET_EXCEEDED
+assert_exact_projection_record "${renderer_contract}" RendererPresentationBudget SIMULTANEOUSLY_EMPHASIZED_VISUAL_OBJECTS \
   'RendererPresentationBudget = SIMULTANEOUSLY_EMPHASIZED_VISUAL_OBJECTS|AT_MOST_7|HF-SPECIALTY§11,12' \
-  "${renderer_contract}" || fail "MISSING_EMPHASIZED_OBJECT_BUDGET"
-grep -Fqx \
+  RENDERER_PRESENTATION_PROJECTION_CONFLICT MISSING_EMPHASIZED_OBJECT_BUDGET
+assert_exact_projection_record "${renderer_contract}" RendererInvariant CREATES_INDEPENDENT_FACTS \
   'RendererInvariant = CREATES_INDEPENDENT_FACTS|NO|OD1.2§20.8' \
-  "${renderer_contract}" || fail "RENDERER_FACT_CREATION_FORBIDDEN"
+  RENDERER_PRESENTATION_PROJECTION_CONFLICT RENDERER_FACT_CREATION_FORBIDDEN
 
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-ui-contract-parse.XXXXXX")"
 page_records="${tmp_root}/pages"

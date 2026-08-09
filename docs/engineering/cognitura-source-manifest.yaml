@@ -6,8 +6,8 @@ sources:
     path: cognitive-knowledge-atlas-overall-design-1.2.md
     role: FORMAL_OVERALL_DESIGN
     version: Cognitive-Knowledge-Atlas-Overall-Design-1.2
-    sizeBytes: 36949
-    sha256: c456b97e64f2dd1d32c2ea0d6a15d9e3c827d45f7d37235764dac9b701b34b9f
+    sizeBytes: 37067
+    sha256: 758e740f91f2aaaee3156346a59dd637d1d70207f42afe05130f4812321a355d
   - sourceId: GC-MYSQL-001
     caseId: GC-MYSQL-001
     path: raw/11-MySQL数据库.docx

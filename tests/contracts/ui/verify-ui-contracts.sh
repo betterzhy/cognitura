@@ -192,7 +192,51 @@ expect_failure \
   "${overall_projection_drift}" \
   "OVERALL_PRESENTATION_PROJECTION_MISMATCH"
 
+overall_historical_three_column_capability="$(make_fixture "overall-historical-three-column-capability")"
+printf '%s\n' '- 三栏 Module Reading；' \
+  >>"${overall_historical_three_column_capability}/overall.md"
+expect_failure \
+  "${overall_historical_three_column_capability}" \
+  "OVERALL_THREE_COLUMN_READING_RESIDUE"
+
+overall_historical_three_column_wave="$(make_fixture "overall-historical-three-column-wave")"
+printf '%s\n' 'ModuleReading 三栏页面' \
+  >>"${overall_historical_three_column_wave}/overall.md"
+expect_failure \
+  "${overall_historical_three_column_wave}" \
+  "OVERALL_THREE_COLUMN_READING_RESIDUE"
+
+candidate_conflicting_projection="$(make_fixture "candidate-conflicting-projection")"
+printf '%s\n' 'DefaultReadingPersistentSidePanels = 1' \
+  >>"${candidate_conflicting_projection}/candidate.md"
+expect_failure \
+  "${candidate_conflicting_projection}" \
+  "CANDIDATE_PRESENTATION_PROJECTION_CONFLICT"
+
+overall_conflicting_projection="$(make_fixture "overall-conflicting-projection")"
+printf '%s\n' 'ModuleReadingDefaultPersistentSidePanel = 1' \
+  >>"${overall_conflicting_projection}/overall.md"
+expect_failure \
+  "${overall_conflicting_projection}" \
+  "OVERALL_PRESENTATION_PROJECTION_CONFLICT"
+
+page_conflicting_projection="$(make_fixture "page-conflicting-projection")"
+printf '%s\n' \
+  'ModuleReadingDefault = PERSISTENT_GOVERNANCE_SIDE_PANEL|1|HF-SPECIALTY§12,14,16' \
+  >>"${page_conflicting_projection}/page-contracts.md"
+expect_failure \
+  "${page_conflicting_projection}" \
+  "PAGE_PRESENTATION_PROJECTION_CONFLICT"
+
+renderer_conflicting_projection="$(make_fixture "renderer-conflicting-projection")"
+printf '%s\n' \
+  'RendererPresentationBudget = PRIMARY_VISUAL_PROJECTION_PER_COGNITIVE_SECTION|AT_MOST_2|HF-SPECIALTY§11,12' \
+  >>"${renderer_conflicting_projection}/renderer-contract.md"
+expect_failure \
+  "${renderer_conflicting_projection}" \
+  "RENDERER_PRESENTATION_PROJECTION_CONFLICT"
+
 printf '%s\n' \
   "UiContractTests = PASS" \
   "PositiveContractSet = 1" \
-  "NegativeCases = 14"
+  "NegativeCases = 20"

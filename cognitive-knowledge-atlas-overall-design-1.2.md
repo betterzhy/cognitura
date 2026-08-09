@@ -1161,7 +1161,7 @@ PrimaryExperience = DESKTOP_WEB
 
 - 完整 Skeleton Review；
 - RENAME / MOVE / MERGE / SPLIT / PIN / EXCLUDE；
-- 三栏 Module Reading；
+- Reading First ModuleReading 默认布局（保留层级定位，SourceEvidence 按需打开）；
 - 完整 Renderer；
 - 来源对照；
 - Revision 影响分析。
@@ -1332,7 +1332,8 @@ SectionUnderstanding、Theme/Module Candidate、SkeletonGeneration、Skeleton Re
 
 ### Wave 3
 
-CoreThesis、PrimaryCognitiveSpine、CriticalBoundary、KnowledgeElement、EvidenceMapping、ModuleReading 三栏页面和 SourceEvidence。
+CoreThesis、PrimaryCognitiveSpine、CriticalBoundary、KnowledgeElement、EvidenceMapping、
+Reading First ModuleReading 默认布局（保留层级定位）和按需 SourceEvidence。
 
 ### Wave 4
 
