@@ -518,8 +518,8 @@ git commit -m "docs: define high fidelity evidence gates"
 - Produces: one immutable preparation SHA, two independent `gpt-5.6-sol/high` review results
   against that same SHA, and—only after both reviews clear—an exact 19-file promotion closure.
 
-ReFreezeParentRepairSHA = df0ce0f238bf81ed722b79607321e0eaaa397018
-ReFreezeReason = EXACT_GATE_FENCE_REPAIR
+ReFreezeParentRepairSHA = 56285c9c6b3aef6dd748eeadfa684dd824389e07
+ReFreezeReason = STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE
 
 - [ ] **Step 1: Freeze and verify the candidate**
 

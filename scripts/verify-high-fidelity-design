@@ -399,8 +399,8 @@ if [[ "${preparation_review_mode}" -eq 1 ]]; then
     fail "master plan and HF-D04 card re-freeze receipt reason must match"
   [[ "${plan_receipt_sha}" =~ ^[0-9a-f]{40}$ ]] ||
     fail "re-freeze receipt SHA must be a full lowercase Git SHA"
-  [[ "${plan_receipt_reason}" == "EXACT_GATE_FENCE_REPAIR" ]] ||
-    fail "re-freeze receipt reason must be EXACT_GATE_FENCE_REPAIR"
+  [[ "${plan_receipt_reason}" == "STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE" ]] ||
+    fail "re-freeze receipt reason must be STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE"
   [[ "${plan_receipt_sha}" == "${expected_parent_repair_sha}" ]] ||
     fail "re-freeze receipt SHA must equal the parent owner-repair SHA"
 fi

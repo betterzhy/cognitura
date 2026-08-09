@@ -12,8 +12,8 @@ DesignOwner = FIXED_CANDIDATE_PROMOTION_AUTHORITY
 LocalCommitBoundary = REQUIRED
 WriteSetSource = APPROVED_TASK_PLAN_EXACT
 WriteSetItemCount = 19
-ReFreezeParentRepairSHA = df0ce0f238bf81ed722b79607321e0eaaa397018
-ReFreezeReason = EXACT_GATE_FENCE_REPAIR
+ReFreezeParentRepairSHA = 56285c9c6b3aef6dd748eeadfa684dd824389e07
+ReFreezeReason = STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE
 ```
 
 ## 1. 目标

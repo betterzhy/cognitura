@@ -248,7 +248,7 @@ if [[ "${receipt_review_mode}" == "ENABLED" ]]; then
 
   mismatched_reason_dir="${test_tmp_root}/mismatched-reason"
   cp -R "${baseline_dir}" "${mismatched_reason_dir}"
-  sed -i.bak 's/^ReFreezeReason = EXACT_GATE_FENCE_REPAIR$/ReFreezeReason = OTHER_REPAIR/' \
+  sed -i.bak 's/^ReFreezeReason = STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE$/ReFreezeReason = OTHER_REPAIR/' \
     "${mismatched_reason_dir}/HF-D04-fixed-design-review.md"
   rm "${mismatched_reason_dir}/HF-D04-fixed-design-review.md.bak"
   expect_failure "${mismatched_reason_dir}" \
