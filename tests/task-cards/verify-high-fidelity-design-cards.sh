@@ -265,13 +265,32 @@ sed -i.bak 's/^W1-I00Release = FORBIDDEN$/W1-I00Release = READY/' \
 rm "${w1_release_dir}/README.md.bak"
 expect_failure "${w1_release_dir}" "W1-I00Release must be FORBIDDEN"
 
+for sentinel_mutation in \
+  'refreeze-protected-assets|git diff --exit-code HEAD^ HEAD -- Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md docs/engineering/cognitura-high-fidelity-design-manifest.yaml docs/engineering/cognitura-high-fidelity-contract-coverage.md' \
+  'refreeze-exact-four-files|test "$(git diff --name-only HEAD^ HEAD | LC_ALL=C sort | paste -sd " " -)" = "docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh"'; do
+  mutation_name="${sentinel_mutation%%|*}"
+  command="${sentinel_mutation#*|}"
+  fixture_plan="${test_tmp_root}/${mutation_name}.md"
+  cp "${master_plan}" "${fixture_plan}"
+  delete_step_command \
+    "${fixture_plan}" \
+    '- [ ] **Step 1: Freeze and verify the candidate**' \
+    '- [ ] **Step 2: Run independent general and final reviews**' \
+    "${command}"
+  expect_plan_failure "${fixture_plan}" "re-freeze sentinel missing command: ${command}"
+done
+
 for plan_mutation in \
   'step1-interaction-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh' \
   'step1-manifest-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh' \
   'step1-coverage-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh' \
+  'step1-specialty-core|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
+  'step1-specialty-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh' \
   'step5-interaction-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh' \
   'step5-manifest-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh' \
-  'step5-coverage-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh'; do
+  'step5-coverage-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh' \
+  'step5-specialty-core|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
+  'step5-specialty-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh'; do
   mutation_name="${plan_mutation%%|*}"
   plan_mutation_remainder="${plan_mutation#*|}"
   start_header="${plan_mutation_remainder%%|*}"
@@ -286,4 +305,4 @@ done
 
 printf '%s\n' \
   "HighFidelityDesignTaskCardContractTests = PASS" \
-  "NegativeCases = 13"
+  "NegativeCases = 19"

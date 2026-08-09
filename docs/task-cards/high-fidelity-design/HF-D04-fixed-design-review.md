@@ -53,14 +53,17 @@ WriteSetItemCount = 19
 
 ## 5. 执行步骤
 
-先形成只包含本卡准备治理变更的本地提交并冻结准备 SHA；该准备提交不得修改专项
-候选正文、独立 manifest 或 coverage。两个相互独立的 `gpt-5.6-sol/high`
+finding 的 owner repair 提交不能直接作为准备 SHA；owner repair 全量 Gate 通过后，
+必须再形成只包含本卡四个治理文件的独立 re-freeze 提交并冻结准备 SHA。re-freeze
+提交不得修改专项候选正文、独立 manifest 或 coverage，且三资产必须与父 repair
+提交 byte-identical。两个相互独立的 `gpt-5.6-sol/high`
 reviewer 必须审查同一个准备 SHA，顺序固定为一般深审后最终门禁；两阶段均返回
 `GO / P0=0 / P1=0 / P2=0` 才允许进入 promotion closure，不使用 ultra。
 
 任一阶段产生 finding 时，必须回到 finding 的 owner card，先增加失败回归断言，
-再修复并重跑全部适用 Gate；随后冻结新的准备 SHA，并从一般深审开始完整重跑
-两个独立阶段。审查期间不得修改固定候选。
+再修复并重跑全部适用 Gate；随后另做四治理文件 re-freeze 提交，执行三资产
+`HEAD^..HEAD` 无差异与提交精确四路径哨兵，再从一般深审开始完整重跑两个独立
+阶段。审查期间不得修改固定候选，先前任一 GO 都不得复用。
 
 ## 6. 验证命令
 
@@ -68,6 +71,11 @@ reviewer 必须审查同一个准备 SHA，顺序固定为一般深审后最终�
 Wave 0、source/specialty、Markdown、Bash syntax 和 diff 验证；负例覆盖 reviewed
 candidate SHA 三联不一致、候选正文与 manifest 精确指纹不一致、coverage 未关闭、
 过早晋级、陈旧 hash 与任一审查非零。
+
+re-freeze 后还必须执行两个可运行哨兵：`git diff --exit-code HEAD^ HEAD --` 后跟
+专项候选、HF manifest、HF coverage 三路径必须无差异；`git diff --name-only
+HEAD^ HEAD` 排序后必须恰为 master plan、本卡、HF card validator 和其 wrapper
+test 四个治理文件。Step 1 与 Step 5 都必须显式执行只读 specialty core 与 wrapper。
 
 ## 7. Gate 与完成定义
 
@@ -80,8 +88,8 @@ manifest 和 coverage 记录为同一 reviewed candidate SHA，同时要求 mani
 
 ## 8. 提交与审查
 
-准备提交逐文件暂存本次四个治理文件并使用
-`docs: prepare fixed high fidelity candidate review`；不得 amend 或推送。两阶段均
+re-freeze 提交逐文件暂存本次四个治理文件并使用
+`docs: re-freeze fixed high fidelity candidate review`；不得 amend 或推送。两阶段均
 使用 `gpt-5.6-sol/high` 且相互独立，不使用 ultra。审查清零后另形成一个本地
 promotion closure 提交；封口提交必须逐文件暂存第 3 节的 19 项精确写集，不得
 使用 `git add docs/task-cards/high-fidelity-design` 等目录级暂存，不推送。

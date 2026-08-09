@@ -520,9 +520,11 @@ git commit -m "docs: define high fidelity evidence gates"
 
 - [ ] **Step 1: Freeze and verify the candidate**
 
-First update only the Task 5 preparation-governance files below, run the task-card contract
-tests, and create an evidence-only local preparation commit. Do not modify or promote the
-specialty body, HF manifest, or HF coverage in this preparation commit.
+A finding-repair commit is an owner repair, not a reviewable preparation SHA. After every owner
+repair is locally green, create a separate evidence-only re-freeze commit that changes exactly
+the four Task 5 governance files below. The specialty body, HF manifest, and HF coverage must
+remain byte-identical to the parent repair commit; do not modify or promote them in the
+re-freeze commit.
 
 ```bash
 git add -- \
@@ -530,16 +532,19 @@ git add -- \
   docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md \
   scripts/verify-high-fidelity-design \
   tests/task-cards/verify-high-fidelity-design-cards.sh
-git commit -m "docs: prepare fixed high fidelity candidate review"
+git commit -m "docs: re-freeze fixed high fidelity candidate review"
 ```
 
-The resulting commit is the immutable preparation SHA. Confirm it still has `HF-D04` as the
-sole READY card and that the specialty body, independent HF manifest, and independent HF
-coverage are byte-for-byte unchanged from its parent. Do not amend or push this commit.
+Only the resulting re-freeze commit is the immutable preparation SHA. Confirm it still has
+`HF-D04` as the sole READY card and that the specialty body, independent HF manifest, and
+independent HF coverage are byte-for-byte unchanged from its parent repair commit. Do not amend
+or push this commit.
 
 Run against that frozen SHA:
 
 ```bash
+git diff --exit-code HEAD^ HEAD -- Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md docs/engineering/cognitura-high-fidelity-design-manifest.yaml docs/engineering/cognitura-high-fidelity-contract-coverage.md
+test "$(git diff --name-only HEAD^ HEAD | LC_ALL=C sort | paste -sd " " -)" = "docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh"
 scripts/verify-high-fidelity-design
 bash tests/task-cards/verify-high-fidelity-design-cards.sh
 scripts/verify-interaction-state-contracts
@@ -548,6 +553,8 @@ scripts/verify-high-fidelity-design-manifest
 bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
 scripts/verify-high-fidelity-contract-coverage
 bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
+scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md
+bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 bash tests/contracts/ui/verify-ui-contracts.sh
 npm exec --yes --package=node@24.18.0 -- sh -c 'scripts/verify-wave0 --stage schema'
 bash tests/ci/verify-markdown-links.sh
@@ -568,9 +575,10 @@ Promotion closure is forbidden unless both return `GO / P0=0 / P1=0 / P2=0`.
 - [ ] **Step 3: Repair findings through the owning card**
 
 If either review reports any finding, reopen the exact owner card, add a failing regression
-assertion, repair the design, and rerun every applicable Gate. Freeze a new preparation SHA,
-then rerun both stages from the general deep review; a prior GO cannot be reused. Do not edit
-the fixed candidate during either review.
+assertion, repair the design, and rerun every applicable Gate. The resulting repair commit is
+not a preparation SHA. Create the separate four-governance-file re-freeze commit from Step 1,
+run both sentinels, then rerun both stages from the general deep review; a prior GO cannot be
+reused. Do not edit the fixed candidate during either review.
 
 - [ ] **Step 4: Close the integration card set**
 
@@ -607,6 +615,8 @@ scripts/verify-high-fidelity-design-manifest
 bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
 scripts/verify-high-fidelity-contract-coverage
 bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
+scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md
+bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 bash tests/contracts/ui/verify-ui-contracts.sh
 npm exec --yes --package=node@24.18.0 -- sh -c 'scripts/verify-wave0 --stage schema'
 bash tests/ci/verify-markdown-links.sh

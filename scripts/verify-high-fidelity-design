@@ -61,6 +61,8 @@ required_verification_commands=(
   'bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh'
   'scripts/verify-high-fidelity-contract-coverage'
   'bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh'
+  'scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md'
+  'bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh'
   'bash tests/contracts/ui/verify-ui-contracts.sh'
   "npm exec --yes --package=node@24.18.0 -- sh -c 'scripts/verify-wave0 --stage schema'"
   'bash tests/ci/verify-markdown-links.sh'
@@ -80,6 +82,18 @@ for verification_step in 1 5; do
     [[ "$(printf '%s\n' "${verification_commands}" | grep -Fxc "${required_command}" || true)" -eq 1 ]] ||
       fail "Task 5 Step ${verification_step} verification chain missing command: ${required_command}"
   done
+done
+
+required_refreeze_sentinel_commands=(
+  'git diff --exit-code HEAD^ HEAD -- Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md docs/engineering/cognitura-high-fidelity-design-manifest.yaml docs/engineering/cognitura-high-fidelity-contract-coverage.md'
+  'test "$(git diff --name-only HEAD^ HEAD | LC_ALL=C sort | paste -sd " " -)" = "docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh"'
+)
+step1_verification_commands="$(task5_step_commands \
+  '- [ ] **Step 1: Freeze and verify the candidate**' \
+  '- [ ] **Step 2: Run independent general and final reviews**')"
+for sentinel_command in "${required_refreeze_sentinel_commands[@]}"; do
+  [[ "$(printf '%s\n' "${step1_verification_commands}" | grep -Fxc "${sentinel_command}" || true)" -eq 1 ]] ||
+    fail "Task 5 Step 1 re-freeze sentinel missing command: ${sentinel_command}"
 done
 
 field_value() {
