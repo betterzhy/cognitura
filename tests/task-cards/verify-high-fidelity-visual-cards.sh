@@ -109,6 +109,7 @@ recapture_module_evidence() {
 }
 
 module_dom_unexpected_passes=()
+module_dom_unexpected_failures=()
 expect_module_dom_failure() {
   local fixture_root="$1"
   local expected_message="$2"
@@ -130,9 +131,33 @@ expect_module_dom_failure() {
     fail "expected DOM error '${expected_message}', got: ${output}"
 }
 
+expect_module_dom_success() {
+  local fixture_root="$1"
+  local output
+
+  recapture_module_evidence "${fixture_root}"
+  if ! output="$(run_verifier \
+    "${fixture_root}/cards" \
+    "${fixture_root}/visual-design.md" \
+    "${fixture_root}/prototype" \
+    "${fixture_root}/evidence" \
+    "${fixture_root}/master-plan.md" \
+    "${fixture_root}/acceptance.md" \
+    "${fixture_root}/evidence-plan.md" 2>&1)"; then
+    module_dom_unexpected_failures+=("$(basename "${fixture_root}"):${output}")
+  fi
+}
+
 assert_module_dom_failures_closed() {
-  [[ "${#module_dom_unexpected_passes[@]}" -eq 0 ]] ||
-    fail "module-default DOM mutations unexpectedly passed after fresh screenshot recapture: ${module_dom_unexpected_passes[*]}"
+  local failure_summary=""
+  if [[ "${#module_dom_unexpected_passes[@]}" -ne 0 ]]; then
+    failure_summary="DOM mutations unexpectedly passed: ${module_dom_unexpected_passes[*]}"
+  fi
+  if [[ "${#module_dom_unexpected_failures[@]}" -ne 0 ]]; then
+    failure_summary="${failure_summary} valid selector-semantic fixtures unexpectedly failed: ${module_dom_unexpected_failures[*]}"
+  fi
+  [[ -z "${failure_summary}" ]] ||
+    fail "module-default fresh screenshot selector checks failed:${failure_summary}"
 }
 
 [[ -x "${verifier}" ]] || fail "high-fidelity visual verifier is missing or not executable"
@@ -168,7 +193,7 @@ for expected_line in \
   "UnknownFixtureStateRejection = PASS" \
   "VisualFoundationEvidenceFreshness = PASS" \
   "ModuleDefaultReadingPrototypeValidation = PASS" \
-  "ModuleDefaultReadingRealDOMValidation = PASS" \
+  "ModuleDefaultReadingBrowserSelectorValidation = PASS" \
   "ModuleDefaultReadingEvidence = 1440x1100" \
   "ModuleDefaultReadingEvidenceFreshness = PASS" \
   "HighFidelityVisualDesign = NOT_RUN" \
@@ -350,7 +375,7 @@ sed -i.bak \
   "${wrong_module_projection_budget}/prototype/prototype.js"
 rm "${wrong_module_projection_budget}/prototype/prototype.js.bak"
 expect_failure "${wrong_module_projection_budget}" \
-  'module-default DOM is missing contract: data-primary-visual-projection-count="1"'
+  'module-default real primary visual projection count 1 does not match declared count 2'
 
 persistent_module_governance="${test_tmp_root}/persistent-module-governance"
 make_fixture "${persistent_module_governance}"
@@ -359,7 +384,7 @@ sed -i.bak \
   "${persistent_module_governance}/prototype/prototype.js"
 rm "${persistent_module_governance}/prototype/prototype.js.bak"
 expect_failure "${persistent_module_governance}" \
-  'module-default DOM is missing contract: data-persistent-governance-side-panel-count="0"'
+  'module-default real persistent governance side panel count 0 does not match declared count 1'
 
 missing_real_module_closure="${test_tmp_root}/missing-real-module-closure"
 make_fixture "${missing_real_module_closure}"
@@ -443,6 +468,31 @@ perl -0pi -e 's#(<figure\s+class="module-primary-projection".*?</figure>)#$1$1#s
 expect_module_dom_failure "${second_real_primary_projection}" \
   'module-default must contain exactly one'
 
+serialized_dom_decoy_bypass="${test_tmp_root}/serialized-dom-decoy-bypass"
+make_fixture "${serialized_dom_decoy_bypass}"
+perl -0pi -e 's#<section class="module-closure".*?</section>#<!-- <section class="module-closure"><div>Conditions ·</div><div>Results ·</div><div>Boundaries / Exceptions ·</div></section> -->#s' \
+  "${serialized_dom_decoy_bypass}/prototype/index.html"
+perl -0pi -e 's#(<li><strong>Read View</strong><span>约束</span><strong>记录版本可见性</strong></li>)#$1\n              <!-- </section> -->\n              <li><strong>活跃事务范围</strong><span>限制</span><strong>观察边界</strong></li>\n              <li><strong>Undo 版本链</strong><span>提供</span><strong>历史候选</strong></li>#' \
+  "${serialized_dom_decoy_bypass}/prototype/index.html"
+perl -0pi -e 's#(</figure>)#$1\n            <figure class="module-primary-projection diagnostic-decoy"></figure>#' \
+  "${serialized_dom_decoy_bypass}/prototype/index.html"
+perl -0pi -e 's#(<main\s+id="module-default-document")#<aside class="diagnostic-decoy persistent-governance-sidebar">Governance</aside>\n        $1#s' \
+  "${serialized_dom_decoy_bypass}/prototype/index.html"
+expect_module_dom_failure "${serialized_dom_decoy_bypass}" \
+  'module-default must contain exactly one real .module-closure'
+
+legal_additional_class_tokens="${test_tmp_root}/legal-additional-class-tokens"
+make_fixture "${legal_additional_class_tokens}"
+perl -0pi -e 's/class="module-closure"/class="module-closure selector-probe"/; s/class="module-primary-projection"/class="module-primary-projection selector-probe"/; s/class="module-relations"/class="module-relations selector-probe"/' \
+  "${legal_additional_class_tokens}/prototype/index.html"
+expect_module_dom_success "${legal_additional_class_tokens}"
+
+legal_comment_closing_tag="${test_tmp_root}/legal-comment-closing-tag"
+make_fixture "${legal_comment_closing_tag}"
+perl -0pi -e 's#(<section class="module-closure"[^>]*>)#$1\n            <!-- </section> must not truncate selector evaluation -->#' \
+  "${legal_comment_closing_tag}/prototype/index.html"
+expect_module_dom_success "${legal_comment_closing_tag}"
+
 assert_module_dom_failures_closed
 
 missing_module_source_label="${test_tmp_root}/missing-module-source-label"
@@ -452,7 +502,7 @@ sed -i.bak \
   "${missing_module_source_label}/prototype/index.html"
 rm "${missing_module_source_label}/prototype/index.html.bak"
 expect_failure "${missing_module_source_label}" \
-  'module-default DOM is missing contract: aria-label="按需查看 SourceEvidence 支持范围"'
+  'module-default browser selector probe data-probe-source-evidence-label-count must be 1, got 0'
 
 missing_module_element_label="${test_tmp_root}/missing-module-element-label"
 make_fixture "${missing_module_element_label}"
@@ -461,7 +511,7 @@ sed -i.bak \
   "${missing_module_element_label}/prototype/index.html"
 rm "${missing_module_element_label}/prototype/index.html.bak"
 expect_failure "${missing_module_element_label}" \
-  'module-default DOM is missing contract: aria-label="展开 KnowledgeElement：Read View"'
+  'module-default browser selector probe data-probe-knowledge-element-label-count must be 1, got 0'
 
 stale_module_evidence="${test_tmp_root}/stale-module-evidence"
 make_fixture "${stale_module_evidence}"
@@ -499,4 +549,6 @@ expect_failure "${premature_future_owner}" \
 printf 'HighFidelityVisualTaskCardContractTests = PASS\n'
 printf 'ExistingNegativeFixtureCount = 44\n'
 printf 'HV-D01FixRound1DOMNegativeFixtureCount = 15\n'
-printf 'NegativeFixtureCount = 67\n'
+printf 'HV-D01FixRound2AdversarialNegativeFixtureCount = 1\n'
+printf 'HV-D01SelectorSemanticsPositiveFixtureCount = 2\n'
+printf 'NegativeFixtureCount = 68\n'

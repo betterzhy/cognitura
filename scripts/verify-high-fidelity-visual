@@ -641,16 +641,16 @@ combined_prototype="$(printf '%s\n' \
   "$(sed 's/[[:space:]]//g' "${prototype_dir}/index.html")" \
   "$(sed 's/[[:space:]]//g' "${prototype_dir}/prototype.js")" \
   "$(sed 's/[[:space:]]//g' "${prototype_dir}/styles.css")")"
-if printf '%s\n' "${combined_prototype}" | grep -Eqi 'fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon'; then
+if grep -Eqi 'fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon' <<<"${combined_prototype}"; then
   fail "prototype must not use network APIs"
 fi
-if printf '%s\n' "${combined_prototype}" | grep -Eqi 'localStorage|sessionStorage|indexedDB|document\.cookie'; then
+if grep -Eqi 'localStorage|sessionStorage|indexedDB|document\.cookie' <<<"${combined_prototype}"; then
   fail "prototype must not persist user data"
 fi
-if printf '%s\n' "${combined_prototype}" | grep -Eqi "https?://|@import|url\\([^)]*//|(src|href)=([\"']?//)|import\\(([\"']?//)"; then
+if grep -Eqi "https?://|@import|url\\([^)]*//|(src|href)=([\"']?//)|import\\(([\"']?//)" <<<"${combined_prototype}"; then
   fail "prototype must not use external network resources"
 fi
-if printf '%s\n' "${combined_prototype}" | grep -Eqi '(src|href|import[^[:alnum:]])[^\n]*(web/|server/)'; then
+if grep -Eqi '(src|href|import[^[:alnum:]])[^\n]*(web/|server/)' <<<"${combined_prototype}"; then
   fail "prototype must not import production web/server assets"
 fi
 
@@ -701,11 +701,12 @@ run_headless_dump_dom() {
   local output_file="$2"
   local fixture_url="$3"
   local chrome_pid attempt artifact_ready
+  shift 3
 
   "${chrome_bin}" \
     --headless=new --disable-gpu --hide-scrollbars \
     --user-data-dir="${chrome_profile}" --no-first-run --no-default-browser-check \
-    --use-mock-keychain --dump-dom "${fixture_url}" >"${output_file}" 2>/dev/null &
+    --use-mock-keychain "$@" --dump-dom "${fixture_url}" >"${output_file}" 2>/dev/null &
   chrome_pid=$!
   artifact_ready=NO
   attempt=0
@@ -750,46 +751,95 @@ run_headless_screenshot() {
   [[ "${artifact_ready}" == "YES" ]]
 }
 
-evaluated_dom_literal_count() {
-  local evaluated_dom="$1"
-  local literal="$2"
-  printf '%s\n' "${evaluated_dom}" |
-    { grep -Fo -- "${literal}" || true; } |
-    wc -l |
-    tr -d '[:space:]'
-}
-
-evaluated_dom_regex_count() {
-  local evaluated_dom="$1"
-  local regex="$2"
-  printf '%s\n' "${evaluated_dom}" |
-    { grep -Eo -- "${regex}" || true; } |
-    wc -l |
-    tr -d '[:space:]'
-}
-
-evaluated_dom_attribute_value() {
-  local evaluated_dom="$1"
+probe_attribute_value() {
+  local probe_dom="$1"
   local attribute="$2"
   local matches match_count
-  matches="$(printf '%s\n' "${evaluated_dom}" | { grep -Eo -- "${attribute}=\"[^\"]*\"" || true; })"
+  matches="$(printf '%s\n' "${probe_dom}" | { grep -Eo -- "${attribute}=\"[^\"]*\"" || true; })"
   match_count="$(printf '%s\n' "${matches}" | awk 'NF {count++} END {print count+0}')"
   [[ "${match_count}" -eq 1 ]] ||
-    fail "module-default evaluated DOM must declare ${attribute} exactly once"
+    fail "module-default browser selector probe must declare ${attribute} exactly once"
   printf '%s\n' "${matches}" | sed -n "s/^${attribute}=\"\([^\"]*\)\"$/\1/p"
 }
 
-evaluated_dom_section() {
-  local evaluated_dom="$1"
-  local opening_pattern="$2"
-  local closing_pattern="$3"
-  printf '%s\n' "${evaluated_dom}" | awk \
-    -v opening_pattern="${opening_pattern}" \
-    -v closing_pattern="${closing_pattern}" '
-      index($0, opening_pattern) {inside=1}
-      inside {print}
-      inside && index($0, closing_pattern) {exit}
-    '
+require_probe_value() {
+  local probe_dom="$1"
+  local attribute="$2"
+  local expected="$3"
+  local actual
+  actual="$(probe_attribute_value "${probe_dom}" "${attribute}")"
+  [[ "${actual}" == "${expected}" ]] ||
+    fail "module-default browser selector probe ${attribute} must be ${expected}, got ${actual}"
+}
+
+write_module_selector_probe() {
+  local output_file="$1"
+  local target_url="$2"
+  {
+    printf '%s\n' '<!doctype html>' '<html><head><meta charset="utf-8"><title>Module selector probe</title></head><body>'
+    printf '<iframe id="target" src="%s"></iframe>\n' "${target_url}"
+    cat <<'EOF'
+<script>
+(function () {
+  "use strict";
+  const frame = document.getElementById("target");
+  const setProbe = function (name, value) {
+    document.documentElement.setAttribute("data-probe-" + name, String(value));
+  };
+  const evaluateTarget = function () {
+    const targetDocument = frame.contentDocument;
+    if (!targetDocument || targetDocument.readyState !== "complete" ||
+        targetDocument.documentElement.dataset.fixtureStatus !== "ACCEPTED") {
+      window.setTimeout(evaluateTarget, 10);
+      return;
+    }
+    const root = "#module-default-document";
+    const closureRegions = Array.prototype.slice.call(
+      targetDocument.querySelectorAll(root + " .module-closure > div")
+    );
+    const semanticRegionCount = function (prefix) {
+      return closureRegions.filter(function (region) {
+        const label = region.querySelector(".eyebrow");
+        return label && label.textContent.replace(/\s+/g, " ").trim().indexOf(prefix) === 0;
+      }).length;
+    };
+
+    setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
+    setProbe("state-fixture", targetDocument.body.dataset.stateFixture || "");
+    setProbe("module-default-evidence", targetDocument.body.dataset.moduleDefaultEvidence || "");
+    setProbe("zero-interaction-cognitive-closure", targetDocument.body.dataset.zeroInteractionCognitiveClosure || "");
+    setProbe("continuous-explanatory-narrative", targetDocument.body.dataset.continuousExplanatoryNarrative || "");
+    setProbe("primary-cognitive-spine", targetDocument.body.dataset.primaryCognitiveSpine || "");
+    setProbe("visible-perspective-switches", targetDocument.body.dataset.visiblePerspectiveSwitches || "");
+    setProbe("knowledge-element-entry", targetDocument.body.dataset.knowledgeElementEntry || "");
+    setProbe("source-evidence-entry", targetDocument.body.dataset.sourceEvidenceEntry || "");
+    setProbe("declared-primary-projection-count", targetDocument.body.dataset.primaryVisualProjectionCount || "");
+    setProbe("declared-relation-count", targetDocument.body.dataset.keyRelationCount || "");
+    setProbe("declared-governance-count", targetDocument.body.dataset.persistentGovernanceSidePanelCount || "");
+    setProbe("module-document-count", targetDocument.querySelectorAll("#module-default-document").length);
+    setProbe("core-question-count", targetDocument.querySelectorAll(root + " .module-opening h1").length);
+    setProbe("core-conclusion-count", targetDocument.querySelectorAll(root + " .module-conclusion-lead").length);
+    setProbe("closure-count", targetDocument.querySelectorAll(root + " .module-closure").length);
+    setProbe("conditions-count", semanticRegionCount("Conditions"));
+    setProbe("results-count", semanticRegionCount("Results"));
+    setProbe("boundaries-count", semanticRegionCount("Boundaries / Exceptions"));
+    setProbe("primary-projection-count", targetDocument.querySelectorAll(root + " .module-primary-projection").length);
+    setProbe("relations-container-count", targetDocument.querySelectorAll(root + " .module-relations").length);
+    setProbe("relation-count", targetDocument.querySelectorAll(root + " .module-relations li").length);
+    setProbe("governance-count", targetDocument.querySelectorAll("#module-default-fixture .persistent-governance-sidebar").length);
+    setProbe("knowledge-element-label-count", targetDocument.querySelectorAll(root + " button[aria-label='展开 KnowledgeElement：Read View']").length);
+    setProbe("source-evidence-label-count", targetDocument.querySelectorAll(root + " button[aria-label='按需查看 SourceEvidence 支持范围']").length);
+    setProbe("status", "READY");
+  };
+  frame.addEventListener("load", evaluateTarget);
+  if (frame.contentDocument && frame.contentDocument.readyState === "complete") {
+    window.setTimeout(evaluateTarget, 0);
+  }
+}());
+</script>
+</body></html>
+EOF
+  } >"${output_file}"
 }
 
 rogue_dom_file="${runtime_tmp}/rogue-state-dom.html"
@@ -823,76 +873,76 @@ if [[ "${active_number}" -ge 2 ]]; then
   require_text "${evidence_dir}/README.md" 'module-default-reading-desktop.png'
   require_text "${evidence_dir}/README.md" 'state=module-default'
 
-  module_dom_file="${runtime_tmp}/module-default-dom.html"
+  module_probe_file="${runtime_tmp}/module-default-selector-probe.html"
+  write_module_selector_probe \
+    "${module_probe_file}" \
+    "file://${prototype_dir}/index.html?state=module-default"
+  module_probe_dom_file="${runtime_tmp}/module-default-selector-probe-dom.html"
   run_headless_dump_dom \
     "${module_dom_chrome_profile}" \
-    "${module_dom_file}" \
-    "file://${prototype_dir}/index.html?state=module-default" ||
-    fail "Chrome could not evaluate the module-default fixture"
-  module_dom="$(<"${module_dom_file}")"
-  for module_dom_contract in \
-    'data-fixture-status="ACCEPTED"' \
-    'data-state-fixture="module-default"' \
-    'data-module-default-evidence="HIGH_FIDELITY_VISUAL_PASS"' \
-    'data-zero-interaction-cognitive-closure="COMPLETE"' \
-    'data-continuous-explanatory-narrative="REQUIRED"' \
-    'data-primary-cognitive-spine="VISIBLE"' \
-    'data-primary-visual-projection-count="1"' \
-    'data-key-relation-count="2"' \
-    'data-persistent-governance-side-panel-count="0"' \
-    'data-visible-perspective-switches="0"' \
-    'data-knowledge-element-entry="ON_DEMAND"' \
-    'data-source-evidence-entry="ON_DEMAND"' \
-    'id="module-default-document"' \
-    'aria-label="展开 KnowledgeElement：Read View"' \
-    'aria-label="按需查看 SourceEvidence 支持范围"'; do
-    [[ "${module_dom}" == *"${module_dom_contract}"* ]] ||
-      fail "module-default DOM is missing contract: ${module_dom_contract}"
-  done
+    "${module_probe_dom_file}" \
+    "file://${module_probe_file}" \
+    --allow-file-access-from-files ||
+    fail "Chrome could not evaluate the module-default browser selector probe"
+  module_probe_dom="$(<"${module_probe_dom_file}")"
+  require_probe_value "${module_probe_dom}" 'data-probe-status' 'READY'
+  require_probe_value "${module_probe_dom}" 'data-probe-fixture-status' 'ACCEPTED'
+  require_probe_value "${module_probe_dom}" 'data-probe-state-fixture' 'module-default'
+  require_probe_value "${module_probe_dom}" 'data-probe-module-default-evidence' 'HIGH_FIDELITY_VISUAL_PASS'
+  require_probe_value "${module_probe_dom}" 'data-probe-zero-interaction-cognitive-closure' 'COMPLETE'
+  require_probe_value "${module_probe_dom}" 'data-probe-continuous-explanatory-narrative' 'REQUIRED'
+  require_probe_value "${module_probe_dom}" 'data-probe-primary-cognitive-spine' 'VISIBLE'
+  require_probe_value "${module_probe_dom}" 'data-probe-visible-perspective-switches' '0'
+  require_probe_value "${module_probe_dom}" 'data-probe-knowledge-element-entry' 'ON_DEMAND'
+  require_probe_value "${module_probe_dom}" 'data-probe-source-evidence-entry' 'ON_DEMAND'
+  require_probe_value "${module_probe_dom}" 'data-probe-knowledge-element-label-count' '1'
+  require_probe_value "${module_probe_dom}" 'data-probe-source-evidence-label-count' '1'
 
-  module_document_count="$(evaluated_dom_literal_count "${module_dom}" 'id="module-default-document"')"
+  module_document_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-module-document-count')"
   [[ "${module_document_count}" -eq 1 ]] ||
     fail "module-default must contain exactly one real document root"
 
-  module_opening_dom="$(evaluated_dom_section "${module_dom}" '<header class="module-opening">' '</header>')"
-  core_question_count="$(evaluated_dom_regex_count "${module_opening_dom}" '<h1([ >])')"
+  core_question_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-core-question-count')"
   [[ "${core_question_count}" -eq 1 ]] ||
     fail "module-default must contain exactly one real CoreQuestion"
 
-  core_conclusion_count="$(evaluated_dom_literal_count "${module_dom}" 'class="module-conclusion-lead"')"
+  core_conclusion_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-core-conclusion-count')"
   [[ "${core_conclusion_count}" -eq 1 ]] ||
     fail "module-default must contain exactly one real CoreConclusion"
 
-  module_closure_count="$(evaluated_dom_literal_count "${module_dom}" 'class="module-closure"')"
+  module_closure_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-closure-count')"
   [[ "${module_closure_count}" -eq 1 ]] ||
     fail "module-default must contain exactly one real .module-closure"
-  module_closure_dom="$(evaluated_dom_section "${module_dom}" '<section class="module-closure"' '</section>')"
-  for closure_region in Conditions Results 'Boundaries / Exceptions'; do
-    closure_region_count="$(evaluated_dom_literal_count "${module_closure_dom}" "${closure_region} ·")"
+  for closure_contract in \
+    'Conditions|data-probe-conditions-count' \
+    'Results|data-probe-results-count' \
+    'Boundaries / Exceptions|data-probe-boundaries-count'; do
+    closure_region="${closure_contract%%|*}"
+    closure_attribute="${closure_contract#*|}"
+    closure_region_count="$(probe_attribute_value "${module_probe_dom}" "${closure_attribute}")"
     [[ "${closure_region_count}" -eq 1 ]] ||
       fail "module-default must contain exactly one real ${closure_region} region"
   done
 
-  primary_projection_count="$(evaluated_dom_literal_count "${module_dom}" 'class="module-primary-projection"')"
+  primary_projection_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-primary-projection-count')"
   [[ "${primary_projection_count}" -eq 1 ]] ||
     fail "module-default must contain exactly one real primary visual projection"
-  declared_primary_projection_count="$(evaluated_dom_attribute_value "${module_dom}" 'data-primary-visual-projection-count')"
+  declared_primary_projection_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-declared-primary-projection-count')"
   [[ "${primary_projection_count}" == "${declared_primary_projection_count}" ]] ||
     fail "module-default real primary visual projection count ${primary_projection_count} does not match declared count ${declared_primary_projection_count}"
 
-  module_relations_count="$(evaluated_dom_literal_count "${module_dom}" 'class="module-relations"')"
+  module_relations_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-relations-container-count')"
   [[ "${module_relations_count}" -eq 1 ]] ||
     fail "module-default must contain exactly one real .module-relations"
-  module_relations_dom="$(evaluated_dom_section "${module_dom}" '<section class="module-relations"' '</section>')"
-  relation_count="$(evaluated_dom_regex_count "${module_relations_dom}" '<li([ >])')"
+  relation_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-relation-count')"
   [[ "${relation_count}" -ge 1 && "${relation_count}" -le 3 ]] ||
     fail "module-default real Relation count must be between 1 and 3"
-  declared_relation_count="$(evaluated_dom_attribute_value "${module_dom}" 'data-key-relation-count')"
+  declared_relation_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-declared-relation-count')"
   [[ "${relation_count}" == "${declared_relation_count}" ]] ||
     fail "module-default real Relation count ${relation_count} does not match declared count ${declared_relation_count}"
 
-  persistent_governance_count="$(evaluated_dom_literal_count "${module_dom}" 'class="persistent-governance-sidebar"')"
-  declared_persistent_governance_count="$(evaluated_dom_attribute_value "${module_dom}" 'data-persistent-governance-side-panel-count')"
+  persistent_governance_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-governance-count')"
+  declared_persistent_governance_count="$(probe_attribute_value "${module_probe_dom}" 'data-probe-declared-governance-count')"
   [[ "${persistent_governance_count}" == "${declared_persistent_governance_count}" ]] ||
     fail "module-default real persistent governance side panel count ${persistent_governance_count} does not match declared count ${declared_persistent_governance_count}"
   [[ "${persistent_governance_count}" -eq 0 ]] ||
@@ -931,7 +981,7 @@ printf 'UnknownFixtureStateRejection = PASS\n'
 printf 'VisualFoundationEvidenceFreshness = PASS\n'
 if [[ "${active_number}" -ge 2 ]]; then
   printf 'ModuleDefaultReadingPrototypeValidation = PASS\n'
-  printf 'ModuleDefaultReadingRealDOMValidation = PASS\n'
+  printf 'ModuleDefaultReadingBrowserSelectorValidation = PASS\n'
   printf 'ModuleDefaultReadingEvidence = 1440x1100\n'
   printf 'ModuleDefaultReadingEvidenceFreshness = PASS\n'
 fi
