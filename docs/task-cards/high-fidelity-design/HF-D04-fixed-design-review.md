@@ -11,7 +11,7 @@ ReviewRoute = SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE
 DesignOwner = FIXED_CANDIDATE_PROMOTION_AUTHORITY
 LocalCommitBoundary = REQUIRED
 WriteSetSource = APPROVED_TASK_PLAN_EXACT
-WriteSetItemCount = 13
+WriteSetItemCount = 19
 ```
 
 ## 1. 目标
@@ -38,26 +38,50 @@ WriteSetItemCount = 13
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-plan.md`
+- Modify: `docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md`
+- Modify: `scripts/verify-high-fidelity-design`
+- Modify: `scripts/verify-interaction-state-contracts`
+- Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
+- Modify: `tests/task-cards/verify-high-fidelity-design-cards.sh`
 
 ## 4. 禁止写集
 
 - `server/**`, `web/**`, `raw/**`, `schemas/**`, `.idea/**` 和全部 `W1-I*`。
 - Wave 0 固定 source manifest、specialty coverage 及其 validators/tests。
+- 禁止目录级 `git add`；准备提交和封口提交都必须逐文件暂存精确写集。
 
 ## 5. 执行步骤
 
-固定候选后先一般深审，再执行相互独立的最终门禁；任何 P0/P1/P2 都禁止晋级。
+先形成只包含本卡准备治理变更的本地提交并冻结准备 SHA；该准备提交不得修改专项
+候选正文、独立 manifest 或 coverage。两个相互独立的 `gpt-5.6-sol/high`
+reviewer 必须审查同一个准备 SHA，顺序固定为一般深审后最终门禁；两阶段均返回
+`GO / P0=0 / P1=0 / P2=0` 才允许进入 promotion closure，不使用 ultra。
+
+任一阶段产生 finding 时，必须回到 finding 的 owner card，先增加失败回归断言，
+再修复并重跑全部适用 Gate；随后冻结新的准备 SHA，并从一般深审开始完整重跑
+两个独立阶段。审查期间不得修改固定候选。
 
 ## 6. 验证命令
 
-运行全部 HF 合同、独立 manifest/coverage、UI、Schema、Wave 0、Markdown 和 diff
-验证；负例覆盖 SHA 三联不一致、过早晋级、陈旧 hash 与任一审查非零。
+运行全部 HF 合同、interaction-state、独立 manifest/coverage、UI、Schema、
+Wave 0、source/specialty、Markdown、Bash syntax 和 diff 验证；负例覆盖 reviewed
+candidate SHA 三联不一致、候选正文与 manifest 精确指纹不一致、coverage 未关闭、
+过早晋级、陈旧 hash 与任一审查非零。
 
 ## 7. Gate 与完成定义
 
-`HF-DG4 = PASS` 才允许专项正文、独立 manifest 和 coverage 以同一 reviewed SHA
-晋级；仍不授权业务实现、正式数据库写入或远程推送。
+只有双阶段均为 `GO / P0=0 / P1=0 / P2=0`，封口提交才允许把专项正文、独立
+manifest 和 coverage 记录为同一 reviewed candidate SHA，同时要求 manifest 的
+字节数和 SHA-256 与晋级后的专项正文精确一致，并把 coverage 置为 reviewed/closed。
+`HV-D00` 只在 `docs/engineering/cognitura-high-fidelity-design-plan.md` 中投影为
+`READY`；实际 HV 卡集由 Task 6 创建。本卡不得创建或释放 `W1-I00`，也不授权
+业务实现、正式数据库写入或远程推送。
 
 ## 8. 提交与审查
 
-两阶段均使用 `gpt-5.6-sol/high`，相互独立；形成一个本地封口提交，不推送。
+准备提交逐文件暂存本次四个治理文件并使用
+`docs: prepare fixed high fidelity candidate review`；不得 amend 或推送。两阶段均
+使用 `gpt-5.6-sol/high` 且相互独立，不使用 ultra。审查清零后另形成一个本地
+promotion closure 提交；封口提交必须逐文件暂存第 3 节的 19 项精确写集，不得
+使用 `git add docs/task-cards/high-fidelity-design` 等目录级暂存，不推送。

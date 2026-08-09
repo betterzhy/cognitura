@@ -506,14 +506,38 @@ git commit -m "docs: define high fidelity evidence gates"
 - Modify: `docs/task-cards/high-fidelity-design/README.md`
 - Modify: `README.md`
 - Modify: `AGENTS.md`
+- Modify: `docs/engineering/cognitura-high-fidelity-design-plan.md`
+- Modify: `docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md`
+- Modify: `scripts/verify-high-fidelity-design`
+- Modify: `scripts/verify-interaction-state-contracts`
+- Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
+- Modify: `tests/task-cards/verify-high-fidelity-design-cards.sh`
 
 **Interfaces:**
 - Consumes: fixed HF-D00–HF-D03 candidate.
-- Produces: two independent `gpt-5.6-sol/high` contract review results and a closed `HIGH_FIDELITY_DESIGN` card set.
+- Produces: one immutable preparation SHA, two independent `gpt-5.6-sol/high` review results
+  against that same SHA, and—only after both reviews clear—an exact 19-file promotion closure.
 
 - [ ] **Step 1: Freeze and verify the candidate**
 
-Run:
+First update only the Task 5 preparation-governance files below, run the task-card contract
+tests, and create an evidence-only local preparation commit. Do not modify or promote the
+specialty body, HF manifest, or HF coverage in this preparation commit.
+
+```bash
+git add -- \
+  docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md \
+  docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md \
+  scripts/verify-high-fidelity-design \
+  tests/task-cards/verify-high-fidelity-design-cards.sh
+git commit -m "docs: prepare fixed high fidelity candidate review"
+```
+
+The resulting commit is the immutable preparation SHA. Confirm it still has `HF-D04` as the
+sole READY card and that the specialty body, independent HF manifest, and independent HF
+coverage are byte-for-byte unchanged from its parent. Do not amend or push this commit.
+
+Run against that frozen SHA:
 
 ```bash
 scripts/verify-high-fidelity-design
@@ -522,15 +546,21 @@ git diff --check
 git status --short
 ```
 
-Commit any evidence-only preparation before review so reviewers receive an immutable SHA.
+Record the exact preparation SHA before dispatching either reviewer.
 
 - [ ] **Step 2: Run independent general and final reviews**
 
-Dispatch two independent agents using `gpt-5.6-sol/high`. Each must inspect the same SHA and return `GO|NO_GO` with P0/P1/P2 counts. Neither reviewer may edit files.
+Dispatch two independent agents using `gpt-5.6-sol/high`, never ultra. Both must inspect the
+same frozen preparation SHA, but run sequentially: general deep review first, then the
+independent final gate. Each returns `GO|NO_GO` with P0/P1/P2 counts and neither may edit files.
+Promotion closure is forbidden unless both return `GO / P0=0 / P1=0 / P2=0`.
 
 - [ ] **Step 3: Repair findings through the owning card**
 
-If either review reports a finding, reopen the exact owner card, add a failing regression assertion, repair the design, rerun all Gates, create a new SHA, and repeat both reviews. Do not edit the fixed candidate during review.
+If either review reports any finding, reopen the exact owner card, add a failing regression
+assertion, repair the design, and rerun every applicable Gate. Freeze a new preparation SHA,
+then rerun both stages from the general deep review; a prior GO cannot be reused. Do not edit
+the fixed candidate during either review.
 
 - [ ] **Step 4: Close the integration card set**
 
@@ -542,8 +572,17 @@ to `FORMAL_SPECIALTY_BASELINE` and record the reviewed candidate SHA; update
 reviewed candidate SHA, and the specialty's new exact byte count/SHA-256; change
 `docs/engineering/cognitura-high-fidelity-contract-coverage.md` from deferred to
 reviewed/closed and record the same reviewed candidate SHA. Update both independent
-validator/test pairs with failing promotion mutations, then release `HV-D00 = READY` in the
-visual design plan.
+validator/test pairs with failing promotion mutations. In
+`docs/engineering/cognitura-high-fidelity-design-plan.md`, project `HV-D00` as
+`READY / RELEASED`; do not create the actual HV task-card set here—Task 6 owns that creation.
+
+The promotion closure must fail closed unless all of the following are simultaneously true:
+
+- specialty body, HF manifest, and HF coverage contain the same reviewed preparation SHA;
+- the HF manifest byte count and SHA-256 exactly fingerprint the promoted specialty body;
+- HF coverage is explicitly reviewed/closed;
+- `BusinessImplementation`, formal database writes, remote push, `W1-I00` creation, and
+  `W1-I00` release remain unauthorized or forbidden.
 
 - [ ] **Step 5: Verify and commit closure**
 
@@ -566,19 +605,28 @@ matches the promoted specialty's exact byte count/SHA-256.
 Commit:
 
 ```bash
-git add AGENTS.md README.md \
+git add -- AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
   docs/engineering/cognitura-high-fidelity-contract-coverage.md \
+  docs/engineering/cognitura-high-fidelity-design-plan.md \
   docs/engineering/cognitura-high-fidelity-design-acceptance.md \
-  docs/task-cards/high-fidelity-design \
+  docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md \
+  docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md \
+  docs/task-cards/high-fidelity-design/README.md \
+  scripts/verify-high-fidelity-design \
   scripts/verify-high-fidelity-design-manifest \
   scripts/verify-high-fidelity-contract-coverage \
+  scripts/verify-interaction-state-contracts \
   tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
-  tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
+  tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh \
+  tests/contracts/interaction-state/verify-interaction-state-contracts.sh \
+  tests/task-cards/verify-high-fidelity-design-cards.sh
 git commit -m "docs: close high fidelity contract design gate"
 ```
+
+The command above names all 19 files individually. Directory-level `git add` is forbidden.
 
 ### Task 6: HV-D00 Visual Foundation and Prototype Governance
 

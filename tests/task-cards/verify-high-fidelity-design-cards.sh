@@ -119,7 +119,7 @@ for unchanged_card_count in \
   'HF-D00-design-governance.md|20' \
   'HF-D02-interaction-state-model.md|16' \
   'HF-D03-high-fidelity-evidence-contract.md|17' \
-  'HF-D04-fixed-design-review.md|13'; do
+  'HF-D04-fixed-design-review.md|19'; do
   unchanged_card="${unchanged_card_count%%|*}"
   unchanged_count="${unchanged_card_count##*|}"
   grep -Fqx "WriteSetItemCount = ${unchanged_count}" "${expanded_hfd01_dir}/${unchanged_card}" ||
@@ -153,6 +153,33 @@ for required_hfd03_path in "${required_hfd03_paths[@]}"; do
     fail "HF-D03 canonical card is missing exact write-set path: ${required_hfd03_path}"
 done
 
+required_hfd04_paths=(
+  'AGENTS.md'
+  'README.md'
+  'Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md'
+  'docs/engineering/cognitura-design-index.md'
+  'docs/engineering/cognitura-high-fidelity-design-manifest.yaml'
+  'docs/engineering/cognitura-high-fidelity-contract-coverage.md'
+  'docs/engineering/cognitura-high-fidelity-design-plan.md'
+  'docs/engineering/cognitura-high-fidelity-design-acceptance.md'
+  'docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md'
+  'docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md'
+  'docs/task-cards/high-fidelity-design/README.md'
+  'scripts/verify-high-fidelity-design'
+  'scripts/verify-high-fidelity-design-manifest'
+  'scripts/verify-high-fidelity-contract-coverage'
+  'scripts/verify-interaction-state-contracts'
+  'tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh'
+  'tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh'
+  'tests/contracts/interaction-state/verify-interaction-state-contracts.sh'
+  'tests/task-cards/verify-high-fidelity-design-cards.sh'
+)
+for required_hfd04_path in "${required_hfd04_paths[@]}"; do
+  grep -Fqx -- "- Modify: \`${required_hfd04_path}\`" \
+    "${cards_dir}/HF-D04-fixed-design-review.md" ||
+    fail "HF-D04 canonical card is missing exact write-set path: ${required_hfd04_path}"
+done
+
 missing_hfd02_path_dir="${test_tmp_root}/missing-hfd02-path"
 cp -R "${baseline_dir}" "${missing_hfd02_path_dir}"
 sed -i.bak \
@@ -170,6 +197,15 @@ sed -i.bak \
 rm "${missing_hfd03_path_dir}/HF-D03-high-fidelity-evidence-contract.md.bak"
 expect_failure "${missing_hfd03_path_dir}" \
   "missing exact HF-D03 write-set path: scripts/verify-interaction-state-contracts"
+
+missing_hfd04_path_dir="${test_tmp_root}/missing-hfd04-path"
+cp -R "${baseline_dir}" "${missing_hfd04_path_dir}"
+sed -i.bak \
+  's#^- Modify: `scripts/verify-interaction-state-contracts`$#- Modify: `scripts/verify-high-fidelity-design-manifest`#' \
+  "${missing_hfd04_path_dir}/HF-D04-fixed-design-review.md"
+rm "${missing_hfd04_path_dir}/HF-D04-fixed-design-review.md.bak"
+expect_failure "${missing_hfd04_path_dir}" \
+  "missing exact HF-D04 write-set path: scripts/verify-interaction-state-contracts"
 
 missing_owner_dir="${test_tmp_root}/missing-owner"
 cp -R "${baseline_dir}" "${missing_owner_dir}"
@@ -202,4 +238,4 @@ expect_failure "${w1_release_dir}" "W1-I00Release must be FORBIDDEN"
 
 printf '%s\n' \
   "HighFidelityDesignTaskCardContractTests = PASS" \
-  "NegativeCases = 6"
+  "NegativeCases = 7"
