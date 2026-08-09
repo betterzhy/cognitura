@@ -76,6 +76,11 @@ re-freeze 后还必须执行两个可运行哨兵：`git diff --exit-code HEAD^ 
 专项候选、HF manifest、HF coverage 三路径必须无差异；`git diff --name-only
 HEAD^ HEAD` 排序后必须恰为 master plan、本卡、HF card validator 和其 wrapper
 test 四个治理文件。Step 1 与 Step 5 都必须显式执行只读 specialty core 与 wrapper。
+两个 Step 的全部必跑命令只能出现在各自机器标记的 designated verification fence：
+`VerificationFence = TASK5_STEP1_REQUIRED_GATE` 与
+`VerificationFence = TASK5_STEP5_REQUIRED_GATE` 必须各自唯一并紧邻唯一的 Bash 验证块。
+把任一必跑命令移入同 Step 的 staging、commit 或其他 Bash fence，即使全 Step 仍恰好
+出现一次，也必须判定为 `FAIL`。
 
 ## 7. Gate 与完成定义
 

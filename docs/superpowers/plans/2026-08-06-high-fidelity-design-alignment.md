@@ -542,6 +542,7 @@ or push this commit.
 
 Run against that frozen SHA:
 
+VerificationFence = TASK5_STEP1_REQUIRED_GATE
 ```bash
 git diff --exit-code HEAD^ HEAD -- Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md docs/engineering/cognitura-high-fidelity-design-manifest.yaml docs/engineering/cognitura-high-fidelity-contract-coverage.md
 test "$(git diff --name-only HEAD^ HEAD | LC_ALL=C sort | paste -sd " " -)" = "docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh"
@@ -606,6 +607,7 @@ The promotion closure must fail closed unless all of the following are simultane
 
 Run:
 
+VerificationFence = TASK5_STEP5_REQUIRED_GATE
 ```bash
 scripts/verify-high-fidelity-design
 bash tests/task-cards/verify-high-fidelity-design-cards.sh

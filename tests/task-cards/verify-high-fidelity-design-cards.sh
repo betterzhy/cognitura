@@ -57,6 +57,34 @@ delete_step_command() {
   mv "${rewritten_plan}" "${fixture_plan}"
 }
 
+relocate_step_command() {
+  local fixture_plan="$1"
+  local start_header="$2"
+  local end_header="$3"
+  local command="$4"
+  local destination_fence="$5"
+  local rewritten_plan="${fixture_plan}.tmp"
+
+  awk -v start_header="${start_header}" -v end_header="${end_header}" \
+    -v command="${command}" -v destination_fence="${destination_fence}" '
+    $0 == start_header {inside_step=1}
+    $0 == end_header {inside_step=0}
+    inside_step && $0 == "```bash" {fence_count++}
+    inside_step && $0 == command {next}
+    inside_step && fence_count == destination_fence && $0 == "```" && !relocated {
+      print command
+      relocated=1
+    }
+    {print}
+    END {
+      if (!relocated) {
+        exit 1
+      }
+    }
+  ' "${fixture_plan}" >"${rewritten_plan}"
+  mv "${rewritten_plan}" "${fixture_plan}"
+}
+
 [[ -x "${verifier}" ]] || fail "high-fidelity design verifier is missing or not executable"
 [[ -d "${cards_dir}" ]] || fail "high-fidelity design card directory is missing"
 [[ -f "${master_plan}" ]] || fail "high-fidelity master plan is missing"
@@ -265,6 +293,61 @@ sed -i.bak 's/^W1-I00Release = FORBIDDEN$/W1-I00Release = READY/' \
 rm "${w1_release_dir}/README.md.bak"
 expect_failure "${w1_release_dir}" "W1-I00Release must be FORBIDDEN"
 
+for relocation_mutation in \
+  'step1-relocated-specialty-core|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
+  'step1-relocated-specialty-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh' \
+  'step5-relocated-specialty-core|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|2|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
+  'step5-relocated-specialty-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|2|bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh'; do
+  mutation_name="${relocation_mutation%%|*}"
+  relocation_remainder="${relocation_mutation#*|}"
+  start_header="${relocation_remainder%%|*}"
+  relocation_remainder="${relocation_remainder#*|}"
+  end_header="${relocation_remainder%%|*}"
+  relocation_remainder="${relocation_remainder#*|}"
+  destination_fence="${relocation_remainder%%|*}"
+  command="${relocation_remainder#*|}"
+  fixture_plan="${test_tmp_root}/${mutation_name}.md"
+  cp "${master_plan}" "${fixture_plan}"
+  relocate_step_command \
+    "${fixture_plan}" "${start_header}" "${end_header}" "${command}" "${destination_fence}"
+  expect_plan_failure "${fixture_plan}" "designated verification fence missing command: ${command}"
+done
+
+for marker_mutation in \
+  'step1-missing-marker|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|VerificationFence = TASK5_STEP1_REQUIRED_GATE|missing' \
+  'step1-duplicate-marker|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|VerificationFence = TASK5_STEP1_REQUIRED_GATE|duplicate' \
+  'step5-missing-marker|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|VerificationFence = TASK5_STEP5_REQUIRED_GATE|missing' \
+  'step5-duplicate-marker|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|VerificationFence = TASK5_STEP5_REQUIRED_GATE|duplicate'; do
+  mutation_name="${marker_mutation%%|*}"
+  marker_remainder="${marker_mutation#*|}"
+  start_header="${marker_remainder%%|*}"
+  marker_remainder="${marker_remainder#*|}"
+  end_header="${marker_remainder%%|*}"
+  marker_remainder="${marker_remainder#*|}"
+  marker="${marker_remainder%%|*}"
+  mutation_kind="${marker_remainder#*|}"
+  fixture_plan="${test_tmp_root}/${mutation_name}.md"
+  cp "${master_plan}" "${fixture_plan}"
+  if [[ "${mutation_kind}" == "missing" ]]; then
+    sed -i.bak "/^${marker}$/d" "${fixture_plan}"
+    rm "${fixture_plan}.bak"
+  else
+    rewritten_plan="${fixture_plan}.tmp"
+    awk -v start_header="${start_header}" -v end_header="${end_header}" -v marker="${marker}" '
+      $0 == start_header {inside_step=1}
+      $0 == end_header {inside_step=0}
+      inside_step && $0 == "```bash" && !inserted {
+        print marker
+        print marker
+        inserted=1
+      }
+      {print}
+    ' "${fixture_plan}" >"${rewritten_plan}"
+    mv "${rewritten_plan}" "${fixture_plan}"
+  fi
+  expect_plan_failure "${fixture_plan}" "expected exactly one verification fence marker: ${marker}"
+done
+
 for sentinel_mutation in \
   'refreeze-protected-assets|git diff --exit-code HEAD^ HEAD -- Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md docs/engineering/cognitura-high-fidelity-design-manifest.yaml docs/engineering/cognitura-high-fidelity-contract-coverage.md' \
   'refreeze-exact-four-files|test "$(git diff --name-only HEAD^ HEAD | LC_ALL=C sort | paste -sd " " -)" = "docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh"'; do
@@ -300,9 +383,9 @@ for plan_mutation in \
   fixture_plan="${test_tmp_root}/${mutation_name}.md"
   cp "${master_plan}" "${fixture_plan}"
   delete_step_command "${fixture_plan}" "${start_header}" "${end_header}" "${command}"
-  expect_plan_failure "${fixture_plan}" "verification chain missing command: ${command}"
+  expect_plan_failure "${fixture_plan}" "designated verification fence missing command: ${command}"
 done
 
 printf '%s\n' \
   "HighFidelityDesignTaskCardContractTests = PASS" \
-  "NegativeCases = 19"
+  "NegativeCases = 27"

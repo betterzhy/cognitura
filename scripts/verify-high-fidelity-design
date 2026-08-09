@@ -39,16 +39,14 @@ fi
 [[ -f "${cards_dir}/README.md" ]] || fail "task card index is missing: README.md"
 [[ -f "${plan}" ]] || fail "Task 5 plan does not exist: ${plan}"
 
-task5_step_commands() {
+task5_step_body() {
   local start_header="$1"
   local end_header="$2"
 
   awk -v start_header="${start_header}" -v end_header="${end_header}" '
     $0 == start_header {inside_step=1; next}
     $0 == end_header {inside_step=0}
-    inside_step && $0 == "```bash" {inside_fence=1; next}
-    inside_step && $0 == "```" {inside_fence=0; next}
-    inside_step && inside_fence {print}
+    inside_step {print}
   ' "${plan}"
 }
 
@@ -73,24 +71,50 @@ for verification_step in 1 5; do
   if [[ "${verification_step}" -eq 1 ]]; then
     start_header='- [ ] **Step 1: Freeze and verify the candidate**'
     end_header='- [ ] **Step 2: Run independent general and final reviews**'
+    verification_marker='VerificationFence = TASK5_STEP1_REQUIRED_GATE'
   else
     start_header='- [ ] **Step 5: Verify and commit closure**'
     end_header='### Task 6: HV-D00 Visual Foundation and Prototype Governance'
+    verification_marker='VerificationFence = TASK5_STEP5_REQUIRED_GATE'
   fi
-  verification_commands="$(task5_step_commands "${start_header}" "${end_header}")"
+  step_body="$(task5_step_body "${start_header}" "${end_header}")"
+  marker_count="$(printf '%s\n' "${step_body}" | grep -Fxc "${verification_marker}" || true)"
+  global_marker_count="$(grep -Fxc "${verification_marker}" "${plan}" || true)"
+  [[ "${marker_count}" -eq 1 && "${global_marker_count}" -eq 1 ]] ||
+    fail "Task 5 Step ${verification_step} expected exactly one verification fence marker: ${verification_marker}"
+  if ! verification_commands="$(printf '%s\n' "${step_body}" | awk -v marker="${verification_marker}" '
+    $0 == marker {marker_seen=1; awaiting_fence=1; next}
+    awaiting_fence {
+      if ($0 != "```bash") {
+        exit 1
+      }
+      awaiting_fence=0
+      inside_fence=1
+      next
+    }
+    inside_fence && $0 == "```" {inside_fence=0; fence_closed=1; exit}
+    inside_fence {print}
+    END {
+      if (!marker_seen || awaiting_fence || !fence_closed) {
+        exit 1
+      }
+    }
+  ')"; then
+    fail "Task 5 Step ${verification_step} verification fence marker must be immediately followed by one closed bash fence: ${verification_marker}"
+  fi
   for required_command in "${required_verification_commands[@]}"; do
     [[ "$(printf '%s\n' "${verification_commands}" | grep -Fxc "${required_command}" || true)" -eq 1 ]] ||
-      fail "Task 5 Step ${verification_step} verification chain missing command: ${required_command}"
+      fail "Task 5 Step ${verification_step} designated verification fence missing command: ${required_command}"
   done
+  if [[ "${verification_step}" -eq 1 ]]; then
+    step1_verification_commands="${verification_commands}"
+  fi
 done
 
 required_refreeze_sentinel_commands=(
   'git diff --exit-code HEAD^ HEAD -- Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md docs/engineering/cognitura-high-fidelity-design-manifest.yaml docs/engineering/cognitura-high-fidelity-contract-coverage.md'
   'test "$(git diff --name-only HEAD^ HEAD | LC_ALL=C sort | paste -sd " " -)" = "docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh"'
 )
-step1_verification_commands="$(task5_step_commands \
-  '- [ ] **Step 1: Freeze and verify the candidate**' \
-  '- [ ] **Step 2: Run independent general and final reviews**')"
 for sentinel_command in "${required_refreeze_sentinel_commands[@]}"; do
   [[ "$(printf '%s\n' "${step1_verification_commands}" | grep -Fxc "${sentinel_command}" || true)" -eq 1 ]] ||
     fail "Task 5 Step 1 re-freeze sentinel missing command: ${sentinel_command}"
