@@ -595,9 +595,13 @@ for cross_domain_contract in "${cross_domain_contracts[@]}"; do
 done
 [[ "$(grep -c '^HFD03CrossDomainScenario = ' "${document}" || true)" -eq 2 ]] ||
   fail "candidate must contain exactly two cross-domain scenarios"
-for cross_domain_type in MECHANISM_DOMAIN RULE_POLICY_DOMAIN; do
-  [[ "$(grep -c "^HFD03CrossDomainScenario = ${cross_domain_type}|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|" "${document}" || true)" -eq 1 ]] ||
-    fail "candidate cross-domain canonical projection mismatch"
+candidate_cross_domain_contracts=(
+  'HFD03CrossDomainScenario = MECHANISM_DOMAIN|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=MVCC_CONSISTENT_READ_MECHANISM'
+  'HFD03CrossDomainScenario = RULE_POLICY_DOMAIN|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=PROCUREMENT_ACCEPTANCE_BEFORE_PAYMENT_POLICY'
+)
+for candidate_cross_domain_contract in "${candidate_cross_domain_contracts[@]}"; do
+  [[ "$(grep -Fxc "${candidate_cross_domain_contract}" "${document}" || true)" -eq 1 ]] ||
+    fail "candidate cross-domain scenario contract mismatch"
 done
 
 validate_acceptance_rows() {

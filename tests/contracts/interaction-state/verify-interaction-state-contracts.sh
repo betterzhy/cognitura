@@ -4,9 +4,11 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-interaction-state-contracts"
+manifest_verifier="${repo_root}/scripts/verify-high-fidelity-design-manifest"
 document="${repo_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md"
 plan="${repo_root}/docs/engineering/cognitura-high-fidelity-design-plan.md"
 acceptance="${repo_root}/docs/engineering/cognitura-high-fidelity-design-acceptance.md"
+manifest="${repo_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-interaction-state.XXXXXX")"
 
 cleanup() {
@@ -93,7 +95,26 @@ make_evidence_fixture() {
   cp "${acceptance}" "${fixture_root}/docs/engineering/acceptance.md"
 }
 
+sync_and_verify_fixture_manifest() {
+  local fixture_root="$1"
+  local fixture_source="${fixture_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md"
+  local fixture_manifest="${fixture_root}/manifest.yaml"
+  local source_size
+  local source_hash
+  cp "${fixture_root}/candidate.md" "${fixture_source}"
+  cp "${manifest}" "${fixture_manifest}"
+  source_size="$(wc -c <"${fixture_source}" | tr -d '[:space:]')"
+  source_hash="$(shasum -a 256 "${fixture_source}" | awk '{print $1}')"
+  sed -i.bak "s/^    sizeBytes: .*/    sizeBytes: ${source_size}/" "${fixture_manifest}"
+  rm "${fixture_manifest}.bak"
+  sed -i.bak "s/^    sha256: .*/    sha256: ${source_hash}/" "${fixture_manifest}"
+  rm "${fixture_manifest}.bak"
+  "${manifest_verifier}" --manifest "${fixture_manifest}" --repo-root "${fixture_root}" >/dev/null ||
+    fail "synchronized candidate manifest was rejected: ${fixture_root}"
+}
+
 [[ -x "${verifier}" ]] || fail "interaction-state verifier is missing or not executable"
+[[ -x "${manifest_verifier}" ]] || fail "high-fidelity manifest verifier is missing or not executable"
 [[ -f "${document}" ]] || fail "interaction-state specialty candidate is missing"
 [[ -f "${plan}" ]] || fail "high-fidelity evidence plan is missing"
 [[ -f "${acceptance}" ]] || fail "high-fidelity evidence acceptance is missing"
@@ -585,6 +606,34 @@ expect_evidence_failure \
   "${appended_cross_domain_root}/docs/engineering/acceptance.md" \
   "cross-domain scenario contract mismatch"
 
+candidate_cross_domain_swap_root="${test_tmp_root}/candidate-cross-domain-swap"
+make_evidence_fixture "${candidate_cross_domain_swap_root}"
+sed -i.bak '/^HFD03CrossDomainScenario = MECHANISM_DOMAIN|/s/Scenario=MVCC_CONSISTENT_READ_MECHANISM/Scenario=PROCUREMENT_ACCEPTANCE_BEFORE_PAYMENT_POLICY/' \
+  "${candidate_cross_domain_swap_root}/candidate.md"
+rm "${candidate_cross_domain_swap_root}/candidate.md.bak"
+sed -i.bak '/^HFD03CrossDomainScenario = RULE_POLICY_DOMAIN|/s/Scenario=PROCUREMENT_ACCEPTANCE_BEFORE_PAYMENT_POLICY/Scenario=MVCC_CONSISTENT_READ_MECHANISM/' \
+  "${candidate_cross_domain_swap_root}/candidate.md"
+rm "${candidate_cross_domain_swap_root}/candidate.md.bak"
+sync_and_verify_fixture_manifest "${candidate_cross_domain_swap_root}"
+expect_evidence_failure \
+  "${candidate_cross_domain_swap_root}/candidate.md" \
+  "${candidate_cross_domain_swap_root}/docs/engineering/plan.md" \
+  "${candidate_cross_domain_swap_root}/docs/engineering/acceptance.md" \
+  "candidate cross-domain scenario contract mismatch"
+
+candidate_cross_domain_conflict_root="${test_tmp_root}/candidate-cross-domain-conflict"
+make_evidence_fixture "${candidate_cross_domain_conflict_root}"
+sed -i.bak '/^HFD03CrossDomainScenario = RULE_POLICY_DOMAIN|/a\
+HFD03CrossDomainScenario = MECHANISM_DOMAIN|CanonicalProjection=KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement|Scenario=CONFLICT' \
+  "${candidate_cross_domain_conflict_root}/candidate.md"
+rm "${candidate_cross_domain_conflict_root}/candidate.md.bak"
+sync_and_verify_fixture_manifest "${candidate_cross_domain_conflict_root}"
+expect_evidence_failure \
+  "${candidate_cross_domain_conflict_root}/candidate.md" \
+  "${candidate_cross_domain_conflict_root}/docs/engineering/plan.md" \
+  "${candidate_cross_domain_conflict_root}/docs/engineering/acceptance.md" \
+  "candidate must contain exactly two cross-domain scenarios"
+
 legal_hfdg1_pass="${test_tmp_root}/legal-hfdg1-pass.md"
 cp "${document}" "${legal_hfdg1_pass}"
 sed -i.bak \
@@ -950,4 +999,4 @@ expect_failure "${premature_real_high_fidelity_page}" \
 printf '%s\n' \
   "InteractionStateContractTests = PASS" \
   "StageAwarePositiveCases = 2" \
-  "NegativeCases = 84"
+  "NegativeCases = 86"
