@@ -81,6 +81,9 @@ test 四个治理文件。Step 1 与 Step 5 都必须显式执行只读 specialt
 `VerificationFence = TASK5_STEP5_REQUIRED_GATE` 必须各自唯一并紧邻唯一的 Bash 验证块。
 把任一必跑命令移入同 Step 的 staging、commit 或其他 Bash fence，即使全 Step 仍恰好
 出现一次，也必须判定为 `FAIL`。
+两个 designated fence 中的命令必须与 master plan 展示的规范清单逐行、逐序完全一致；
+额外行、缺失、重复或乱序均为 `FAIL`。每条规范命令在对应 Step 的全部 Bash fences
+中还必须全局恰好出现一次，禁止保留 designated 原行后再复制到 staging/commit fence。
 
 ## 7. Gate 与完成定义
 

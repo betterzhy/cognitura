@@ -67,6 +67,10 @@ required_verification_commands=(
   "npm exec --yes --package=node@24.18.0 -- sh -c 'scripts/verify-wave0'"
   'git diff --check'
 )
+required_refreeze_sentinel_commands=(
+  'git diff --exit-code HEAD^ HEAD -- Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md docs/engineering/cognitura-high-fidelity-design-manifest.yaml docs/engineering/cognitura-high-fidelity-contract-coverage.md'
+  'test "$(git diff --name-only HEAD^ HEAD | LC_ALL=C sort | paste -sd " " -)" = "docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh"'
+)
 for verification_step in 1 5; do
   if [[ "${verification_step}" -eq 1 ]]; then
     start_header='- [ ] **Step 1: Freeze and verify the candidate**'
@@ -102,19 +106,42 @@ for verification_step in 1 5; do
   ')"; then
     fail "Task 5 Step ${verification_step} verification fence marker must be immediately followed by one closed bash fence: ${verification_marker}"
   fi
+  all_step_bash_commands="$(printf '%s\n' "${step_body}" | awk '
+    $0 == "```bash" {inside_fence=1; next}
+    inside_fence && $0 == "```" {inside_fence=0; next}
+    inside_fence {print}
+  ')"
   for required_command in "${required_verification_commands[@]}"; do
     [[ "$(printf '%s\n' "${verification_commands}" | grep -Fxc "${required_command}" || true)" -eq 1 ]] ||
       fail "Task 5 Step ${verification_step} designated verification fence missing command: ${required_command}"
   done
   if [[ "${verification_step}" -eq 1 ]]; then
+    for sentinel_command in "${required_refreeze_sentinel_commands[@]}"; do
+      [[ "$(printf '%s\n' "${verification_commands}" | grep -Fxc "${sentinel_command}" || true)" -eq 1 ]] ||
+        fail "Task 5 Step 1 re-freeze sentinel missing command: ${sentinel_command}"
+    done
+    expected_verification_commands="$(printf '%s\n' \
+      "${required_refreeze_sentinel_commands[@]}" \
+      "${required_verification_commands[@]}" \
+      'git status --short')"
     step1_verification_commands="${verification_commands}"
+  else
+    expected_verification_commands="$(printf '%s\n' "${required_verification_commands[@]}")"
+  fi
+  [[ "${verification_commands}" == "${expected_verification_commands}" ]] ||
+    fail "Task 5 Step ${verification_step} designated verification fence must exactly match the ordered command list"
+  for required_command in "${required_verification_commands[@]}"; do
+    [[ "$(printf '%s\n' "${all_step_bash_commands}" | grep -Fxc "${required_command}" || true)" -eq 1 ]] ||
+      fail "Task 5 Step ${verification_step} command must occur exactly once across all Step bash fences: ${required_command}"
+  done
+  if [[ "${verification_step}" -eq 1 ]]; then
+    for sentinel_command in "${required_refreeze_sentinel_commands[@]}"; do
+      [[ "$(printf '%s\n' "${all_step_bash_commands}" | grep -Fxc "${sentinel_command}" || true)" -eq 1 ]] ||
+        fail "Task 5 Step 1 command must occur exactly once across all Step bash fences: ${sentinel_command}"
+    done
   fi
 done
 
-required_refreeze_sentinel_commands=(
-  'git diff --exit-code HEAD^ HEAD -- Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md docs/engineering/cognitura-high-fidelity-design-manifest.yaml docs/engineering/cognitura-high-fidelity-contract-coverage.md'
-  'test "$(git diff --name-only HEAD^ HEAD | LC_ALL=C sort | paste -sd " " -)" = "docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md docs/task-cards/high-fidelity-design/HF-D04-fixed-design-review.md scripts/verify-high-fidelity-design tests/task-cards/verify-high-fidelity-design-cards.sh"'
-)
 for sentinel_command in "${required_refreeze_sentinel_commands[@]}"; do
   [[ "$(printf '%s\n' "${step1_verification_commands}" | grep -Fxc "${sentinel_command}" || true)" -eq 1 ]] ||
     fail "Task 5 Step 1 re-freeze sentinel missing command: ${sentinel_command}"

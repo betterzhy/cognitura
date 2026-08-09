@@ -85,6 +85,90 @@ relocate_step_command() {
   mv "${rewritten_plan}" "${fixture_plan}"
 }
 
+insert_after_designated_fence_open() {
+  local fixture_plan="$1"
+  local marker="$2"
+  local command="$3"
+  local rewritten_plan="${fixture_plan}.tmp"
+
+  awk -v marker="${marker}" -v command="${command}" '
+    $0 == marker {awaiting_fence=1}
+    awaiting_fence && $0 == "```bash" {
+      print
+      print command
+      awaiting_fence=0
+      inserted=1
+      next
+    }
+    {print}
+    END {
+      if (!inserted) {
+        exit 1
+      }
+    }
+  ' "${fixture_plan}" >"${rewritten_plan}"
+  mv "${rewritten_plan}" "${fixture_plan}"
+}
+
+copy_step_command_to_fence() {
+  local fixture_plan="$1"
+  local start_header="$2"
+  local end_header="$3"
+  local command="$4"
+  local destination_fence="$5"
+  local rewritten_plan="${fixture_plan}.tmp"
+
+  awk -v start_header="${start_header}" -v end_header="${end_header}" \
+    -v command="${command}" -v destination_fence="${destination_fence}" '
+    $0 == start_header {inside_step=1}
+    $0 == end_header {inside_step=0}
+    inside_step && $0 == "```bash" {fence_count++}
+    inside_step && fence_count == destination_fence && $0 == "```" && !copied {
+      print command
+      copied=1
+    }
+    {print}
+    END {
+      if (!copied) {
+        exit 1
+      }
+    }
+  ' "${fixture_plan}" >"${rewritten_plan}"
+  mv "${rewritten_plan}" "${fixture_plan}"
+}
+
+swap_designated_commands() {
+  local fixture_plan="$1"
+  local marker="$2"
+  local first_command="$3"
+  local second_command="$4"
+  local rewritten_plan="${fixture_plan}.tmp"
+
+  awk -v marker="${marker}" -v first_command="${first_command}" \
+    -v second_command="${second_command}" '
+    $0 == marker {awaiting_fence=1}
+    awaiting_fence && $0 == "```bash" {inside_fence=1; awaiting_fence=0}
+    inside_fence && $0 == "```" {inside_fence=0}
+    inside_fence && $0 == first_command {
+      print second_command
+      first_swapped=1
+      next
+    }
+    inside_fence && first_swapped && !second_swapped && $0 == second_command {
+      print first_command
+      second_swapped=1
+      next
+    }
+    {print}
+    END {
+      if (!first_swapped || !second_swapped) {
+        exit 1
+      }
+    }
+  ' "${fixture_plan}" >"${rewritten_plan}"
+  mv "${rewritten_plan}" "${fixture_plan}"
+}
+
 [[ -x "${verifier}" ]] || fail "high-fidelity design verifier is missing or not executable"
 [[ -d "${cards_dir}" ]] || fail "high-fidelity design card directory is missing"
 [[ -f "${master_plan}" ]] || fail "high-fidelity master plan is missing"
@@ -293,6 +377,54 @@ sed -i.bak 's/^W1-I00Release = FORBIDDEN$/W1-I00Release = READY/' \
 rm "${w1_release_dir}/README.md.bak"
 expect_failure "${w1_release_dir}" "W1-I00Release must be FORBIDDEN"
 
+for extra_mutation in \
+  'step1-leading-exit|VerificationFence = TASK5_STEP1_REQUIRED_GATE|exit 0' \
+  'step5-leading-exit|VerificationFence = TASK5_STEP5_REQUIRED_GATE|exit 0' \
+  'step1-extra-command|VerificationFence = TASK5_STEP1_REQUIRED_GATE|true' \
+  'step5-extra-command|VerificationFence = TASK5_STEP5_REQUIRED_GATE|true'; do
+  mutation_name="${extra_mutation%%|*}"
+  extra_remainder="${extra_mutation#*|}"
+  marker="${extra_remainder%%|*}"
+  command="${extra_remainder#*|}"
+  fixture_plan="${test_tmp_root}/${mutation_name}.md"
+  cp "${master_plan}" "${fixture_plan}"
+  insert_after_designated_fence_open "${fixture_plan}" "${marker}" "${command}"
+  expect_plan_failure "${fixture_plan}" "designated verification fence must exactly match the ordered command list"
+done
+
+for duplicate_mutation in \
+  'step1-duplicate-specialty-core|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
+  'step1-duplicate-specialty-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh' \
+  'step5-duplicate-specialty-core|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|2|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
+  'step5-duplicate-specialty-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|2|bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh'; do
+  mutation_name="${duplicate_mutation%%|*}"
+  duplicate_remainder="${duplicate_mutation#*|}"
+  start_header="${duplicate_remainder%%|*}"
+  duplicate_remainder="${duplicate_remainder#*|}"
+  end_header="${duplicate_remainder%%|*}"
+  duplicate_remainder="${duplicate_remainder#*|}"
+  destination_fence="${duplicate_remainder%%|*}"
+  command="${duplicate_remainder#*|}"
+  fixture_plan="${test_tmp_root}/${mutation_name}.md"
+  cp "${master_plan}" "${fixture_plan}"
+  copy_step_command_to_fence \
+    "${fixture_plan}" "${start_header}" "${end_header}" "${command}" "${destination_fence}"
+  expect_plan_failure "${fixture_plan}" "command must occur exactly once across all Step bash fences: ${command}"
+done
+
+specialty_core='scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md'
+specialty_wrapper='bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh'
+for order_mutation in \
+  'step1-command-order|VerificationFence = TASK5_STEP1_REQUIRED_GATE' \
+  'step5-command-order|VerificationFence = TASK5_STEP5_REQUIRED_GATE'; do
+  mutation_name="${order_mutation%%|*}"
+  marker="${order_mutation#*|}"
+  fixture_plan="${test_tmp_root}/${mutation_name}.md"
+  cp "${master_plan}" "${fixture_plan}"
+  swap_designated_commands "${fixture_plan}" "${marker}" "${specialty_core}" "${specialty_wrapper}"
+  expect_plan_failure "${fixture_plan}" "designated verification fence must exactly match the ordered command list"
+done
+
 for relocation_mutation in \
   'step1-relocated-specialty-core|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|scripts/verify-specialty-contract-coverage docs/engineering/cognitura-specialty-contract-coverage.md docs/design/cognitura-schema-baseline-2.0.md' \
   'step1-relocated-specialty-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|1|bash tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh' \
@@ -388,4 +520,4 @@ done
 
 printf '%s\n' \
   "HighFidelityDesignTaskCardContractTests = PASS" \
-  "NegativeCases = 27"
+  "NegativeCases = 37"
