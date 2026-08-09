@@ -3633,7 +3633,9 @@ CrossDomainVisualValidation = NOT_RUN
 CrossDomainUsabilityValidation = NOT_RUN
 ```
 
-以上只证明本文件的契约能够覆盖两类领域案例。字体、间距、视觉层级、真实操作成本和跨领域视觉一致性必须在下一阶段基于真实高保真页面验收。
+以上只证明本文件的契约能够覆盖两类领域案例。字体、间距、视觉层级、真实操作成本
+和跨领域视觉一致性必须在 HF-D04 固定候选审查通过后的独立 HV Gate，基于真实
+高保真页面验收；不得与 HF-D02 状态合同设计同阶段执行。
 
 ---
 
@@ -3686,7 +3688,32 @@ AllPrimitiveFamiliesOnEveryPage = FORBIDDEN
 PrimitiveDensityBudget = REQUIRED
 ```
 
-### 18.5 Progressive Disclosure
+### 18.5 Overall、页面与 Renderer 稳定投影
+
+以下非 Schema 投影是 HF-DG1 跨文件校验的唯一机器可读口径：
+
+```text
+PrimaryPresentationModel = INTERACTIVE_COGNITIVE_DOCUMENT
+PrimaryExperienceModel = READING_FIRST
+PureUnstructuredLongArticle = FORBIDDEN
+StructuredContinuousCognitiveNarrative = REQUIRED_WHEN_NEEDED
+DefaultReadingPersistentSidePanels = 0
+KnowledgeHierarchyOrientation = RETAINED
+QuickSourcePanel = ON_DEMAND_TRANSIENT
+FullSourceEvidence = ON_DEMAND_WORKSPACE_OR_ROUTE
+RelatedModules = INLINE_OR_ON_DEMAND
+KnownGaps = INLINE_WHEN_UNDERSTANDING_CHANGES
+DefaultReadingPersistentPrimaryActionsPerPage <= 2
+PrimaryVisualPrimitiveFamiliesPerModule <= 4
+PrimaryVisualProjectionPerCognitiveSection <= 1
+SimultaneouslyEmphasizedVisualObjects <= 7
+RendererCreatesIndependentFacts = NO
+```
+
+这组投影细化 Overall 的默认呈现，不改变 Overall 的产品权威、历史版本号或
+`AppliedReverseMigration = 26/26`，也不推导 PageState、Schema 或物理对象。
+
+### 18.6 Progressive Disclosure
 
 前序设计要求 L0～L3 渐进展开。
 
@@ -4038,9 +4065,9 @@ TraceEvidence =
 | 六项交互状态缺口 | CANDIDATE_INVENTORIED | 本文件第 4～8 章及提交后处理状态 | DEFERRED_TO_APPLICABLE_HF_GATE |
 | 过度交互与卡片化风险 | CANDIDATE_INVENTORIED | Reading First、Document Continuity、预算与呈现克制 | DEFERRED_TO_APPLICABLE_HF_GATE |
 | 完整高保真状态输入缺口 | CANDIDATE_INVENTORIED | High-Fidelity Interaction State Matrix 与 Exception Matrix | DEFERRED_TO_APPLICABLE_HF_GATE |
-| 高保真视觉验证 | NOT_RUN | 下一阶段真实高保真页面 | NOT_RUN |
-| 高保真可用性验证 | NOT_RUN | 下一阶段真实交互原型 | NOT_RUN |
-| 小屏视觉验证 | NOT_RUN | 下一阶段 SmallScreenReadingState | NOT_RUN |
+| 高保真视觉验证 | NOT_RUN | HF-D04 后独立 HV Gate 的真实高保真页面 | NOT_RUN |
+| 高保真可用性验证 | NOT_RUN | HF-D04 后独立 HV Gate 的真实交互原型 | NOT_RUN |
+| 小屏视觉验证 | NOT_RUN | HF-D04 后独立 HV Gate 的 SmallScreenReadingState | NOT_RUN |
 
 ### A.3 第三轮整体低保真裁决
 
@@ -4054,7 +4081,9 @@ HighFidelityVisualValidationImplied = NO
 HighFidelityUsabilityValidationImplied = NO
 ```
 
-不制作第三轮整体低保真，不表示跳过状态验证。下一阶段必须针对本文件定义的局部高保真状态逐项形成视觉证据和可用性证据。
+不制作第三轮整体低保真，不表示跳过状态合同设计。HF-D02 只完成正交状态分类、
+恢复和持久化；针对局部高保真状态逐项形成视觉证据和可用性证据，必须延后到
+HF-D04 固定候选审查通过后的独立 HV Gate。
 
 ---
 
@@ -4175,15 +4204,23 @@ NextStage =
 ```text
 NextStage =
   HF_D02_ORTHOGONAL_STATE_AND_RECOVERY_MODEL
+
+HFD02Scope = ORTHOGONAL_STATE_CLASSIFICATION_RECOVERY_AND_PERSISTENCE_ONLY
+RealHighFidelityPageDesign = DEFERRED_UNTIL_HF_D04_PASS_AND_SEPARATE_HV_GATE
+HighFidelityVisualAndUsabilityValidation = DEFERRED_UNTIL_SEPARATE_HV_GATE
 ```
 
-下一阶段先设计：
+HF-D02 只设计：
 
 ```text
 ModuleDefaultReadingState
+OrthogonalStateClassification
+ExceptionAndRecoveryState
+URLHistoryAndRefreshPersistence
 ```
 
-并以真实高保真页面验证：
+真实高保真页面设计必须等 HF-D04 固定候选审查通过后，再进入独立 HV Gate；
+下列视觉与可用性验收不得与 HF-D02 同阶段执行：
 
 ```text
 ZeroInteractionCompleteness

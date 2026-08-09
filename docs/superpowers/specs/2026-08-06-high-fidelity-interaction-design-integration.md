@@ -453,11 +453,16 @@ SHA；独立 HF contract coverage 从 deferred 更新为已审查覆盖状态并
 封口必须分别运行 HF design manifest 与 HF contract coverage 两套独立验证器及其
 测试；任一失败都禁止晋级。
 
-以下 Wave 0 来源与专项合同资产是已通过 Gate 的固定历史合同，保持不变并位于
-全部 HF/HV 写集之外：
+Wave 0 source manifest 的四个既有来源身份、数量、`sourceId`、`caseId`、路径、
+角色、版本及顺序固定，source validator 的 fail-closed 语义也固定。只有同一已登记
+正式权威在获准写集内发生变更时，才必须在同一提交原子刷新该来源的 `sizeBytes`
+和 `sha256`；这不是新增来源或改变来源语义。HF 候选永不登记到 Wave 0 source
+manifest，继续只由独立 HF design manifest 管理。
+
+以下 Wave 0 专项合同资产与两套 Wave 0 validators/tests 是已通过 Gate 的固定历史
+合同，保持不变并位于全部 HF/HV 写集之外：
 
 ```text
-docs/engineering/cognitura-source-manifest.yaml
 docs/engineering/cognitura-specialty-contract-coverage.md
 scripts/verify-source-manifest
 tests/source-manifest/verify-source-manifest.sh
@@ -465,8 +470,9 @@ scripts/verify-specialty-contract-coverage
 tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 ```
 
-它们的测试只能作为未变更的 Wave 0 回归检查运行，不承担 HF 来源登记、合同覆盖
-或 Gate 投影职责。
+source manifest 仅可按上述原子指纹刷新规则进入获准写集；specialty coverage 与
+两套 validators/tests 只能作为未变更的 Wave 0 回归检查运行，不承担 HF 来源登记、
+合同覆盖或 Gate 投影职责。
 
 ## 10. 验证合同
 
@@ -485,6 +491,8 @@ tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh
 - 临时状态不进入 URL，事件不成为稳定状态；
 - PageState 12 值未被静默修改；
 - Renderer 仍只投影 CognitiveModule；
+- 候选、Overall、页面与 Renderer 对默认侧栏、按需 SourceEvidence、层级定位、
+  主要动作与视觉预算以及 Renderer 不造事实的投影完全一致；
 - 默认 ModuleReading 不存在永久治理右栏，同时保留 SourceEvidence 能力；
 - 20 个异常的 Canonical 保存边界、重试、Revert 和焦点恢复均明确；
 - 合同 PASS、视觉 PASS、可用性 PASS、实现 PASS 不互相冒充；

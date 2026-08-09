@@ -23,8 +23,8 @@
 - Do not modify `server/**`, `web/**`, `raw/**`, database migrations, deployment configuration, or `.idea/`.
 - Do not modify the linked `wave1-implementation-card-bootstrap` worktree or its W1-I00–W1-I13 cards.
 - This authorization makes `HF-D00` the sole active design card on this branch; it does not create or release `W1-I00` and does not authorize business implementation.
-- Keep these fixed Wave 0 historical contracts outside every HF/HV write set: `docs/engineering/cognitura-source-manifest.yaml`, `docs/engineering/cognitura-specialty-contract-coverage.md`, `scripts/verify-source-manifest`, `tests/source-manifest/verify-source-manifest.sh`, `scripts/verify-specialty-contract-coverage`, and `tests/contracts/specialty-coverage/verify-specialty-contract-coverage.sh`.
-- Wave 0 source-manifest and specialty-coverage tests remain unchanged regression checks only; HF registration and coverage use independent HF governance assets.
+- Keep the Wave 0 source manifest's four registered identities, count, type/order semantics and validator semantics fixed. When an already registered formal authority changes in an approved write set, atomically refresh only that source's size/SHA in the same commit; never register an HF candidate there.
+- Keep Wave 0 specialty coverage plus source/specialty validators and tests outside every HF/HV write set. They remain unchanged regression checks only; HF registration and coverage use independent HF governance assets.
 - Do not read the Golden Case DOCX bodies or follow the Redis legacy local link.
 - Preserve all 46 original state codes, 20 exception codes, 20 RF-AC items, and 30 reverse-migration items with one-to-one traceability.
 - Contract, high-fidelity visual, high-fidelity usability, and implementation PASS are separate stages.
@@ -163,18 +163,28 @@ git commit -m "docs: establish high fidelity design governance"
 - Modify: `scripts/verify-high-fidelity-design`
 - Modify: `tests/task-cards/verify-high-fidelity-design-cards.sh`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
+- Modify: `cognitive-knowledge-atlas-overall-design-1.2.md`
+- Modify: `docs/engineering/cognitura-source-manifest.yaml`
+- Modify: `docs/superpowers/specs/2026-08-06-high-fidelity-interaction-design-integration.md`
+- Modify: `scripts/verify-ui-contracts`
 
 **Interfaces:**
 - Consumes: HF-D00 registered specialty candidate.
 - Produces: one authoritative conflict resolution for Reading First, continuous narrative, default side panels, visual budgets, and SourceEvidence access.
 
-`WriteSetItemCount = 17`. 执行前预检发现原 12 项计划未包含设计索引活动卡投影、HF-D02 释放状态以及
-对应卡集验证资产；同时 Overall 1.2 被 Wave 0 source manifest 固定，不能在保持该 Gate 的同时修改。
-本卡在实施正文前已将 Gate 必需文件收敛到上述精确写集，Overall 1.2 改为只读权威输入，其他边界不变。
+`WriteSetItemCount = 21`。执行前预检先把原 12 项计划缺失的设计索引活动卡投影、HF-D02 释放状态和
+对应卡集验证资产补入；固定提交审查又证明只读 Overall 会留下跨文件权威冲突，因此修复轮将 Overall、
+其既有 source manifest 指纹、批准整合规格和核心 UI verifier 加入累计精确写集。Overall 仍是产品权威，
+历史 `AppliedReverseMigration = 26/26` 不变；source manifest 的四来源身份、数量、type/order 与 validator
+语义不变，HF 候选不登记其中。
 
 - [ ] **Step 1: Add failing UI contract assertions**
 
-Require `INTERACTIVE_COGNITIVE_DOCUMENT`, structured continuous narrative, zero persistent governance side panels in default reading, on-demand SourceEvidence, retained hierarchy orientation, primary visual budget, and no independent Renderer facts.
+Require the specialty candidate, Overall, page contract and Renderer contract to agree on
+`INTERACTIVE_COGNITIVE_DOCUMENT`, structured continuous narrative, zero persistent governance
+side panels in default reading, on-demand SourceEvidence, retained hierarchy orientation, primary
+action and visual budgets, and no independent Renderer facts. Add stage separation that limits
+HF-D02 to state classification/recovery/persistence and defers real high-fidelity pages to post-HF-D04 HV.
 
 - [ ] **Step 2: Confirm RED**
 
@@ -184,16 +194,17 @@ Run:
 bash tests/contracts/ui/verify-ui-contracts.sh
 ```
 
-Expected: fail on missing new contract lines and the old unconditional three-column interpretation.
+Expected: fail first on the core verifier's missing four-document interface, then on
+`OVERALL_PRESENTATION_PROJECTION_MISMATCH`; HF-D02 stage separation and 21-item card fixtures also fail.
 
 - [ ] **Step 3: Apply the page and Renderer decisions**
 
-Keep Overall 1.2 byte-for-byte unchanged as the Wave 0 manifest-fixed read-only product authority.
-Use the registered specialty candidate as the explicit HF-DG1 presentation refinement and project
-only its stable non-Schema decisions into page/Renderer contracts. Change the ModuleReading default
-from permanent SourceEvidence/RelatedModules/KnownGaps right rail to on-demand source and context
-surfaces. Preserve full SourceEvidence route responsibility, the nine Renderer types, and Overall's
-historical `AppliedReverseMigration = 26/26` record.
+Minimally coordinate Overall 1.2 §20.7/20.8/20.9 and §27 with the registered specialty candidate,
+page contract and Renderer contract. Change ModuleReading from a permanent
+SourceEvidence/RelatedModules/KnownGaps right rail to on-demand source and context surfaces. Preserve
+full SourceEvidence route responsibility, hierarchy orientation, the nine Renderer types, Overall's
+product authority and historical `AppliedReverseMigration = 26/26`. Atomically refresh only the
+existing `DESIGN-OVERALL-001` size/SHA in the four-source Wave 0 manifest.
 
 - [ ] **Step 4: Make density budgets operational**
 
@@ -233,16 +244,20 @@ Update task-card projections, rerun the Gate, and commit:
 ```bash
 git add AGENTS.md README.md \
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md \
+  cognitive-knowledge-atlas-overall-design-1.2.md \
   docs/contracts/cognitura-page-contracts.md \
   docs/contracts/cognitura-renderer-contract.md \
   docs/engineering/cognitura-design-index.md \
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml \
+  docs/engineering/cognitura-source-manifest.yaml \
   docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md \
+  docs/superpowers/specs/2026-08-06-high-fidelity-interaction-design-integration.md \
   docs/task-cards/high-fidelity-design/HF-D01-reading-presentation-contract.md \
   docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md \
   docs/task-cards/high-fidelity-design/README.md \
   scripts/verify-high-fidelity-design \
   scripts/verify-high-fidelity-design-manifest \
+  scripts/verify-ui-contracts \
   tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh \
   tests/contracts/interaction-state/verify-interaction-state-contracts.sh \
   tests/task-cards/verify-high-fidelity-design-cards.sh \

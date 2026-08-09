@@ -135,7 +135,7 @@ for expected_id in "${declared_ids[@]}"; do
     [[ "${depends_on}" == "${expected_dependency}" ]] ||
       fail "dependency mismatch for ${task_id}"
     case "${task_id}" in
-      HF-D01) expected_write_count=17 ;;
+      HF-D01) expected_write_count=21 ;;
       HF-D02) expected_write_count=10 ;;
       HF-D03) expected_write_count=12 ;;
       HF-D04) expected_write_count=13 ;;
@@ -145,10 +145,14 @@ for expected_id in "${declared_ids[@]}"; do
     fail "${filename}: WriteSetItemCount must be ${expected_write_count}"
   write_set="$(awk '/^## 3[.] 写集$/ {inside=1; next} /^## 4[.] 禁止写集$/ {inside=0} inside {print}' "${file}")"
   for forbidden in 'server/' 'web/' 'raw/' 'schemas/' '.idea/' 'W1-I00' \
-    'cognitura-source-manifest.yaml' 'cognitura-specialty-contract-coverage.md' \
+    'cognitura-specialty-contract-coverage.md' \
     'scripts/verify-source-manifest' 'scripts/verify-specialty-contract-coverage'; do
     [[ "${write_set}" != *"${forbidden}"* ]] || fail "${filename}: write set contains forbidden path: ${forbidden}"
   done
+  if [[ "${task_id}" != "HF-D01" ]]; then
+    [[ "${write_set}" != *"cognitura-source-manifest.yaml"* ]] ||
+      fail "${filename}: write set contains forbidden path: cognitura-source-manifest.yaml"
+  fi
   actual_write_count="$(awk '/^## 3[.] 写集$/ {inside=1; next} /^## 4[.] 禁止写集$/ {inside=0} inside && /^- (Create|Modify): / {count++} END {print count+0}' "${file}")"
   [[ "${actual_write_count}" == "${expected_write_count}" ]] ||
     fail "${filename}: declared write set contains ${actual_write_count} items, expected ${expected_write_count}"

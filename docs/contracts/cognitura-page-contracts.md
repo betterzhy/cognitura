@@ -18,9 +18,10 @@ HighFidelityRefinementBoundary = DEFAULT_PRESENTATION_ONLY_OVERALL_PRODUCT_AUTHO
 UIUX 专项正文仍记录为 `DOC-GAP-002`；W0-04 的 Page State 与 Renderer Input
 字段权威现由用户批准的 `Cognitura-Schema-Baseline-2.0` 提供。
 
-Overall 1.2 保持 Wave 0 manifest 固定的原字节和产品权威。HF-DG1 仅将已登记专项
-候选中经 Gate 通过的默认呈现裁决投影到本页面合同；不改写 Overall 的历史
-`AppliedReverseMigration = 26/26`，也不将整体专项晋级为正式基线。
+Overall 1.2 保持产品权威，并已在获准的 HF-DG1 写集中最小协调默认呈现，同时原子
+刷新其既有 Wave 0 source manifest 指纹。HF-DG1 将已登记专项候选的默认呈现裁决
+投影到本页面合同；不改变 Overall 的历史 `AppliedReverseMigration = 26/26`，也不将
+整体专项晋级为正式基线。
 
 ## 1. 页面地图与职责
 

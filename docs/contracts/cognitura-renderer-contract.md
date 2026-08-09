@@ -15,8 +15,9 @@ HighFidelityRefinementBoundary = PRESENTATION_BUDGET_ONLY_RENDERER_FACT_MODEL_UN
 
 Renderer 只投影正式 CognitiveModule 内容，不创建第二套事实。本文件固定组件
 类型、概念输入能力和验收不变量；它不是 Renderer 输入 JSON Schema。
-高保真专项候选只细化默认呈现预算，Overall 1.2 仍作为 Wave 0 manifest 固定的只读
-产品权威；本卡不改写其历史反向迁移记录。
+高保真专项候选只细化默认呈现预算；Overall 1.2 仍是产品权威，并已在获准的
+HF-DG1 写集中最小协调相同预算及不创造事实边界，同时原子刷新其既有 Wave 0
+source manifest 指纹。本卡不改变历史 `AppliedReverseMigration = 26/26`。
 
 ## 1. 正式 Renderer
 

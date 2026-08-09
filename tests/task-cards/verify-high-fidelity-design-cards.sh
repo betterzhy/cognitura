@@ -74,10 +74,14 @@ expanded_hfd01_dir="${test_tmp_root}/expanded-hfd01-write-set"
 cp -R "${baseline_dir}" "${expanded_hfd01_dir}"
 expanded_hfd01_card="${expanded_hfd01_dir}/HF-D01-reading-presentation-contract.md"
 sed -i.bak -E \
-  's/^WriteSetItemCount = (12|16|17|18)$/WriteSetItemCount = 17/' \
+  's/^WriteSetItemCount = (12|16|17|18|21)$/WriteSetItemCount = 21/' \
   "${expanded_hfd01_card}"
 rm "${expanded_hfd01_card}.bak"
 for expanded_path in \
+  'cognitive-knowledge-atlas-overall-design-1.2.md' \
+  'docs/engineering/cognitura-source-manifest.yaml' \
+  'docs/superpowers/specs/2026-08-06-high-fidelity-interaction-design-integration.md' \
+  'scripts/verify-ui-contracts' \
   'docs/task-cards/high-fidelity-design/HF-D02-interaction-state-model.md' \
   'docs/engineering/cognitura-design-index.md' \
   'docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md' \
@@ -108,9 +112,19 @@ sed -i.bak 's/^ActiveTaskCard = .*$/ActiveTaskCard = HF-D01/' \
   "${expanded_hfd01_dir}/README.md"
 rm "${expanded_hfd01_dir}/README.md.bak"
 expanded_output="$("${verifier}" --cards-dir "${expanded_hfd01_dir}")" ||
-  fail "HF-D01 corrected 17-item write set was rejected"
+  fail "HF-D01 cumulative 21-item write set was rejected"
 [[ "${expanded_output}" == *"HighFidelityDesignTaskCardValidation = PASS"* ]] ||
   fail "HF-D01 expanded write-set fixture did not report PASS"
+for unchanged_card_count in \
+  'HF-D00-design-governance.md|20' \
+  'HF-D02-interaction-state-model.md|10' \
+  'HF-D03-high-fidelity-evidence-contract.md|12' \
+  'HF-D04-fixed-design-review.md|13'; do
+  unchanged_card="${unchanged_card_count%%|*}"
+  unchanged_count="${unchanged_card_count##*|}"
+  grep -Fqx "WriteSetItemCount = ${unchanged_count}" "${expanded_hfd01_dir}/${unchanged_card}" ||
+    fail "${unchanged_card} write-set count changed while expanding HF-D01"
+done
 
 missing_owner_dir="${test_tmp_root}/missing-owner"
 cp -R "${baseline_dir}" "${missing_owner_dir}"

@@ -17,11 +17,38 @@ fail() {
   exit 1
 }
 
+hfd02_stage_fail() {
+  printf 'HFD02StageSeparation = FAIL\n%s\n' "$1" >&2
+  return 1
+}
+
+validate_hfd02_stage_separation() {
+  local fixture="$1"
+
+  [[ "$(grep -Fxc '  HF_D02_ORTHOGONAL_STATE_AND_RECOVERY_MODEL' "${fixture}" || true)" -eq 2 ]] ||
+    { hfd02_stage_fail "HFD02_STAGE_SCOPE_MISMATCH"; return 1; }
+  grep -Fqx \
+    'HFD02Scope = ORTHOGONAL_STATE_CLASSIFICATION_RECOVERY_AND_PERSISTENCE_ONLY' \
+    "${fixture}" || { hfd02_stage_fail "HFD02_STAGE_SCOPE_MISMATCH"; return 1; }
+  grep -Fqx \
+    'RealHighFidelityPageDesign = DEFERRED_UNTIL_HF_D04_PASS_AND_SEPARATE_HV_GATE' \
+    "${fixture}" || { hfd02_stage_fail "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD02"; return 1; }
+  grep -Fqx \
+    'HighFidelityVisualAndUsabilityValidation = DEFERRED_UNTIL_SEPARATE_HV_GATE' \
+    "${fixture}" || { hfd02_stage_fail "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD02"; return 1; }
+}
+
+run_validation() {
+  local fixture="$1"
+  "${verifier}" --document "${fixture}" || return 1
+  validate_hfd02_stage_separation "${fixture}"
+}
+
 expect_failure() {
   local fixture="$1"
   local expected_message="$2"
   local output
-  if output="$("${verifier}" --document "${fixture}" 2>&1)"; then
+  if output="$(run_validation "${fixture}" 2>&1)"; then
     fail "invalid fixture unexpectedly passed: ${fixture}"
   fi
   [[ "${output}" == *"${expected_message}"* ]] ||
@@ -31,7 +58,7 @@ expect_failure() {
 expect_success() {
   local fixture="$1"
   local output
-  output="$("${verifier}" --document "${fixture}")" ||
+  output="$(run_validation "${fixture}")" ||
     fail "valid stage-aware fixture was rejected: ${fixture}"
   [[ "${output}" == *"InteractionStateContractValidation = PASS"* ]] ||
     fail "valid stage-aware fixture output is missing PASS: ${fixture}"
@@ -95,7 +122,7 @@ done
 [[ "$(grep -c '| DEFERRED_TO_APPLICABLE_HF_GATE |$' "${document}" || true)" -eq 12 ]] ||
   fail "second-round trace rows must remain deferred to applicable HF Gates"
 
-canonical_output="$("${verifier}" --document "${document}")" ||
+canonical_output="$(run_validation "${document}")" ||
   fail "canonical interaction-state candidate was rejected"
 for expected_line in \
   "InteractionStateContractValidation = PASS" \
@@ -344,7 +371,16 @@ for later_stage in HIGH_FIDELITY_VISUAL HIGH_FIDELITY_USABILITY IMPLEMENTATION; 
     "${later_stage} stage must remain NOT_RUN"
 done
 
+premature_real_high_fidelity_page="${test_tmp_root}/premature-real-high-fidelity-page.md"
+cp "${document}" "${premature_real_high_fidelity_page}"
+sed -i.bak \
+  's/^RealHighFidelityPageDesign = DEFERRED_UNTIL_HF_D04_PASS_AND_SEPARATE_HV_GATE$/RealHighFidelityPageDesign = CONCURRENT_WITH_HF_D02/' \
+  "${premature_real_high_fidelity_page}"
+rm "${premature_real_high_fidelity_page}.bak"
+expect_failure "${premature_real_high_fidelity_page}" \
+  "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD02"
+
 printf '%s\n' \
   "InteractionStateContractTests = PASS" \
   "StageAwarePositiveCases = 2" \
-  "NegativeCases = 31"
+  "NegativeCases = 32"

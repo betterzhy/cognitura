@@ -11,7 +11,7 @@ ReviewRoute = SOL_HIGH_DESIGN_GATE
 DesignOwner = READING_FIRST_PRESENTATION_AUTHORITY
 LocalCommitBoundary = REQUIRED
 WriteSetSource = APPROVED_TASK_PLAN_EXACT
-WriteSetItemCount = 17
+WriteSetItemCount = 21
 ```
 
 ## 1. 目标
@@ -22,7 +22,7 @@ WriteSetItemCount = 17
 
 - HF-D00 已完成并登记专项候选。
 - Overall Design 1.2 的现有页面与 Renderer 权威。
-- Overall Design 1.2 是受 Wave 0 source manifest 固定的只读权威输入；本卡不修改其字节、历史版本或 `AppliedReverseMigration = 26/26`。
+- Overall Design 1.2 是正式产品权威；本卡仅获准最小协调 §20.7/20.8/20.9 和 §27 呈现细化，不修改历史版本或 `AppliedReverseMigration = 26/26`。
 
 ## 3. 写集
 
@@ -43,16 +43,20 @@ WriteSetItemCount = 17
 - Modify: `scripts/verify-high-fidelity-design`
 - Modify: `tests/task-cards/verify-high-fidelity-design-cards.sh`
 - Modify: `tests/contracts/interaction-state/verify-interaction-state-contracts.sh`
+- Modify: `cognitive-knowledge-atlas-overall-design-1.2.md`
+- Modify: `docs/engineering/cognitura-source-manifest.yaml`
+- Modify: `docs/superpowers/specs/2026-08-06-high-fidelity-interaction-design-integration.md`
+- Modify: `scripts/verify-ui-contracts`
 
 ## 4. 禁止写集
 
 - `server/**`, `web/**`, `raw/**`, `schemas/**`, `.idea/**` 和全部 `W1-I*`。
-- Wave 0 固定 source manifest、specialty coverage 及其 validators/tests。
+- Wave 0 specialty coverage 与 source/specialty validators/tests。source manifest 只允许原子刷新已登记 `DESIGN-OVERALL-001` 的 `sizeBytes`/`sha256`；四来源身份、数量、type/order 语义不变，HF 候选不得登记。
 
 ## 5. 执行步骤
 
-先写 UI 与 17 项写集合同 RED，再以只读 Overall 为产品权威、最小协调专项、页面和 Renderer 投影，
-刷新独立 HF manifest，完成负例、卡集 Gate 和活动卡投影同步后释放 HF-D02。
+先写 UI 与 21 项累计写集合同 RED，再以 Overall 为产品权威、最小协调 Overall、专项、页面和 Renderer 投影，
+原子刷新 Overall 的既有 source manifest 指纹与独立 HF manifest，完成负例、卡集 Gate 和活动卡投影同步后释放 HF-D02。
 
 ## 6. 验证命令
 

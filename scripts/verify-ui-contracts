@@ -3,7 +3,8 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s --page-contracts <path> --renderer-contract <path>\n' "$0" >&2
+  printf '%s\n' \
+    "Usage: $0 --candidate <path> --overall <path> --page-contracts <path> --renderer-contract <path>" >&2
   exit 2
 }
 
@@ -50,10 +51,22 @@ duplicate_id() {
   ' "$1"
 }
 
+candidate=""
+overall=""
 page_contracts=""
 renderer_contract=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
+    --candidate)
+      [[ "$#" -ge 2 ]] || usage
+      candidate="$2"
+      shift 2
+      ;;
+    --overall)
+      [[ "$#" -ge 2 ]] || usage
+      overall="$2"
+      shift 2
+      ;;
     --page-contracts)
       [[ "$#" -ge 2 ]] || usage
       page_contracts="$2"
@@ -70,9 +83,98 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-[[ -n "${page_contracts}" && -n "${renderer_contract}" ]] || usage
+[[ -n "${candidate}" && -n "${overall}" && -n "${page_contracts}" && -n "${renderer_contract}" ]] || usage
+[[ -f "${candidate}" ]] || fail "MISSING_HIGH_FIDELITY_CANDIDATE"
+[[ -f "${overall}" ]] || fail "MISSING_OVERALL_DESIGN"
 [[ -f "${page_contracts}" ]] || fail "MISSING_PAGE_CONTRACT_DOCUMENT"
 [[ -f "${renderer_contract}" ]] || fail "MISSING_RENDERER_CONTRACT_DOCUMENT"
+
+for required_overall_projection in \
+  'PrimaryPresentationModel = INTERACTIVE_COGNITIVE_DOCUMENT' \
+  'PrimaryExperienceModel = READING_FIRST' \
+  'PureUnstructuredLongArticle = FORBIDDEN' \
+  'StructuredContinuousCognitiveNarrative = REQUIRED_WHEN_NEEDED' \
+  'ModuleReadingDefaultPersistentSidePanel = 0' \
+  'KnowledgeHierarchyOrientation = RETAINED' \
+  'QuickSourcePanel = ON_DEMAND_TRANSIENT' \
+  'FullSourceEvidence = ON_DEMAND_WORKSPACE_OR_ROUTE' \
+  'RelatedModules = INLINE_OR_ON_DEMAND' \
+  'KnownGaps = INLINE_WHEN_UNDERSTANDING_CHANGES' \
+  'DefaultReadingPersistentPrimaryActionsPerPage <= 2' \
+  'PrimaryVisualPrimitiveFamiliesPerModule <= 4' \
+  'PrimaryVisualProjectionPerCognitiveSection <= 1' \
+  'SimultaneouslyEmphasizedVisualObjects <= 7' \
+  'RendererCreatesIndependentFacts = NO'; do
+  grep -Fqx "${required_overall_projection}" "${overall}" ||
+    fail "OVERALL_PRESENTATION_PROJECTION_MISMATCH"
+done
+
+for required_candidate_projection in \
+  'PrimaryPresentationModel = INTERACTIVE_COGNITIVE_DOCUMENT' \
+  'PrimaryExperienceModel = READING_FIRST' \
+  'PureUnstructuredLongArticle = FORBIDDEN' \
+  'StructuredContinuousCognitiveNarrative = REQUIRED_WHEN_NEEDED' \
+  'DefaultReadingPersistentSidePanels = 0' \
+  'KnowledgeHierarchyOrientation = RETAINED' \
+  'QuickSourcePanel = ON_DEMAND_TRANSIENT' \
+  'FullSourceEvidence = ON_DEMAND_WORKSPACE_OR_ROUTE' \
+  'RelatedModules = INLINE_OR_ON_DEMAND' \
+  'KnownGaps = INLINE_WHEN_UNDERSTANDING_CHANGES' \
+  'DefaultReadingPersistentPrimaryActionsPerPage <= 2' \
+  'PrimaryVisualPrimitiveFamiliesPerModule <= 4' \
+  'PrimaryVisualProjectionPerCognitiveSection <= 1' \
+  'SimultaneouslyEmphasizedVisualObjects <= 7' \
+  'RendererCreatesIndependentFacts = NO'; do
+  grep -Fqx "${required_candidate_projection}" "${candidate}" ||
+    fail "CANDIDATE_PRESENTATION_PROJECTION_MISMATCH"
+done
+
+grep -Fqx \
+  'ReadingPresentationContract = PRIMARY_PRESENTATION_MODEL|INTERACTIVE_COGNITIVE_DOCUMENT|HF-SPECIALTY§3,18' \
+  "${page_contracts}" || fail "MISSING_INTERACTIVE_COGNITIVE_DOCUMENT"
+grep -Fqx \
+  'ReadingPresentationContract = PRIMARY_EXPERIENCE_MODEL|READING_FIRST|HF-SPECIALTY§3,18' \
+  "${page_contracts}" || fail "MISSING_READING_FIRST"
+grep -Fqx \
+  'ReadingPresentationContract = PURE_UNSTRUCTURED_LONG_ARTICLE|FORBIDDEN|HF-SPECIALTY§10,18' \
+  "${page_contracts}" || fail "PURE_UNSTRUCTURED_LONG_ARTICLE_FORBIDDEN"
+grep -Fqx \
+  'ReadingPresentationContract = STRUCTURED_CONTINUOUS_COGNITIVE_NARRATIVE|REQUIRED_WHEN_NEEDED|HF-SPECIALTY§10,18' \
+  "${page_contracts}" || fail "MISSING_STRUCTURED_CONTINUOUS_COGNITIVE_NARRATIVE"
+grep -Fqx \
+  'ModuleReadingDefault = KNOWLEDGE_HIERARCHY_ORIENTATION|RETAINED|HF-SPECIALTY§13,14,16' \
+  "${page_contracts}" || fail "MISSING_HIERARCHY_ORIENTATION"
+grep -Fqx \
+  'ModuleReadingDefault = PERSISTENT_GOVERNANCE_SIDE_PANEL|0|HF-SPECIALTY§12,14,16' \
+  "${page_contracts}" || fail "PERMANENT_GOVERNANCE_SIDE_PANEL_FORBIDDEN"
+grep -Fqx \
+  'ModuleReadingDefault = QUICK_SOURCE_PANEL|ON_DEMAND_TRANSIENT|HF-SPECIALTY§12,14,16' \
+  "${page_contracts}" || fail "MISSING_ON_DEMAND_QUICK_SOURCE"
+grep -Fqx \
+  'ModuleReadingDefault = FULL_SOURCE_EVIDENCE|ON_DEMAND_WORKSPACE_OR_ROUTE|HF-SPECIALTY§14,16,18' \
+  "${page_contracts}" || fail "MISSING_FULL_SOURCE_EVIDENCE_ROUTE"
+grep -Fqx \
+  'ModuleReadingDefault = RELATED_MODULES|INLINE_OR_ON_DEMAND|HF-SPECIALTY§13,14,16' \
+  "${page_contracts}" || fail "MISSING_RELATED_MODULE_CONTEXT"
+grep -Fqx \
+  'ModuleReadingDefault = KNOWN_GAPS|INLINE_WHEN_UNDERSTANDING_CHANGES|HF-SPECIALTY§13,14,16' \
+  "${page_contracts}" || fail "MISSING_KNOWN_GAPS_CONTEXT"
+grep -Fqx \
+  'ReadingPresentationBudget = DEFAULT_READING_PERSISTENT_PRIMARY_ACTIONS_PER_PAGE|AT_MOST_2|HF-SPECIALTY§12' \
+  "${page_contracts}" || fail "MISSING_PRIMARY_ACTION_BUDGET"
+
+grep -Fqx \
+  'RendererPresentationBudget = PRIMARY_VISUAL_PRIMITIVE_FAMILIES_PER_MODULE|AT_MOST_4|HF-SPECIALTY§11,12' \
+  "${renderer_contract}" || fail "MISSING_VISUAL_PRIMITIVE_FAMILY_BUDGET"
+grep -Fqx \
+  'RendererPresentationBudget = PRIMARY_VISUAL_PROJECTION_PER_COGNITIVE_SECTION|AT_MOST_1|HF-SPECIALTY§11,12' \
+  "${renderer_contract}" || fail "PRIMARY_VISUAL_BUDGET_EXCEEDED"
+grep -Fqx \
+  'RendererPresentationBudget = SIMULTANEOUSLY_EMPHASIZED_VISUAL_OBJECTS|AT_MOST_7|HF-SPECIALTY§11,12' \
+  "${renderer_contract}" || fail "MISSING_EMPHASIZED_OBJECT_BUDGET"
+grep -Fqx \
+  'RendererInvariant = CREATES_INDEPENDENT_FACTS|NO|OD1.2§20.8' \
+  "${renderer_contract}" || fail "RENDERER_FACT_CREATION_FORBIDDEN"
 
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-ui-contract-parse.XXXXXX")"
 page_records="${tmp_root}/pages"
@@ -335,6 +437,7 @@ grep -Fqx \
 
 printf '%s\n' \
   "UiContractValidation = PASS" \
+  "ReadingPresentationCrossDocumentProjection = PASS" \
   "PageContractCount = ${page_count}" \
   "SkeletonOperationCount = ${operation_count}" \
   "PageStateCount = ${state_count}" \

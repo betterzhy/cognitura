@@ -984,30 +984,27 @@ KnownGaps
 
 ModuleReading 是 V1 的核心学习页面。
 
-桌面端正式布局：
+桌面端正式布局以 Reading First 为默认。KnowledgeHierarchy 的层级定位始终保留，
+但来源、关系和缺口治理能力不得作为默认常驻侧栏挤压连续认知正文：
 
 ```text
-左侧 20%～24%：
-KnowledgeHierarchy
-- Landscape
-- Theme
-- Module
-- 当前认知位置
+PrimaryPresentationModel = INTERACTIVE_COGNITIVE_DOCUMENT
+PrimaryExperienceModel = READING_FIRST
+PureUnstructuredLongArticle = FORBIDDEN
+StructuredContinuousCognitiveNarrative = REQUIRED_WHEN_NEEDED
 
-中间 56%～64%：
-ModuleHeader
-CoreThesis
-PrimaryCognitiveSpine
-DynamicRendererArea
-CriticalBoundaries
-KnowledgeElements
-KeyTakeaways
-
-右侧 18%～22%：
-SourceEvidence
-RelatedModules
-KnownGaps
+ModuleReadingDefaultPersistentSidePanel = 0
+KnowledgeHierarchyOrientation = RETAINED
+QuickSourcePanel = ON_DEMAND_TRANSIENT
+FullSourceEvidence = ON_DEMAND_WORKSPACE_OR_ROUTE
+RelatedModules = INLINE_OR_ON_DEMAND
+KnownGaps = INLINE_WHEN_UNDERSTANDING_CHANGES
+DefaultReadingPersistentPrimaryActionsPerPage <= 2
 ```
+
+默认视口由保留层级定位的阅读导向、中间连续认知正文和按需交互表面组成。完整
+SourceEvidence、关系 Workspace 与修订 Workspace 只在用户显式进入时打开；
+RelatedModules 与真正改变理解的 KnownGaps 在正文内或按需入口呈现。
 
 ModuleHeader 必须包含：
 
@@ -1038,7 +1035,7 @@ CoreThesis
 - PrimaryCognitiveSpine 在视觉上必须高于辅助 Facet；
 - Facet 和细粒度 Element 默认折叠或按需展开；
 - CriticalBoundary 不得被隐藏在页面末尾或弱化为普通备注；
-- 页面不得退化为连续长文；
+- 页面不得退化为无结构连续长文；为形成认知闭环所需的结构化连续叙事必须保留；
 - 来源部分完整、存在缺口或使用综合重构时必须显示轻量状态；
 - 点击 RelatedModule 必须保留其在主层级中的位置和返回路径。
 
@@ -1081,9 +1078,28 @@ interactionHints
 - 大型 Matrix、LayeredStructure 和 StateTransition 以桌面浏览器为正式验收环境；
 - 窄屏仅保证可读取、横向滚动或纵向降级，不要求功能等价。
 
+稳定呈现预算与事实边界：
+
+```text
+PrimaryVisualPrimitiveFamiliesPerModule <= 4
+PrimaryVisualProjectionPerCognitiveSection <= 1
+SimultaneouslyEmphasizedVisualObjects <= 7
+RendererCreatesIndependentFacts = NO
+```
+
+以上预算只限制同一认知段和默认视口中的高显著性呈现；Renderer 仍只投影
+CognitiveModule 的正式内容，不得因布局、交互或视觉需要补写第二套事实。
+
 ## 20.9 Source Evidence 交互
 
-桌面端优先使用右侧固定区域或 Drawer。
+ModuleReading 默认只提供轻量来源入口。快速核验使用按需临时面板，完整核验使用
+按需 Workspace 或独立路由；两者都必须保留当前层级位置、认知对象和返回路径，
+不得恢复默认常驻治理右栏。
+
+```text
+QuickSourcePanel = ON_DEMAND_TRANSIENT
+FullSourceEvidence = ON_DEMAND_WORKSPACE_OR_ROUTE
+```
 
 必须支持：
 
@@ -1449,6 +1465,18 @@ UI-SCOPE-RM-05 = APPLIED
 AppliedPlatformScopeMigration = 5/5
 AppliedReverseMigration = 26/26
 ReverseMigrationDecision = PASS
+```
+
+### 27.4 HF-DG1 Reading First 呈现细化
+
+本次只对已回迁的 `UI-RM-06`、`UI-RM-07`、`UI-RM-08` 作显式呈现细化，
+不新增历史迁移项，不改变 `AppliedReverseMigration = 26/26`：
+
+```text
+HF-DG1-REFINEMENT-01 = READING_FIRST_DEFAULT_PRESENTATION_COORDINATED
+HF-DG1-REFINEMENT-02 = SOURCE_EVIDENCE_ON_DEMAND_COORDINATED
+HF-DG1-REFINEMENT-03 = RENDERER_PRESENTATION_BUDGET_AND_FACT_BOUNDARY_COORDINATED
+HistoricalReverseMigrationCountChanged = NO
 ```
 
 ## 28. 当前正式状态
