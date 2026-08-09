@@ -1336,9 +1336,27 @@ write_hvd04_selector_probe() {
       return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isRendered).length;
     };
     const isInteractable = function (element) {
-      return isRendered(element) && element.tagName === "BUTTON" && !element.disabled &&
-        element.getAttribute("aria-disabled") !== "true" && !element.closest("[inert]") &&
-        element.tabIndex >= 0;
+      if (!isRendered(element) || element.tagName !== "BUTTON" || element.disabled ||
+          element.getAttribute("aria-disabled") === "true" || element.closest("[inert]") ||
+          element.tabIndex < 0) {
+        return false;
+      }
+      let pointerTarget = element;
+      while (pointerTarget) {
+        if (targetDocument.defaultView.getComputedStyle(pointerTarget).pointerEvents === "none") {
+          return false;
+        }
+        pointerTarget = pointerTarget.parentElement;
+      }
+      const rect = element.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      if (centerX < 0 || centerY < 0 || centerX >= targetDocument.defaultView.innerWidth ||
+          centerY >= targetDocument.defaultView.innerHeight) {
+        return false;
+      }
+      const hitTarget = targetDocument.elementFromPoint(centerX, centerY);
+      return hitTarget === element || element.contains(hitTarget);
     };
     const interactableCount = function (selector) {
       return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isInteractable).length;

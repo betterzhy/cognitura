@@ -353,6 +353,36 @@ expect_hvd02_dom_failure "${small_noninteractive_close}" module-small-screen \
   module-default-reading-small-screen.png \
   'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
 
+small_pointer_blocked_close="${test_tmp_root}/small-pointer-blocked-close"
+make_fixture "${small_pointer_blocked_close}"
+sed -i.bak \
+  's#<button id="small-overlay-close" type="button" data-focus-return-target="small-element-trigger">关闭并返回正文</button>#<button id="small-overlay-close" type="button" data-focus-return-target="small-element-trigger" style="pointer-events: none;">关闭并返回正文</button>#' \
+  "${small_pointer_blocked_close}/prototype/index.html"
+rm "${small_pointer_blocked_close}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_pointer_blocked_close}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
+
+small_ancestor_pointer_blocked_close="${test_tmp_root}/small-ancestor-pointer-blocked-close"
+make_fixture "${small_ancestor_pointer_blocked_close}"
+sed -i.bak \
+  's#<section id="small-element-overlay" class="small-element-overlay"#<section id="small-element-overlay" class="small-element-overlay" style="pointer-events: none;"#' \
+  "${small_ancestor_pointer_blocked_close}/prototype/index.html"
+rm "${small_ancestor_pointer_blocked_close}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_ancestor_pointer_blocked_close}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
+
+small_occluded_close="${test_tmp_root}/small-occluded-close"
+make_fixture "${small_occluded_close}"
+sed -i.bak \
+  's#<button id="small-overlay-close"#<span aria-hidden="true" style="position: absolute; z-index: 2; top: 1.2rem; right: 1.2rem; left: 1.2rem; height: 44px;"></span><button id="small-overlay-close"#' \
+  "${small_occluded_close}/prototype/index.html"
+rm "${small_occluded_close}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_occluded_close}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
+
 manifest_wrong_endpoints="${test_tmp_root}/manifest-wrong-endpoints"
 make_fixture "${manifest_wrong_endpoints}"
 sed -i.bak \
@@ -1148,4 +1178,5 @@ printf 'HV-D04NegativeFixtureCount = 14\n'
 printf 'HV-D04FixRound1NegativeFixtureCount = 6\n'
 printf 'HV-D04FixRound2NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound3NegativeFixtureCount = 1\n'
-printf 'NegativeFixtureCount = 121\n'
+printf 'HV-D04FixRound4NegativeFixtureCount = 3\n'
+printf 'NegativeFixtureCount = 124\n'
