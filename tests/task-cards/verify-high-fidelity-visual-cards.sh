@@ -149,6 +149,34 @@ sed -i.bak \
 rm "${wrong_primary_artifact}/evidence-plan.md.bak"
 expect_failure "${wrong_primary_artifact}" "EvidencePath 05 canonical primary artifact must be module-recovery-desktop.png"
 
+for status_contract in \
+  'HighFidelityVisualDesign|NOT_RUN|PASS' \
+  'HighFidelityUsabilityValidation|NOT_RUN|PASS' \
+  'ImplementationValidation|NOT_RUN|PASS' \
+  'BusinessImplementation|NOT_AUTHORIZED|AUTHORIZED' \
+  'FormalDatabaseWrite|NOT_AUTHORIZED|AUTHORIZED' \
+  'RemotePush|NOT_AUTHORIZED|AUTHORIZED'; do
+  status_key="${status_contract%%|*}"
+  remaining_status="${status_contract#*|}"
+  expected_status="${remaining_status%%|*}"
+  conflicting_status="${remaining_status#*|}"
+  for status_document in evidence-plan acceptance; do
+    duplicate_fixture="${test_tmp_root}/duplicate-${status_document}-${status_key}"
+    make_fixture "${duplicate_fixture}"
+    printf '\n%s = %s\n' "${status_key}" "${expected_status}" >> \
+      "${duplicate_fixture}/${status_document}.md"
+    expect_failure "${duplicate_fixture}" \
+      "${status_document}.md: expected one ${status_key} field, found 2"
+
+    conflicting_fixture="${test_tmp_root}/conflicting-${status_document}-${status_key}"
+    make_fixture "${conflicting_fixture}"
+    printf '\n%s = %s\n' "${status_key}" "${conflicting_status}" >> \
+      "${conflicting_fixture}/${status_document}.md"
+    expect_failure "${conflicting_fixture}" \
+      "${status_document}.md: expected one ${status_key} field, found 2"
+  done
+done
+
 duplicate_visual_status="${test_tmp_root}/duplicate-visual-status"
 make_fixture "${duplicate_visual_status}"
 printf '\nHighFidelityVisualDesign = PASS\n' >>"${duplicate_visual_status}/visual-design.md"
@@ -234,4 +262,4 @@ printf 'not a png\n' >"${wrong_png}/evidence/visual-foundation-desktop.png"
 expect_failure "${wrong_png}" "visual foundation evidence must be a 1440x1100 PNG"
 
 printf 'HighFidelityVisualTaskCardContractTests = PASS\n'
-printf 'NegativeFixtureCount = 20\n'
+printf 'NegativeFixtureCount = 44\n'

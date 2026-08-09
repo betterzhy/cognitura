@@ -71,6 +71,16 @@ field_value() {
   sed -n "s/^${field} = //p" "${file}"
 }
 
+require_field_value() {
+  local file="$1"
+  local field="$2"
+  local expected="$3"
+  local actual
+  actual="$(field_value "${file}" "${field}")"
+  [[ "${actual}" == "${expected}" ]] ||
+    fail "$(basename "${file}"): ${field} must be ${expected}, got ${actual}"
+}
+
 require_line() {
   local file="$1"
   local line="$2"
@@ -474,13 +484,54 @@ for execution_line in \
   require_line_once "${evidence_plan}" "${execution_line}"
 done
 require_line_once "${acceptance}" 'VisualFoundationArtifactCapture = PASS'
-require_line_once "${acceptance}" 'HighFidelityVisualDesign = NOT_RUN'
-require_line_once "${acceptance}" 'HighFidelityUsabilityValidation = NOT_RUN'
+for status_contract in \
+  'HighFidelityVisualDesign|NOT_RUN' \
+  'HighFidelityUsabilityValidation|NOT_RUN' \
+  'ImplementationValidation|NOT_RUN' \
+  'BusinessImplementation|NOT_AUTHORIZED' \
+  'FormalDatabaseWrite|NOT_AUTHORIZED' \
+  'RemotePush|NOT_AUTHORIZED'; do
+  status_key="${status_contract%%|*}"
+  status_value="${status_contract#*|}"
+  require_field_value "${acceptance}" "${status_key}" "${status_value}"
+  require_field_value "${evidence_plan}" "${status_key}" "${status_value}"
+done
 require_line_once "${design_index}" 'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION'
 require_line_once "${design_index}" 'HighFidelityVisualFoundation = PASS'
 require_line_once "${design_index}" 'ActiveDesignTaskCard = HV-D01'
 require_line_once "${root_task_index}" 'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION'
 require_line_once "${root_task_index}" 'HighFidelityVisualActiveTaskCard = HV-D01'
+
+for projection_contract in \
+  "${visual_design}|HighFidelityVisualDesign|NOT_RUN" \
+  "${visual_design}|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${visual_design}|ImplementationValidation|NOT_RUN" \
+  "${visual_design}|BusinessImplementation|NOT_AUTHORIZED" \
+  "${visual_design}|FormalDatabaseWrite|NOT_AUTHORIZED" \
+  "${visual_design}|RemotePush|NOT_AUTHORIZED" \
+  "${evidence_dir}/README.md|HighFidelityVisualDesign|NOT_RUN" \
+  "${evidence_dir}/README.md|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${evidence_dir}/README.md|ImplementationValidation|NOT_RUN" \
+  "${index}|HighFidelityVisualDesign|NOT_RUN" \
+  "${index}|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${index}|BusinessImplementation|NOT_AUTHORIZED" \
+  "${index}|FormalDatabaseWrite|NOT_AUTHORIZED" \
+  "${index}|RemotePush|NOT_AUTHORIZED" \
+  "${design_index}|HighFidelityVisualDesign|NOT_RUN" \
+  "${design_index}|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${design_index}|BusinessImplementation|NOT_AUTHORIZED" \
+  "${script_root}/AGENTS.md|HighFidelityVisualDesign|NOT_RUN" \
+  "${script_root}/AGENTS.md|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${script_root}/AGENTS.md|BusinessImplementation|NOT_AUTHORIZED" \
+  "${script_root}/README.md|HighFidelityVisualDesign|NOT_RUN" \
+  "${script_root}/README.md|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${script_root}/README.md|BusinessImplementation|NOT_AUTHORIZED"; do
+  projection_file="${projection_contract%%|*}"
+  remaining_projection="${projection_contract#*|}"
+  projection_key="${remaining_projection%%|*}"
+  projection_value="${remaining_projection#*|}"
+  require_field_value "${projection_file}" "${projection_key}" "${projection_value}"
+done
 
 for owner_contract in \
   'RF-AC-01|HV-D04' 'RF-AC-02|HV-D01' 'RF-AC-03|HV-D02' 'RF-AC-04|HV-D01' \
@@ -506,10 +557,6 @@ for artifact in index.html styles.css prototype.js; do
 done
 [[ -f "${evidence_dir}/README.md" ]] || fail "evidence contract is missing"
 
-[[ "$(field_value "${visual_design}" HighFidelityVisualDesign)" == "NOT_RUN" ]] ||
-  fail "HighFidelityVisualDesign must be NOT_RUN"
-[[ "$(field_value "${visual_design}" HighFidelityUsabilityValidation)" == "NOT_RUN" ]] ||
-  fail "HighFidelityUsabilityValidation must be NOT_RUN"
 for line in \
   'PrototypeKind = DOCUMENTATION_ONLY_NON_PRODUCTION_FIXTURE' \
   'FixtureDataSource = EMBEDDED_DETERMINISTIC_DATA' \

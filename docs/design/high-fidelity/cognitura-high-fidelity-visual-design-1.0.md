@@ -184,5 +184,4 @@ HV-D02 FocusAndSource = NOT_RUN
 HV-D03 RevisionAndRecovery = NOT_RUN
 HV-D04 CrossLayerResponsiveAndExport = NOT_RUN
 HV-D05 FixedVisualUsabilityReview = NOT_RUN
-BusinessImplementation = NOT_AUTHORIZED
 ```

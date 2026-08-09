@@ -154,7 +154,6 @@ Wave0ExecutionStatus = COMPLETE
 Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
-BusinessImplementation = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
 
