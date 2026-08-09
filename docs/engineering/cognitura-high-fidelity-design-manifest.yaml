@@ -7,5 +7,5 @@ sources:
     version: Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0
     status: CANDIDATE_AWAITING_REPOSITORY_GATE
     fingerprintScope: HF-DG2_ORTHOGONAL_STATE_AND_RECOVERY
-    sizeBytes: 161988
-    sha256: d377251d355a9b969df3faf99619e2597f2c9b1a3663c7e9dce371352a6ce36f
+    sizeBytes: 162362
+    sha256: 1fad5ae2bda4e07e1308dadd4a568a1e3a1963cd884b39435d909717036c8dcd

@@ -226,8 +226,16 @@ classification_result="$(awk -F'|' '
     original[code]=1
     next
   }
-  trim($2) == "OriginalStateCode" { next }
-  trim($2) != "" && trim($3) ~ /^(AXIS_VALUE|TRANSIENT_UI|FLOW_PHASE|EVENT|DERIVED_RESULT)$/ {
+  trim($2) == "OriginalStateCode" {
+    in_classification_table=1
+    next
+  }
+  in_classification_table && trim($2) == "---" { next }
+  in_classification_table && $0 !~ /^\|/ {
+    in_classification_table=0
+    next
+  }
+  in_classification_table && /^\|/ {
     code=trim($2)
     classification=trim($3)
     owner=trim($4)
@@ -236,12 +244,15 @@ classification_result="$(awk -F'|' '
     canonical=trim($7)
     rows++
     seen[code]++
+    if (classification !~ /^(AXIS_VALUE|TRANSIENT_UI|FLOW_PHASE|EVENT|DERIVED_RESULT)$/) invalid_classification++
     if (owner == "") invalid_owner++
     if (persistence !~ /^(EPHEMERAL_UI|URL|BROWSER_HISTORY|SESSION_DRAFT_STORE|CANONICAL_SERVER_STATE)$/) invalid_persistence++
     if (history !~ /^(NOT_PERSISTED|URL_AND_HISTORY|HISTORY_ONLY|SESSION_RESTORE_ONLY|DERIVED_FROM_CANONICAL_RESULT)$/) invalid_history++
     if (canonical !~ /^(NO_CANONICAL_WRITE|WRITE_REQUIRES_CONFIRMED_CHANGESET|CANONICAL_WRITE_RESULT|DERIVED_AFTER_CANONICAL_WRITE)$/) invalid_canonical++
     if (classification == "EVENT" &&
         (persistence != "EPHEMERAL_UI" || history != "NOT_PERSISTED" || canonical != "NO_CANONICAL_WRITE")) event_persisted++
+    if (classification == "TRANSIENT_UI" &&
+        (persistence != "EPHEMERAL_UI" || history != "NOT_PERSISTED" || canonical != "NO_CANONICAL_WRITE")) transient_persisted++
     if (code == "PREVIEW" &&
         (persistence != "EPHEMERAL_UI" || history != "NOT_PERSISTED" || canonical != "NO_CANONICAL_WRITE")) preview_persisted++
     if (code == "GENERATING" && owner != "ProjectionGenerationFlow:PROJECTION_GENERATING") generating_owner_invalid++
@@ -257,15 +268,17 @@ classification_result="$(awk -F'|' '
       if (!(code in original)) unknown++
     }
     for (code in original) if (!(code in seen)) missing++
-    printf "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d", rows, unique, duplicate, unknown, missing,
-      invalid_owner, invalid_persistence, invalid_history, invalid_canonical, event_persisted,
-      preview_persisted, generating_owner_invalid
+    printf "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d", rows, unique, duplicate, unknown, missing,
+      invalid_classification, invalid_owner, invalid_persistence, invalid_history, invalid_canonical,
+      event_persisted, transient_persisted, preview_persisted, generating_owner_invalid
   }
 ' "${document}")"
 IFS=: read -r classification_rows classification_unique duplicate_owner_count unknown_classification_count \
-  missing_classification_count invalid_owner_count invalid_persistence_count invalid_history_count \
-  invalid_canonical_count event_persisted_count preview_persisted_count generating_owner_invalid_count \
+  missing_classification_count invalid_classification_count invalid_owner_count invalid_persistence_count \
+  invalid_history_count invalid_canonical_count event_persisted_count transient_persisted_count \
+  preview_persisted_count generating_owner_invalid_count \
   <<<"${classification_result}"
+[[ "${invalid_classification_count}" -eq 0 ]] || fail "invalid Classification"
 [[ "${classification_rows}:${classification_unique}" == "46:46" ]] ||
   fail "expected 46 unique classification rows, found ${classification_rows}:${classification_unique}"
 [[ "${duplicate_owner_count}" -eq 0 ]] ||
@@ -280,6 +293,8 @@ IFS=: read -r classification_rows classification_unique duplicate_owner_count un
 [[ "${invalid_canonical_count}" -eq 0 ]] || fail "invalid CanonicalWriteBoundary"
 [[ "${event_persisted_count}" -eq 0 ]] || fail "event must not be persisted as state"
 [[ "${preview_persisted_count}" -eq 0 ]] || fail "PREVIEW must not enter URL or History"
+[[ "${transient_persisted_count}" -eq 0 ]] ||
+  fail "TRANSIENT_UI must be EPHEMERAL_UI and not persisted"
 [[ "${generating_owner_invalid_count}" -eq 0 ]] ||
   fail "historical GENERATING must map to PROJECTION_GENERATING"
 require_exact_line_once \
@@ -291,15 +306,67 @@ require_exact_line_once \
 [[ "$(grep -Fxc 'LocalProjectionPhase = GENERATING' "${document}" || true)" -eq 0 ]] ||
   fail "GENERATING namespace collision"
 
-for required_axis in ModeAxis FocusAxis AuxiliarySurfaceAxis DraftAxis ProcessingAxis RecoveryAxis; do
-  [[ "$(grep -c "^OrthogonalAxis = ${required_axis}|" "${document}" || true)" -eq 1 ]] ||
-    fail "missing orthogonal axis: ${required_axis}"
+require_exact_line_once \
+  '| COGNITIVE_PERSPECTIVE_OVERRIDE | AXIS_VALUE | StableProjectionParameter:CognitivePerspective | URL | URL_AND_HISTORY | NO_CANONICAL_WRITE |' \
+  'CognitivePerspective must be a stable Projection parameter AXIS_VALUE'
+require_exact_line_once \
+  'StableProjectionParameter = CognitivePerspective|URL_AND_HISTORY|NOT_AN_ORTHOGONAL_AXIS' \
+  'CognitivePerspective stable Projection parameter boundary is missing'
+
+[[ "$(grep -c '^OrthogonalAxis = ' "${document}" || true)" -eq 6 ]] ||
+  fail "expected exactly six orthogonal axes"
+for axis_contract in \
+  'ModeAxis|READING,VERIFICATION,REVISION' \
+  'FocusAxis|IDLE,ELEMENT_PINNED,RELATION_PINNED' \
+  'AuxiliarySurfaceAxis|NONE,QUICK_SOURCE,FULL_VERIFICATION,FULL_REVISION' \
+  'DraftAxis|NO_DRAFT,CLEAN_DRAFT,DIRTY_DRAFT,SAVED_DRAFT,RECOVERABLE_DRAFT,CONFLICTED_DRAFT' \
+  'ProcessingAxis|PROCESSING_IDLE,IMPACT_ANALYZING,COMMIT_ALLOWED,COMMIT_BLOCKED,SUBMITTING,CANONICAL_SAVED,RECOMPUTING,PROJECTION_GENERATING,PENDING_VERIFICATION,PARTIAL_FAILURE,FAILED,COMPLETE' \
+  'RecoveryAxis|STABLE,HISTORY_RESTORING,REFRESH_RESTORING,RESTORE_FAILED'; do
+  axis_name="${axis_contract%%|*}"
+  require_exact_line_once \
+    "OrthogonalAxis = ${axis_contract}" \
+    "${axis_name} value set mismatch"
+done
+axis_duplicate_count="$(awk -F'[=|,]' '/^OrthogonalAxis = / {
+  for (field_index=3; field_index<=NF; field_index++) {
+    value=$field_index
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+    if (value != "") seen[value]++
+  }
+} END {
+  duplicates=0
+  for (value in seen) if (seen[value] > 1) duplicates++
+  print duplicates
+}' "${document}")"
+[[ "${axis_duplicate_count}" -eq 0 ]] ||
+  fail "orthogonal axis values must be unique across axes or explicitly namespaced"
+
+[[ "$(grep -c '^PersistenceLedger = ' "${document}" || true)" -eq 5 ]] ||
+  fail "expected exactly five persistence ledger levels"
+for ledger_contract in \
+  'EPHEMERAL_UI|Hover,Tooltip,Preview,InputFocus,TemporaryEndpointHighlight|NO_URL_NO_HISTORY_NO_REFRESH_RESTORE_NO_SERVER_WRITE' \
+  'URL|Page,StableObject,Mode,StableRelation,ShareablePerspective|NO_DRAFT_ID_NO_TECHNICAL_VERSION_NO_PROCESS_PHASE' \
+  'BROWSER_HISTORY|StableFocus,FullWorkspace,Perspective,SemanticAnchor|NO_CANONICAL_FACT_COPY' \
+  'SESSION_DRAFT_STORE|Draft,RecoveryGuard,UnconfirmedChangeSetReference,IdempotencyKey|NO_PUBLISHED_COGNITIVE_FACT' \
+  'CANONICAL_SERVER_STATE|ConfirmedRevision,Relation,Evidence,ChangeSetResult,ProcessingResult,CurrentVersionPointer|NO_VISUAL_STATE_NO_HOVER_NO_SCROLL_PIXEL'; do
+  ledger_name="${ledger_contract%%|*}"
+  require_exact_line_once \
+    "PersistenceLedger = ${ledger_contract}" \
+    "${ledger_name} persistence ledger mismatch"
 done
 
-for required_level in EPHEMERAL_UI URL BROWSER_HISTORY SESSION_DRAFT_STORE CANONICAL_SERVER_STATE; do
-  [[ "$(grep -c "^PersistenceLedger = ${required_level}|" "${document}" || true)" -eq 1 ]] ||
-    fail "missing persistence ledger level: ${required_level}"
+for recovery_contract in \
+  'SubmitUnknownDisposition = QUERY_RESULT_WITH_SAME_IDEMPOTENCY_KEY' \
+  'IdempotentResultQuery = CHANGESET_ID_OR_IDEMPOTENCY_KEY_REQUIRED' \
+  'StaleProjectionDisposition = EXPLICIT_STALE_MARK_AND_CANONICAL_VERSION_REFERENCE' \
+  'RevertDisposition = CREATE_NEW_REVERT_CHANGESET' \
+  'PhysicalRollbackOfCommittedHistory = FORBIDDEN'; do
+  require_exact_line_once "${recovery_contract}" "persistence recovery invariant is missing or duplicated"
 done
+unknown_save_result_count="$(grep -c '^UnknownSaveResultTreatedAsFailure = ' "${document}" || true)"
+unknown_save_forbidden_count="$(grep -Fxc 'UnknownSaveResultTreatedAsFailure = FORBIDDEN' "${document}" || true)"
+[[ "${unknown_save_result_count}" -ge 1 && "${unknown_save_result_count}" -eq "${unknown_save_forbidden_count}" ]] ||
+  fail "UnknownSaveResultTreatedAsFailure must remain FORBIDDEN"
 
 page_state_mapping="$(awk -F'|' '/^PageStateMapping = / {
   split($1, prefix, " = ")
@@ -313,19 +380,49 @@ page_state_mapping="$(awk -F'|' '/^PageStateMapping = / {
 }' "${document}")"
 [[ "${page_state_mapping}" == "12:12:0" ]] ||
   fail "expected 12 unique PageState mappings, found ${page_state_mapping}"
-for required_page_state in EMPTY UPLOADING PARSING ANALYZING GENERATING WAITING_REVIEW \
-  PARTIALLY_GENERATED FAILED RETRYING CONFIRMED PUBLISHED OUTDATED_BY_STRUCTURE_CHANGE; do
-  [[ "$(grep -c "^PageStateMapping = ${required_page_state}|" "${document}" || true)" -eq 1 ]] ||
-    fail "missing PageState mapping: ${required_page_state}"
+for page_state_contract in \
+  'EMPTY|ProcessingAxis.PROCESSING_IDLE_WITH_EMPTY_CONTENT' \
+  'UPLOADING|SourceIngestionFlow.UPLOADING' \
+  'PARSING|SourceIngestionFlow.PARSING' \
+  'ANALYZING|ProcessingAxis.IMPACT_ANALYZING_OR_SOURCE_ANALYZING' \
+  'GENERATING|ProcessingAxis.PROJECTION_GENERATING' \
+  'WAITING_REVIEW|ProcessingAxis.PENDING_VERIFICATION' \
+  'PARTIALLY_GENERATED|ProcessingAxis.PARTIAL_FAILURE_WITH_READABLE_RESULT' \
+  'FAILED|ProcessingAxis.FAILED' \
+  'RETRYING|RecoveryFlow.RETRYING' \
+  'CONFIRMED|ProcessingAxis.COMPLETE_WITH_CONFIRMED_REVISION' \
+  'PUBLISHED|CanonicalServerState.PUBLISHED_REVISION' \
+  'OUTDATED_BY_STRUCTURE_CHANGE|ProjectionFreshnessFlow.STALE_RETAINED'; do
+  page_state_name="${page_state_contract%%|*}"
+  require_exact_line_once \
+    "PageStateMapping = ${page_state_contract}" \
+    "${page_state_name} PageState mapping mismatch"
 done
 
-for required_non_change in \
-  'PageStateSchemaChange = NO' \
-  'RendererInputChange = NO' \
-  'SchemaCatalogChange = NO' \
-  'SchemaEvidenceMapChange = NO' \
-  'PhysicalSchemaSpecified = NO'; do
-  require_exact_line_once "${required_non_change}" "Schema non-change decision is incomplete"
+for non_change_key in \
+  PageStateEnumChange \
+  PageStateSchemaChange \
+  RendererInputChange \
+  SchemaCatalogChange \
+  SchemaEvidenceMapChange \
+  PhysicalSchemaSpecified; do
+  [[ "$(grep -c "^${non_change_key} = " "${document}" || true)" -eq 1 ]] ||
+    fail "${non_change_key} must be declared exactly once"
+  grep -Fqx "${non_change_key} = NO" "${document}" ||
+    fail "${non_change_key} must remain NO"
+done
+
+[[ "$(grep -c '^LogicalObjectMapping = ' "${document}" || true)" -eq 5 ]] ||
+  fail "expected exactly five logical object mappings"
+for logical_mapping in \
+  'KnowledgeObjectVersion|EXISTING_COGNITIVE_ARTIFACT_REVISION_IDENTITY' \
+  'RelationVersion|EXISTING_RELATION_WITHIN_OWNING_ARTIFACT_REVISION' \
+  'ContextBinding|EXISTING_HIERARCHY_PRIMARY_OWNERSHIP_RETURN_TOKEN_AND_SEMANTIC_ANCHOR_PROJECTION' \
+  'EvidenceBinding|EXISTING_EVIDENCE_REFERENCE_TO_COGNITIVE_ARTIFACT_OR_RELATION' \
+  'ChangeSet|EXISTING_COGNITIVE_STRUCTURE_REVISION_OR_COGNITIVE_MODULE_REVISION_CHANGE_ENVELOPE'; do
+  require_exact_line_once \
+    "LogicalObjectMapping = ${logical_mapping}" \
+    "logical revision Relation Evidence mapping mismatch"
 done
 
 exception_counts="$(count_unique_rows ExceptionCode)"

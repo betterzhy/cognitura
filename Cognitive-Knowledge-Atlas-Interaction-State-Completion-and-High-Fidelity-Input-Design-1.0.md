@@ -923,12 +923,16 @@ OrthogonalAxis = RecoveryAxis|STABLE,HISTORY_RESTORING,REFRESH_RESTORING,RESTORE
 
 HistoricalStateCode = GENERATING
 LocalProjectionPhase = PROJECTION_GENERATING
+StableProjectionParameter = CognitivePerspective|URL_AND_HISTORY|NOT_AN_ORTHOGONAL_AXIS
 ```
 
 `ProcessingAxis.PROCESSING_IDLE` 与 `FocusAxis.IDLE` 分别表示处理空闲和无稳定对象
 聚焦，禁止共享无命名空间的本地 `IDLE`。同理，历史 `GENERATING` 只作为本表的
 原始追溯码；新投影流程一律使用 `PROJECTION_GENERATING`，不得与既有
 `PageState.GENERATING` 或历史码碰撞。
+`CognitivePerspective` 是可分享 URL 与稳定 Browser History 中恢复的 Projection
+参数，因此使用 `AXIS_VALUE` 分类表达稳定取值；它不加入 `InteractionSnapshot` 的
+六个正交主轴，也不构成第七主轴。
 
 | OriginalStateCode | Classification | OwningAxisOrFlow | PersistenceBoundary | URLHistoryDisposition | CanonicalWriteBoundary |
 |---|---|---|---|---|---|
@@ -942,7 +946,7 @@ LocalProjectionPhase = PROJECTION_GENERATING
 | READING_MODE | AXIS_VALUE | ModeAxis:READING | URL | URL_AND_HISTORY | NO_CANONICAL_WRITE |
 | VERIFICATION_MODE | AXIS_VALUE | ModeAxis:VERIFICATION | URL | URL_AND_HISTORY | NO_CANONICAL_WRITE |
 | REVISION_MODE | AXIS_VALUE | ModeAxis:REVISION | URL | URL_AND_HISTORY | NO_CANONICAL_WRITE |
-| COGNITIVE_PERSPECTIVE_OVERRIDE | FLOW_PHASE | PerspectiveProjectionFlow | URL | URL_AND_HISTORY | NO_CANONICAL_WRITE |
+| COGNITIVE_PERSPECTIVE_OVERRIDE | AXIS_VALUE | StableProjectionParameter:CognitivePerspective | URL | URL_AND_HISTORY | NO_CANONICAL_WRITE |
 | NO_DRAFT | AXIS_VALUE | DraftAxis:NO_DRAFT | SESSION_DRAFT_STORE | SESSION_RESTORE_ONLY | NO_CANONICAL_WRITE |
 | DIRTY_DRAFT | AXIS_VALUE | DraftAxis:DIRTY_DRAFT | SESSION_DRAFT_STORE | SESSION_RESTORE_ONLY | NO_CANONICAL_WRITE |
 | QUICK_REVISION | FLOW_PHASE | RevisionFlow:QUICK_REVISION | SESSION_DRAFT_STORE | SESSION_RESTORE_ONLY | NO_CANONICAL_WRITE |
@@ -1028,6 +1032,7 @@ PageStateMapping = CONFIRMED|ProcessingAxis.COMPLETE_WITH_CONFIRMED_REVISION
 PageStateMapping = PUBLISHED|CanonicalServerState.PUBLISHED_REVISION
 PageStateMapping = OUTDATED_BY_STRUCTURE_CHANGE|ProjectionFreshnessFlow.STALE_RETAINED
 
+PageStateEnumChange = NO
 PageStateSchemaChange = NO
 RendererInputChange = NO
 SchemaCatalogChange = NO

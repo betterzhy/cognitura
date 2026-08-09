@@ -214,6 +214,82 @@ sed -i.bak 's/PROJECTION_GENERATING/GENERATING/g' "${generating_collision}"
 rm "${generating_collision}.bak"
 expect_failure "${generating_collision}" "historical GENERATING must map to PROJECTION_GENERATING"
 
+mode_axis_contaminated="${test_tmp_root}/mode-axis-contaminated.md"
+cp "${document}" "${mode_axis_contaminated}"
+sed -i.bak \
+  's/^OrthogonalAxis = ModeAxis|READING,VERIFICATION,REVISION$/OrthogonalAxis = ModeAxis|READING,VERIFICATION,REVISION,DIRTY_DRAFT/' \
+  "${mode_axis_contaminated}"
+rm "${mode_axis_contaminated}.bak"
+expect_failure "${mode_axis_contaminated}" "ModeAxis value set mismatch"
+
+input_focus_in_history="${test_tmp_root}/input-focus-in-history.md"
+cp "${document}" "${input_focus_in_history}"
+sed -i.bak \
+  's/^| INPUT_FOCUS | TRANSIENT_UI | InputFocusFlow | EPHEMERAL_UI | NOT_PERSISTED | NO_CANONICAL_WRITE |$/| INPUT_FOCUS | TRANSIENT_UI | InputFocusFlow | BROWSER_HISTORY | URL_AND_HISTORY | NO_CANONICAL_WRITE |/' \
+  "${input_focus_in_history}"
+rm "${input_focus_in_history}.bak"
+expect_failure "${input_focus_in_history}" \
+  "TRANSIENT_UI must be EPHEMERAL_UI and not persisted"
+
+page_state_generating_collision="${test_tmp_root}/page-state-generating-collision.md"
+cp "${document}" "${page_state_generating_collision}"
+sed -i.bak \
+  's/^PageStateMapping = GENERATING|ProcessingAxis.PROJECTION_GENERATING$/PageStateMapping = GENERATING|ProcessingAxis.GENERATING/' \
+  "${page_state_generating_collision}"
+rm "${page_state_generating_collision}.bak"
+expect_failure "${page_state_generating_collision}" \
+  "GENERATING PageState mapping mismatch"
+
+appended_stable_parameter="${test_tmp_root}/appended-stable-parameter.md"
+cp "${document}" "${appended_stable_parameter}"
+sed -i.bak '/^| PREVIEW | TRANSIENT_UI |/a\
+| STABLE_PARAMETER | STABLE_PARAMETER | StableProjectionParameter:CognitivePerspective | URL | URL_AND_HISTORY | NO_CANONICAL_WRITE |' \
+  "${appended_stable_parameter}"
+rm "${appended_stable_parameter}.bak"
+expect_failure "${appended_stable_parameter}" "invalid Classification"
+
+url_ledger_contains_draft="${test_tmp_root}/url-ledger-contains-draft.md"
+cp "${document}" "${url_ledger_contains_draft}"
+sed -i.bak \
+  's/^PersistenceLedger = URL|Page,StableObject,Mode,StableRelation,ShareablePerspective|NO_DRAFT_ID_NO_TECHNICAL_VERSION_NO_PROCESS_PHASE$/PersistenceLedger = URL|Page,StableObject,Mode,StableRelation,ShareablePerspective,DraftId,ProcessPhase|NO_TECHNICAL_VERSION/' \
+  "${url_ledger_contains_draft}"
+rm "${url_ledger_contains_draft}.bak"
+expect_failure "${url_ledger_contains_draft}" "URL persistence ledger mismatch"
+
+projection_parameter_misclassified="${test_tmp_root}/projection-parameter-misclassified.md"
+cp "${document}" "${projection_parameter_misclassified}"
+sed -i.bak \
+  's/^| COGNITIVE_PERSPECTIVE_OVERRIDE | AXIS_VALUE | StableProjectionParameter:CognitivePerspective |/| COGNITIVE_PERSPECTIVE_OVERRIDE | FLOW_PHASE | StableProjectionParameter:CognitivePerspective |/' \
+  "${projection_parameter_misclassified}"
+rm "${projection_parameter_misclassified}.bak"
+expect_failure "${projection_parameter_misclassified}" \
+  "CognitivePerspective must be a stable Projection parameter AXIS_VALUE"
+
+contrary_non_change="${test_tmp_root}/contrary-non-change.md"
+cp "${document}" "${contrary_non_change}"
+sed -i.bak '/^PageStateEnumChange = NO$/a\
+PageStateEnumChange = YES' "${contrary_non_change}"
+rm "${contrary_non_change}.bak"
+expect_failure "${contrary_non_change}" "PageStateEnumChange must be declared exactly once"
+
+changed_relation_mapping="${test_tmp_root}/changed-relation-mapping.md"
+cp "${document}" "${changed_relation_mapping}"
+sed -i.bak \
+  's/^LogicalObjectMapping = RelationVersion|EXISTING_RELATION_WITHIN_OWNING_ARTIFACT_REVISION$/LogicalObjectMapping = RelationVersion|NEW_PHYSICAL_RELATION_TABLE/' \
+  "${changed_relation_mapping}"
+rm "${changed_relation_mapping}.bak"
+expect_failure "${changed_relation_mapping}" \
+  "logical revision Relation Evidence mapping mismatch"
+
+changed_submit_unknown="${test_tmp_root}/changed-submit-unknown.md"
+cp "${document}" "${changed_submit_unknown}"
+sed -i.bak \
+  's/^SubmitUnknownDisposition = QUERY_RESULT_WITH_SAME_IDEMPOTENCY_KEY$/SubmitUnknownDisposition = RETRY_WITH_NEW_IDEMPOTENCY_KEY/' \
+  "${changed_submit_unknown}"
+rm "${changed_submit_unknown}.bak"
+expect_failure "${changed_submit_unknown}" \
+  "persistence recovery invariant is missing or duplicated"
+
 premature_formal="${test_tmp_root}/premature-formal.md"
 cp "${document}" "${premature_formal}"
 sed -i.bak 's/CANDIDATE_AWAITING_REPOSITORY_GATE/FORMAL_HIGH_FIDELITY_INPUT_BASELINE/' \
@@ -427,4 +503,4 @@ expect_failure "${premature_real_high_fidelity_page}" \
 printf '%s\n' \
   "InteractionStateContractTests = PASS" \
   "StageAwarePositiveCases = 2" \
-  "NegativeCases = 38"
+  "NegativeCases = 47"
