@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-high-fidelity-design"
 cards_dir="${repo_root}/docs/task-cards/high-fidelity-design"
+master_plan="${repo_root}/docs/superpowers/plans/2026-08-06-high-fidelity-design-alignment.md"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-hf-design-cards.XXXXXX")"
 
 cleanup() {
@@ -29,8 +30,36 @@ expect_failure() {
     fail "expected error '${expected_message}', got: ${output}"
 }
 
+expect_plan_failure() {
+  local fixture_plan="$1"
+  local expected_message="$2"
+  local output
+
+  if output="$("${verifier}" --cards-dir "${cards_dir}" --plan "${fixture_plan}" 2>&1)"; then
+    fail "invalid Task 5 plan unexpectedly passed: ${fixture_plan}"
+  fi
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "expected error '${expected_message}', got: ${output}"
+}
+
+delete_step_command() {
+  local fixture_plan="$1"
+  local start_header="$2"
+  local end_header="$3"
+  local command="$4"
+  local rewritten_plan="${fixture_plan}.tmp"
+
+  awk -v start_header="${start_header}" -v end_header="${end_header}" -v command="${command}" '
+    $0 == start_header {inside=1}
+    $0 == end_header {inside=0}
+    !(inside && $0 == command) {print}
+  ' "${fixture_plan}" >"${rewritten_plan}"
+  mv "${rewritten_plan}" "${fixture_plan}"
+}
+
 [[ -x "${verifier}" ]] || fail "high-fidelity design verifier is missing or not executable"
 [[ -d "${cards_dir}" ]] || fail "high-fidelity design card directory is missing"
+[[ -f "${master_plan}" ]] || fail "high-fidelity master plan is missing"
 
 canonical_output="$("${verifier}" --cards-dir "${cards_dir}")" ||
   fail "canonical high-fidelity design cards were rejected"
@@ -236,6 +265,25 @@ sed -i.bak 's/^W1-I00Release = FORBIDDEN$/W1-I00Release = READY/' \
 rm "${w1_release_dir}/README.md.bak"
 expect_failure "${w1_release_dir}" "W1-I00Release must be FORBIDDEN"
 
+for plan_mutation in \
+  'step1-interaction-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh' \
+  'step1-manifest-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh' \
+  'step1-coverage-wrapper|- [ ] **Step 1: Freeze and verify the candidate**|- [ ] **Step 2: Run independent general and final reviews**|bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh' \
+  'step5-interaction-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh' \
+  'step5-manifest-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh' \
+  'step5-coverage-wrapper|- [ ] **Step 5: Verify and commit closure**|### Task 6: HV-D00 Visual Foundation and Prototype Governance|bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh'; do
+  mutation_name="${plan_mutation%%|*}"
+  plan_mutation_remainder="${plan_mutation#*|}"
+  start_header="${plan_mutation_remainder%%|*}"
+  plan_mutation_remainder="${plan_mutation_remainder#*|}"
+  end_header="${plan_mutation_remainder%%|*}"
+  command="${plan_mutation_remainder#*|}"
+  fixture_plan="${test_tmp_root}/${mutation_name}.md"
+  cp "${master_plan}" "${fixture_plan}"
+  delete_step_command "${fixture_plan}" "${start_header}" "${end_header}" "${command}"
+  expect_plan_failure "${fixture_plan}" "verification chain missing command: ${command}"
+done
+
 printf '%s\n' \
   "HighFidelityDesignTaskCardContractTests = PASS" \
-  "NegativeCases = 7"
+  "NegativeCases = 13"

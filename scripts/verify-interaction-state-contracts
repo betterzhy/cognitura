@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s [--document <path>] [--plan <path>] [--acceptance <path>]\n' "$0" >&2
+  printf 'Usage: %s [--document <path>] [--plan <path>] [--acceptance <path>] [--cards-index <path>]\n' "$0" >&2
   exit 2
 }
 
@@ -15,6 +15,7 @@ fail() {
 document=""
 plan=""
 acceptance=""
+cards_index=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --document)
@@ -32,6 +33,11 @@ while [[ "$#" -gt 0 ]]; do
       acceptance="$2"
       shift 2
       ;;
+    --cards-index)
+      [[ "$#" -ge 2 ]] || usage
+      cards_index="$2"
+      shift 2
+      ;;
     *) usage ;;
   esac
 done
@@ -41,9 +47,11 @@ if [[ -z "${document}" ]]; then
 fi
 [[ -n "${plan}" ]] || plan="${script_root}/docs/engineering/cognitura-high-fidelity-design-plan.md"
 [[ -n "${acceptance}" ]] || acceptance="${script_root}/docs/engineering/cognitura-high-fidelity-design-acceptance.md"
+[[ -n "${cards_index}" ]] || cards_index="${script_root}/docs/task-cards/high-fidelity-design/README.md"
 [[ -f "${document}" ]] || fail "MISSING_DOCUMENT: ${document}"
 [[ -f "${plan}" ]] || fail "MISSING_PLAN: ${plan}"
 [[ -f "${acceptance}" ]] || fail "MISSING_ACCEPTANCE: ${acceptance}"
+[[ -f "${cards_index}" ]] || fail "MISSING_CARDS_INDEX: ${cards_index}"
 
 require_exact_line_once() {
   local line="$1"
@@ -201,6 +209,64 @@ for boundary in BusinessImplementation FormalDatabaseWrite RemotePush; do
     "${boundary} = NOT_AUTHORIZED" \
     "${boundary} must be exactly NOT_AUTHORIZED"
 done
+active_design_card="$(sed -n 's/^ActiveTaskCard = //p' "${cards_index}")"
+if [[ "${active_design_card}" == "HF-D04" ]]; then
+  [[ "$(grep -Ec '^\| `HF-D04` \| .* \| `READY` \| `HF-D03` \| `HF-DG4` \|$' "${cards_index}" || true)" -eq 1 ]] ||
+    fail "HF-D04 must be the sole READY fixed-candidate review card"
+  for stale_hfd04_projection in \
+    'CANDIDATE_AWAITING_HF_DG1' \
+    'PENDING_HF_D03_LOCAL_GATE_AND_COMMIT'; do
+    [[ "$(grep -Fc "${stale_hfd04_projection}" "${document}" || true)" -eq 0 ]] || {
+      case "${stale_hfd04_projection}" in
+        CANDIDATE_AWAITING_HF_DG1)
+          fail "HF-D04 READY forbids stale HF-DG1 contract projections"
+          ;;
+        *)
+          fail "HF-D04 READY forbids pending HF-D03 commit status"
+          ;;
+      esac
+    }
+  done
+  [[ "$(grep -Fxc 'OverallDesign1_2BytesChangedByHFD01 = NO' "${document}" || true)" -eq 0 ]] ||
+    fail "HF-D01 must record the atomic Overall fingerprint refresh"
+  for hfd04_current_marker in \
+    'OverallDesign1_2Disposition = MINIMALLY_COORDINATED_PRODUCT_AUTHORITY' \
+    'OverallDesign1_2BytesChangedByHFD01 = YES' \
+    'Wave0OverallSourceManifestFingerprintRefreshedByHFD01 = YES' \
+    'GitCommitPerformed = HF_D03_DONE' \
+    'ActiveDesignTaskCard = HF-D04' \
+    'ActiveDesignTaskCardStatus = SOLE_READY_FIXED_CANDIDATE_REVIEW' \
+    'HFD03Status = DONE' \
+    'HFD04Status = SOLE_READY_FIXED_CANDIDATE_REVIEW'; do
+    require_exact_line_once "${hfd04_current_marker}" \
+      "HF-D04 current candidate marker is missing or duplicated: ${hfd04_current_marker}"
+  done
+  require_exact_line_once \
+    'VisualDesignBeforeHFD04Pass = FORBIDDEN' \
+    'visual design must remain forbidden before HF-D04 PASS'
+  for passed_contract in \
+    InteractiveCognitiveDocumentContract \
+    ZeroInteractionReadingContract \
+    DocumentContinuityContract \
+    CardAndContainerRestraintContract \
+    VisualPrimitiveDensityContract \
+    InteractionExposureContract \
+    ReadingGovernanceSeparationContract \
+    StaticProjectionContract \
+    RelationUnderstandabilityContract \
+    MechanismTypeScenarioContract \
+    RuleTypeScenarioContract \
+    BudgetMeasurementDefinition \
+    StableIdentityExportContract \
+    SecondRoundLowFidelityTraceability; do
+    passed_contract_values="$(field_values "${passed_contract}")"
+    [[ -n "${passed_contract_values}" ]] || fail "${passed_contract} current projection is missing"
+    while IFS= read -r passed_contract_value; do
+      [[ "${passed_contract_value}" == "PASS" ]] ||
+        fail "${passed_contract} must project the current CONTRACT Gate as PASS"
+    done <<<"${passed_contract_values}"
+  done
+fi
 grep -Fqx 'RepositoryIntegrationStatus = UNTRACKED_CANDIDATE_REGISTERED_BY_HF_D00' "${document}" ||
   fail "actual repository integration status is missing"
 for gap_id in DOC-GAP-HF-001 DOC-GAP-HF-002 DOC-GAP-HF-003; do

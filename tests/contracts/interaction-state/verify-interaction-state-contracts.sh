@@ -996,7 +996,43 @@ rm "${premature_real_high_fidelity_page}.bak"
 expect_failure "${premature_real_high_fidelity_page}" \
   "REAL_HIGH_FIDELITY_PAGE_PREMATURE_IN_HFD03"
 
+stale_hfdg1_projection="${test_tmp_root}/stale-hfdg1-projection.md"
+cp "${document}" "${stale_hfdg1_projection}"
+sed -i.bak \
+  's/^ZeroInteractionReadingContract = PASS$/ZeroInteractionReadingContract = CANDIDATE_AWAITING_HF_DG1/' \
+  "${stale_hfdg1_projection}"
+rm "${stale_hfdg1_projection}.bak"
+expect_failure "${stale_hfdg1_projection}" \
+  "HF-D04 READY forbids stale HF-DG1 contract projections"
+
+stale_hfd03_pending="${test_tmp_root}/stale-hfd03-pending.md"
+cp "${document}" "${stale_hfd03_pending}"
+sed -i.bak \
+  's/^GitCommitPerformed = HF_D03_DONE$/GitCommitPerformed = PENDING_HF_D03_LOCAL_GATE_AND_COMMIT/' \
+  "${stale_hfd03_pending}"
+rm "${stale_hfd03_pending}.bak"
+expect_failure "${stale_hfd03_pending}" \
+  "HF-D04 READY forbids pending HF-D03 commit status"
+
+stale_overall_bytes="${test_tmp_root}/stale-overall-bytes.md"
+cp "${document}" "${stale_overall_bytes}"
+sed -i.bak \
+  's/^OverallDesign1_2BytesChangedByHFD01 = YES$/OverallDesign1_2BytesChangedByHFD01 = NO/' \
+  "${stale_overall_bytes}"
+rm "${stale_overall_bytes}.bak"
+expect_failure "${stale_overall_bytes}" \
+  "HF-D01 must record the atomic Overall fingerprint refresh"
+
+premature_visual_before_hfd04="${test_tmp_root}/premature-visual-before-hfd04.md"
+cp "${document}" "${premature_visual_before_hfd04}"
+sed -i.bak \
+  's/^VisualDesignBeforeHFD04Pass = FORBIDDEN$/VisualDesignBeforeHFD04Pass = ALLOWED/' \
+  "${premature_visual_before_hfd04}"
+rm "${premature_visual_before_hfd04}.bak"
+expect_failure "${premature_visual_before_hfd04}" \
+  "visual design must remain forbidden before HF-D04 PASS"
+
 printf '%s\n' \
   "InteractionStateContractTests = PASS" \
   "StageAwarePositiveCases = 2" \
-  "NegativeCases = 86"
+  "NegativeCases = 90"

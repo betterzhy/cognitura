@@ -64,7 +64,7 @@ fingerprint_scope="$(sed -n 's/^    fingerprintScope: //p' "${manifest}")"
 [[ "${version}" == "Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0" ]] ||
   fail "VERSION_MISMATCH"
 [[ "${status}" == "CANDIDATE_AWAITING_REPOSITORY_GATE" ]] || fail "STATUS_MISMATCH"
-[[ "${fingerprint_scope}" == "HF-DG3_HIGH_FIDELITY_EVIDENCE_CONTRACT" ]] ||
+[[ "${fingerprint_scope}" == "HF-DG4_FIXED_CANDIDATE_REVIEW" ]] ||
   fail "FINGERPRINT_SCOPE_MISMATCH"
 
 source_file="${repo_root}/${source_path}"
@@ -81,6 +81,6 @@ printf '%s\n' \
   "SourceBodyManifestCoupling = REQUIRED" \
   "SourceCount = 1" \
   "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE" \
-  "SourceFingerprintScope = HF-DG3_HIGH_FIDELITY_EVIDENCE_CONTRACT" \
+  "SourceFingerprintScope = HF-DG4_FIXED_CANDIDATE_REVIEW" \
   "SourceSizeBytes = ${actual_size}" \
   "SourceSha256 = ${actual_hash}"

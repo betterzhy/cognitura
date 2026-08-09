@@ -209,17 +209,19 @@ Disposition = NOT_VERIFIED_AUTHORITY
 HF-D01 的权威边界为：
 
 ```text
-OverallDesign1_2Disposition = READ_ONLY_MANIFEST_FIXED_PRODUCT_AUTHORITY
-OverallDesign1_2BytesChangedByHFD01 = NO
+OverallDesign1_2Disposition = MINIMALLY_COORDINATED_PRODUCT_AUTHORITY
+OverallDesign1_2BytesChangedByHFD01 = YES
+Wave0OverallSourceManifestFingerprintRefreshedByHFD01 = YES
 HistoricalAppliedReverseMigration26Of26Changed = NO
 ReadingPresentationRefinementAuthority = THIS_SPECIALTY_UNDER_HF_DG1
 PageAndRendererProjection = STABLE_NON_SCHEMA_REFINEMENT_ONLY
 FormalSpecialtyPromotion = DEFERRED_TO_HF_D04
 ```
 
-因 Overall 1.2 同时是 Wave 0 source manifest 的固定输入，HF-D01 不对其追加或重写反向迁移记录。
-本文档在 `CONTRACT` 阶段对默认呈现做显式细化，页面与 Renderer 合同只投影该细化，
-不改写 Overall 的产品目标、层级、页面类型或历史版本。
+HF-D01 对 Overall 1.2 做了最小页面合同协调，并在同一卡原子刷新 Wave 0 source
+manifest 中 Overall 的精确字节数与 SHA-256；它没有改变历史
+`AppliedReverseMigration = 26/26`，也没有改写产品目标、正式层级或历史版本。本文档
+在 `CONTRACT` 阶段对默认呈现做显式细化，页面与 Renderer 合同只投影该细化。
 
 ### 0.3 CurrentLatestFiles
 
@@ -3711,12 +3713,12 @@ PersistentSidePanels = 0
 
 ```text
 ValidationStage = CONTRACT
-ZeroInteractionReadingContract = CANDIDATE_AWAITING_HF_DG1
-DocumentContinuityContract = CANDIDATE_AWAITING_HF_DG1
-CardAndContainerRestraintContract = CANDIDATE_AWAITING_HF_DG1
-VisualPrimitiveDensityContract = CANDIDATE_AWAITING_HF_DG1
-InteractionExposureContract = CANDIDATE_AWAITING_HF_DG1
-RelationUnderstandabilityContract = CANDIDATE_AWAITING_HF_DG1
+ZeroInteractionReadingContract = PASS
+DocumentContinuityContract = PASS
+CardAndContainerRestraintContract = PASS
+VisualPrimitiveDensityContract = PASS
+InteractionExposureContract = PASS
+RelationUnderstandabilityContract = PASS
 
 HighFidelityVisualResult = NOT_RUN
 HighFidelityUsabilityResult = NOT_RUN
@@ -3770,12 +3772,12 @@ CardGridAsPrimaryBody = NO
 
 ```text
 ValidationStage = CONTRACT
-ZeroInteractionReadingContract = CANDIDATE_AWAITING_HF_DG1
-DocumentContinuityContract = CANDIDATE_AWAITING_HF_DG1
-CardAndContainerRestraintContract = CANDIDATE_AWAITING_HF_DG1
-VisualPrimitiveDensityContract = CANDIDATE_AWAITING_HF_DG1
-InteractionExposureContract = CANDIDATE_AWAITING_HF_DG1
-RelationUnderstandabilityContract = CANDIDATE_AWAITING_HF_DG1
+ZeroInteractionReadingContract = PASS
+DocumentContinuityContract = PASS
+CardAndContainerRestraintContract = PASS
+VisualPrimitiveDensityContract = PASS
+InteractionExposureContract = PASS
+RelationUnderstandabilityContract = PASS
 
 HighFidelityVisualResult = NOT_RUN
 HighFidelityUsabilityResult = NOT_RUN
@@ -3785,8 +3787,8 @@ HighFidelityUsabilityResult = NOT_RUN
 
 ```text
 ValidationStage = CONTRACT
-MechanismTypeScenarioContract = CANDIDATE_AWAITING_HF_DG1
-RuleTypeScenarioContract = CANDIDATE_AWAITING_HF_DG1
+MechanismTypeScenarioContract = PASS
+RuleTypeScenarioContract = PASS
 CrossDomainScenarioContractValidation = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
 
 SingleDomainPageModelRequired = NO
@@ -3992,14 +3994,14 @@ HF-D01、HF-D02 与 HF-D03 已依次使 Reading First、状态恢复和高保真
 
 ```text
 ReadingFirstPresentationContract = PASS
-InteractiveCognitiveDocumentContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-ZeroInteractionReadingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-DocumentContinuityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-CardAndContainerRestraintContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-VisualPrimitiveDensityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-InteractionExposureContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-ReadingGovernanceSeparationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-StaticProjectionContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+InteractiveCognitiveDocumentContract = PASS
+ZeroInteractionReadingContract = PASS
+DocumentContinuityContract = PASS
+CardAndContainerRestraintContract = PASS
+VisualPrimitiveDensityContract = PASS
+InteractionExposureContract = PASS
+ReadingGovernanceSeparationContract = PASS
+StaticProjectionContract = PASS
 CrossDomainScenarioContractValidation = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
 
 PreviewAndPinnedFocusContract = PASS
@@ -4011,9 +4013,9 @@ DraftReturnAndRecoveryContract = PASS
 HighFidelityInteractionStateMatrix = PASS
 ExceptionAndRecoveryStateMatrix = PASS
 URLHistoryAndRefreshContract = PASS
-BudgetMeasurementDefinition = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-StableIdentityExportContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-SecondRoundLowFidelityTraceability = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+BudgetMeasurementDefinition = PASS
+StableIdentityExportContract = PASS
+SecondRoundLowFidelityTraceability = PASS
 HighFidelityEvidenceContract = PASS
 
 ContractP0Remaining = DEFERRED_TO_HF_D04
@@ -4273,11 +4275,10 @@ VersionChanged =
 GitRepositoryConnected =
   YES
 
-GitCommitPerformed =
-  PENDING_HF_D03_LOCAL_GATE_AND_COMMIT
-
-RecommendedCommit =
-  docs: define high fidelity evidence gates
+GitCommitPerformed = HF_D03_DONE
+ActiveDesignTaskCard = HF-D04
+ActiveDesignTaskCardStatus = SOLE_READY_FIXED_CANDIDATE_REVIEW
+RecommendedCommit = fix: refresh fixed high fidelity review candidate
 ```
 
 本次产物级检查：
@@ -4316,14 +4317,14 @@ Status =
   CANDIDATE_AWAITING_REPOSITORY_GATE
 
 ReadingFirstPresentationContract = PASS
-InteractiveCognitiveDocumentContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-ZeroInteractionReadingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-DocumentContinuityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-CardAndContainerRestraintContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-VisualPrimitiveDensityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-InteractionExposureContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-ReadingGovernanceSeparationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-StaticProjectionContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+InteractiveCognitiveDocumentContract = PASS
+ZeroInteractionReadingContract = PASS
+DocumentContinuityContract = PASS
+CardAndContainerRestraintContract = PASS
+VisualPrimitiveDensityContract = PASS
+InteractionExposureContract = PASS
+ReadingGovernanceSeparationContract = PASS
+StaticProjectionContract = PASS
 
 PreviewAndPinnedFocusContract = PASS
 ElementRelationFocusPriorityContract = PASS
@@ -4336,9 +4337,9 @@ OrthogonalStateRecoveryContract = PASS
 HighFidelityInteractionStateMatrix = PASS
 ExceptionAndRecoveryStateMatrix = PASS
 URLHistoryAndRefreshContract = PASS
-BudgetMeasurementDefinition = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-StableIdentityExportContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
-SecondRoundLowFidelityTraceability = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+BudgetMeasurementDefinition = PASS
+StableIdentityExportContract = PASS
+SecondRoundLowFidelityTraceability = PASS
 CrossDomainScenarioContractValidation = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
 
 HighFidelityEvidenceContract = PASS
@@ -4374,6 +4375,9 @@ NextStage =
   HF_D04_FIXED_DESIGN_REVIEW
 
 HFD03Scope = HIGH_FIDELITY_EVIDENCE_INPUT_CONTRACT_ONLY
+HFD03Status = DONE
+HFD04Status = SOLE_READY_FIXED_CANDIDATE_REVIEW
+VisualDesignBeforeHFD04Pass = FORBIDDEN
 RealHighFidelityPageDesign = DEFERRED_UNTIL_HF_D04_PASS_AND_SEPARATE_HV_GATE
 HighFidelityVisualAndUsabilityValidation = DEFERRED_UNTIL_SEPARATE_HV_GATE
 ```

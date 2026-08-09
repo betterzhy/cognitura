@@ -541,7 +541,17 @@ Run against that frozen SHA:
 
 ```bash
 scripts/verify-high-fidelity-design
-scripts/verify-wave0
+bash tests/task-cards/verify-high-fidelity-design-cards.sh
+scripts/verify-interaction-state-contracts
+bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
+scripts/verify-high-fidelity-design-manifest
+bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
+scripts/verify-high-fidelity-contract-coverage
+bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
+bash tests/contracts/ui/verify-ui-contracts.sh
+npm exec --yes --package=node@24.18.0 -- sh -c 'scripts/verify-wave0 --stage schema'
+bash tests/ci/verify-markdown-links.sh
+npm exec --yes --package=node@24.18.0 -- sh -c 'scripts/verify-wave0'
 git diff --check
 git status --short
 ```
@@ -590,11 +600,17 @@ Run:
 
 ```bash
 scripts/verify-high-fidelity-design
+bash tests/task-cards/verify-high-fidelity-design-cards.sh
+scripts/verify-interaction-state-contracts
+bash tests/contracts/interaction-state/verify-interaction-state-contracts.sh
 scripts/verify-high-fidelity-design-manifest
 bash tests/contracts/interaction-state/verify-high-fidelity-design-manifest.sh
 scripts/verify-high-fidelity-contract-coverage
 bash tests/contracts/interaction-state/verify-high-fidelity-contract-coverage.sh
-scripts/verify-wave0
+bash tests/contracts/ui/verify-ui-contracts.sh
+npm exec --yes --package=node@24.18.0 -- sh -c 'scripts/verify-wave0 --stage schema'
+bash tests/ci/verify-markdown-links.sh
+npm exec --yes --package=node@24.18.0 -- sh -c 'scripts/verify-wave0'
 git diff --check
 ```
 
