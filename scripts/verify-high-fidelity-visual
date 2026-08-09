@@ -681,29 +681,135 @@ fi
   fail "Chrome headless is required for visual evidence freshness validation"
 
 runtime_tmp="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-hv-runtime.XXXXXX")"
+rogue_chrome_profile="${runtime_tmp}/chrome-profile-rogue"
+foundation_chrome_profile="${runtime_tmp}/chrome-profile-foundation"
+module_dom_chrome_profile="${runtime_tmp}/chrome-profile-module-dom"
+module_png_chrome_profile="${runtime_tmp}/chrome-profile-module-png"
 cleanup_runtime() {
-  rm -f "${runtime_tmp}/visual-foundation-desktop.png"
-  rm -f "${runtime_tmp}/module-default-reading-desktop.png"
-  rmdir "${runtime_tmp}" 2>/dev/null || true
+  rm -rf "${runtime_tmp}"
 }
 trap cleanup_runtime EXIT
 
-rogue_dom="$("${chrome_bin}" \
-  --headless=new --disable-gpu --hide-scrollbars \
-  --dump-dom \
-  "file://${prototype_dir}/index.html?state=rogue-state" 2>/dev/null)" ||
+terminate_headless_chrome() {
+  local chrome_pid="$1"
+  kill "${chrome_pid}" 2>/dev/null || true
+  wait "${chrome_pid}" 2>/dev/null || true
+}
+
+run_headless_dump_dom() {
+  local chrome_profile="$1"
+  local output_file="$2"
+  local fixture_url="$3"
+  local chrome_pid attempt artifact_ready
+
+  "${chrome_bin}" \
+    --headless=new --disable-gpu --hide-scrollbars \
+    --user-data-dir="${chrome_profile}" --no-first-run --no-default-browser-check \
+    --use-mock-keychain --dump-dom "${fixture_url}" >"${output_file}" 2>/dev/null &
+  chrome_pid=$!
+  artifact_ready=NO
+  attempt=0
+  while [[ "${attempt}" -lt 300 ]]; do
+    if grep -Fq '</html>' "${output_file}" 2>/dev/null; then
+      artifact_ready=YES
+      break
+    fi
+    kill -0 "${chrome_pid}" 2>/dev/null || break
+    sleep 0.1
+    attempt=$((attempt + 1))
+  done
+  terminate_headless_chrome "${chrome_pid}"
+  [[ "${artifact_ready}" == "YES" ]]
+}
+
+run_headless_screenshot() {
+  local chrome_profile="$1"
+  local output_file="$2"
+  local viewport="$3"
+  local fixture_url="$4"
+  local chrome_pid attempt artifact_ready
+
+  "${chrome_bin}" \
+    --headless=new --disable-gpu --hide-scrollbars \
+    --user-data-dir="${chrome_profile}" --no-first-run --no-default-browser-check \
+    --use-mock-keychain --window-size="${viewport}" \
+    --screenshot="${output_file}" "${fixture_url}" >/dev/null 2>&1 &
+  chrome_pid=$!
+  artifact_ready=NO
+  attempt=0
+  while [[ "${attempt}" -lt 300 ]]; do
+    if file "${output_file}" 2>/dev/null | grep -Fq 'PNG image data'; then
+      artifact_ready=YES
+      break
+    fi
+    kill -0 "${chrome_pid}" 2>/dev/null || break
+    sleep 0.1
+    attempt=$((attempt + 1))
+  done
+  terminate_headless_chrome "${chrome_pid}"
+  [[ "${artifact_ready}" == "YES" ]]
+}
+
+evaluated_dom_literal_count() {
+  local evaluated_dom="$1"
+  local literal="$2"
+  printf '%s\n' "${evaluated_dom}" |
+    { grep -Fo -- "${literal}" || true; } |
+    wc -l |
+    tr -d '[:space:]'
+}
+
+evaluated_dom_regex_count() {
+  local evaluated_dom="$1"
+  local regex="$2"
+  printf '%s\n' "${evaluated_dom}" |
+    { grep -Eo -- "${regex}" || true; } |
+    wc -l |
+    tr -d '[:space:]'
+}
+
+evaluated_dom_attribute_value() {
+  local evaluated_dom="$1"
+  local attribute="$2"
+  local matches match_count
+  matches="$(printf '%s\n' "${evaluated_dom}" | { grep -Eo -- "${attribute}=\"[^\"]*\"" || true; })"
+  match_count="$(printf '%s\n' "${matches}" | awk 'NF {count++} END {print count+0}')"
+  [[ "${match_count}" -eq 1 ]] ||
+    fail "module-default evaluated DOM must declare ${attribute} exactly once"
+  printf '%s\n' "${matches}" | sed -n "s/^${attribute}=\"\([^\"]*\)\"$/\1/p"
+}
+
+evaluated_dom_section() {
+  local evaluated_dom="$1"
+  local opening_pattern="$2"
+  local closing_pattern="$3"
+  printf '%s\n' "${evaluated_dom}" | awk \
+    -v opening_pattern="${opening_pattern}" \
+    -v closing_pattern="${closing_pattern}" '
+      index($0, opening_pattern) {inside=1}
+      inside {print}
+      inside && index($0, closing_pattern) {exit}
+    '
+}
+
+rogue_dom_file="${runtime_tmp}/rogue-state-dom.html"
+run_headless_dump_dom \
+  "${rogue_chrome_profile}" \
+  "${rogue_dom_file}" \
+  "file://${prototype_dir}/index.html?state=rogue-state" ||
   fail "Chrome could not evaluate the unknown fixture state"
+rogue_dom="$(<"${rogue_dom_file}")"
 [[ "${rogue_dom}" == *'data-fixture-status="REJECTED_UNKNOWN_STATE"'* ]] ||
   fail "unknown fixture state must be explicitly rejected"
 [[ "${rogue_dom}" == *'data-state-fixture="REJECTED"'* ]] ||
   fail "unknown fixture state must not fall back to a canonical fixture"
 
 captured_png="${runtime_tmp}/visual-foundation-desktop.png"
-"${chrome_bin}" \
-  --headless=new --disable-gpu --hide-scrollbars \
-  --window-size=1440,1100 \
-  --screenshot="${captured_png}" \
-  "file://${prototype_dir}/index.html?state=visual-foundation" >/dev/null 2>&1 ||
+run_headless_screenshot \
+  "${foundation_chrome_profile}" \
+  "${captured_png}" \
+  '1440,1100' \
+  "file://${prototype_dir}/index.html?state=visual-foundation" ||
   fail "Chrome could not recapture the visual foundation evidence"
 captured_description="$(file "${captured_png}" 2>/dev/null || true)"
 [[ "${captured_description}" == *"PNG image data, 1440 x 1100"* ]] ||
@@ -717,11 +823,13 @@ if [[ "${active_number}" -ge 2 ]]; then
   require_text "${evidence_dir}/README.md" 'module-default-reading-desktop.png'
   require_text "${evidence_dir}/README.md" 'state=module-default'
 
-  module_dom="$("${chrome_bin}" \
-    --headless=new --disable-gpu --hide-scrollbars \
-    --dump-dom \
-    "file://${prototype_dir}/index.html?state=module-default" 2>/dev/null)" ||
+  module_dom_file="${runtime_tmp}/module-default-dom.html"
+  run_headless_dump_dom \
+    "${module_dom_chrome_profile}" \
+    "${module_dom_file}" \
+    "file://${prototype_dir}/index.html?state=module-default" ||
     fail "Chrome could not evaluate the module-default fixture"
+  module_dom="$(<"${module_dom_file}")"
   for module_dom_contract in \
     'data-fixture-status="ACCEPTED"' \
     'data-state-fixture="module-default"' \
@@ -741,8 +849,54 @@ if [[ "${active_number}" -ge 2 ]]; then
     [[ "${module_dom}" == *"${module_dom_contract}"* ]] ||
       fail "module-default DOM is missing contract: ${module_dom_contract}"
   done
-  [[ "$(grep -Fc 'class="module-primary-projection"' "${prototype_dir}/index.html" || true)" -eq 1 ]] ||
-    fail "module-default must contain exactly one primary visual projection"
+
+  module_document_count="$(evaluated_dom_literal_count "${module_dom}" 'id="module-default-document"')"
+  [[ "${module_document_count}" -eq 1 ]] ||
+    fail "module-default must contain exactly one real document root"
+
+  module_opening_dom="$(evaluated_dom_section "${module_dom}" '<header class="module-opening">' '</header>')"
+  core_question_count="$(evaluated_dom_regex_count "${module_opening_dom}" '<h1([ >])')"
+  [[ "${core_question_count}" -eq 1 ]] ||
+    fail "module-default must contain exactly one real CoreQuestion"
+
+  core_conclusion_count="$(evaluated_dom_literal_count "${module_dom}" 'class="module-conclusion-lead"')"
+  [[ "${core_conclusion_count}" -eq 1 ]] ||
+    fail "module-default must contain exactly one real CoreConclusion"
+
+  module_closure_count="$(evaluated_dom_literal_count "${module_dom}" 'class="module-closure"')"
+  [[ "${module_closure_count}" -eq 1 ]] ||
+    fail "module-default must contain exactly one real .module-closure"
+  module_closure_dom="$(evaluated_dom_section "${module_dom}" '<section class="module-closure"' '</section>')"
+  for closure_region in Conditions Results 'Boundaries / Exceptions'; do
+    closure_region_count="$(evaluated_dom_literal_count "${module_closure_dom}" "${closure_region} ·")"
+    [[ "${closure_region_count}" -eq 1 ]] ||
+      fail "module-default must contain exactly one real ${closure_region} region"
+  done
+
+  primary_projection_count="$(evaluated_dom_literal_count "${module_dom}" 'class="module-primary-projection"')"
+  [[ "${primary_projection_count}" -eq 1 ]] ||
+    fail "module-default must contain exactly one real primary visual projection"
+  declared_primary_projection_count="$(evaluated_dom_attribute_value "${module_dom}" 'data-primary-visual-projection-count')"
+  [[ "${primary_projection_count}" == "${declared_primary_projection_count}" ]] ||
+    fail "module-default real primary visual projection count ${primary_projection_count} does not match declared count ${declared_primary_projection_count}"
+
+  module_relations_count="$(evaluated_dom_literal_count "${module_dom}" 'class="module-relations"')"
+  [[ "${module_relations_count}" -eq 1 ]] ||
+    fail "module-default must contain exactly one real .module-relations"
+  module_relations_dom="$(evaluated_dom_section "${module_dom}" '<section class="module-relations"' '</section>')"
+  relation_count="$(evaluated_dom_regex_count "${module_relations_dom}" '<li([ >])')"
+  [[ "${relation_count}" -ge 1 && "${relation_count}" -le 3 ]] ||
+    fail "module-default real Relation count must be between 1 and 3"
+  declared_relation_count="$(evaluated_dom_attribute_value "${module_dom}" 'data-key-relation-count')"
+  [[ "${relation_count}" == "${declared_relation_count}" ]] ||
+    fail "module-default real Relation count ${relation_count} does not match declared count ${declared_relation_count}"
+
+  persistent_governance_count="$(evaluated_dom_literal_count "${module_dom}" 'class="persistent-governance-sidebar"')"
+  declared_persistent_governance_count="$(evaluated_dom_attribute_value "${module_dom}" 'data-persistent-governance-side-panel-count')"
+  [[ "${persistent_governance_count}" == "${declared_persistent_governance_count}" ]] ||
+    fail "module-default real persistent governance side panel count ${persistent_governance_count} does not match declared count ${declared_persistent_governance_count}"
+  [[ "${persistent_governance_count}" -eq 0 ]] ||
+    fail "module-default real persistent governance side panel count must be 0"
 
   module_evidence_png="${evidence_dir}/module-default-reading-desktop.png"
   [[ -f "${module_evidence_png}" ]] || fail "module-default visual evidence is missing"
@@ -750,11 +904,11 @@ if [[ "${active_number}" -ge 2 ]]; then
   [[ "${module_png_description}" == *"PNG image data, 1440 x 1100"* ]] ||
     fail "module-default visual evidence must be a 1440x1100 PNG"
   captured_module_png="${runtime_tmp}/module-default-reading-desktop.png"
-  "${chrome_bin}" \
-    --headless=new --disable-gpu --hide-scrollbars \
-    --window-size=1440,1100 \
-    --screenshot="${captured_module_png}" \
-    "file://${prototype_dir}/index.html?state=module-default" >/dev/null 2>&1 ||
+  run_headless_screenshot \
+    "${module_png_chrome_profile}" \
+    "${captured_module_png}" \
+    '1440,1100' \
+    "file://${prototype_dir}/index.html?state=module-default" ||
     fail "Chrome could not recapture the module-default evidence"
   captured_module_description="$(file "${captured_module_png}" 2>/dev/null || true)"
   [[ "${captured_module_description}" == *"PNG image data, 1440 x 1100"* ]] ||
@@ -777,6 +931,7 @@ printf 'UnknownFixtureStateRejection = PASS\n'
 printf 'VisualFoundationEvidenceFreshness = PASS\n'
 if [[ "${active_number}" -ge 2 ]]; then
   printf 'ModuleDefaultReadingPrototypeValidation = PASS\n'
+  printf 'ModuleDefaultReadingRealDOMValidation = PASS\n'
   printf 'ModuleDefaultReadingEvidence = 1440x1100\n'
   printf 'ModuleDefaultReadingEvidenceFreshness = PASS\n'
 fi

@@ -65,7 +65,85 @@ make_fixture() {
   cp "${evidence_plan}" "${fixture_root}/evidence-plan.md"
 }
 
+chrome_bin="${CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
+[[ -x "${chrome_bin}" ]] || fail "Chrome headless is required for DOM mutation screenshot recapture"
+
+terminate_headless_chrome() {
+  local chrome_pid="$1"
+  kill "${chrome_pid}" 2>/dev/null || true
+  wait "${chrome_pid}" 2>/dev/null || true
+}
+
+recapture_module_evidence() {
+  local fixture_root="$1"
+  local chrome_profile="${fixture_root}/chrome-profile-recapture"
+  local staged_png="${fixture_root}/evidence/.module-default-reading-recapture.png"
+  local chrome_pid attempt artifact_ready
+
+  "${chrome_bin}" \
+    --headless=new --disable-gpu --hide-scrollbars \
+    --user-data-dir="${chrome_profile}" --no-first-run --no-default-browser-check \
+    --use-mock-keychain \
+    --window-size=1440,1100 \
+    --screenshot="${staged_png}" \
+    "file://${fixture_root}/prototype/index.html?state=module-default" >/dev/null 2>&1 &
+  chrome_pid=$!
+  artifact_ready=NO
+  attempt=0
+  while [[ "${attempt}" -lt 300 ]]; do
+    if file "${staged_png}" 2>/dev/null | grep -Fq 'PNG image data, 1440 x 1100'; then
+      artifact_ready=YES
+      break
+    fi
+    kill -0 "${chrome_pid}" 2>/dev/null || break
+    sleep 0.1
+    attempt=$((attempt + 1))
+  done
+  terminate_headless_chrome "${chrome_pid}"
+  [[ "${artifact_ready}" == "YES" ]] ||
+    fail "could not recapture module-default mutation evidence: ${fixture_root}"
+  mv -f "${staged_png}" "${fixture_root}/evidence/module-default-reading-desktop.png"
+  file "${fixture_root}/evidence/module-default-reading-desktop.png" |
+    grep -Fq 'PNG image data, 1440 x 1100' ||
+    fail "recaptured module-default mutation evidence must be a 1440x1100 PNG: ${fixture_root}"
+}
+
+module_dom_unexpected_passes=()
+expect_module_dom_failure() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local output
+
+  recapture_module_evidence "${fixture_root}"
+  if output="$(run_verifier \
+    "${fixture_root}/cards" \
+    "${fixture_root}/visual-design.md" \
+    "${fixture_root}/prototype" \
+    "${fixture_root}/evidence" \
+    "${fixture_root}/master-plan.md" \
+    "${fixture_root}/acceptance.md" \
+    "${fixture_root}/evidence-plan.md" 2>&1)"; then
+    module_dom_unexpected_passes+=("$(basename "${fixture_root}")")
+    return
+  fi
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "expected DOM error '${expected_message}', got: ${output}"
+}
+
+assert_module_dom_failures_closed() {
+  [[ "${#module_dom_unexpected_passes[@]}" -eq 0 ]] ||
+    fail "module-default DOM mutations unexpectedly passed after fresh screenshot recapture: ${module_dom_unexpected_passes[*]}"
+}
+
 [[ -x "${verifier}" ]] || fail "high-fidelity visual verifier is missing or not executable"
+[[ "$(grep -Fc -- '--user-data-dir=' "${verifier}" || true)" -eq 2 ]] ||
+  fail "every validator Chrome launch must use an isolated temporary user-data-dir"
+[[ "$(grep -Fc -- '--user-data-dir=' "${BASH_SOURCE[0]}" || true)" -ge 2 ]] ||
+  fail "DOM mutation screenshot recapture must use an isolated temporary user-data-dir"
+grep -Fq 'terminate_headless_chrome() {' "${verifier}" ||
+  fail "validator Chrome launches must terminate after their artifact is ready"
+grep -Fq 'terminate_headless_chrome() {' "${BASH_SOURCE[0]}" ||
+  fail "DOM mutation Chrome launches must terminate after their screenshot is ready"
 
 canonical_output="$(run_verifier \
   "${cards_dir}" \
@@ -90,6 +168,7 @@ for expected_line in \
   "UnknownFixtureStateRejection = PASS" \
   "VisualFoundationEvidenceFreshness = PASS" \
   "ModuleDefaultReadingPrototypeValidation = PASS" \
+  "ModuleDefaultReadingRealDOMValidation = PASS" \
   "ModuleDefaultReadingEvidence = 1440x1100" \
   "ModuleDefaultReadingEvidenceFreshness = PASS" \
   "HighFidelityVisualDesign = NOT_RUN" \
@@ -282,6 +361,90 @@ rm "${persistent_module_governance}/prototype/prototype.js.bak"
 expect_failure "${persistent_module_governance}" \
   'module-default DOM is missing contract: data-persistent-governance-side-panel-count="0"'
 
+missing_real_module_closure="${test_tmp_root}/missing-real-module-closure"
+make_fixture "${missing_real_module_closure}"
+perl -0pi -e 's#\s*<section class="module-closure".*?</section>##s' \
+  "${missing_real_module_closure}/prototype/index.html"
+expect_module_dom_failure "${missing_real_module_closure}" \
+  'module-default must contain exactly one real .module-closure'
+
+missing_real_core_question="${test_tmp_root}/missing-real-core-question"
+make_fixture "${missing_real_core_question}"
+perl -0pi -e 's#(<header class="module-opening">\s*)<div>.*?</div>#$1#s' \
+  "${missing_real_core_question}/prototype/index.html"
+expect_module_dom_failure "${missing_real_core_question}" \
+  'module-default must contain exactly one real CoreQuestion'
+
+duplicate_real_core_question="${test_tmp_root}/duplicate-real-core-question"
+make_fixture "${duplicate_real_core_question}"
+perl -0pi -e 's#(<header class="module-opening">\s*)(<div>.*?</div>)#$1$2$2#s' \
+  "${duplicate_real_core_question}/prototype/index.html"
+expect_module_dom_failure "${duplicate_real_core_question}" \
+  'module-default must contain exactly one real CoreQuestion'
+
+missing_real_core_conclusion="${test_tmp_root}/missing-real-core-conclusion"
+make_fixture "${missing_real_core_conclusion}"
+perl -0pi -e 's#\s*<div class="module-conclusion-lead".*?</div>##s' \
+  "${missing_real_core_conclusion}/prototype/index.html"
+expect_module_dom_failure "${missing_real_core_conclusion}" \
+  'module-default must contain exactly one real CoreConclusion'
+
+duplicate_real_core_conclusion="${test_tmp_root}/duplicate-real-core-conclusion"
+make_fixture "${duplicate_real_core_conclusion}"
+perl -0pi -e 's#(<div class="module-conclusion-lead".*?</div>)#$1$1#s' \
+  "${duplicate_real_core_conclusion}/prototype/index.html"
+expect_module_dom_failure "${duplicate_real_core_conclusion}" \
+  'module-default must contain exactly one real CoreConclusion'
+
+for closure_region in Conditions Results 'Boundaries / Exceptions'; do
+  closure_slug="$(printf '%s' "${closure_region}" | tr '[:upper:] /' '[:lower:]--')"
+  missing_real_closure_region="${test_tmp_root}/missing-real-${closure_slug}"
+  make_fixture "${missing_real_closure_region}"
+  CLOSURE_REGION="${closure_region}" perl -0pi -e \
+    's#\s*<div>\s*<p class="eyebrow">\Q$ENV{CLOSURE_REGION}\E.*?</div>##s' \
+    "${missing_real_closure_region}/prototype/index.html"
+  expect_module_dom_failure "${missing_real_closure_region}" \
+    "module-default must contain exactly one real ${closure_region} region"
+
+  duplicate_real_closure_region="${test_tmp_root}/duplicate-real-${closure_slug}"
+  make_fixture "${duplicate_real_closure_region}"
+  CLOSURE_REGION="${closure_region}" perl -0pi -e \
+    's#(<div>\s*<p class="eyebrow">\Q$ENV{CLOSURE_REGION}\E.*?</div>)#$1$1#s' \
+    "${duplicate_real_closure_region}/prototype/index.html"
+  expect_module_dom_failure "${duplicate_real_closure_region}" \
+    "module-default must contain exactly one real ${closure_region} region"
+done
+
+four_real_relations="${test_tmp_root}/four-real-relations"
+make_fixture "${four_real_relations}"
+perl -0pi -e 's#(<li><strong>Read View</strong><span>约束</span><strong>记录版本可见性</strong></li>)#$1\n              <li><strong>活跃事务范围</strong><span>限制</span><strong>观察边界</strong></li>\n              <li><strong>Undo 版本链</strong><span>提供</span><strong>历史候选</strong></li>#' \
+  "${four_real_relations}/prototype/index.html"
+expect_module_dom_failure "${four_real_relations}" \
+  'module-default real Relation count must be between 1 and 3'
+
+mismatched_real_relation_count="${test_tmp_root}/mismatched-real-relation-count"
+make_fixture "${mismatched_real_relation_count}"
+perl -0pi -e 's#(<li><strong>Read View</strong><span>约束</span><strong>记录版本可见性</strong></li>)#$1\n              <li><strong>Undo 版本链</strong><span>提供</span><strong>历史候选</strong></li>#' \
+  "${mismatched_real_relation_count}/prototype/index.html"
+expect_module_dom_failure "${mismatched_real_relation_count}" \
+  'module-default real Relation count 3 does not match declared count 2'
+
+real_persistent_governance_sidebar="${test_tmp_root}/real-persistent-governance-sidebar"
+make_fixture "${real_persistent_governance_sidebar}"
+perl -0pi -e 's#(<main\s+id="module-default-document")#<aside class="persistent-governance-sidebar">Governance</aside>\n        $1#s' \
+  "${real_persistent_governance_sidebar}/prototype/index.html"
+expect_module_dom_failure "${real_persistent_governance_sidebar}" \
+  'module-default real persistent governance side panel count 1 does not match declared count 0'
+
+second_real_primary_projection="${test_tmp_root}/second-real-primary-projection"
+make_fixture "${second_real_primary_projection}"
+perl -0pi -e 's#(<figure\s+class="module-primary-projection".*?</figure>)#$1$1#s' \
+  "${second_real_primary_projection}/prototype/index.html"
+expect_module_dom_failure "${second_real_primary_projection}" \
+  'module-default must contain exactly one'
+
+assert_module_dom_failures_closed
+
 missing_module_source_label="${test_tmp_root}/missing-module-source-label"
 make_fixture "${missing_module_source_label}"
 sed -i.bak \
@@ -335,4 +498,5 @@ expect_failure "${premature_future_owner}" \
 
 printf 'HighFidelityVisualTaskCardContractTests = PASS\n'
 printf 'ExistingNegativeFixtureCount = 44\n'
-printf 'NegativeFixtureCount = 52\n'
+printf 'HV-D01FixRound1DOMNegativeFixtureCount = 15\n'
+printf 'NegativeFixtureCount = 67\n'
