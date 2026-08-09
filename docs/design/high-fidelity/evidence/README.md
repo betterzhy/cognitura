@@ -148,6 +148,51 @@ HighFidelityRevisionAndRecovery = PASS
 `HIGH_FIDELITY_VISUAL` 阶段为 PASS；正式 RF/Exception 输入行、整体视觉、可用性和
 实现状态仍不变。
 
+## HV-D04 跨层、小屏与静态导出证据
+
+```text
+Artifact = knowledge-landscape-theme-desktop.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=domain-default
+Viewport = 1440x1100
+ArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+EvidenceClass = KnowledgeLandscapeAndKnowledgeTheme
+FreshnessCheck = CHROME_RECAPTURE_BYTE_IDENTICAL
+CanonicalHierarchy = KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement
+
+Artifact = cross-domain-reading-desktop.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=theme-default
+Viewport = 1440x1100
+ArtifactStatus = CAPTURED_SUPPORTING_HIGH_FIDELITY_VISUAL
+EvidenceMeaning = MECHANISM_AND_RULE_POLICY_RETAIN_ONE_CANONICAL_HIERARCHY
+
+Artifact = module-default-reading-small-screen.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=module-small-screen
+Viewport = 390x844
+ArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+EvidenceClass = SmallScreenSafeReadable
+PrimarySurface = DOCUMENT_FLOW
+PersistentSidePanelCount = 0
+TouchTargetMinimum = 44px
+
+Artifact = static-export-example.png
+PrototypeURL = docs/design/high-fidelity/prototype/index.html?state=static-export
+Viewport = 1200x1600
+ArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+EvidenceClass = StaticExport
+CompanionManifest = static-export-manifest.json
+MachineIdentity = OBJECT_RELATION_SOURCE_STABLE
+RawTechnicalIdsVisible = NO
+ImageCanonicalAuthority = NONE
+HighFidelityCrossLayerResponsiveAndExport = PASS
+```
+
+主证据同时呈现 LandscapeThesis、核心 Theme、职责、UnderstandingRoute 和
+ThemeClosure；跨域补图证明机制与规则/政策不会创建第五层。小屏 fixture 使用单列
+连续正文和按需 overlay，Escape 返回原 KnowledgeElement 入口。静态导出正文保持
+核心问题、解释、Relation、边界和来源脚注，稳定 ID 仅由 companion manifest 与 DOM
+属性携带。该证据只使 `RF-AC-01,10,15,19` 的视觉阶段为 PASS；`RF-AC-20` 只有
+supporting evidence，正式状态继续 `NOT_RUN` 等待 HV-D05。
+
 ## 后续主证据与 RF Owner
 
 ```text

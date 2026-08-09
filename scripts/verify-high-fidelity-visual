@@ -620,6 +620,16 @@ if [[ "${active_number}" -ge 4 ]]; then
 fi
 grep -Eq '^EvidencePath = 06\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop\.png\|Status=NOT_RUN\|Gate=HV-D04$' "${evidence_plan}" ||
   fail "EvidencePath 06 canonical primary artifact must be knowledge-landscape-theme-desktop.png"
+grep -Eq '^EvidencePath = 07\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-default-reading-small-screen\.png\|Status=NOT_RUN\|Gate=HV-D04$' "${evidence_plan}" ||
+  fail "EvidencePath 07 canonical input contract must remain PLANNED/NOT_RUN"
+grep -Eq '^EvidencePath = 08\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/static-export-example\.png\|Status=NOT_RUN\|Gate=HV-D04$' "${evidence_plan}" ||
+  fail "EvidencePath 08 canonical input contract must remain PLANNED/NOT_RUN"
+if [[ "${active_number}" -ge 5 ]]; then
+  require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D04|EvidencePath=06|EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme|Artifact=docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D04 PASS'
+  require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D04|EvidencePath=07|EvidenceClass=SmallScreenSafeReadable|Artifact=docs/design/high-fidelity/evidence/module-default-reading-small-screen.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D04 PASS'
+  require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D04|EvidencePath=08|EvidenceClass=StaticExport|Artifact=docs/design/high-fidelity/evidence/static-export-example.png|CompanionManifest=docs/design/high-fidelity/evidence/static-export-manifest.json|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D04 PASS'
+  require_line_once "${acceptance}" 'HVSupportingVisualEvidence = RF-AC-20|Owner=HV-D04|Artifact=docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png|Status=CAPTURED_NOT_CLOSED|FormalRFAcceptance=NOT_RUN|Gate=HV-D05'
+fi
 
 for artifact in index.html styles.css prototype.js; do
   [[ -f "${prototype_dir}/${artifact}" ]] || fail "prototype artifact is missing: ${artifact}"
@@ -722,6 +732,14 @@ recovery_dom_chrome_profile="${runtime_tmp}/chrome-profile-recovery-dom"
 recovery_png_chrome_profile="${runtime_tmp}/chrome-profile-recovery-png"
 conflict_dom_chrome_profile="${runtime_tmp}/chrome-profile-conflict-dom"
 conflict_png_chrome_profile="${runtime_tmp}/chrome-profile-conflict-png"
+landscape_dom_chrome_profile="${runtime_tmp}/chrome-profile-landscape-dom"
+landscape_png_chrome_profile="${runtime_tmp}/chrome-profile-landscape-png"
+cross_domain_dom_chrome_profile="${runtime_tmp}/chrome-profile-cross-domain-dom"
+cross_domain_png_chrome_profile="${runtime_tmp}/chrome-profile-cross-domain-png"
+small_screen_dom_chrome_profile="${runtime_tmp}/chrome-profile-small-screen-dom"
+small_screen_png_chrome_profile="${runtime_tmp}/chrome-profile-small-screen-png"
+static_export_dom_chrome_profile="${runtime_tmp}/chrome-profile-static-export-dom"
+static_export_png_chrome_profile="${runtime_tmp}/chrome-profile-static-export-png"
 cleanup_runtime() {
   rm -rf "${runtime_tmp}"
 }
@@ -1248,6 +1266,183 @@ write_hvd03_selector_probe() {
       root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
       setProbe("second-escape-transition", targetDocument.body.dataset.lastTransition || "");
       setProbe("second-escape-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+    }
+    setProbe("status", "READY");
+  };
+  frame.addEventListener("load", evaluateTarget);
+  if (frame.contentDocument && frame.contentDocument.readyState === "complete") {
+    window.setTimeout(evaluateTarget, 0);
+  }
+}());
+</script>
+</body></html>
+EOF
+  } >"${output_file}"
+}
+
+write_hvd04_selector_probe() {
+  local output_file="$1"
+  local target_url="$2"
+  local fixture_kind="$3"
+  local fixture_width="$4"
+  local fixture_height="$5"
+  {
+    printf '%s\n' '<!doctype html>' '<html><head><meta charset="utf-8"><title>HV-D04 selector probe</title></head><body style="margin:0">'
+    printf '<iframe id="target" style="width:%spx;height:%spx;border:0" src="%s"></iframe>\n' \
+      "${fixture_width}" "${fixture_height}" "${target_url}"
+    printf '<script>document.documentElement.setAttribute("data-probe-requested-kind", "%s");</script>\n' "${fixture_kind}"
+    cat <<'EOF'
+<script>
+(function () {
+  "use strict";
+  const frame = document.getElementById("target");
+  let evaluationStarted = false;
+  const setProbe = function (name, value) {
+    document.documentElement.setAttribute("data-probe-" + name, String(value));
+  };
+  const evaluateTarget = function () {
+    const targetDocument = frame.contentDocument;
+    if (!targetDocument || targetDocument.readyState !== "complete" ||
+        targetDocument.documentElement.dataset.fixtureStatus !== "ACCEPTED") {
+      window.setTimeout(evaluateTarget, 10);
+      return;
+    }
+    if (evaluationStarted) {
+      return;
+    }
+    evaluationStarted = true;
+    const kind = document.documentElement.dataset.probeRequestedKind;
+    const rootSelector = kind === "domain-default" ? "#landscape-theme-document" :
+      kind === "theme-default" ? "#cross-domain-document" :
+      kind === "module-small-screen" ? "#small-screen-document" : "#static-export-document";
+    const root = targetDocument.querySelector(rootSelector);
+    const isRendered = function (element) {
+      if (!element || element.closest("[hidden], [aria-hidden='true']")) {
+        return false;
+      }
+      let current = element;
+      while (current) {
+        const style = targetDocument.defaultView.getComputedStyle(current);
+        if (style.display === "none" || style.visibility === "hidden" ||
+            style.visibility === "collapse" || Number(style.opacity) === 0) {
+          return false;
+        }
+        current = current.parentElement;
+      }
+      const rect = element.getBoundingClientRect();
+      return element.getClientRects().length > 0 && rect.width > 0 && rect.height > 0;
+    };
+    const renderedCount = function (selector) {
+      return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isRendered).length;
+    };
+    const isInteractable = function (element) {
+      return isRendered(element) && element.tagName === "BUTTON" && !element.disabled &&
+        element.getAttribute("aria-disabled") !== "true" && !element.closest("[inert]") &&
+        element.tabIndex >= 0;
+    };
+    const interactableCount = function (selector) {
+      return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isInteractable).length;
+    };
+    const uniqueAttributeValues = function (selector, attribute) {
+      return Array.from(new Set(Array.prototype.map.call(
+        root.querySelectorAll(selector), function (element) { return element.getAttribute(attribute); }
+      ))).sort().join(",");
+    };
+    setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
+    setProbe("state-fixture", targetDocument.body.dataset.stateFixture || "");
+    setProbe("document-count", targetDocument.querySelectorAll(rootSelector).length);
+    setProbe("rendered-document-count", renderedCount(rootSelector));
+    setProbe("state-code", root ? root.dataset.stateCode || "" : "");
+    setProbe("forbidden-surface-count", renderedCount(
+      rootSelector + " .card-wall, " + rootSelector + " .graph-workspace, " +
+      rootSelector + " .second-knowledge-tree, " + rootSelector + " .persistent-governance-panel"
+    ));
+
+    if (kind === "domain-default") {
+      setProbe("evidence-stage", targetDocument.body.dataset.crossLayerEvidence || "");
+      setProbe("hierarchy-count", renderedCount(rootSelector + " > .canonical-hierarchy .canonical-level"));
+      setProbe("landscape-level-count", renderedCount(rootSelector + " > .canonical-hierarchy .landscape-level"));
+      setProbe("theme-level-count", renderedCount(rootSelector + " > .canonical-hierarchy .theme-level"));
+      setProbe("module-level-count", renderedCount(rootSelector + " > .canonical-hierarchy .module-level"));
+      setProbe("element-level-count", renderedCount(rootSelector + " > .canonical-hierarchy .element-level"));
+      setProbe("landscape-thesis-count", renderedCount(rootSelector + " .landscape-thesis"));
+      setProbe("theme-responsibility-count", renderedCount(rootSelector + " .theme-responsibility"));
+      setProbe("understanding-route-count", renderedCount(rootSelector + " .understanding-route"));
+      setProbe("global-boundary-count", renderedCount(rootSelector + " .global-boundary"));
+      setProbe("theme-closure-count", renderedCount(rootSelector + " .theme-closure"));
+      setProbe("theme-core-question-count", renderedCount(rootSelector + " .theme-core-question"));
+      setProbe("theme-thesis-count", renderedCount(rootSelector + " .theme-thesis"));
+      setProbe("theme-spine-count", renderedCount(rootSelector + " .theme-spine"));
+      setProbe("module-cooperation-count", renderedCount(rootSelector + " .module-cooperation > p"));
+      setProbe("theme-boundary-count", renderedCount(rootSelector + " .theme-boundary"));
+      setProbe("theme-entry-count", interactableCount(rootSelector + " .theme-entry"));
+      root.querySelector(".theme-entry").click();
+      setProbe("theme-entry-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("theme-entry-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+      root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+      setProbe("escape-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("escape-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+    }
+
+    if (kind === "theme-default") {
+      setProbe("evidence-stage", targetDocument.body.dataset.crossDomainEvidence || "");
+      setProbe("case-count", renderedCount(rootSelector + " .cross-domain-case"));
+      setProbe("mechanism-case-count", renderedCount(rootSelector + " .mechanism-domain"));
+      setProbe("rule-case-count", renderedCount(rootSelector + " .rule-policy-domain"));
+      setProbe("mechanism-hierarchy-count", renderedCount(rootSelector + " .mechanism-domain .canonical-level"));
+      setProbe("rule-hierarchy-count", renderedCount(rootSelector + " .rule-policy-domain .canonical-level"));
+      setProbe("mechanism-module-count", renderedCount(rootSelector + " .mechanism-domain .module-level"));
+      setProbe("rule-module-count", renderedCount(rootSelector + " .rule-policy-domain .module-level"));
+      setProbe("closure-count", renderedCount(rootSelector + " .domain-closure"));
+    }
+
+    if (kind === "module-small-screen") {
+      const trigger = root.querySelector("#small-element-trigger");
+      const overlay = root.querySelector("#small-element-overlay");
+      setProbe("evidence-stage", targetDocument.body.dataset.smallScreenEvidence || "");
+      setProbe("primary-surface", targetDocument.body.dataset.smallScreenPrimarySurface || "");
+      setProbe("root-width", Math.round(root.getBoundingClientRect().width));
+      setProbe("hierarchy-count", renderedCount(rootSelector + " .small-hierarchy .canonical-level"));
+      setProbe("core-question-count", renderedCount(rootSelector + " .small-core-question"));
+      setProbe("core-conclusion-count", renderedCount(rootSelector + " .small-core-conclusion"));
+      setProbe("narrative-count", renderedCount(rootSelector + " .small-narrative"));
+      setProbe("spine-count", renderedCount(rootSelector + " .small-spine"));
+      setProbe("boundary-count", renderedCount(rootSelector + " .small-boundaries"));
+      setProbe("hover-only-count", renderedCount(rootSelector + " [data-hover-only]"));
+      setProbe("trigger-count", interactableCount(rootSelector + " #small-element-trigger"));
+      setProbe("trigger-touch-height", Math.round(trigger.getBoundingClientRect().height));
+      setProbe("horizontal-overflow", root.scrollWidth > root.clientWidth);
+      setProbe("overlay-rendered-before", isRendered(overlay));
+      trigger.click();
+      setProbe("overlay-rendered-after-open", isRendered(overlay));
+      setProbe("open-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("open-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+      root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+      setProbe("overlay-hidden-after-escape", overlay.hidden);
+      setProbe("escape-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("escape-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
+    }
+
+    if (kind === "static-export") {
+      const rawIds = ["landscape-data-systems", "theme-concurrency-consistency",
+        "module-mvcc-consistent-read", "element-read-view", "element-version-chain",
+        "rel-read-view-selects-version", "src-mvcc-mechanism"];
+      const visibleText = root.innerText || "";
+      setProbe("evidence-stage", targetDocument.body.dataset.staticExportEvidence || "");
+      setProbe("machine-identity-source", targetDocument.body.dataset.machineIdentitySource || "");
+      setProbe("raw-technical-ids-visible", targetDocument.body.dataset.rawTechnicalIdsVisible || "");
+      setProbe("image-canonical-authority", targetDocument.body.dataset.imageCanonicalAuthority || "");
+      setProbe("hierarchy-count", renderedCount(rootSelector + " .export-hierarchy [data-object-id]"));
+      setProbe("core-question-count", renderedCount(rootSelector + " .export-opening"));
+      setProbe("mechanism-count", renderedCount(rootSelector + " .export-mechanism"));
+      setProbe("narrative-count", renderedCount(rootSelector + " .export-narrative"));
+      setProbe("boundary-count", renderedCount(rootSelector + " .export-boundary"));
+      setProbe("relation-count", renderedCount(rootSelector + " .export-relation[data-relation-id]"));
+      setProbe("source-count", renderedCount(rootSelector + " .export-source[data-source-id]"));
+      setProbe("object-id-set", uniqueAttributeValues("[data-object-id]", "data-object-id"));
+      setProbe("relation-id-set", uniqueAttributeValues("[data-relation-id]", "data-relation-id"));
+      setProbe("source-id-set", uniqueAttributeValues("[data-source-id]", "data-source-id"));
+      setProbe("raw-id-visible-count", rawIds.filter(function (id) { return visibleText.includes(id); }).length);
     }
     setProbe("status", "READY");
   };
@@ -1796,6 +1991,241 @@ if [[ "${active_number}" -ge 4 ]]; then
   done
 fi
 
+if [[ "${active_number}" -ge 5 ]]; then
+  require_line_once "${visual_design}" 'HV-D04 CrossLayerResponsiveAndExport = PASS'
+  require_text "${evidence_dir}/README.md" 'knowledge-landscape-theme-desktop.png'
+  require_text "${evidence_dir}/README.md" 'cross-domain-reading-desktop.png'
+  require_text "${evidence_dir}/README.md" 'module-default-reading-small-screen.png'
+  require_text "${evidence_dir}/README.md" 'static-export-example.png'
+  require_text "${evidence_dir}/README.md" 'static-export-manifest.json'
+
+  landscape_probe_file="${runtime_tmp}/landscape-selector-probe.html"
+  write_hvd04_selector_probe "${landscape_probe_file}" \
+    "file://${prototype_dir}/index.html?state=domain-default" domain-default 1440 1100
+  landscape_probe_dom_file="${runtime_tmp}/landscape-selector-probe-dom.html"
+  run_headless_dump_dom "${landscape_dom_chrome_profile}" "${landscape_probe_dom_file}" \
+    "file://${landscape_probe_file}" --allow-file-access-from-files --window-size=1500,1200 ||
+    fail "Chrome could not evaluate the domain-default browser selector probe"
+  landscape_probe_dom="$(<"${landscape_probe_dom_file}")"
+  for landscape_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|domain-default' \
+    'data-probe-document-count|1' \
+    'data-probe-rendered-document-count|1' \
+    'data-probe-state-code|CROSS_LAYER_DEFAULT_READING' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-forbidden-surface-count|0' \
+    'data-probe-hierarchy-count|4' \
+    'data-probe-landscape-level-count|1' \
+    'data-probe-theme-level-count|1' \
+    'data-probe-module-level-count|1' \
+    'data-probe-element-level-count|1' \
+    'data-probe-landscape-thesis-count|1' \
+    'data-probe-theme-responsibility-count|3' \
+    'data-probe-understanding-route-count|1' \
+    'data-probe-global-boundary-count|1' \
+    'data-probe-theme-closure-count|1' \
+    'data-probe-theme-core-question-count|1' \
+    'data-probe-theme-thesis-count|1' \
+    'data-probe-theme-spine-count|1' \
+    'data-probe-module-cooperation-count|3' \
+    'data-probe-theme-boundary-count|1' \
+    'data-probe-theme-entry-count|1' \
+    'data-probe-theme-entry-transition|THEME_CLOSURE_FOCUSED' \
+    'data-probe-theme-entry-focus|theme-closure-panel' \
+    'data-probe-escape-transition|LANDSCAPE_CONTEXT_RESTORED' \
+    'data-probe-escape-focus|landscape-origin-anchor'; do
+    landscape_attribute="${landscape_contract%%|*}"
+    landscape_expected="${landscape_contract#*|}"
+    require_hvd02_probe_value domain-default "${landscape_probe_dom}" \
+      "${landscape_attribute}" "${landscape_expected}"
+  done
+
+  cross_domain_probe_file="${runtime_tmp}/cross-domain-selector-probe.html"
+  write_hvd04_selector_probe "${cross_domain_probe_file}" \
+    "file://${prototype_dir}/index.html?state=theme-default" theme-default 1440 1100
+  cross_domain_probe_dom_file="${runtime_tmp}/cross-domain-selector-probe-dom.html"
+  run_headless_dump_dom "${cross_domain_dom_chrome_profile}" "${cross_domain_probe_dom_file}" \
+    "file://${cross_domain_probe_file}" --allow-file-access-from-files --window-size=1500,1200 ||
+    fail "Chrome could not evaluate the theme-default browser selector probe"
+  cross_domain_probe_dom="$(<"${cross_domain_probe_dom_file}")"
+  for cross_domain_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|theme-default' \
+    'data-probe-document-count|1' \
+    'data-probe-rendered-document-count|1' \
+    'data-probe-state-code|CROSS_DOMAIN_SAME_HIERARCHY' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-forbidden-surface-count|0' \
+    'data-probe-case-count|2' \
+    'data-probe-mechanism-case-count|1' \
+    'data-probe-rule-case-count|1' \
+    'data-probe-mechanism-hierarchy-count|4' \
+    'data-probe-rule-hierarchy-count|4' \
+    'data-probe-mechanism-module-count|1' \
+    'data-probe-rule-module-count|1' \
+    'data-probe-closure-count|2'; do
+    cross_domain_attribute="${cross_domain_contract%%|*}"
+    cross_domain_expected="${cross_domain_contract#*|}"
+    require_hvd02_probe_value theme-default "${cross_domain_probe_dom}" \
+      "${cross_domain_attribute}" "${cross_domain_expected}"
+  done
+
+  small_screen_probe_file="${runtime_tmp}/small-screen-selector-probe.html"
+  write_hvd04_selector_probe "${small_screen_probe_file}" \
+    "file://${prototype_dir}/index.html?state=module-small-screen" module-small-screen 390 844
+  small_screen_probe_dom_file="${runtime_tmp}/small-screen-selector-probe-dom.html"
+  run_headless_dump_dom "${small_screen_dom_chrome_profile}" "${small_screen_probe_dom_file}" \
+    "file://${small_screen_probe_file}" --allow-file-access-from-files --window-size=900,1000 ||
+    fail "Chrome could not evaluate the module-small-screen browser selector probe"
+  small_screen_probe_dom="$(<"${small_screen_probe_dom_file}")"
+  for small_screen_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|module-small-screen' \
+    'data-probe-document-count|1' \
+    'data-probe-rendered-document-count|1' \
+    'data-probe-state-code|SMALL_SCREEN_SAFE_READING' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-primary-surface|DOCUMENT_FLOW' \
+    'data-probe-forbidden-surface-count|0' \
+    'data-probe-root-width|390' \
+    'data-probe-hierarchy-count|4' \
+    'data-probe-core-question-count|1' \
+    'data-probe-core-conclusion-count|1' \
+    'data-probe-narrative-count|1' \
+    'data-probe-spine-count|1' \
+    'data-probe-boundary-count|1' \
+    'data-probe-hover-only-count|0' \
+    'data-probe-trigger-count|1' \
+    'data-probe-trigger-touch-height|44' \
+    'data-probe-horizontal-overflow|false' \
+    'data-probe-overlay-rendered-before|false' \
+    'data-probe-overlay-rendered-after-open|true' \
+    'data-probe-open-transition|SMALL_ELEMENT_OVERLAY_OPEN' \
+    'data-probe-open-focus|small-element-overlay' \
+    'data-probe-overlay-hidden-after-escape|true' \
+    'data-probe-escape-transition|SMALL_ELEMENT_ESCAPE_CLOSE' \
+    'data-probe-escape-focus|small-element-trigger'; do
+    small_screen_attribute="${small_screen_contract%%|*}"
+    small_screen_expected="${small_screen_contract#*|}"
+    require_hvd02_probe_value module-small-screen "${small_screen_probe_dom}" \
+      "${small_screen_attribute}" "${small_screen_expected}"
+  done
+
+  static_export_probe_file="${runtime_tmp}/static-export-selector-probe.html"
+  write_hvd04_selector_probe "${static_export_probe_file}" \
+    "file://${prototype_dir}/index.html?state=static-export" static-export 1200 1600
+  static_export_probe_dom_file="${runtime_tmp}/static-export-selector-probe-dom.html"
+  run_headless_dump_dom "${static_export_dom_chrome_profile}" "${static_export_probe_dom_file}" \
+    "file://${static_export_probe_file}" --allow-file-access-from-files --window-size=1400,1800 ||
+    fail "Chrome could not evaluate the static-export browser selector probe"
+  static_export_probe_dom="$(<"${static_export_probe_dom_file}")"
+  for static_export_contract in \
+    'data-probe-status|READY' \
+    'data-probe-fixture-status|ACCEPTED' \
+    'data-probe-state-fixture|static-export' \
+    'data-probe-document-count|1' \
+    'data-probe-rendered-document-count|1' \
+    'data-probe-state-code|PUBLISHED_CANONICAL_PROJECTION' \
+    'data-probe-evidence-stage|HIGH_FIDELITY_VISUAL_PASS' \
+    'data-probe-machine-identity-source|COMPANION_MANIFEST' \
+    'data-probe-raw-technical-ids-visible|false' \
+    'data-probe-image-canonical-authority|NONE' \
+    'data-probe-forbidden-surface-count|0' \
+    'data-probe-hierarchy-count|4' \
+    'data-probe-core-question-count|1' \
+    'data-probe-mechanism-count|1' \
+    'data-probe-narrative-count|1' \
+    'data-probe-boundary-count|1' \
+    'data-probe-relation-count|1' \
+    'data-probe-source-count|1' \
+    'data-probe-object-id-set|element-read-view,element-version-chain,landscape-data-systems,module-mvcc-consistent-read,theme-concurrency-consistency' \
+    'data-probe-relation-id-set|rel-read-view-selects-version' \
+    'data-probe-source-id-set|src-mvcc-mechanism' \
+    'data-probe-raw-id-visible-count|0'; do
+    static_export_attribute="${static_export_contract%%|*}"
+    static_export_expected="${static_export_contract#*|}"
+    require_hvd02_probe_value static-export "${static_export_probe_dom}" \
+      "${static_export_attribute}" "${static_export_expected}"
+  done
+
+  export_manifest="${evidence_dir}/static-export-manifest.json"
+  [[ -f "${export_manifest}" ]] || fail "static export companion manifest is missing"
+  if ! manifest_summary="$(node - "${export_manifest}" <<'NODE'
+const fs = require("fs");
+const path = process.argv[2];
+const manifest = JSON.parse(fs.readFileSync(path, "utf8"));
+const fail = (message) => { throw new Error(message); };
+if (manifest.schemaVersion !== "1.0") fail("schemaVersion");
+if (manifest.exportType !== "PNG_COMPANION_MANIFEST") fail("exportType");
+if (manifest.artifact !== "static-export-example.png") fail("artifact");
+if (manifest.canonicalFactAuthority !== "EXTERNAL_CANONICAL_MODEL_NOT_IMAGE") fail("authority");
+if (manifest.readerVisibility?.rawTechnicalIds !== "HIDDEN_BY_DEFAULT") fail("readerVisibility");
+if (manifest.readerVisibility?.machineIdentityLocation !== "COMPANION_MANIFEST") fail("identityLocation");
+if (!Array.isArray(manifest.objects) || manifest.objects.length !== 5) fail("objects");
+if (!Array.isArray(manifest.relations) || manifest.relations.length !== 1) fail("relations");
+if (!Array.isArray(manifest.sources) || manifest.sources.length !== 1) fail("sources");
+const objectIds = manifest.objects.map((entry) => entry.id);
+const relationIds = manifest.relations.map((entry) => entry.id);
+const sourceIds = manifest.sources.map((entry) => entry.id);
+const unique = (values) => new Set(values).size === values.length;
+if (!unique(objectIds) || !unique(relationIds) || !unique(sourceIds)) fail("duplicate identity");
+const objectSet = new Set(objectIds);
+for (const relation of manifest.relations) {
+  if (!objectSet.has(relation.sourceId) || !objectSet.has(relation.targetId)) fail("relation target");
+}
+const supportable = new Set([...objectIds, ...relationIds]);
+for (const source of manifest.sources) {
+  if (!Array.isArray(source.supports) || source.supports.some((id) => !supportable.has(id))) fail("source support");
+}
+process.stdout.write([
+  objectIds.sort().join(","),
+  relationIds.sort().join(","),
+  sourceIds.sort().join(",")
+].join("\n"));
+NODE
+  )"; then
+    fail "static export companion manifest is invalid"
+  fi
+  manifest_objects="$(sed -n '1p' <<<"${manifest_summary}")"
+  manifest_relations="$(sed -n '2p' <<<"${manifest_summary}")"
+  manifest_sources="$(sed -n '3p' <<<"${manifest_summary}")"
+  [[ "${manifest_objects}" == "$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-object-id-set)" ]] ||
+    fail "static export DOM object identities do not match companion manifest"
+  [[ "${manifest_relations}" == "$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-relation-id-set)" ]] ||
+    fail "static export DOM Relation identities do not match companion manifest"
+  [[ "${manifest_sources}" == "$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-source-id-set)" ]] ||
+    fail "static export DOM source identities do not match companion manifest"
+
+  for screenshot_contract in \
+    "domain-default|knowledge-landscape-theme-desktop.png|1440,1100|${landscape_png_chrome_profile}" \
+    "theme-default|cross-domain-reading-desktop.png|1440,1100|${cross_domain_png_chrome_profile}" \
+    "module-small-screen|module-default-reading-small-screen.png|390,844|${small_screen_png_chrome_profile}" \
+    "static-export|static-export-example.png|1200,1600|${static_export_png_chrome_profile}"; do
+    screenshot_state="${screenshot_contract%%|*}"
+    screenshot_remaining="${screenshot_contract#*|}"
+    screenshot_name="${screenshot_remaining%%|*}"
+    screenshot_remaining="${screenshot_remaining#*|}"
+    screenshot_viewport="${screenshot_remaining%%|*}"
+    screenshot_profile="${screenshot_remaining#*|}"
+    screenshot_evidence="${evidence_dir}/${screenshot_name}"
+    screenshot_expected_description="${screenshot_viewport/,/ x }"
+    [[ -f "${screenshot_evidence}" ]] || fail "${screenshot_state} visual evidence is missing"
+    screenshot_description="$(file "${screenshot_evidence}" 2>/dev/null || true)"
+    [[ "${screenshot_description}" == *"PNG image data, ${screenshot_expected_description}"* ]] ||
+      fail "${screenshot_state} visual evidence must be a ${screenshot_expected_description} PNG"
+    captured_screenshot="${runtime_tmp}/${screenshot_name}"
+    run_headless_screenshot "${screenshot_profile}" "${captured_screenshot}" "${screenshot_viewport}" \
+      "file://${prototype_dir}/index.html?state=${screenshot_state}" ||
+      fail "Chrome could not recapture the ${screenshot_state} evidence"
+    cmp -s "${captured_screenshot}" "${screenshot_evidence}" ||
+      fail "${screenshot_state} visual evidence is stale for the current prototype"
+  done
+fi
+
 printf 'HighFidelityVisualTaskCardValidation = PASS\n'
 printf 'TaskCardCount = 6\n'
 printf 'TaskCardSetStatus = READY_FOR_EXECUTION\n'
@@ -1839,6 +2269,23 @@ if [[ "${active_number}" -ge 4 ]]; then
   printf 'ConflictedDraftInteractionTransitionValidation = PASS\n'
   printf 'ConflictedDraftEvidence = 1440x1100\n'
   printf 'ConflictedDraftEvidenceFreshness = PASS\n'
+fi
+if [[ "${active_number}" -ge 5 ]]; then
+  printf 'LandscapeThemeBrowserSelectorValidation = PASS\n'
+  printf 'LandscapeThemeEvidence = 1440x1100\n'
+  printf 'LandscapeThemeEvidenceFreshness = PASS\n'
+  printf 'CrossDomainBrowserSelectorValidation = PASS\n'
+  printf 'CrossDomainEvidence = 1440x1100\n'
+  printf 'CrossDomainEvidenceFreshness = PASS\n'
+  printf 'SmallScreenBrowserSelectorValidation = PASS\n'
+  printf 'SmallScreenInteractionTransitionValidation = PASS\n'
+  printf 'SmallScreenResponsiveSafetyValidation = PASS\n'
+  printf 'SmallScreenEvidence = 390x844\n'
+  printf 'SmallScreenEvidenceFreshness = PASS\n'
+  printf 'StaticExportBrowserSelectorValidation = PASS\n'
+  printf 'StaticExportManifestValidation = PASS\n'
+  printf 'StaticExportEvidence = 1200x1600\n'
+  printf 'StaticExportEvidenceFreshness = PASS\n'
 fi
 printf 'HighFidelityVisualDesign = NOT_RUN\n'
 printf 'HighFidelityUsabilityValidation = NOT_RUN\n'

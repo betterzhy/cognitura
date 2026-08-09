@@ -9,10 +9,10 @@
     "revision-impact": "Revision impact · HV-D03 evidence",
     "partial-failure": "Partial failure · HV-D03 evidence",
     "conflicted-draft": "Conflicted draft · HV-D03 evidence",
-    "domain-default": "Knowledge Landscape · reserved for HV-D04",
-    "theme-default": "Knowledge Theme · reserved for HV-D04",
-    "module-small-screen": "Small-screen Module · reserved for HV-D04",
-    "static-export": "Static export · reserved for HV-D04"
+    "domain-default": "Knowledge Landscape + Theme · HV-D04 evidence",
+    "theme-default": "Cross-domain reading · HV-D04 evidence",
+    "module-small-screen": "Small-screen Module · HV-D04 evidence",
+    "static-export": "Static export · HV-D04 evidence"
   });
 
   const query = new URLSearchParams(window.location.search);
@@ -24,6 +24,10 @@
   const revisionImpactFixture = document.getElementById("revision-impact-fixture");
   const partialFailureFixture = document.getElementById("partial-failure-fixture");
   const conflictedDraftFixture = document.getElementById("conflicted-draft-fixture");
+  const domainDefaultFixture = document.getElementById("domain-default-fixture");
+  const themeDefaultFixture = document.getElementById("theme-default-fixture");
+  const moduleSmallScreenFixture = document.getElementById("module-small-screen-fixture");
+  const staticExportFixture = document.getElementById("static-export-fixture");
 
   if (!Object.prototype.hasOwnProperty.call(fixtures, requestedState)) {
     foundationFixture.hidden = true;
@@ -33,6 +37,10 @@
     revisionImpactFixture.hidden = true;
     partialFailureFixture.hidden = true;
     conflictedDraftFixture.hidden = true;
+    domainDefaultFixture.hidden = true;
+    themeDefaultFixture.hidden = true;
+    moduleSmallScreenFixture.hidden = true;
+    staticExportFixture.hidden = true;
     document.documentElement.dataset.fixtureStatus = "REJECTED_UNKNOWN_STATE";
     document.body.dataset.stateFixture = "REJECTED";
     document.getElementById("fixture-label").textContent = `Rejected fixture state: ${requestedState}`;
@@ -50,6 +58,10 @@
   revisionImpactFixture.hidden = requestedState !== "revision-impact";
   partialFailureFixture.hidden = requestedState !== "partial-failure";
   conflictedDraftFixture.hidden = requestedState !== "conflicted-draft";
+  domainDefaultFixture.hidden = requestedState !== "domain-default";
+  themeDefaultFixture.hidden = requestedState !== "theme-default";
+  moduleSmallScreenFixture.hidden = requestedState !== "module-small-screen";
+  staticExportFixture.hidden = requestedState !== "static-export";
 
   if (requestedState === "module-default") {
     document.title = "Cognitura · Module Default Reading Fixture";
@@ -236,5 +248,70 @@
       conflictPanel.hidden = true;
       restoreFocus("conflict-detail-trigger", "CONFLICT_DETAIL_ESCAPE_CLOSE");
     }, true);
+  }
+
+  if (requestedState === "domain-default") {
+    document.title = "Cognitura · Knowledge Landscape and Theme Fixture";
+    document.body.dataset.crossLayerEvidence = "HIGH_FIDELITY_VISUAL_PASS";
+    document.body.dataset.canonicalHierarchy = "KnowledgeLandscape>KnowledgeTheme>CognitiveModule>KnowledgeElement";
+    document.body.dataset.cardWallCount = "0";
+    document.body.dataset.graphWorkspaceCount = "0";
+    const crossLayerRoot = document.getElementById("landscape-theme-document");
+    const themeEntry = document.getElementById("theme-detail-trigger");
+    const themeClosure = document.getElementById("theme-closure-panel");
+    themeEntry.addEventListener("click", function () {
+      themeClosure.focus();
+      document.body.dataset.lastTransition = "THEME_CLOSURE_FOCUSED";
+    });
+    crossLayerRoot.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        restoreFocus("landscape-origin-anchor", "LANDSCAPE_CONTEXT_RESTORED");
+      }
+    });
+  }
+
+  if (requestedState === "theme-default") {
+    document.title = "Cognitura · Cross-domain Reading Fixture";
+    document.body.dataset.crossDomainEvidence = "HIGH_FIDELITY_VISUAL_PASS";
+    document.body.dataset.canonicalHierarchyCount = "2";
+    document.body.dataset.independentDomainObjectCount = "0";
+  }
+
+  if (requestedState === "module-small-screen") {
+    document.title = "Cognitura · Small-screen Reading Fixture";
+    document.body.dataset.smallScreenEvidence = "HIGH_FIDELITY_VISUAL_PASS";
+    document.body.dataset.smallScreenPrimarySurface = "DOCUMENT_FLOW";
+    document.body.dataset.persistentSidePanelCount = "0";
+    const smallRoot = document.getElementById("small-screen-document");
+    const smallTrigger = document.getElementById("small-element-trigger");
+    const smallOverlay = document.getElementById("small-element-overlay");
+    const smallClose = document.getElementById("small-overlay-close");
+    const closeSmallOverlay = function (transition) {
+      smallOverlay.hidden = true;
+      restoreFocus("small-element-trigger", transition);
+    };
+    smallTrigger.addEventListener("click", function () {
+      smallOverlay.hidden = false;
+      smallOverlay.focus();
+      document.body.dataset.lastTransition = "SMALL_ELEMENT_OVERLAY_OPEN";
+    });
+    smallClose.addEventListener("click", function () {
+      closeSmallOverlay("SMALL_ELEMENT_EXPLICIT_CLOSE");
+    });
+    smallRoot.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !smallOverlay.hidden) {
+        event.preventDefault();
+        closeSmallOverlay("SMALL_ELEMENT_ESCAPE_CLOSE");
+      }
+    });
+  }
+
+  if (requestedState === "static-export") {
+    document.title = "Cognitura · Static Export Fixture";
+    document.body.dataset.staticExportEvidence = "HIGH_FIDELITY_VISUAL_PASS";
+    document.body.dataset.machineIdentitySource = "COMPANION_MANIFEST";
+    document.body.dataset.rawTechnicalIdsVisible = "false";
+    document.body.dataset.imageCanonicalAuthority = "NONE";
   }
 })();

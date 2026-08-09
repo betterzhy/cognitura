@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "exportType": "PNG_COMPANION_MANIFEST",
+  "artifact": "static-export-example.png",
+  "canonicalSnapshot": "cognitura-snapshot-v13",
+  "canonicalFactAuthority": "EXTERNAL_CANONICAL_MODEL_NOT_IMAGE",
+  "readerVisibility": {
+    "rawTechnicalIds": "HIDDEN_BY_DEFAULT",
+    "machineIdentityLocation": "COMPANION_MANIFEST"
+  },
+  "objects": [
+    {
+      "id": "landscape-data-systems",
+      "type": "KnowledgeLandscape",
+      "label": "数据系统"
+    },
+    {
+      "id": "theme-concurrency-consistency",
+      "type": "KnowledgeTheme",
+      "label": "并发与一致性"
+    },
+    {
+      "id": "module-mvcc-consistent-read",
+      "type": "CognitiveModule",
+      "label": "一致性读机制"
+    },
+    {
+      "id": "element-read-view",
+      "type": "KnowledgeElement",
+      "label": "Read View"
+    },
+    {
+      "id": "element-version-chain",
+      "type": "KnowledgeElement",
+      "label": "Version chain"
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel-read-view-selects-version",
+      "sourceId": "element-read-view",
+      "targetId": "element-version-chain",
+      "statement": "Read View 约束版本链中的可见版本"
+    }
+  ],
+  "sources": [
+    {
+      "id": "src-mvcc-mechanism",
+      "label": "机制型合成证据",
+      "supports": [
+        "module-mvcc-consistent-read",
+        "rel-read-view-selects-version"
+      ]
+    }
+  ]
+}

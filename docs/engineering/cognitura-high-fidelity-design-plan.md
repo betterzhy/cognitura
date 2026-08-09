@@ -12,6 +12,7 @@ HighFidelityVisualFoundation = PASS
 HighFidelityModuleDefaultReading = PASS
 HighFidelityFocusAndSource = PASS
 HighFidelityRevisionAndRecovery = PASS
+HighFidelityCrossLayerResponsiveAndExport = PASS
 VisualTaskCardArtifactsActual = CREATED
 HV-D00ReleaseCondition = HF_D04_FIXED_CANDIDATE_DOUBLE_REVIEW_PASS
 BusinessImplementation = NOT_AUTHORIZED
@@ -22,8 +23,9 @@ RemotePush = NOT_AUTHORIZED
 本文件固定后续证据路径、输入状态和 Gate。`HV-D00` 已建立 docs-only 非生产原型
 基础和一张 1440×1100 foundation 截图；`HV-D01` 已建立 Module 默认阅读证据；
 `HV-D02` 已建立 Relation 聚焦与完整来源核验的两张桌面证据；`HV-D03` 已建立修订
-影响、部分失败恢复和冲突草稿三张桌面证据，只关闭各卡所属的正式 RF Owner 视觉
-观察。其余三类路径、整体视觉设计与可用性结果仍为 `NOT_RUN`。
+影响、部分失败恢复和冲突草稿三张桌面证据；`HV-D04` 已建立四层/跨域、小屏与静态
+导出证据，只关闭各卡所属的正式 RF Owner 视觉观察。整体视觉设计与可用性结果仍为
+`NOT_RUN`。
 
 ## 1. 八类有序证据路径
 
@@ -62,7 +64,7 @@ CrossDomainScenario = RULE_POLICY_DOMAIN|EvidenceClass=KnowledgeLandscapeAndKnow
 以下 `HVDesignTask` 六行是 `HF-DG4` 关闭时的历史投影快照，继续供合同 Gate
 复验；`VisualTaskCardArtifacts = NOT_CREATED` 也只表示该历史时点。Task 6 此后已
 创建精确六卡集合、视觉基础、确定性原型和 foundation 截图并关闭 `HV-D00`。
-当前实际状态由 `HVExecutionTask` 六行承担，仅 `HV-D04` 被释放为唯一 `READY`。
+当前实际状态由 `HVExecutionTask` 六行承担，仅 `HV-D05` 被释放为唯一 `READY`。
 
 ```text
 VisualTaskCardArtifacts = NOT_CREATED
@@ -77,8 +79,8 @@ HVExecutionTask = HV-D00|VisualFoundation|DONE|PASS
 HVExecutionTask = HV-D01|ModuleDefaultReading|DONE|PASS
 HVExecutionTask = HV-D02|FocusAndSource|DONE|PASS
 HVExecutionTask = HV-D03|RevisionAndRecovery|DONE|PASS
-HVExecutionTask = HV-D04|CrossLayerResponsiveAndExport|READY|RELEASED
-HVExecutionTask = HV-D05|FixedVisualUsabilityReview|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
+HVExecutionTask = HV-D04|CrossLayerResponsiveAndExport|DONE|PASS
+HVExecutionTask = HV-D05|FixedVisualUsabilityReview|READY|RELEASED
 ```
 
 ## 4. 视觉基础证据
@@ -144,7 +146,33 @@ HVExecutionEvidence = HV-D03|EvidencePath=04|EvidenceClass=RevisionAndImpact|Art
 HVExecutionEvidence = HV-D03|EvidencePath=05|EvidenceClass=Recovery|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D03 PASS
 ```
 
-## 8. 阶段隔离
+## 8. 跨层、小屏与静态导出证据
+
+```text
+LandscapeThemeArtifact = docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png
+LandscapeThemeViewport = DESKTOP_1440x1100
+LandscapeThemePrototypeState = domain-default
+CrossDomainArtifact = docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png
+CrossDomainViewport = DESKTOP_1440x1100
+CrossDomainPrototypeState = theme-default
+SmallScreenArtifact = docs/design/high-fidelity/evidence/module-default-reading-small-screen.png
+SmallScreenViewport = SMALL_SCREEN_390x844
+SmallScreenPrototypeState = module-small-screen
+StaticExportArtifact = docs/design/high-fidelity/evidence/static-export-example.png
+StaticExportViewport = STATIC_EXPORT_1200x1600
+StaticExportPrototypeState = static-export
+StaticExportManifest = docs/design/high-fidelity/evidence/static-export-manifest.json
+CrossLayerResponsiveAndExportStatus = PASS
+CrossLayerResponsiveAndExportValidationStage = HIGH_FIDELITY_VISUAL
+CrossLayerResponsiveAndExportRFOwnerPass = RF-AC-01,10,15,19
+RF-AC-20SupportingEvidence = CAPTURED_NOT_CLOSED
+CrossLayerResponsiveAndExportDoesNotClose = RF-AC-02,03,04,05,06,07,08,09,11,12,13,14,16,17,18,20
+HVExecutionEvidence = HV-D04|EvidencePath=06|EvidenceClass=KnowledgeLandscapeAndKnowledgeTheme|Artifact=docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D04 PASS
+HVExecutionEvidence = HV-D04|EvidencePath=07|EvidenceClass=SmallScreenSafeReadable|Artifact=docs/design/high-fidelity/evidence/module-default-reading-small-screen.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D04 PASS
+HVExecutionEvidence = HV-D04|EvidencePath=08|EvidenceClass=StaticExport|Artifact=docs/design/high-fidelity/evidence/static-export-example.png|CompanionManifest=docs/design/high-fidelity/evidence/static-export-manifest.json|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D04 PASS
+```
+
+## 9. 阶段隔离
 
 ```text
 CONTRACT = HF-DG3_EVIDENCE_INPUT_CONTRACT_PASS

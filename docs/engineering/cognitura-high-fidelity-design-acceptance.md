@@ -17,7 +17,7 @@ ReviewStage2P1 = 0
 ReviewStage2P2 = 0
 UltraReviewUsed = NO
 EvidenceArtifactCapture = NOT_RUN
-HVExecutionArtifactCapture = PARTIAL_HV_D03
+HVExecutionArtifactCapture = PARTIAL_HV_D04
 VisualFoundationArtifactCapture = PASS
 VisualFoundationArtifact = docs/design/high-fidelity/evidence/visual-foundation-desktop.png
 VisualFoundationViewport = DESKTOP_1440x1100
@@ -42,6 +42,19 @@ ConflictedDraftArtifactCapture = PASS
 ConflictedDraftArtifact = docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png
 ConflictedDraftViewport = DESKTOP_1440x1100
 RevisionAndRecoveryValidationStage = HIGH_FIDELITY_VISUAL
+LandscapeThemeArtifactCapture = PASS
+LandscapeThemeArtifact = docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png
+LandscapeThemeViewport = DESKTOP_1440x1100
+CrossDomainArtifactCapture = PASS
+CrossDomainArtifact = docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png
+SmallScreenArtifactCapture = PASS
+SmallScreenArtifact = docs/design/high-fidelity/evidence/module-default-reading-small-screen.png
+SmallScreenViewport = SMALL_SCREEN_390x844
+StaticExportArtifactCapture = PASS
+StaticExportArtifact = docs/design/high-fidelity/evidence/static-export-example.png
+StaticExportViewport = STATIC_EXPORT_1200x1600
+StaticExportManifest = docs/design/high-fidelity/evidence/static-export-manifest.json
+CrossLayerResponsiveAndExportValidationStage = HIGH_FIDELITY_VISUAL
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
@@ -55,8 +68,9 @@ RemotePush = NOT_AUTHORIZED
 `RF-AC-02,04,05,06,08,11,12` 的 `HIGH_FIDELITY_VISUAL` 结果；`HV-D02` 再以
 Relation 聚焦、完整来源核验 DOM 与两张桌面截图，只推进 `RF-AC-03,07,09,16`；
 `HV-D03` 再以修订影响、部分失败恢复、冲突草稿 DOM 与三张桌面截图，只推进
-`RF-AC-13,14,17,18`。其他 RF、全部正式异常输入行、整体视觉、可用性和实现结果
-仍为 `NOT_RUN`。
+`RF-AC-13,14,17,18`；`HV-D04` 以四层/跨域、小屏和静态导出证据只推进
+`RF-AC-01,10,15,19`。`RF-AC-20` 仅记录 supporting visual evidence，正式行仍为
+`NOT_RUN`；全部正式异常输入行、整体视觉、可用性和实现结果仍为 `NOT_RUN`。
 
 ## 1. RF-AC 证据验收
 
@@ -194,6 +208,11 @@ HVVisualAcceptanceObservation = RF-AC-13|Owner=HV-D03|Artifact=docs/design/high-
 HVVisualAcceptanceObservation = RF-AC-14|Owner=HV-D03|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
 HVVisualAcceptanceObservation = RF-AC-17|Owner=HV-D03|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
 HVVisualAcceptanceObservation = RF-AC-18|Owner=HV-D03|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-01|Owner=HV-D04|Artifact=docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-10|Owner=HV-D04|Artifact=docs/design/high-fidelity/evidence/static-export-example.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-15|Owner=HV-D04|Artifact=docs/design/high-fidelity/evidence/module-default-reading-small-screen.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-19|Owner=HV-D04|Artifact=docs/design/high-fidelity/evidence/static-export-example.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVSupportingVisualEvidence = RF-AC-20|Owner=HV-D04|Artifact=docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png|Status=CAPTURED_NOT_CLOSED|FormalRFAcceptance=NOT_RUN|Gate=HV-D05
 ```
 
 ## 7. 当前 Gate 结论
@@ -211,4 +230,5 @@ GateImplementationStatus = NOT_RUN
 `HF-DG4` 只关闭合同设计固定候选审查；`HV-D00` 只关闭视觉基础，`HV-D01` 关闭
 Module 默认阅读的七项 RF Owner 视觉结果，`HV-D02` 关闭 Relation/Source 的四项
 RF Owner 视觉结果，`HV-D03` 关闭 Revision/Recovery 的四项 RF Owner 视觉结果并
-释放 `HV-D04`。其余 HV 视觉结果与 W1-I 业务实现仍未授权。
+释放 `HV-D04`；`HV-D04` 再关闭四项视觉 Owner 并释放 `HV-D05`。整体视觉与可用性
+仍需固定候选双阶段审查，W1-I 业务实现仍未授权。

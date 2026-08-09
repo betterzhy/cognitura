@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 DesignKind = HIGH_FIDELITY_VISUAL_DESIGN
-DesignStatus = REVISION_AND_RECOVERY_EVIDENCE_ESTABLISHED
+DesignStatus = CROSS_LAYER_RESPONSIVE_EXPORT_EVIDENCE_ESTABLISHED
 ContractSource = Cognitura-High-Fidelity-Interaction-Specialty-1.0
 ContractGate = HF-DG4 PASS
 FoundationGate = HV-D00 PASS
@@ -11,6 +11,7 @@ ModuleDefaultReadingGate = HV-D01 PASS
 HighFidelityModuleDefaultReading = PASS
 HighFidelityFocusAndSource = PASS
 HighFidelityRevisionAndRecovery = PASS
+HighFidelityCrossLayerResponsiveAndExport = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
@@ -269,6 +270,40 @@ ConflictedDraftStateCode = CONFLICTED_DRAFT+COMMIT_BLOCKED
 同幂等键结果查询和 Revert-as-new-ChangeSet 都是非生产确定性转换。冲突草稿补充证据
 保留 Before/Latest/Draft 三方差异、草稿和原 Focus，在重新基线化前阻止提交。
 
+### 6.4 HV-D04 跨层、小屏与静态导出证据
+
+```text
+LandscapeThemeArtifact = docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png
+LandscapeThemeArtifactState = domain-default
+LandscapeThemeArtifactViewport = 1440x1100
+LandscapeThemeArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+LandscapeThemeArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
+CrossDomainArtifact = docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png
+CrossDomainArtifactState = theme-default
+CrossDomainArtifactViewport = 1440x1100
+CrossDomainArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+SmallScreenArtifact = docs/design/high-fidelity/evidence/module-default-reading-small-screen.png
+SmallScreenArtifactState = module-small-screen
+SmallScreenArtifactViewport = 390x844
+SmallScreenArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+SmallScreenPrimarySurface = DOCUMENT_FLOW
+SmallScreenPersistentSidePanels = 0
+StaticExportArtifact = docs/design/high-fidelity/evidence/static-export-example.png
+StaticExportArtifactState = static-export
+StaticExportArtifactViewport = 1200x1600
+StaticExportArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+StaticExportManifest = docs/design/high-fidelity/evidence/static-export-manifest.json
+StaticExportMachineIdentity = COMPANION_MANIFEST
+StaticExportRawTechnicalIdsVisible = NO
+StaticExportCanonicalAuthority = NONE
+```
+
+Landscape/Theme 主证据在同一阅读候选中保留唯一四层路径、领域结论、Theme 职责、
+UnderstandingRoute 与 ThemeClosure，不退化为 Theme 目录、卡片墙或自由图谱。跨域补充
+证据证明机制与规则/政策都只是 `CognitiveModule` 内容形态。小屏证据以单列连续文档、
+44px 显式触控入口和临时全屏 overlay 保留阅读 Anchor；静态导出通过 companion JSON
+使 Object、Relation 与来源身份机器可读，普通读者正文不显示技术 ID，图片不成为事实源。
+
 ## 7. 阶段边界
 
 ```text
@@ -277,6 +312,6 @@ HV-D00 VisualFoundation = PASS
 HV-D01 ModuleDefaultReading = PASS
 HV-D02 FocusAndSource = PASS
 HV-D03 RevisionAndRecovery = PASS
-HV-D04 CrossLayerResponsiveAndExport = NOT_RUN
+HV-D04 CrossLayerResponsiveAndExport = PASS
 HV-D05 FixedVisualUsabilityReview = NOT_RUN
 ```

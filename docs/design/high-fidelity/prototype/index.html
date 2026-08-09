@@ -656,6 +656,132 @@
       </div>
     </div>
 
+    <div id="domain-default-fixture" hidden>
+      <div id="landscape-theme-document" class="cross-layer-shell" tabindex="-1"
+        data-state-code="CROSS_LAYER_DEFAULT_READING" data-origin-anchor-id="landscape-origin-anchor">
+        <header class="cross-layer-header">
+          <div>
+            <p class="eyebrow">KnowledgeLandscape · reading closure</p>
+            <h1>数据系统如何在并发、持久化与交付之间形成一条可理解的主线？</h1>
+          </div>
+          <button id="landscape-origin-anchor" class="quiet-action" type="button">返回全景起点</button>
+        </header>
+
+        <nav class="canonical-hierarchy" aria-label="Canonical four layer hierarchy">
+          <span class="canonical-level landscape-level" data-layer="KnowledgeLandscape"><small>01 · KnowledgeLandscape</small><strong>数据系统</strong></span>
+          <i aria-hidden="true">→</i>
+          <span class="canonical-level theme-level" data-layer="KnowledgeTheme"><small>02 · KnowledgeTheme</small><strong>并发与一致性</strong></span>
+          <i aria-hidden="true">→</i>
+          <span class="canonical-level module-level" data-layer="CognitiveModule"><small>03 · CognitiveModule</small><strong>一致性读机制</strong></span>
+          <i aria-hidden="true">→</i>
+          <span class="canonical-level element-level" data-layer="KnowledgeElement"><small>04 · KnowledgeElement</small><strong>Read View</strong></span>
+        </nav>
+
+        <main class="cross-layer-grid">
+          <section class="landscape-closure" aria-labelledby="landscape-thesis-title">
+            <div class="landscape-thesis">
+              <p class="eyebrow">LandscapeThesis · 领域结论</p>
+              <h2 id="landscape-thesis-title">可靠的数据系统以一致性边界组织变化，再以持久化和交付保证结果可解释。</h2>
+              <p>这不是主题目录：每个主题都承担一段理解职责，并通过主依赖汇入同一领域结论。</p>
+            </div>
+            <div class="theme-responsibilities" aria-label="Core themes and responsibilities">
+              <article class="theme-responsibility"><span>FOUNDATION</span><h3>存储与版本</h3><p>提供可追溯的历史事实。</p></article>
+              <article class="theme-responsibility current"><span>CORE</span><h3>并发与一致性</h3><p>定义观察边界与可见结果。</p></article>
+              <article class="theme-responsibility"><span>APPLICATION</span><h3>交付与恢复</h3><p>让失败边界和恢复动作明确。</p></article>
+            </div>
+            <section class="understanding-route" aria-labelledby="understanding-route-title">
+              <p class="eyebrow">UnderstandingRoute · 为什么先看这里</p>
+              <h3 id="understanding-route-title">版本事实 → 观察边界 → 失败后的可信交付</h3>
+              <ol><li>先认识版本为何存在</li><li>再理解一致性读如何选择</li><li>最后判断交付与恢复</li></ol>
+            </section>
+            <div class="global-boundary"><b>GlobalBoundary</b><span>主依赖只表达理解顺序；不形成第二棵知识树，也不开放自由节点画布。</span></div>
+          </section>
+
+          <section id="theme-closure-panel" class="theme-closure" tabindex="-1" aria-labelledby="theme-core-question">
+            <p class="eyebrow">KnowledgeTheme · ThemeClosure</p>
+            <h2 id="theme-core-question" class="theme-core-question">并发发生时，系统如何既允许变化又提供稳定观察？</h2>
+            <p class="theme-thesis">版本链保存变化，隔离语义约束观察，锁与提交顺序处理冲突；三者共同构成一致性主题主干。</p>
+            <div class="theme-spine" aria-label="Theme spine">
+              <span>版本事实</span><i>→</i><span>并发控制</span><i>→</i><span>一致性观察</span>
+            </div>
+            <div class="module-cooperation" aria-label="Module responsibilities">
+              <p><b>版本链</b><br><span>负责候选历史</span></p>
+              <p><b>锁与事务</b><br><span>负责变化秩序</span></p>
+              <p><b>一致性读</b><br><span>负责观察选择</span></p>
+            </div>
+            <div class="theme-boundary"><b>ThemeBoundary</b><p>一致性读不等于当前读；不同隔离级别改变 Read View 的创建时机。</p></div>
+            <button id="theme-detail-trigger" class="theme-entry" type="button" data-touch-equivalent="OPEN_THEME_CLOSURE">在 ThemeClosure 中继续</button>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="theme-default-fixture" hidden>
+      <main id="cross-domain-document" class="cross-domain-shell" tabindex="-1" data-state-code="CROSS_DOMAIN_SAME_HIERARCHY">
+        <header class="cross-domain-header">
+          <div><p class="eyebrow">Cross-domain reading</p><h1>同一四层结构，承载机制解释与规则判断</h1></div>
+          <p>内容形态不同，正式层级、主归属和阅读闭环不改变。</p>
+        </header>
+        <section class="cross-domain-case mechanism-domain" data-content-form="MECHANISM">
+          <nav class="canonical-hierarchy" aria-label="Mechanism canonical hierarchy">
+            <span class="canonical-level landscape-level">数据系统</span><i>→</i><span class="canonical-level theme-level">并发与一致性</span><i>→</i><span class="canonical-level module-level">MVCC 一致性读</span><i>→</i><span class="canonical-level element-level">Read View</span>
+          </nav>
+          <div class="domain-reading-copy"><p class="eyebrow">Mechanism · CognitiveModule</p><h2>Read View 如何从版本链中选出可见记录？</h2><p>观察边界先排除未来提交和未完成事务，再沿 Undo 历史寻找满足条件的版本。机制内容仍然收敛为 Module 的问题、条件、结果与边界。</p><div class="domain-closure"><b>Closure</b><span>Read View 定义边界，版本链提供候选，判断规则完成选择。</span></div></div>
+        </section>
+        <section class="cross-domain-case rule-policy-domain" data-content-form="RULE_POLICY">
+          <nav class="canonical-hierarchy" aria-label="Rule policy canonical hierarchy">
+            <span class="canonical-level landscape-level">采购管理</span><i>→</i><span class="canonical-level theme-level">验收与付款</span><i>→</i><span class="canonical-level module-level">先验收后付款规则</span><i>→</i><span class="canonical-level element-level">验收凭证</span>
+          </nav>
+          <div class="domain-reading-copy"><p class="eyebrow">Rule / policy · CognitiveModule</p><h2>什么条件满足后，付款义务才正式成立？</h2><p>采购结果必须先通过约定验收，凭证和例外处理形成可核查边界。规则内容仍以 Module 表达，不升级为第五层政策对象。</p><div class="domain-closure"><b>Closure</b><span>验收结果确认交付事实，合同条件决定付款义务，例外必须显式记录。</span></div></div>
+        </section>
+        <footer class="cross-domain-boundary">Canonical hierarchy retained · no graph workspace · no independent domain object</footer>
+      </main>
+    </div>
+
+    <div id="module-small-screen-fixture" hidden>
+      <main id="small-screen-document" class="small-reading-document" tabindex="-1" data-state-code="SMALL_SCREEN_SAFE_READING">
+        <header class="small-reading-header"><span class="brand-mark" aria-hidden="true">C</span><div><small>READING MODE · SMALL SCREEN</small><strong>一致性读机制</strong></div></header>
+        <nav class="small-hierarchy" aria-label="Small screen four layer hierarchy">
+          <span class="canonical-level landscape-level">数据系统</span><i>›</i><span class="canonical-level theme-level">并发</span><i>›</i><span class="canonical-level module-level">一致性读</span><i>›</i><span class="canonical-level element-level">Read View</span>
+        </nav>
+        <article class="small-document-flow">
+          <p class="eyebrow">CoreQuestion</p>
+          <h1 class="small-core-question">一次读取如何在持续写入中保持稳定观察？</h1>
+          <section class="small-core-conclusion"><p class="eyebrow">CoreConclusion</p><h2>Read View 固定判断边界，版本链保留可选择的历史。</h2></section>
+          <p class="small-narrative">读取不会冻结整个数据库。它记录需要排除的事务范围，再对每个候选版本逐项判断；因此正文必须连续呈现条件、结果和例外。</p>
+          <div class="small-spine" aria-label="Primary cognitive spine"><span>观察边界</span><i>↓</i><span>版本候选</span><i>↓</i><span>可见结果</span></div>
+          <section class="small-boundaries"><h2>Conditions &amp; Boundaries</h2><p>快照读遵循 Read View；当前读读取最新已提交结果。隔离级别改变快照创建时机，但不改变版本身份。</p></section>
+          <button id="small-element-trigger" class="small-element-trigger" type="button" data-touch-equivalent="OPEN_KNOWLEDGE_ELEMENT" aria-controls="small-element-overlay">查看 KnowledgeElement · Read View</button>
+        </article>
+        <section id="small-element-overlay" class="small-element-overlay" hidden tabindex="-1" aria-labelledby="small-element-title">
+          <button id="small-overlay-close" type="button" data-focus-return-target="small-element-trigger">关闭并返回正文</button>
+          <p class="eyebrow">On-demand overlay · not persistent</p><h2 id="small-element-title">Read View</h2><p>记录事务观察边界的 KnowledgeElement；关闭后返回原阅读 Anchor。</p>
+        </section>
+      </main>
+    </div>
+
+    <div id="static-export-fixture" hidden>
+      <article id="static-export-document" class="export-sheet" tabindex="-1" data-state-code="PUBLISHED_CANONICAL_PROJECTION"
+        data-object-id="module-mvcc-consistent-read" data-export-snapshot="cognitura-snapshot-v13">
+        <header class="export-header"><div><p class="eyebrow">Cognitura · static reading snapshot</p><h1>一致性读：从观察边界到可见版本</h1></div><span>PUBLISHED · v13</span></header>
+        <nav class="export-hierarchy" aria-label="Exported four layer position">
+          <span data-object-id="landscape-data-systems">数据系统</span><i>→</i><span data-object-id="theme-concurrency-consistency">并发与一致性</span><i>→</i><span data-object-id="module-mvcc-consistent-read">一致性读机制</span><i>→</i><span data-object-id="element-read-view">Read View</span>
+        </nav>
+        <section class="export-opening"><p class="eyebrow">CoreQuestion</p><h2>一次读取如何从多个记录版本中选出真正可见的那个？</h2><p class="export-lead">稳定观察来自明确边界，而不是把变化隐藏起来。</p></section>
+        <section class="export-mechanism" aria-label="Static mechanism alternative description">
+          <div data-object-id="element-read-view"><small>观察边界</small><strong>Read View</strong><p>排除尚未满足可见条件的事务版本。</p></div>
+          <i aria-hidden="true">→</i>
+          <div data-object-id="element-version-chain"><small>候选历史</small><strong>Version chain</strong><p>沿 Undo 历史保留同一记录的旧版本。</p></div>
+          <i aria-hidden="true">→</i>
+          <div><small>阅读结果</small><strong>Visible version</strong><p>选择第一个满足边界的候选。</p></div>
+        </section>
+        <section class="export-narrative"><h2>条件、结论与例外</h2><p>Read View 定义当前事务的观察范围，版本链提供候选。快照读遵循该边界；当前读则读取最新已提交结果。若没有候选满足条件，记录对本次快照不可见。</p></section>
+        <blockquote class="export-relation" data-relation-id="rel-read-view-selects-version">Read View <b>约束</b> 版本链中的可见版本；这条 Relation 在 Web、核验、修订与导出中保持同一身份。</blockquote>
+        <section class="export-boundary"><h2>Boundary</h2><p>静态图片只负责分享、离线降级和版本快照；它不是正式知识事实，也不能替代可访问正文。</p></section>
+        <footer class="export-source" data-source-id="src-mvcc-mechanism"><span>Source trace 01</span><p>机制型合成证据 · 支持核心问题、结论和可见性 Relation。</p><small>Companion manifest preserves machine identity; technical IDs stay silent in normal reading.</small></footer>
+      </article>
+    </div>
+
     <script src="prototype.js"></script>
   </body>
 </html>

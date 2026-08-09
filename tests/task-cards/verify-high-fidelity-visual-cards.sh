@@ -226,10 +226,10 @@ for expected_line in \
   "HighFidelityVisualTaskCardValidation = PASS" \
   "TaskCardCount = 6" \
   "TaskCardSetStatus = READY_FOR_EXECUTION" \
-  "ActiveTaskCard = HV-D04" \
-  "DoneTaskCardCount = 4" \
+  "ActiveTaskCard = HV-D05" \
+  "DoneTaskCardCount = 5" \
   "ReadyTaskCardCount = 1" \
-  "BlockedTaskCardCount = 1" \
+  "BlockedTaskCardCount = 0" \
   "Task6WriteSetItemCount = 22" \
   "CurrentStageProjectionValidation = PASS" \
   "VisualFoundationPrototypeValidation = PASS" \
@@ -261,6 +261,21 @@ for expected_line in \
   "ConflictedDraftInteractionTransitionValidation = PASS" \
   "ConflictedDraftEvidence = 1440x1100" \
   "ConflictedDraftEvidenceFreshness = PASS" \
+  "LandscapeThemeBrowserSelectorValidation = PASS" \
+  "LandscapeThemeEvidence = 1440x1100" \
+  "LandscapeThemeEvidenceFreshness = PASS" \
+  "CrossDomainBrowserSelectorValidation = PASS" \
+  "CrossDomainEvidence = 1440x1100" \
+  "CrossDomainEvidenceFreshness = PASS" \
+  "SmallScreenBrowserSelectorValidation = PASS" \
+  "SmallScreenInteractionTransitionValidation = PASS" \
+  "SmallScreenResponsiveSafetyValidation = PASS" \
+  "SmallScreenEvidence = 390x844" \
+  "SmallScreenEvidenceFreshness = PASS" \
+  "StaticExportBrowserSelectorValidation = PASS" \
+  "StaticExportManifestValidation = PASS" \
+  "StaticExportEvidence = 1200x1600" \
+  "StaticExportEvidenceFreshness = PASS" \
   "HighFidelityVisualDesign = NOT_RUN" \
   "HighFidelityUsabilityValidation = NOT_RUN" \
   "BusinessImplementation = NOT_AUTHORIZED" \
@@ -277,9 +292,9 @@ expect_failure "${missing_card}" "actual visual task card count 5 does not match
 
 second_ready="${test_tmp_root}/second-ready"
 make_fixture "${second_ready}"
-sed -i.bak 's/^Status = BLOCKED_BY_DEPENDENCY$/Status = READY/' \
-  "${second_ready}/cards/HV-D05-fixed-visual-usability-review.md"
-rm "${second_ready}/cards/HV-D05-fixed-visual-usability-review.md.bak"
+sed -i.bak 's/^Status = DONE$/Status = READY/' \
+  "${second_ready}/cards/HV-D04-cross-layer-responsive-export.md"
+rm "${second_ready}/cards/HV-D04-cross-layer-responsive-export.md.bak"
 expect_failure "${second_ready}" "exactly one READY card is required"
 
 wrong_write_set="${test_tmp_root}/wrong-write-set"
@@ -839,6 +854,130 @@ expect_hvd02_dom_failure "${hidden_conflict_detail}" conflicted-draft \
   module-conflicted-draft-desktop.png \
   'conflicted-draft browser selector probe data-probe-rendered-conflict-panel-count must be 1, got 0'
 
+hidden_landscape_level="${test_tmp_root}/hidden-landscape-level"
+make_fixture "${hidden_landscape_level}"
+sed -i.bak 's/<span class="canonical-level landscape-level" data-layer="KnowledgeLandscape"/<span hidden class="canonical-level landscape-level" data-layer="KnowledgeLandscape"/' \
+  "${hidden_landscape_level}/prototype/index.html"
+rm "${hidden_landscape_level}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${hidden_landscape_level}" domain-default \
+  knowledge-landscape-theme-desktop.png \
+  'domain-default browser selector probe data-probe-hierarchy-count must be 4, got 3'
+
+duplicate_theme_level="${test_tmp_root}/duplicate-theme-level"
+make_fixture "${duplicate_theme_level}"
+sed -i.bak 's#<span class="canonical-level theme-level" data-layer="KnowledgeTheme"><small>02#<span class="canonical-level theme-level"><small>02B · KnowledgeTheme</small><strong>重复主题</strong></span><span class="canonical-level theme-level" data-layer="KnowledgeTheme"><small>02#' \
+  "${duplicate_theme_level}/prototype/index.html"
+rm "${duplicate_theme_level}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${duplicate_theme_level}" domain-default \
+  knowledge-landscape-theme-desktop.png \
+  'domain-default browser selector probe data-probe-hierarchy-count must be 4, got 5'
+
+missing_landscape_thesis="${test_tmp_root}/missing-landscape-thesis"
+make_fixture "${missing_landscape_thesis}"
+sed -i.bak 's/class="landscape-thesis"/class="landscape-thesis-missing"/' \
+  "${missing_landscape_thesis}/prototype/index.html"
+rm "${missing_landscape_thesis}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_landscape_thesis}" domain-default \
+  knowledge-landscape-theme-desktop.png \
+  'domain-default browser selector probe data-probe-landscape-thesis-count must be 1, got 0'
+
+landscape_card_wall="${test_tmp_root}/landscape-card-wall"
+make_fixture "${landscape_card_wall}"
+sed -i.bak 's/<main class="cross-layer-grid">/<div class="card-wall">Forbidden card wall<\/div><main class="cross-layer-grid">/' \
+  "${landscape_card_wall}/prototype/index.html"
+rm "${landscape_card_wall}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${landscape_card_wall}" domain-default \
+  knowledge-landscape-theme-desktop.png \
+  'domain-default browser selector probe data-probe-forbidden-surface-count must be 0, got 1'
+
+missing_theme_core_question="${test_tmp_root}/missing-theme-core-question"
+make_fixture "${missing_theme_core_question}"
+sed -i.bak 's/class="theme-core-question"/class="theme-core-question-missing"/' \
+  "${missing_theme_core_question}/prototype/index.html"
+rm "${missing_theme_core_question}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_theme_core_question}" domain-default \
+  knowledge-landscape-theme-desktop.png \
+  'domain-default browser selector probe data-probe-theme-core-question-count must be 1, got 0'
+
+missing_mechanism_module_layer="${test_tmp_root}/missing-mechanism-module-layer"
+make_fixture "${missing_mechanism_module_layer}"
+sed -i.bak 's/class="canonical-level module-level">MVCC/class="canonical-level">MVCC/' \
+  "${missing_mechanism_module_layer}/prototype/index.html"
+rm "${missing_mechanism_module_layer}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${missing_mechanism_module_layer}" theme-default \
+  cross-domain-reading-desktop.png \
+  'theme-default browser selector probe data-probe-mechanism-module-count must be 1, got 0'
+
+cross_domain_graph_workspace="${test_tmp_root}/cross-domain-graph-workspace"
+make_fixture "${cross_domain_graph_workspace}"
+sed -i.bak 's/<header class="cross-domain-header">/<div class="graph-workspace">Forbidden graph workspace<\/div><header class="cross-domain-header">/' \
+  "${cross_domain_graph_workspace}/prototype/index.html"
+rm "${cross_domain_graph_workspace}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${cross_domain_graph_workspace}" theme-default \
+  cross-domain-reading-desktop.png \
+  'theme-default browser selector probe data-probe-forbidden-surface-count must be 0, got 1'
+
+small_persistent_sidebar="${test_tmp_root}/small-persistent-sidebar"
+make_fixture "${small_persistent_sidebar}"
+sed -i.bak 's/<header class="small-reading-header">/<aside class="persistent-governance-panel">Forbidden sidebar<\/aside><header class="small-reading-header">/' \
+  "${small_persistent_sidebar}/prototype/index.html"
+rm "${small_persistent_sidebar}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_persistent_sidebar}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-forbidden-surface-count must be 0, got 1'
+
+small_inert_trigger="${test_tmp_root}/small-inert-trigger"
+make_fixture "${small_inert_trigger}"
+sed -i.bak 's/id="small-element-trigger"/inert id="small-element-trigger"/' \
+  "${small_inert_trigger}/prototype/index.html"
+rm "${small_inert_trigger}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_inert_trigger}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-trigger-count must be 1, got 0'
+
+small_hidden_core_text="${test_tmp_root}/small-hidden-core-text"
+make_fixture "${small_hidden_core_text}"
+sed -i.bak 's/<h1 class="small-core-question"/<h1 hidden class="small-core-question"/' \
+  "${small_hidden_core_text}/prototype/index.html"
+rm "${small_hidden_core_text}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_hidden_core_text}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-core-question-count must be 1, got 0'
+
+static_visible_raw_id="${test_tmp_root}/static-visible-raw-id"
+make_fixture "${static_visible_raw_id}"
+sed -i.bak 's#一致性读：从观察边界到可见版本</h1>#一致性读：从观察边界到可见版本</h1><span>landscape-data-systems</span>#' \
+  "${static_visible_raw_id}/prototype/index.html"
+rm "${static_visible_raw_id}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_visible_raw_id}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-raw-id-visible-count must be 0, got 1'
+
+static_relation_id_mismatch="${test_tmp_root}/static-relation-id-mismatch"
+make_fixture "${static_relation_id_mismatch}"
+sed -i.bak 's/data-relation-id="rel-read-view-selects-version"/data-relation-id="rel-wrong"/' \
+  "${static_relation_id_mismatch}/prototype/index.html"
+rm "${static_relation_id_mismatch}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_relation_id_mismatch}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-relation-id-set must be rel-read-view-selects-version, got rel-wrong'
+
+manifest_relation_mismatch="${test_tmp_root}/manifest-relation-mismatch"
+make_fixture "${manifest_relation_mismatch}"
+sed -i.bak 's/"rel-read-view-selects-version"/"rel-manifest-wrong"/' \
+  "${manifest_relation_mismatch}/evidence/static-export-manifest.json"
+rm "${manifest_relation_mismatch}/evidence/static-export-manifest.json.bak"
+expect_failure "${manifest_relation_mismatch}" \
+  'static export DOM Relation identities do not match companion manifest'
+
+manifest_duplicate_object="${test_tmp_root}/manifest-duplicate-object"
+make_fixture "${manifest_duplicate_object}"
+sed -i.bak 's/"element-version-chain"/"element-read-view"/' \
+  "${manifest_duplicate_object}/evidence/static-export-manifest.json"
+rm "${manifest_duplicate_object}/evidence/static-export-manifest.json.bak"
+expect_failure "${manifest_duplicate_object}" \
+  'static export companion manifest is invalid'
+
 missing_module_source_label="${test_tmp_root}/missing-module-source-label"
 make_fixture "${missing_module_source_label}"
 sed -i.bak \
@@ -897,4 +1036,5 @@ printf 'HV-D01FixRound2AdversarialNegativeFixtureCount = 1\n'
 printf 'HV-D01SelectorSemanticsPositiveFixtureCount = 2\n'
 printf 'HV-D02DOMNegativeFixtureCount = 19\n'
 printf 'HV-D03DOMNegativeFixtureCount = 12\n'
-printf 'NegativeFixtureCount = 99\n'
+printf 'HV-D04NegativeFixtureCount = 14\n'
+printf 'NegativeFixtureCount = 113\n'

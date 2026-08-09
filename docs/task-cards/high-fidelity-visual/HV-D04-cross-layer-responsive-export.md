@@ -3,8 +3,8 @@
 ```text
 TaskCardID = HV-D04
 CardKind = HIGH_FIDELITY_VISUAL_DESIGN
-Status = READY
-Gate = HV-D04 NOT_RUN
+Status = DONE
+Gate = HV-D04 PASS
 Risk = HIGH
 DependsOn = HV-D03
 ReviewRoute = MAIN_AGENT_LOCAL_GATE
@@ -74,3 +74,12 @@ git diff --check
 ## 8. 提交与审查
 
 形成独立本地提交 `docs: complete cross layer visual evidence`；不 push。
+
+```text
+ExecutionResult = PASS
+EvidenceArtifacts = knowledge-landscape-theme-desktop.png,cross-domain-reading-desktop.png,module-default-reading-small-screen.png,static-export-example.png,static-export-manifest.json
+RFOwnerVisualPass = RF-AC-01,10,15,19
+RF-AC-20SupportingEvidence = CAPTURED_NOT_CLOSED
+Usability = NOT_RUN
+Implementation = NOT_RUN
+```
