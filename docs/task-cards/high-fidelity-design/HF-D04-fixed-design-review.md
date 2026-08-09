@@ -3,8 +3,8 @@
 ```text
 TaskCardID = HF-D04
 CardKind = DESIGN
-Status = READY
-Gate = HF-DG4 FixedDesignReview
+Status = DONE
+Gate = HF-DG4 FixedDesignReview PASS
 Risk = HIGH
 DependsOn = HF-D03
 ReviewRoute = SOL_HIGH_GENERAL_THEN_SOL_HIGH_FINAL_GATE
@@ -14,11 +14,25 @@ WriteSetSource = APPROVED_TASK_PLAN_EXACT
 WriteSetItemCount = 19
 ReFreezeParentRepairSHA = 56285c9c6b3aef6dd748eeadfa684dd824389e07
 ReFreezeReason = STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE
+ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
+ReviewStage1Model = gpt-5.6-sol/high
+ReviewStage1Verdict = GO
+ReviewStage1P0 = 0
+ReviewStage1P1 = 0
+ReviewStage1P2 = 0
+ReviewStage2Model = gpt-5.6-sol/high
+ReviewStage2Verdict = GO
+ReviewStage2P0 = 0
+ReviewStage2P1 = 0
+ReviewStage2P2 = 0
+UltraReviewUsed = NO
+PromotionClosureWriteSetItemCount = 19
 ```
 
 ## 1. 目标
 
-对固定候选执行两个独立 `gpt-5.6-sol/high` 阶段，并仅在零发现时同步正式晋级三联。
+固定准备提交已经通过两个独立 `gpt-5.6-sol/high` 零发现阶段；本卡同步完成正式
+晋级三联和精确 19 文件 promotion closure。
 
 ## 2. 前置条件与输入
 
@@ -92,7 +106,7 @@ test 四个治理文件。Step 1 与 Step 5 都必须显式执行只读 specialt
 
 ## 7. Gate 与完成定义
 
-只有双阶段均为 `GO / P0=0 / P1=0 / P2=0`，封口提交才允许把专项正文、独立
+双阶段均为 `GO / P0=0 / P1=0 / P2=0`，封口提交把专项正文、独立
 manifest 和 coverage 记录为同一 reviewed candidate SHA，同时要求 manifest 的
 字节数和 SHA-256 与晋级后的专项正文精确一致，并把 coverage 置为 reviewed/closed。
 `HV-D00` 只在 `docs/engineering/cognitura-high-fidelity-design-plan.md` 中投影为

@@ -3,9 +3,10 @@ canonicalProjectName: Cognitura
 sources:
   - sourceId: HF-DESIGN-001
     path: Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md
-    role: HIGH_FIDELITY_INTERACTION_SPECIALTY_CANDIDATE
+    role: HIGH_FIDELITY_INTERACTION_SPECIALTY_BASELINE
     version: Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0
-    status: CANDIDATE_AWAITING_REPOSITORY_GATE
-    fingerprintScope: HF-DG4_FIXED_CANDIDATE_REVIEW
-    sizeBytes: 163072
-    sha256: 25fc84b287e9c090c643f86392efa78a7d168a69934e76fc8a1bcbcc31e6f18d
+    status: FORMAL_SPECIALTY_BASELINE
+    reviewedPreparationSha: 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
+    fingerprintScope: HF-DG4_FORMAL_SPECIALTY_PROMOTION
+    sizeBytes: 163475
+    sha256: 77d680b6c17c2146163373b0018bb23db6aa2bcd80f477fb50e4bc1da4fb9ced

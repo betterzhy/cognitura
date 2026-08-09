@@ -192,33 +192,51 @@ canonical_active="$(sed -n 's/^ActiveTaskCard = //p' "${cards_dir}/README.md")"
 for expected_line in \
   "HighFidelityDesignTaskCardValidation = PASS" \
   "TaskCardCount = 5" \
-  "TaskCardSetStatus = READY_FOR_EXECUTION" \
-  "ActiveTaskCard = ${canonical_active}" \
+  "TaskCardSetStatus = COMPLETE" \
+  "ActiveTaskCard = NONE" \
+  "HFD04ReviewStage1 = GO / P0=0 / P1=0 / P2=0" \
+  "HFD04ReviewStage2 = GO / P0=0 / P1=0 / P2=0" \
+  "ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf" \
   "BusinessImplementation = NOT_AUTHORIZED" \
   "W1-I00Release = FORBIDDEN"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
 done
-receipt_review_mode="$(printf '%s\n' "${canonical_output}" | sed -n 's/^ReFreezePreparationReviewMode = //p')"
-case "${receipt_review_mode}" in
-  ENABLED|DISABLED) ;;
+canonical_receipt_review_mode="$(printf '%s\n' "${canonical_output}" | sed -n 's/^ReFreezePreparationReviewMode = //p')"
+case "${canonical_receipt_review_mode}" in
+  DISABLED) ;;
   *) fail "canonical output is missing a valid ReFreezePreparationReviewMode" ;;
 esac
-receipt_negative_cases=0
 
 baseline_dir="${test_tmp_root}/baseline"
 cp -R "${cards_dir}" "${baseline_dir}"
 
-if [[ "${receipt_review_mode}" == "ENABLED" ]]; then
+preparation_dir="${test_tmp_root}/preparation-review"
+cp -R "${baseline_dir}" "${preparation_dir}"
+sed -i.bak 's/^Status = DONE$/Status = READY/' \
+  "${preparation_dir}/HF-D04-fixed-design-review.md"
+rm "${preparation_dir}/HF-D04-fixed-design-review.md.bak"
+sed -i.bak 's/^ActiveTaskCard = NONE$/ActiveTaskCard = HF-D04/' "${preparation_dir}/README.md"
+rm "${preparation_dir}/README.md.bak"
+sed -i.bak 's/^TaskCardSetStatus = COMPLETE$/TaskCardSetStatus = READY_FOR_EXECUTION/' \
+  "${preparation_dir}/README.md"
+rm "${preparation_dir}/README.md.bak"
+preparation_output="$("${verifier}" --cards-dir "${preparation_dir}")" ||
+  fail "historical HF-D04 preparation-review fixture was rejected"
+receipt_review_mode="$(printf '%s\n' "${preparation_output}" | sed -n 's/^ReFreezePreparationReviewMode = //p')"
+[[ "${receipt_review_mode}" == "ENABLED" ]] ||
+  fail "historical HF-D04 preparation-review mode must remain ENABLED and auditable"
+receipt_negative_cases=5
+
   missing_plan_receipt="${test_tmp_root}/missing-plan-receipt.md"
   cp "${master_plan}" "${missing_plan_receipt}"
   sed -i.bak '/^ReFreezeParentRepairSHA = /d' "${missing_plan_receipt}"
   rm "${missing_plan_receipt}.bak"
-  expect_plan_failure "${missing_plan_receipt}" \
+  expect_plan_and_cards_failure "${missing_plan_receipt}" "${preparation_dir}" \
     "master plan: missing re-freeze receipt field: ReFreezeParentRepairSHA"
 
   missing_card_receipt_dir="${test_tmp_root}/missing-card-receipt"
-  cp -R "${baseline_dir}" "${missing_card_receipt_dir}"
+  cp -R "${preparation_dir}" "${missing_card_receipt_dir}"
   sed -i.bak '/^ReFreezeReason = /d' \
     "${missing_card_receipt_dir}/HF-D04-fixed-design-review.md"
   rm "${missing_card_receipt_dir}/HF-D04-fixed-design-review.md.bak"
@@ -228,7 +246,7 @@ if [[ "${receipt_review_mode}" == "ENABLED" ]]; then
   wrong_receipt_plan="${test_tmp_root}/wrong-receipt-sha.md"
   wrong_receipt_cards="${test_tmp_root}/wrong-receipt-sha-cards"
   cp "${master_plan}" "${wrong_receipt_plan}"
-  cp -R "${baseline_dir}" "${wrong_receipt_cards}"
+  cp -R "${preparation_dir}" "${wrong_receipt_cards}"
   sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 0000000000000000000000000000000000000000/' \
     "${wrong_receipt_plan}"
   rm "${wrong_receipt_plan}.bak"
@@ -239,7 +257,7 @@ if [[ "${receipt_review_mode}" == "ENABLED" ]]; then
     "re-freeze receipt SHA must equal the parent owner-repair SHA"
 
   mismatched_receipt_dir="${test_tmp_root}/mismatched-receipt"
-  cp -R "${baseline_dir}" "${mismatched_receipt_dir}"
+  cp -R "${preparation_dir}" "${mismatched_receipt_dir}"
   sed -i.bak -E 's/^ReFreezeParentRepairSHA = [0-9a-f]{40}$/ReFreezeParentRepairSHA = 0000000000000000000000000000000000000000/' \
     "${mismatched_receipt_dir}/HF-D04-fixed-design-review.md"
   rm "${mismatched_receipt_dir}/HF-D04-fixed-design-review.md.bak"
@@ -247,14 +265,12 @@ if [[ "${receipt_review_mode}" == "ENABLED" ]]; then
     "master plan and HF-D04 card re-freeze receipt SHA must match"
 
   mismatched_reason_dir="${test_tmp_root}/mismatched-reason"
-  cp -R "${baseline_dir}" "${mismatched_reason_dir}"
+  cp -R "${preparation_dir}" "${mismatched_reason_dir}"
   sed -i.bak 's/^ReFreezeReason = STATUS_COMMAND_GLOBAL_UNIQUENESS_AND_RECEIPT_TEST_SCOPE$/ReFreezeReason = OTHER_REPAIR/' \
     "${mismatched_reason_dir}/HF-D04-fixed-design-review.md"
   rm "${mismatched_reason_dir}/HF-D04-fixed-design-review.md.bak"
   expect_failure "${mismatched_reason_dir}" \
     "master plan and HF-D04 card re-freeze receipt reason must match"
-  receipt_negative_cases=5
-fi
 
 initial_d00_dir="${test_tmp_root}/initial-d00"
 cp -R "${baseline_dir}" "${initial_d00_dir}"
@@ -271,6 +287,9 @@ for card_file in "${initial_d00_dir}"/HF-D*.md; do
   rm "${card_file}.bak"
 done
 sed -i.bak 's/^ActiveTaskCard = .*$/ActiveTaskCard = HF-D00/' "${initial_d00_dir}/README.md"
+rm "${initial_d00_dir}/README.md.bak"
+sed -i.bak 's/^TaskCardSetStatus = COMPLETE$/TaskCardSetStatus = READY_FOR_EXECUTION/' \
+  "${initial_d00_dir}/README.md"
 rm "${initial_d00_dir}/README.md.bak"
 initial_output="$("${verifier}" --cards-dir "${initial_d00_dir}")" ||
   fail "HF-D00 initial governance snapshot was rejected"
@@ -316,6 +335,9 @@ for expanded_card in "${expanded_hfd01_dir}"/HF-D*.md; do
   rm "${expanded_card}.bak"
 done
 sed -i.bak 's/^ActiveTaskCard = .*$/ActiveTaskCard = HF-D01/' \
+  "${expanded_hfd01_dir}/README.md"
+rm "${expanded_hfd01_dir}/README.md.bak"
+sed -i.bak 's/^TaskCardSetStatus = COMPLETE$/TaskCardSetStatus = READY_FOR_EXECUTION/' \
   "${expanded_hfd01_dir}/README.md"
 rm "${expanded_hfd01_dir}/README.md.bak"
 expanded_output="$("${verifier}" --cards-dir "${expanded_hfd01_dir}")" ||
@@ -426,7 +448,7 @@ cp -R "${baseline_dir}" "${second_ready_dir}"
 sed -i.bak 's/^Status = DONE$/Status = READY/' \
   "${second_ready_dir}/HF-D01-reading-presentation-contract.md"
 rm "${second_ready_dir}/HF-D01-reading-presentation-contract.md.bak"
-expect_failure "${second_ready_dir}" "expected exactly one READY task card"
+expect_failure "${second_ready_dir}" "closed HF design set must keep every card DONE"
 
 forbidden_write_dir="${test_tmp_root}/forbidden-write"
 cp -R "${baseline_dir}" "${forbidden_write_dir}"
@@ -442,6 +464,27 @@ sed -i.bak 's/^W1-I00Release = FORBIDDEN$/W1-I00Release = READY/' \
   "${w1_release_dir}/README.md"
 rm "${w1_release_dir}/README.md.bak"
 expect_failure "${w1_release_dir}" "W1-I00Release must be FORBIDDEN"
+
+reopened_hfd04_dir="${test_tmp_root}/reopened-hfd04"
+cp -R "${baseline_dir}" "${reopened_hfd04_dir}"
+sed -i.bak 's/^Status = DONE$/Status = READY/' \
+  "${reopened_hfd04_dir}/HF-D04-fixed-design-review.md"
+rm "${reopened_hfd04_dir}/HF-D04-fixed-design-review.md.bak"
+expect_failure "${reopened_hfd04_dir}" "closed HF design set must keep every card DONE"
+
+missing_stage1_dir="${test_tmp_root}/missing-stage1"
+cp -R "${baseline_dir}" "${missing_stage1_dir}"
+sed -i.bak '/^ReviewStage1Verdict = /d' \
+  "${missing_stage1_dir}/HF-D04-fixed-design-review.md"
+rm "${missing_stage1_dir}/HF-D04-fixed-design-review.md.bak"
+expect_failure "${missing_stage1_dir}" "HF-D04 Stage 1 verdict must be GO"
+
+nonzero_stage2_dir="${test_tmp_root}/nonzero-stage2"
+cp -R "${baseline_dir}" "${nonzero_stage2_dir}"
+sed -i.bak 's/^ReviewStage2P1 = 0$/ReviewStage2P1 = 1/' \
+  "${nonzero_stage2_dir}/HF-D04-fixed-design-review.md"
+rm "${nonzero_stage2_dir}/HF-D04-fixed-design-review.md.bak"
+expect_failure "${nonzero_stage2_dir}" "HF-D04 Stage 2 findings must be zero"
 
 for extra_mutation in \
   'step1-leading-exit|VerificationFence = TASK5_STEP1_REQUIRED_GATE|exit 0' \

@@ -170,8 +170,11 @@ contains() {
 [[ "$(index_value TaskCardIDs)" == "HF-D00,HF-D01,HF-D02,HF-D03,HF-D04" ]] ||
   fail "TaskCardIDs must be HF-D00..HF-D04"
 [[ "$(index_value TaskCardCount)" == "5" ]] || fail "TaskCardCount must be 5"
-[[ "$(index_value TaskCardSetStatus)" == "READY_FOR_EXECUTION" ]] ||
-  fail "TaskCardSetStatus must be READY_FOR_EXECUTION"
+task_card_set_status="$(index_value TaskCardSetStatus)"
+case "${task_card_set_status}" in
+  READY_FOR_EXECUTION|COMPLETE) ;;
+  *) fail "TaskCardSetStatus must be READY_FOR_EXECUTION or COMPLETE" ;;
+esac
 [[ "$(index_value BusinessImplementation)" == "NOT_AUTHORIZED" ]] ||
   fail "BusinessImplementation must be NOT_AUTHORIZED"
 [[ "$(index_value FormalDatabaseWrite)" == "NOT_AUTHORIZED" ]] ||
@@ -352,9 +355,19 @@ for expected_id in "${declared_ids[@]}"; do
   card_index=$((card_index + 1))
 done
 
-[[ "${ready_count}" -eq 1 ]] || fail "expected exactly one READY task card, found ${ready_count}"
 active_card="$(index_value ActiveTaskCard)"
-[[ "${active_card}" == "${ready_id}" ]] || fail "ActiveTaskCard ${active_card} is not READY"
+if [[ "${task_card_set_status}" == "COMPLETE" ]]; then
+  [[ "${ready_count}" -eq 0 && "${active_card}" == "NONE" ]] ||
+    fail "closed HF design set must keep every card DONE with ActiveTaskCard NONE"
+  for completed_id in "${declared_ids[@]}"; do
+    completed_file=("${cards_dir}/${completed_id}-"*.md)
+    [[ "$(field_value "${completed_file[0]}" Status)" == "DONE" ]] ||
+      fail "closed HF design set must keep every card DONE"
+  done
+else
+  [[ "${ready_count}" -eq 1 ]] || fail "expected exactly one READY task card, found ${ready_count}"
+  [[ "${active_card}" == "${ready_id}" ]] || fail "ActiveTaskCard ${active_card} is not READY"
+fi
 
 receipt_value() {
   local receipt_file="$1"
@@ -405,20 +418,44 @@ if [[ "${preparation_review_mode}" -eq 1 ]]; then
     fail "re-freeze receipt SHA must equal the parent owner-repair SHA"
 fi
 
-passed_ready=0
-for expected_id in "${declared_ids[@]}"; do
-  file=("${cards_dir}/${expected_id}-"*.md)
-  status="$(field_value "${file[0]}" Status)"
-  if [[ "${expected_id}" == "${ready_id}" ]]; then
-    [[ "${status}" == "READY" ]] || fail "active card ${ready_id} is not READY"
-    passed_ready=1
-  elif [[ "${passed_ready}" -eq 0 ]]; then
-    [[ "${status}" == "DONE" ]] || fail "predecessor ${expected_id} must be DONE"
-  else
-    [[ "${status}" == "BLOCKED_BY_DEPENDENCY" ]] ||
-      fail "successor ${expected_id} must be BLOCKED_BY_DEPENDENCY"
-  fi
-done
+if [[ "${task_card_set_status}" == "READY_FOR_EXECUTION" ]]; then
+  passed_ready=0
+  for expected_id in "${declared_ids[@]}"; do
+    file=("${cards_dir}/${expected_id}-"*.md)
+    status="$(field_value "${file[0]}" Status)"
+    if [[ "${expected_id}" == "${ready_id}" ]]; then
+      [[ "${status}" == "READY" ]] || fail "active card ${ready_id} is not READY"
+      passed_ready=1
+    elif [[ "${passed_ready}" -eq 0 ]]; then
+      [[ "${status}" == "DONE" ]] || fail "predecessor ${expected_id} must be DONE"
+    else
+      [[ "${status}" == "BLOCKED_BY_DEPENDENCY" ]] ||
+        fail "successor ${expected_id} must be BLOCKED_BY_DEPENDENCY"
+    fi
+  done
+fi
+
+review_output=()
+if [[ "${task_card_set_status}" == "COMPLETE" ]]; then
+  hfd04_card=("${cards_dir}/HF-D04-"*.md)
+  reviewed_sha="$(field_value "${hfd04_card[0]}" ReviewedPreparationSHA)"
+  [[ "${reviewed_sha}" == "463fd4829e7c4bb8da071253e8ae9b15cee2a0cf" ]] ||
+    fail "HF-D04 ReviewedPreparationSHA mismatch"
+  for review_stage in 1 2; do
+    [[ "$(field_value "${hfd04_card[0]}" "ReviewStage${review_stage}Model")" == "gpt-5.6-sol/high" ]] ||
+      fail "HF-D04 Stage ${review_stage} model must be gpt-5.6-sol/high"
+    [[ "$(field_value "${hfd04_card[0]}" "ReviewStage${review_stage}Verdict")" == "GO" ]] ||
+      fail "HF-D04 Stage ${review_stage} verdict must be GO"
+    for severity in P0 P1 P2; do
+      [[ "$(field_value "${hfd04_card[0]}" "ReviewStage${review_stage}${severity}")" == "0" ]] ||
+        fail "HF-D04 Stage ${review_stage} findings must be zero"
+    done
+    review_output+=("HFD04ReviewStage${review_stage} = GO / P0=0 / P1=0 / P2=0")
+  done
+  [[ "$(field_value "${hfd04_card[0]}" UltraReviewUsed)" == "NO" ]] ||
+    fail "HF-D04 must not use ultra review"
+  review_output+=("ReviewedPreparationSHA = ${reviewed_sha}")
+fi
 
 if [[ "${preparation_review_mode}" -eq 1 ]]; then
   receipt_review_mode_output="ENABLED"
@@ -429,8 +466,12 @@ fi
 printf '%s\n' \
   "HighFidelityDesignTaskCardValidation = PASS" \
   "TaskCardCount = 5" \
-  "TaskCardSetStatus = READY_FOR_EXECUTION" \
+  "TaskCardSetStatus = ${task_card_set_status}" \
   "ActiveTaskCard = ${active_card}" \
-  "ReFreezePreparationReviewMode = ${receipt_review_mode_output}" \
+  "ReFreezePreparationReviewMode = ${receipt_review_mode_output}"
+if [[ "${task_card_set_status}" == "COMPLETE" ]]; then
+  printf '%s\n' "${review_output[@]}"
+fi
+printf '%s\n' \
   "BusinessImplementation = NOT_AUTHORIZED" \
   "W1-I00Release = FORBIDDEN"

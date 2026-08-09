@@ -3,7 +3,19 @@
 ```text
 CanonicalProjectName = Cognitura
 AcceptanceKind = HIGH_FIDELITY_EVIDENCE_ACCEPTANCE_LEDGER
-ContractGate = HF-DG3
+ContractGate = HF-DG4 PASS
+ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
+ReviewStage1Model = gpt-5.6-sol/high
+ReviewStage1Verdict = GO
+ReviewStage1P0 = 0
+ReviewStage1P1 = 0
+ReviewStage1P2 = 0
+ReviewStage2Model = gpt-5.6-sol/high
+ReviewStage2Verdict = GO
+ReviewStage2P0 = 0
+ReviewStage2P1 = 0
+ReviewStage2P2 = 0
+UltraReviewUsed = NO
 EvidenceArtifactCapture = NOT_RUN
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
@@ -108,10 +120,13 @@ ReverseMigrationTrace = ISHFI-RM-30|Candidate=ISHFI-RM-30|EvidenceClass=Knowledg
 
 ```text
 HF-DG3 HighFidelityEvidenceContract = PASS
+HF-DG4 FixedDesignReview = PASS
+GateReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
 GateMeaning = EVIDENCE_INPUT_CONTRACT_COMPLETE_ONLY
 GateVisualEvidenceStatus = NOT_RUN
 GateUsabilityEvidenceStatus = NOT_RUN
 GateImplementationStatus = NOT_RUN
 ```
 
-`HF-DG3` 不替代 HF-D04 固定候选审查，也不释放任何 HV 卡或 W1-I 卡。
+`HF-DG4` 只关闭合同设计固定候选审查并投影释放 `HV-D00`；实际 HV 卡集仍未创建，
+任何 HV 视觉结果与 W1-I 业务实现仍未授权。

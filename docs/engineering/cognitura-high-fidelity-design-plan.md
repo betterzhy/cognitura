@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 PlanKind = HIGH_FIDELITY_EVIDENCE_EXECUTION_PLAN
-ContractGate = HF-DG3
+ContractGate = HF-DG4 PASS
 EvidenceInputContract = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
@@ -16,7 +16,7 @@ RemotePush = NOT_AUTHORIZED
 ```
 
 本文件只固定后续证据路径、输入状态和 Gate，不包含视觉页面、原型、截图或可用性
-结果。`HF-DG3 = PASS` 只说明证据输入合同完整；所有真实证据仍为 `NOT_RUN`。
+结果。`HF-DG4 = PASS` 只关闭合同设计固定候选审查；所有真实证据仍为 `NOT_RUN`。
 
 ## 1. 八类有序证据路径
 
@@ -53,11 +53,11 @@ CrossDomainScenario = RULE_POLICY_DOMAIN|EvidenceClass=KnowledgeLandscapeAndKnow
 ## 3. 后续视觉设计任务序列
 
 本卡只登记序列，不创建 `docs/task-cards/high-fidelity-visual/`、原型或视觉稿。
-HF-D03 期间六项全部 `BLOCKED / NOT_RELEASED`；只有 HF-D04 固定候选双阶段审查
-真正通过后，后续独立任务才可创建卡集并把 `HV-D00` 置为 `READY`。
+HF-D04 固定候选双阶段审查已通过，因此仅投影 `HV-D00 = READY / RELEASED`。
+实际 HV 卡集仍为 `NOT_CREATED`，由 Task 6 创建；其余五项继续阻断。
 
 ```text
-HVDesignTask = HV-D00|VisualFoundation|BLOCKED|NOT_RELEASED
+HVDesignTask = HV-D00|VisualFoundation|READY|RELEASED
 HVDesignTask = HV-D01|ModuleDefaultReading|BLOCKED|NOT_RELEASED
 HVDesignTask = HV-D02|FocusAndSource|BLOCKED|NOT_RELEASED
 HVDesignTask = HV-D03|RevisionAndRecovery|BLOCKED|NOT_RELEASED

@@ -59,18 +59,28 @@ rm_counts="$(awk '/^ISHFI-RM-[0-9][0-9] =$/ {seen[$1]=1; rows++} END {unique=0; 
 [[ "${rm_counts}" == "30:30" ]] ||
   fail "expected 30 unique reverse-migration items, found ${rm_counts}"
 
-grep -Fqx 'GateClosure = DEFERRED_UNTIL_HF_D04' "${coverage}" ||
-  fail "GateClosure must remain DEFERRED_UNTIL_HF_D04"
+grep -Fqx 'GateClosure = HF-DG4 PASS' "${coverage}" ||
+  fail "GateClosure must be HF-DG4 PASS"
 
 for required in \
   'CanonicalProjectName = Cognitura' \
-  'CoverageStatus = CANDIDATE_TRACE_REGISTERED' \
   'BusinessImplementation = NOT_AUTHORIZED' \
   'FormalDatabaseWrite = NOT_AUTHORIZED' \
   'RemotePush = NOT_AUTHORIZED'; do
   grep -Fqx "${required}" "${coverage}" ||
     fail "missing or invalid coverage field: ${required}"
 done
+grep -Fqx 'CoverageStatus = REVIEWED_CLOSED' "${coverage}" ||
+  fail "CoverageStatus must be REVIEWED_CLOSED"
+
+reviewed_preparation_sha="$(sed -n 's/^ReviewedPreparationSHA = //p' "${coverage}")"
+document_reviewed_sha="$(sed -n 's/^ReviewedPreparationSHA = //p' "${document}" | LC_ALL=C sort -u)"
+[[ "${reviewed_preparation_sha}" == "463fd4829e7c4bb8da071253e8ae9b15cee2a0cf" &&
+  "${document_reviewed_sha}" == "${reviewed_preparation_sha}" ]] ||
+  fail "ReviewedPreparationSHA must match promoted document"
+document_status="$(awk '/^Status =$/ {getline; sub(/^[[:space:]]+/, ""); print; exit}' "${document}")"
+[[ "${document_status}" == "FORMAL_SPECIALTY_BASELINE" ]] ||
+  fail "promoted document status must be FORMAL_SPECIALTY_BASELINE"
 
 for id in STATE-CODES EXCEPTION-CODES RF-AC REVERSE-MIGRATION; do
   count="$(grep -c "^| ${id} |" "${coverage}" || true)"
@@ -88,8 +98,12 @@ grep -Fq "| REVERSE-MIGRATION | ${rm_counts%%:*} |" "${coverage}" ||
   fail "REVERSE-MIGRATION coverage count must match candidate inventory"
 grep -Fq 'Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md' "${coverage}" ||
   fail "candidate source trace is missing"
+[[ "$(grep -Ec '^\| (STATE-CODES|EXCEPTION-CODES|RF-AC|REVERSE-MIGRATION) \|.*\| REVIEWED_CLOSED \| HF-DG4 PASS \|$' "${coverage}" || true)" -eq 4 ]] ||
+  fail "all coverage rows must be REVIEWED_CLOSED at HF-DG4 PASS"
 
 printf '%s\n' \
   "HighFidelityContractCoverageValidation = PASS" \
   "CoverageRowCount = 4" \
-  "GateClosure = DEFERRED_UNTIL_HF_D04"
+  "CoverageStatus = REVIEWED_CLOSED" \
+  "GateClosure = HF-DG4 PASS" \
+  "ReviewedPreparationSHA = ${reviewed_preparation_sha}"

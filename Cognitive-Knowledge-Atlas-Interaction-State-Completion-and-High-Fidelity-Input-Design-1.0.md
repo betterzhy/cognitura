@@ -5,7 +5,7 @@ DesignVersion =
   Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0
 
 Status =
-  CANDIDATE_AWAITING_REPOSITORY_GATE
+  FORMAL_SPECIALTY_BASELINE
 
 CanonicalProjectName = Cognitura
 HistoricalDesignName = Cognitive Knowledge Atlas V1
@@ -17,6 +17,11 @@ BasicResponsiveSafety = REQUIRED
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
+ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
+HF-DG4 FixedDesignReview = PASS
+ReviewStage1 = gpt-5.6-sol/high|GO|P0=0|P1=0|P2=0
+ReviewStage2 = gpt-5.6-sol/high|GO|P0=0|P1=0|P2=0
+UltraReviewUsed = NO
 
 PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
@@ -215,7 +220,7 @@ Wave0OverallSourceManifestFingerprintRefreshedByHFD01 = YES
 HistoricalAppliedReverseMigration26Of26Changed = NO
 ReadingPresentationRefinementAuthority = THIS_SPECIALTY_UNDER_HF_DG1
 PageAndRendererProjection = STABLE_NON_SCHEMA_REFINEMENT_ONLY
-FormalSpecialtyPromotion = DEFERRED_TO_HF_D04
+FormalSpecialtyPromotion = HF_DG4_FIXED_DESIGN_REVIEW_PASS
 ```
 
 HF-D01 对 Overall 1.2 做了最小页面合同协调，并在同一卡原子刷新 Wave 0 source
@@ -294,7 +299,7 @@ HighFidelityVisualValidation =
 
 RemainingInteractionStateP0 = HF_DG2_ORTHOGONAL_STATE_AND_RECOVERY_PASS
 
-HighFidelityInputReady = CANDIDATE_ONLY
+HighFidelityInputReady = CONTRACT_INPUT_COMPLETE
 
 HighFidelityVisualDesign =
   NOT_RUN
@@ -348,7 +353,7 @@ StaticImageMarkdownPdfProjectionBoundaryNotExplicit = TRUE
 ```text
 CurrentRemainingReadingFirstGaps = 0
 CurrentRemainingHighFidelityStateInputGaps = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
-ContractP0Remaining = DEFERRED_TO_HF_D04
+ContractP0Remaining = HF_DG4_FIXED_DESIGN_REVIEW_PASS
 ```
 
 ### 0.8 PlannedMinimalPatchScope
@@ -3943,15 +3948,15 @@ ContractPASSDoesNotImplyUsabilityPASS = REQUIRED
 
 | 阶段 | 验收对象 | 当前状态 |
 |---|---|---|
-| `CONTRACT` | 规则、状态、字段、边界、矩阵和可执行验收输入是否完整 | HF-DG3_HIGH_FIDELITY_EVIDENCE_CONTRACT_PASS_REMAINDER_DEFERRED_TO_HF_D04 |
+| `CONTRACT` | 规则、状态、字段、边界、矩阵和可执行验收输入是否完整 | HF-DG4_FIXED_DESIGN_REVIEW_PASS |
 | `HIGH_FIDELITY_VISUAL` | 真实高保真页面是否满足层级、密度、连续性和状态表达 | NOT_RUN |
 | `HIGH_FIDELITY_USABILITY` | 用户是否能在真实原型中理解、操作、返回和恢复 | NOT_RUN |
 | `IMPLEMENTATION` | 前端代码是否实现并通过自动化与人工验收 | NOT_RUN |
 
 ```text
-ContractDefined = CANDIDATE_ONLY
-ContractCompleteness = DEFERRED_TO_HF_D04
-HighFidelityInputReady = CANDIDATE_ONLY
+ContractDefined = FORMAL_SPECIALTY_BASELINE
+ContractCompleteness = HF_DG4_FIXED_DESIGN_REVIEW_PASS
+HighFidelityInputReady = CONTRACT_INPUT_COMPLETE
 
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityVisualValidation = NOT_RUN
@@ -3989,8 +3994,9 @@ HighFidelityStateAcceptance = NOT_RUN
 ### 19.3 当前候选合同的分阶段状态
 
 HF-D01、HF-D02 与 HF-D03 已依次使 Reading First、状态恢复和高保真证据输入
-合同在 `CONTRACT` 阶段为 PASS。固定候选审查仍延后到 HF-D04；任何视觉、
-可用性或实现 PASS 声明仍被禁止。
+合同在 `CONTRACT` 阶段为 PASS；HF-D04 对固定准备提交完成两个独立
+`gpt-5.6-sol/high` 零发现审查，并关闭合同设计 Gate。任何视觉、可用性或实现
+PASS 声明仍被禁止。
 
 ```text
 ReadingFirstPresentationContract = PASS
@@ -4018,8 +4024,8 @@ StableIdentityExportContract = PASS
 SecondRoundLowFidelityTraceability = PASS
 HighFidelityEvidenceContract = PASS
 
-ContractP0Remaining = DEFERRED_TO_HF_D04
-HighFidelityInputReady = CANDIDATE_ONLY
+ContractP0Remaining = HF_DG4_FIXED_DESIGN_REVIEW_PASS
+HighFidelityInputReady = CONTRACT_INPUT_COMPLETE
 ```
 
 ### 19.4 当前禁止声明为 PASS
@@ -4275,10 +4281,10 @@ VersionChanged =
 GitRepositoryConnected =
   YES
 
-GitCommitPerformed = HF_D03_DONE
-ActiveDesignTaskCard = HF-D04
-ActiveDesignTaskCardStatus = SOLE_READY_FIXED_CANDIDATE_REVIEW
-RecommendedCommit = fix: refresh fixed high fidelity review candidate
+GitCommitPerformed = HF_D04_PROMOTION_CLOSURE
+ActiveDesignTaskCard = NONE
+ActiveDesignTaskCardStatus = NONE
+RecommendedCommit = docs: close high fidelity contract design gate
 ```
 
 本次产物级检查：
@@ -4290,8 +4296,8 @@ DuplicateStateCodeCheck = CANDIDATE_SELF_CHECK_ONLY
 RequiredInteractionStateCoverage = CANDIDATE_SELF_CHECK_ONLY
 RequiredExceptionCoverage = CANDIDATE_SELF_CHECK_ONLY
 ValidationStageBoundaryCheck = CANDIDATE_SELF_CHECK_ONLY
-PrematureHighFidelityPassCheck = DEFERRED_TO_HF_D04
-FinalStatusConsistencyCheck = CANDIDATE_SELF_CHECK_ONLY
+PrematureHighFidelityPassCheck = PASS_WITH_VISUAL_USABILITY_IMPLEMENTATION_NOT_RUN
+FinalStatusConsistencyCheck = HF_DG4_PROMOTION_CLOSURE
 ParallelAuthorityFileCheck = CANDIDATE_SELF_CHECK_ONLY
 ```
 
@@ -4314,7 +4320,10 @@ DesignVersion =
   and-High-Fidelity-Input-Design-1.0
 
 Status =
-  CANDIDATE_AWAITING_REPOSITORY_GATE
+  FORMAL_SPECIALTY_BASELINE
+
+ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
+HF-DG4 FixedDesignReview = PASS
 
 ReadingFirstPresentationContract = PASS
 InteractiveCognitiveDocumentContract = PASS
@@ -4343,8 +4352,8 @@ SecondRoundLowFidelityTraceability = PASS
 CrossDomainScenarioContractValidation = HF_DG3_EVIDENCE_INPUT_CONTRACT_PASS
 
 HighFidelityEvidenceContract = PASS
-ContractP0Remaining = DEFERRED_TO_HF_D04
-HighFidelityInputReady = CANDIDATE_ONLY
+ContractP0Remaining = HF_DG4_FIXED_DESIGN_REVIEW_PASS
+HighFidelityInputReady = CONTRACT_INPUT_COMPLETE
 
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityVisualValidation = NOT_RUN
@@ -4363,7 +4372,7 @@ FrontendTechnologySelectionReady = NO
 FrontendImplementationReady = NO
 
 NextStage =
-  HF_D04_FIXED_DESIGN_REVIEW
+  HV_D00_VISUAL_FOUNDATION_TASK_CARD_CREATION
 ```
 
 ---
@@ -4372,12 +4381,12 @@ NextStage =
 
 ```text
 NextStage =
-  HF_D04_FIXED_DESIGN_REVIEW
+  HV_D00_VISUAL_FOUNDATION_TASK_CARD_CREATION
 
 HFD03Scope = HIGH_FIDELITY_EVIDENCE_INPUT_CONTRACT_ONLY
 HFD03Status = DONE
-HFD04Status = SOLE_READY_FIXED_CANDIDATE_REVIEW
-VisualDesignBeforeHFD04Pass = FORBIDDEN
+HFD04Status = DONE
+VisualDesignAfterHFD04Pass = READY_FOR_SEPARATE_HV_GATE
 RealHighFidelityPageDesign = DEFERRED_UNTIL_HF_D04_PASS_AND_SEPARATE_HV_GATE
 HighFidelityVisualAndUsabilityValidation = DEFERRED_UNTIL_SEPARATE_HV_GATE
 ```
@@ -4420,9 +4429,9 @@ HistoryAndRefreshRecovery
 
 ```text
 AdditionalDesignSpecialtyBeforeHighFidelity = FORBIDDEN
-FormalDesignInputCompletion = DEFERRED_TO_HF_D04
+FormalDesignInputCompletion = COMPLETE
 ```
 
-本文件现为 Cognitura 唯一已登记的高保真交互专项候选。HF-D01、HF-D02、HF-D03
-分别使 Reading First、状态恢复与证据输入合同在 `CONTRACT` 阶段通过，但不使
-候选成为正式基线；固定审查、真实高保真视觉与可用性验收仍按后续独立 Gate 推进。
+本文件现为 Cognitura 唯一已登记并经 HF-DG4 固定候选双阶段审查通过的高保真
+交互正式专项基线。该晋级只关闭合同设计阶段；真实高保真视觉、可用性验收与
+实现仍按后续独立 HV Gate 推进。

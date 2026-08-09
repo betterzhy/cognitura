@@ -29,8 +29,13 @@ hfd03_stage_fail() {
 validate_hfd03_stage_separation() {
   local fixture="$1"
 
-  [[ "$(grep -Fxc '  HF_D04_FIXED_DESIGN_REVIEW' "${fixture}" || true)" -eq 2 ]] ||
-    { hfd03_stage_fail "HFD04_STAGE_ENTRY_MISMATCH"; return 1; }
+  if grep -Fq '  FORMAL_SPECIALTY_BASELINE' "${fixture}"; then
+    [[ "$(grep -Fxc '  HV_D00_VISUAL_FOUNDATION_TASK_CARD_CREATION' "${fixture}" || true)" -eq 2 ]] ||
+      { hfd03_stage_fail "HVD00_STAGE_ENTRY_MISMATCH"; return 1; }
+  else
+    [[ "$(grep -Fxc '  HF_D04_FIXED_DESIGN_REVIEW' "${fixture}" || true)" -eq 2 ]] ||
+      { hfd03_stage_fail "HFD04_STAGE_ENTRY_MISMATCH"; return 1; }
+  fi
   grep -Fqx \
     'HFD03Scope = HIGH_FIDELITY_EVIDENCE_INPUT_CONTRACT_ONLY' \
     "${fixture}" || { hfd03_stage_fail "HFD03_STAGE_SCOPE_MISMATCH"; return 1; }
@@ -119,6 +124,41 @@ sync_and_verify_fixture_manifest() {
 [[ -f "${plan}" ]] || fail "high-fidelity evidence plan is missing"
 [[ -f "${acceptance}" ]] || fail "high-fidelity evidence acceptance is missing"
 
+reviewed_preparation_sha="463fd4829e7c4bb8da071253e8ae9b15cee2a0cf"
+for promoted_candidate_line in \
+  '  FORMAL_SPECIALTY_BASELINE' \
+  "ReviewedPreparationSHA = ${reviewed_preparation_sha}" \
+  'HF-DG4 FixedDesignReview = PASS' \
+  'FormalDesignInputCompletion = COMPLETE' \
+  'ContractDefined = FORMAL_SPECIALTY_BASELINE' \
+  'ContractCompleteness = HF_DG4_FIXED_DESIGN_REVIEW_PASS' \
+  'HighFidelityInputReady = CONTRACT_INPUT_COMPLETE'; do
+  [[ "$(grep -Fxc "${promoted_candidate_line}" "${document}" || true)" -ge 1 ]] ||
+    fail "promoted candidate state is missing: ${promoted_candidate_line}"
+done
+for review_receipt_line in \
+  "ReviewedPreparationSHA = ${reviewed_preparation_sha}" \
+  'ReviewStage1Model = gpt-5.6-sol/high' \
+  'ReviewStage1Verdict = GO' \
+  'ReviewStage1P0 = 0' \
+  'ReviewStage1P1 = 0' \
+  'ReviewStage1P2 = 0' \
+  'ReviewStage2Model = gpt-5.6-sol/high' \
+  'ReviewStage2Verdict = GO' \
+  'ReviewStage2P0 = 0' \
+  'ReviewStage2P1 = 0' \
+  'ReviewStage2P2 = 0' \
+  'UltraReviewUsed = NO'; do
+  [[ "$(grep -Fxc "${review_receipt_line}" "${acceptance}" || true)" -eq 1 ]] ||
+    fail "HF-D04 review receipt is missing: ${review_receipt_line}"
+done
+for released_plan_line in \
+  'HVDesignTask = HV-D00|VisualFoundation|READY|RELEASED' \
+  'VisualTaskCardArtifacts = NOT_CREATED'; do
+  [[ "$(grep -Fxc "${released_plan_line}" "${plan}" || true)" -eq 1 ]] ||
+    fail "HF-D04 plan projection is missing: ${released_plan_line}"
+done
+
 for required_identity in \
   'PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING' \
   'DesignPurpose =' \
@@ -136,17 +176,15 @@ for forbidden_completion in \
   [[ "$(grep -Fxc "${forbidden_completion}" "${document}" || true)" -eq 0 ]] ||
     fail "premature completion declaration remains: ${forbidden_completion}"
 done
-for required_deferred in \
-  'ContractDefined = CANDIDATE_ONLY' \
-  'FormalDesignInputCompletion = DEFERRED_TO_HF_D04'; do
-  [[ "$(grep -Fxc "${required_deferred}" "${document}" || true)" -eq 1 ]] ||
-    fail "candidate deferred state is missing: ${required_deferred}"
+for required_promoted in \
+  'ContractDefined = FORMAL_SPECIALTY_BASELINE' \
+  'FormalDesignInputCompletion = COMPLETE'; do
+  [[ "$(grep -Fxc "${required_promoted}" "${document}" || true)" -eq 1 ]] ||
+    fail "formal closure state is missing: ${required_promoted}"
 done
 contract_completeness="$(sed -n 's/^ContractCompleteness = //p' "${document}")"
-case "${contract_completeness}" in
-  DEFERRED_TO_HF_D01_THROUGH_HF_D04|DEFERRED_TO_HF_D02_THROUGH_HF_D04|DEFERRED_TO_HF_D03_THROUGH_HF_D04|DEFERRED_TO_HF_D04) ;;
-  *) fail "ContractCompleteness must remain stage-aware and deferred" ;;
-esac
+[[ "${contract_completeness}" == "HF_DG4_FIXED_DESIGN_REVIEW_PASS" ]] ||
+  fail "ContractCompleteness must record HF-DG4 PASS"
 for forbidden_closure in \
   'CLOSED_BY_THIS_DOCUMENT' \
   'CONTRACT_CLOSED' \
@@ -192,6 +230,9 @@ for expected_line in \
   "ReverseMigrationTraceCount = 30" \
   "CrossDomainScenarioCount = 2" \
   "VisualDesignTaskCount = 6" \
+  "ReviewedPreparationSHA = ${reviewed_preparation_sha}" \
+  "HF-DG4 FixedDesignReview = PASS" \
+  "HV-D00 = READY / RELEASED" \
   "HighFidelityVisualDesign = NOT_RUN" \
   "HighFidelityUsabilityValidation = NOT_RUN"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
@@ -324,17 +365,17 @@ expect_evidence_failure \
   "${fabricated_artifact_root}/docs/engineering/acceptance.md" \
   "acceptance artifacts must remain PLANNED"
 
-premature_hv_ready_root="${test_tmp_root}/premature-hv-ready"
+premature_hv_ready_root="${test_tmp_root}/premature-second-hv-ready"
 make_evidence_fixture "${premature_hv_ready_root}"
 sed -i.bak \
-  's/^HVDesignTask = HV-D00|VisualFoundation|BLOCKED|NOT_RELEASED$/HVDesignTask = HV-D00|VisualFoundation|READY|RELEASED/' \
+  's/^HVDesignTask = HV-D01|ModuleDefaultReading|BLOCKED|NOT_RELEASED$/HVDesignTask = HV-D01|ModuleDefaultReading|READY|RELEASED/' \
   "${premature_hv_ready_root}/docs/engineering/plan.md"
 rm "${premature_hv_ready_root}/docs/engineering/plan.md.bak"
 expect_evidence_failure \
   "${premature_hv_ready_root}/candidate.md" \
   "${premature_hv_ready_root}/docs/engineering/plan.md" \
   "${premature_hv_ready_root}/docs/engineering/acceptance.md" \
-  "visual design tasks must remain BLOCKED and NOT_RELEASED"
+  "HV-D01..HV-D05 must remain BLOCKED and NOT_RELEASED"
 
 evidence_path_captured_root="${test_tmp_root}/evidence-path-captured"
 make_evidence_fixture "${evidence_path_captured_root}"
@@ -788,10 +829,10 @@ expect_failure "${changed_submit_unknown}" \
 
 premature_formal="${test_tmp_root}/premature-formal.md"
 cp "${document}" "${premature_formal}"
-sed -i.bak 's/CANDIDATE_AWAITING_REPOSITORY_GATE/FORMAL_HIGH_FIDELITY_INPUT_BASELINE/' \
+sed -i.bak '/^Status =$/ {n; s/FORMAL_SPECIALTY_BASELINE/FORMAL_HIGH_FIDELITY_INPUT_BASELINE/;}' \
   "${premature_formal}"
 rm "${premature_formal}.bak"
-expect_failure "${premature_formal}" "candidate status must remain CANDIDATE_AWAITING_REPOSITORY_GATE"
+expect_failure "${premature_formal}" "specialty status must be candidate preparation or formal closure"
 
 for gap_id in DOC-GAP-HF-002 DOC-GAP-HF-003; do
   missing_gap="${test_tmp_root}/missing-${gap_id}.md"
@@ -862,47 +903,47 @@ expect_failure "${formal_legacy_hierarchy}" \
 premature_contract_pass="${test_tmp_root}/premature-contract-pass.md"
 cp "${document}" "${premature_contract_pass}"
 sed -i.bak \
-  's/^ContractDefined = CANDIDATE_ONLY$/ContractDefined = PASS/' \
+  's/^ContractDefined = FORMAL_SPECIALTY_BASELINE$/ContractDefined = PASS/' \
   "${premature_contract_pass}"
 rm "${premature_contract_pass}.bak"
 expect_failure "${premature_contract_pass}" \
-  "ContractDefined must remain CANDIDATE_ONLY"
+  "ContractDefined must be FORMAL_SPECIALTY_BASELINE after promotion"
 
 premature_p0_close="${test_tmp_root}/premature-p0-close.md"
 cp "${document}" "${premature_p0_close}"
 sed -i.bak -E \
-  's/^ContractP0Remaining = (DEFERRED_TO_HF_D0(1|2|3)_THROUGH_HF_D04|DEFERRED_TO_HF_D04)$/ContractP0Remaining = 0/' \
+  's/^ContractP0Remaining = HF_DG4_FIXED_DESIGN_REVIEW_PASS$/ContractP0Remaining = 0/' \
   "${premature_p0_close}"
 rm "${premature_p0_close}.bak"
 expect_failure "${premature_p0_close}" \
-  "ContractP0Remaining must remain deferred to an applicable HF Gate"
+  "ContractP0Remaining must record HF-DG4 PASS after promotion"
 
 premature_input_ready="${test_tmp_root}/premature-input-ready.md"
 cp "${document}" "${premature_input_ready}"
 sed -i.bak \
-  's/^HighFidelityInputReady = CANDIDATE_ONLY$/HighFidelityInputReady = YES/' \
+  's/^HighFidelityInputReady = CONTRACT_INPUT_COMPLETE$/HighFidelityInputReady = YES/' \
   "${premature_input_ready}"
 rm "${premature_input_ready}.bak"
 expect_failure "${premature_input_ready}" \
-  "HighFidelityInputReady must remain CANDIDATE_ONLY"
+  "HighFidelityInputReady must be CONTRACT_INPUT_COMPLETE after promotion"
 
 premature_design_completion="${test_tmp_root}/premature-design-completion.md"
 cp "${document}" "${premature_design_completion}"
 sed -i.bak \
-  's/^FormalDesignInputCompletion = DEFERRED_TO_HF_D04$/FormalDesignInputCompletion = CLOSED/' \
+  's/^FormalDesignInputCompletion = COMPLETE$/FormalDesignInputCompletion = CLOSED/' \
   "${premature_design_completion}"
 rm "${premature_design_completion}.bak"
 expect_failure "${premature_design_completion}" \
-  "FormalDesignInputCompletion must remain deferred to HF-D04"
+  "FormalDesignInputCompletion must be COMPLETE after promotion"
 
-premature_specialty_baseline="${test_tmp_root}/premature-specialty-baseline.md"
+premature_specialty_baseline="${test_tmp_root}/stale-candidate-status.md"
 cp "${document}" "${premature_specialty_baseline}"
 sed -i.bak \
-  's/CANDIDATE_AWAITING_REPOSITORY_GATE/FORMAL_SPECIALTY_BASELINE/' \
+  '/^Status =$/ {n; s/FORMAL_SPECIALTY_BASELINE/CANDIDATE_AWAITING_REPOSITORY_GATE/;}' \
   "${premature_specialty_baseline}"
 rm "${premature_specialty_baseline}.bak"
 expect_failure "${premature_specialty_baseline}" \
-  "candidate status must remain CANDIDATE_AWAITING_REPOSITORY_GATE"
+  "ContractP0Remaining must remain deferred to an applicable HF Gate"
 
 closed_interaction_p0="${test_tmp_root}/closed-interaction-p0.md"
 cp "${document}" "${closed_interaction_p0}"
@@ -931,14 +972,14 @@ rm "${completed_historical_input}.bak"
 expect_failure "${completed_historical_input}" \
   "candidate must not claim closure before the applicable HF Gate"
 
-complete_design_input="${test_tmp_root}/complete-design-input.md"
+complete_design_input="${test_tmp_root}/stale-deferred-design-input.md"
 cp "${document}" "${complete_design_input}"
 sed -i.bak \
-  's/^FormalDesignInputCompletion = DEFERRED_TO_HF_D04$/FormalDesignInputCompletion = COMPLETE/' \
+  's/^FormalDesignInputCompletion = COMPLETE$/FormalDesignInputCompletion = DEFERRED_TO_HF_D04/' \
   "${complete_design_input}"
 rm "${complete_design_input}.bak"
 expect_failure "${complete_design_input}" \
-  "FormalDesignInputCompletion must remain deferred to HF-D04"
+  "FormalDesignInputCompletion must be COMPLETE after promotion"
 
 premature_visual_pass="${test_tmp_root}/premature-visual-pass.md"
 cp "${document}" "${premature_visual_pass}"
@@ -1003,16 +1044,16 @@ sed -i.bak \
   "${stale_hfdg1_projection}"
 rm "${stale_hfdg1_projection}.bak"
 expect_failure "${stale_hfdg1_projection}" \
-  "HF-D04 READY forbids stale HF-DG1 contract projections"
+  "ZeroInteractionReadingContract must project the current CONTRACT Gate as PASS"
 
 stale_hfd03_pending="${test_tmp_root}/stale-hfd03-pending.md"
 cp "${document}" "${stale_hfd03_pending}"
 sed -i.bak \
-  's/^GitCommitPerformed = HF_D03_DONE$/GitCommitPerformed = PENDING_HF_D03_LOCAL_GATE_AND_COMMIT/' \
+  's/^GitCommitPerformed = HF_D04_PROMOTION_CLOSURE$/GitCommitPerformed = PENDING_HF_D03_LOCAL_GATE_AND_COMMIT/' \
   "${stale_hfd03_pending}"
 rm "${stale_hfd03_pending}.bak"
 expect_failure "${stale_hfd03_pending}" \
-  "HF-D04 READY forbids pending HF-D03 commit status"
+  "HF-DG4 closure marker is missing: GitCommitPerformed = HF_D04_PROMOTION_CLOSURE"
 
 stale_overall_bytes="${test_tmp_root}/stale-overall-bytes.md"
 cp "${document}" "${stale_overall_bytes}"
@@ -1023,14 +1064,14 @@ rm "${stale_overall_bytes}.bak"
 expect_failure "${stale_overall_bytes}" \
   "HF-D01 must record the atomic Overall fingerprint refresh"
 
-premature_visual_before_hfd04="${test_tmp_root}/premature-visual-before-hfd04.md"
+premature_visual_before_hfd04="${test_tmp_root}/invalid-visual-entry-after-hfd04.md"
 cp "${document}" "${premature_visual_before_hfd04}"
 sed -i.bak \
-  's/^VisualDesignBeforeHFD04Pass = FORBIDDEN$/VisualDesignBeforeHFD04Pass = ALLOWED/' \
+  's/^VisualDesignAfterHFD04Pass = READY_FOR_SEPARATE_HV_GATE$/VisualDesignAfterHFD04Pass = ALLOWED_WITHOUT_HV_GATE/' \
   "${premature_visual_before_hfd04}"
 rm "${premature_visual_before_hfd04}.bak"
 expect_failure "${premature_visual_before_hfd04}" \
-  "visual design must remain forbidden before HF-D04 PASS"
+  "HF-DG4 closure marker is missing: VisualDesignAfterHFD04Pass = READY_FOR_SEPARATE_HV_GATE"
 
 printf '%s\n' \
   "InteractionStateContractTests = PASS" \

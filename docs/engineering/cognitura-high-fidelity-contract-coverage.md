@@ -2,8 +2,9 @@
 
 ```text
 CanonicalProjectName = Cognitura
-CoverageStatus = CANDIDATE_TRACE_REGISTERED
-GateClosure = DEFERRED_UNTIL_HF_D04
+CoverageStatus = REVIEWED_CLOSED
+GateClosure = HF-DG4 PASS
+ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
 CandidateSource = Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -16,10 +17,10 @@ HF-D01 至 HF-D04。
 
 | Coverage ID | 精确数量 | 候选位置 | 当前状态 | 关闭 Gate |
 |---|---:|---|---|---|
-| STATE-CODES | 46 | 第 5 章 `StateCode` 逐项矩阵 | CANDIDATE_INVENTORIED | HF-DG2 DEFERRED |
-| EXCEPTION-CODES | 20 | 第 8 章 `ExceptionCode` 逐项矩阵 | CANDIDATE_INVENTORIED | HF-DG2/HF-DG3 DEFERRED |
-| RF-AC | 20 | 第 19.2 节 RF-AC-01..20 | CANDIDATE_INVENTORIED | HF-DG3 DEFERRED |
-| REVERSE-MIGRATION | 30 | 第 20 章 ISHFI-RM-01..30 | CANDIDATE_INVENTORIED | HF-DG4 DEFERRED |
+| STATE-CODES | 46 | 第 5 章 `StateCode` 逐项矩阵 | REVIEWED_CLOSED | HF-DG4 PASS |
+| EXCEPTION-CODES | 20 | 第 8 章 `ExceptionCode` 逐项矩阵 | REVIEWED_CLOSED | HF-DG4 PASS |
+| RF-AC | 20 | 第 19.2 节 RF-AC-01..20 | REVIEWED_CLOSED | HF-DG4 PASS |
+| REVERSE-MIGRATION | 30 | 第 20 章 ISHFI-RM-01..30 | REVIEWED_CLOSED | HF-DG4 PASS |
 
 ## 来源缺口
 
@@ -28,5 +29,6 @@ HF-D01 至 HF-D04。
 
 ## 晋级边界
 
-只有 HF-D04 的两个独立 `gpt-5.6-sol/high` 阶段均为零发现，且专项正文、独立
-manifest 与本 coverage 记录同一 reviewed candidate SHA，才能关闭 deferred 状态。
+HF-D04 的两个独立 `gpt-5.6-sol/high` 阶段均为零发现；专项正文、独立 manifest
+与本 coverage 已记录同一 reviewed preparation SHA，因此合同覆盖正式关闭。
+视觉、可用性与实现状态仍为 `NOT_RUN`。

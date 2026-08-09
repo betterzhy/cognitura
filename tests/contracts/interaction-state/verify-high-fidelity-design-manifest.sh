@@ -47,8 +47,9 @@ for expected_line in \
   "HighFidelityDesignManifestValidation = PASS" \
   "SourceBodyManifestCoupling = REQUIRED" \
   "SourceCount = 1" \
-  "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE" \
-  "SourceFingerprintScope = HF-DG4_FIXED_CANDIDATE_REVIEW"; do
+  "SourceStatus = FORMAL_SPECIALTY_BASELINE" \
+  "ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf" \
+  "SourceFingerprintScope = HF-DG4_FORMAL_SPECIALTY_PROMOTION"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
 done
@@ -78,21 +79,35 @@ sed -i.bak 's/^CanonicalProjectName = Cognitura$/CanonicalProjectName = Cognitur
 rm "${stale_sha_root}/Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md.bak"
 expect_failure "${stale_sha_root}" "SHA256_MISMATCH"
 
-premature_status_root="${test_tmp_root}/premature-status"
-make_fixture "${premature_status_root}"
-sed -i.bak 's/^    status: CANDIDATE_AWAITING_REPOSITORY_GATE$/    status: FORMAL_SPECIALTY_BASELINE/' \
-  "${premature_status_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml"
-rm "${premature_status_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
-expect_failure "${premature_status_root}" "STATUS_MISMATCH"
+stale_candidate_status_root="${test_tmp_root}/stale-candidate-status"
+make_fixture "${stale_candidate_status_root}"
+sed -i.bak 's/^    status: FORMAL_SPECIALTY_BASELINE$/    status: CANDIDATE_AWAITING_REPOSITORY_GATE/' \
+  "${stale_candidate_status_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml"
+rm "${stale_candidate_status_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
+expect_failure "${stale_candidate_status_root}" "STATUS_MISMATCH"
+
+missing_reviewed_sha_root="${test_tmp_root}/missing-reviewed-sha"
+make_fixture "${missing_reviewed_sha_root}"
+sed -i.bak '/^    reviewedPreparationSha: /d' \
+  "${missing_reviewed_sha_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml"
+rm "${missing_reviewed_sha_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
+expect_failure "${missing_reviewed_sha_root}" "REVIEWED_PREPARATION_SHA_MISMATCH"
+
+mismatched_reviewed_sha_root="${test_tmp_root}/mismatched-reviewed-sha"
+make_fixture "${mismatched_reviewed_sha_root}"
+sed -i.bak -E 's/^    reviewedPreparationSha: [0-9a-f]{40}$/    reviewedPreparationSha: 0000000000000000000000000000000000000000/' \
+  "${mismatched_reviewed_sha_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml"
+rm "${mismatched_reviewed_sha_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
+expect_failure "${mismatched_reviewed_sha_root}" "REVIEWED_PREPARATION_SHA_MISMATCH"
 
 stale_scope_root="${test_tmp_root}/stale-scope"
 make_fixture "${stale_scope_root}"
 sed -i.bak \
-  's/^    fingerprintScope: HF-DG4_FIXED_CANDIDATE_REVIEW$/    fingerprintScope: HF-DG3_HIGH_FIDELITY_EVIDENCE_CONTRACT/' \
+  's/^    fingerprintScope: HF-DG4_FORMAL_SPECIALTY_PROMOTION$/    fingerprintScope: HF-DG3_HIGH_FIDELITY_EVIDENCE_CONTRACT/' \
   "${stale_scope_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml"
 rm "${stale_scope_root}/docs/engineering/cognitura-high-fidelity-design-manifest.yaml.bak"
 expect_failure "${stale_scope_root}" "FINGERPRINT_SCOPE_MISMATCH"
 
 printf '%s\n' \
   "HighFidelityDesignManifestTests = PASS" \
-  "NegativeCases = 6"
+  "NegativeCases = 8"

@@ -14,7 +14,7 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  HIGH_FIDELITY_FIXED_CANDIDATE_REVIEW_READY
+  HIGH_FIDELITY_CONTRACT_DESIGN_COMPLETE
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
@@ -28,15 +28,18 @@ Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
-HighFidelityDesignTaskCardSet = READY_FOR_EXECUTION
-HighFidelityDesignStatus = CANDIDATE_AWAITING_REPOSITORY_GATE
-HighFidelityDesignGate = HF-DG3 PASS
+HighFidelityDesignTaskCardSet = COMPLETE
+HighFidelityDesignStatus = FORMAL_SPECIALTY_BASELINE
+HighFidelityDesignGate = HF-DG4 PASS
+HighFidelityReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
 HighFidelityReadingPresentationContract = PASS
 HighFidelityInteractionStateModel = PASS
 HighFidelityEvidenceContract = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
-ActiveDesignTaskCard = HF-D04
+HighFidelityVisualTaskCardSet = NOT_CREATED
+HighFidelityVisualProjectedEntry = HV-D00 READY / RELEASED
+ActiveDesignTaskCard = NONE
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
@@ -49,14 +52,16 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 实现切片书面规格均已获用户批准；当前等待选择任务卡 bootstrap 计划的执行方式。
 计划执行只允许创建卡集并完成治理卡 I00，不授权 W1-I01 业务代码。
 
-本分支另有经用户授权的独立 `HIGH_FIDELITY_DESIGN` 集合；`HF-D01`、`HF-D02`
-与 `HF-D03` 已关闭，当前唯一活动设计卡为 `HF-D04`。HF-D03 只关闭高保真证据
-输入合同，不制作视觉页面、原型或截图；HF-D04 只允许固定候选双阶段审查，不能创建或释放 `W1-I00`，也不
+本分支另有经用户授权的独立 `HIGH_FIDELITY_DESIGN` 集合；`HF-D01` 至 `HF-D04`
+现已全部关闭。HF-D04 已对准备提交
+`463fd4829e7c4bb8da071253e8ae9b15cee2a0cf` 完成两个独立
+`gpt-5.6-sol/high` 零发现审查并把专项晋级 `FORMAL_SPECIALTY_BASELINE`。该晋级只
+关闭合同设计阶段，不制作视觉页面、原型或截图，不能创建或释放 `W1-I00`，也不
 改变 `BusinessImplementation = NOT_AUTHORIZED`、正式数据库写入和远程推送边界。
-候选只有在 HF-D04 固定候选双阶段审查通过后才可晋级正式专项。
 `HF-D01` 仅关闭 Reading First 页面与呈现合同，`HF-D02` 仅关闭正交状态、持久化
 与恢复边界，`HF-D03` 仅关闭八类证据、20 项 RF-AC、20 异常、30 RM 和跨域场景
-的输入合同；高保真视觉、可用性、实现及整体专项晋级仍未授权。
+的输入合同，`HF-D04` 仅关闭固定合同候选审查。`HV-D00` 只在计划中投影为
+`READY / RELEASED`，实际 HV 卡集仍未创建；高保真视觉、可用性和实现仍未执行。
 
 ## 3. 正式事实来源
 

@@ -53,6 +53,13 @@ fi
 [[ -f "${acceptance}" ]] || fail "MISSING_ACCEPTANCE: ${acceptance}"
 [[ -f "${cards_index}" ]] || fail "MISSING_CARDS_INDEX: ${cards_index}"
 
+status="$(awk '/^Status =$/ {getline; sub(/^[[:space:]]+/, ""); print; exit}' "${document}")"
+case "${status}" in
+  CANDIDATE_AWAITING_REPOSITORY_GATE) contract_stage="PREPARATION" ;;
+  FORMAL_SPECIALTY_BASELINE) contract_stage="CLOSURE" ;;
+  *) fail "specialty status must be candidate preparation or formal closure" ;;
+esac
+
 require_exact_line_once() {
   local line="$1"
   local message="$2"
@@ -81,25 +88,43 @@ require_exact_line_once \
 contract_p0_values="$(sed -n 's/^ContractP0Remaining = //p' "${document}" | sort -u)"
 [[ -n "${contract_p0_values}" && "$(printf '%s\n' "${contract_p0_values}" | wc -l | tr -d ' ')" -eq 1 ]] ||
   fail "ContractP0Remaining projections must use one stage-aware deferred value"
-case "${contract_p0_values}" in
-  DEFERRED_TO_HF_D01_THROUGH_HF_D04|DEFERRED_TO_HF_D02_THROUGH_HF_D04|DEFERRED_TO_HF_D03_THROUGH_HF_D04|DEFERRED_TO_HF_D04) ;;
-  *) fail "ContractP0Remaining must remain deferred to an applicable HF Gate" ;;
-esac
+if [[ "${contract_stage}" == "CLOSURE" ]]; then
+  [[ "${contract_p0_values}" == "HF_DG4_FIXED_DESIGN_REVIEW_PASS" ]] ||
+    fail "ContractP0Remaining must record HF-DG4 PASS after promotion"
+else
+  case "${contract_p0_values}" in
+    DEFERRED_TO_HF_D01_THROUGH_HF_D04|DEFERRED_TO_HF_D02_THROUGH_HF_D04|DEFERRED_TO_HF_D03_THROUGH_HF_D04|DEFERRED_TO_HF_D04) ;;
+    *) fail "ContractP0Remaining must remain deferred to an applicable HF Gate" ;;
+  esac
+fi
 input_ready_count="$(grep -c '^HighFidelityInputReady = ' "${document}" || true)"
-input_candidate_count="$(grep -Fxc 'HighFidelityInputReady = CANDIDATE_ONLY' "${document}" || true)"
-[[ "${input_ready_count}" -ge 1 && "${input_ready_count}" -eq "${input_candidate_count}" ]] ||
-  fail "HighFidelityInputReady must remain CANDIDATE_ONLY"
-require_exact_line_once \
-  'ContractDefined = CANDIDATE_ONLY' \
-  'ContractDefined must remain CANDIDATE_ONLY'
+if [[ "${contract_stage}" == "CLOSURE" ]]; then
+  input_expected_count="$(grep -Fxc 'HighFidelityInputReady = CONTRACT_INPUT_COMPLETE' "${document}" || true)"
+  [[ "${input_ready_count}" -ge 1 && "${input_ready_count}" -eq "${input_expected_count}" ]] ||
+    fail "HighFidelityInputReady must be CONTRACT_INPUT_COMPLETE after promotion"
+  require_exact_line_once 'ContractDefined = FORMAL_SPECIALTY_BASELINE' \
+    'ContractDefined must be FORMAL_SPECIALTY_BASELINE after promotion'
+else
+  input_expected_count="$(grep -Fxc 'HighFidelityInputReady = CANDIDATE_ONLY' "${document}" || true)"
+  [[ "${input_ready_count}" -ge 1 && "${input_ready_count}" -eq "${input_expected_count}" ]] ||
+    fail "HighFidelityInputReady must remain CANDIDATE_ONLY"
+  require_exact_line_once 'ContractDefined = CANDIDATE_ONLY' \
+    'ContractDefined must remain CANDIDATE_ONLY'
+fi
 contract_completeness="$(sed -n 's/^ContractCompleteness = //p' "${document}")"
-case "${contract_completeness}" in
-  DEFERRED_TO_HF_D01_THROUGH_HF_D04|DEFERRED_TO_HF_D02_THROUGH_HF_D04|DEFERRED_TO_HF_D03_THROUGH_HF_D04|DEFERRED_TO_HF_D04) ;;
-  *) fail "ContractCompleteness must remain stage-aware and deferred" ;;
-esac
-require_exact_line_once \
-  'FormalDesignInputCompletion = DEFERRED_TO_HF_D04' \
-  'FormalDesignInputCompletion must remain deferred to HF-D04'
+if [[ "${contract_stage}" == "CLOSURE" ]]; then
+  [[ "${contract_completeness}" == "HF_DG4_FIXED_DESIGN_REVIEW_PASS" ]] ||
+    fail "ContractCompleteness must record HF-DG4 PASS after promotion"
+  require_exact_line_once 'FormalDesignInputCompletion = COMPLETE' \
+    'FormalDesignInputCompletion must be COMPLETE after promotion'
+else
+  case "${contract_completeness}" in
+    DEFERRED_TO_HF_D01_THROUGH_HF_D04|DEFERRED_TO_HF_D02_THROUGH_HF_D04|DEFERRED_TO_HF_D03_THROUGH_HF_D04|DEFERRED_TO_HF_D04) ;;
+    *) fail "ContractCompleteness must remain stage-aware and deferred" ;;
+  esac
+  require_exact_line_once 'FormalDesignInputCompletion = DEFERRED_TO_HF_D04' \
+    'FormalDesignInputCompletion must remain deferred to HF-D04'
+fi
 
 field_values() {
   local key="$1"
@@ -201,9 +226,6 @@ canonical_hierarchy="$(awk '
 [[ "${canonical_hierarchy}" == '  KnowledgeLandscape|  → KnowledgeTheme|  → CognitiveModule|  → KnowledgeElement' ]] ||
   fail "CanonicalHierarchy must use Cognitura four-layer names"
 
-status="$(awk '/^Status =$/ {getline; sub(/^[[:space:]]+/, ""); print; exit}' "${document}")"
-[[ "${status}" == "CANDIDATE_AWAITING_REPOSITORY_GATE" ]] ||
-  fail "candidate status must remain CANDIDATE_AWAITING_REPOSITORY_GATE"
 for boundary in BusinessImplementation FormalDatabaseWrite RemotePush; do
   require_exact_line_once \
     "${boundary} = NOT_AUTHORIZED" \
@@ -267,6 +289,49 @@ if [[ "${active_design_card}" == "HF-D04" ]]; then
     done <<<"${passed_contract_values}"
   done
 fi
+if [[ "${active_design_card}" == "NONE" ]]; then
+  [[ "${contract_stage}" == "CLOSURE" ]] || fail "ActiveDesignTaskCard NONE requires formal closure"
+  [[ "$(grep -Ec '^\| `HF-D04` \| .* \| `DONE` \| `HF-D03` \| `HF-DG4 PASS` \|$' "${cards_index}" || true)" -eq 1 ]] ||
+    fail "HF-D04 must be DONE at HF-DG4 PASS"
+  for closure_marker in \
+    'GitCommitPerformed = HF_D04_PROMOTION_CLOSURE' \
+    'ActiveDesignTaskCard = NONE' \
+    'ActiveDesignTaskCardStatus = NONE' \
+    'HFD03Status = DONE' \
+    'HFD04Status = DONE' \
+    'VisualDesignAfterHFD04Pass = READY_FOR_SEPARATE_HV_GATE'; do
+    require_exact_line_once "${closure_marker}" "HF-DG4 closure marker is missing: ${closure_marker}"
+  done
+  reviewed_preparation_sha="$(sed -n 's/^ReviewedPreparationSHA = //p' "${document}" | LC_ALL=C sort -u)"
+  [[ "${reviewed_preparation_sha}" == "463fd4829e7c4bb8da071253e8ae9b15cee2a0cf" ]] ||
+    fail "ReviewedPreparationSHA mismatch"
+  [[ "$(grep -Fxc 'HF-DG4 FixedDesignReview = PASS' "${document}" || true)" -ge 1 ]] ||
+    fail "HF-DG4 FixedDesignReview must be PASS"
+fi
+for passed_contract in \
+  InteractiveCognitiveDocumentContract \
+  ZeroInteractionReadingContract \
+  DocumentContinuityContract \
+  CardAndContainerRestraintContract \
+  VisualPrimitiveDensityContract \
+  InteractionExposureContract \
+  ReadingGovernanceSeparationContract \
+  StaticProjectionContract \
+  RelationUnderstandabilityContract \
+  MechanismTypeScenarioContract \
+  RuleTypeScenarioContract \
+  BudgetMeasurementDefinition \
+  StableIdentityExportContract \
+  SecondRoundLowFidelityTraceability; do
+  passed_contract_values="$(field_values "${passed_contract}")"
+  [[ -n "${passed_contract_values}" ]] || fail "${passed_contract} current projection is missing"
+  while IFS= read -r passed_contract_value; do
+    [[ "${passed_contract_value}" == "PASS" ]] ||
+      fail "${passed_contract} must project the current CONTRACT Gate as PASS"
+  done <<<"${passed_contract_values}"
+done
+[[ "$(grep -Fxc 'OverallDesign1_2BytesChangedByHFD01 = NO' "${document}" || true)" -eq 0 ]] ||
+  fail "HF-D01 must record the atomic Overall fingerprint refresh"
 grep -Fqx 'RepositoryIntegrationStatus = UNTRACKED_CANDIDATE_REGISTERED_BY_HF_D00' "${document}" ||
   fail "actual repository integration status is missing"
 for gap_id in DOC-GAP-HF-001 DOC-GAP-HF-002 DOC-GAP-HF-003; do
@@ -604,6 +669,32 @@ for acceptance_contract in \
   [[ "$(grep -Fxc "${acceptance_contract}" "${acceptance}" || true)" -eq 1 ]] ||
     fail "high-fidelity acceptance stage mismatch: ${acceptance_contract}"
 done
+if [[ "${contract_stage}" == "CLOSURE" ]]; then
+  for closure_plan_contract in \
+    'ContractGate = HF-DG4 PASS' \
+    'HVDesignTask = HV-D00|VisualFoundation|READY|RELEASED'; do
+    [[ "$(grep -Fxc "${closure_plan_contract}" "${plan}" || true)" -eq 1 ]] ||
+      fail "HF-DG4 closure plan mismatch: ${closure_plan_contract}"
+  done
+  for review_receipt in \
+    'ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf' \
+    'ReviewStage1Model = gpt-5.6-sol/high' \
+    'ReviewStage1Verdict = GO' \
+    'ReviewStage1P0 = 0' \
+    'ReviewStage1P1 = 0' \
+    'ReviewStage1P2 = 0' \
+    'ReviewStage2Model = gpt-5.6-sol/high' \
+    'ReviewStage2Verdict = GO' \
+    'ReviewStage2P0 = 0' \
+    'ReviewStage2P1 = 0' \
+    'ReviewStage2P2 = 0' \
+    'UltraReviewUsed = NO' \
+    'HF-DG4 FixedDesignReview = PASS' \
+    'GateReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf'; do
+    [[ "$(grep -Fxc "${review_receipt}" "${acceptance}" || true)" -eq 1 ]] ||
+      fail "HF-D04 review receipt mismatch: ${review_receipt}"
+  done
+fi
 
 for coverage_contract in \
   'CoverageRequirement = KnowledgeElementLocationAndExpansion|REQUIRED|Status=NOT_RUN' \
@@ -624,12 +715,21 @@ visual_tasks=(
 )
 [[ "$(grep -c '^HVDesignTask = ' "${plan}" || true)" -eq 6 ]] ||
   fail "expected exact HV-D00..HV-D05 task sequence"
-for visual_task in "${visual_tasks[@]}"; do
-  [[ "$(grep -Fxc "HVDesignTask = ${visual_task}|BLOCKED|NOT_RELEASED" "${plan}" || true)" -eq 1 ]] ||
-    fail "visual design tasks must remain BLOCKED and NOT_RELEASED"
-done
-[[ "$(grep -Ec '^HVDesignTask = .*\|(READY|RELEASED)(\||$)' "${plan}" || true)" -eq 0 ]] ||
-  fail "visual design tasks must remain BLOCKED and NOT_RELEASED"
+if [[ "${contract_stage}" == "CLOSURE" ]]; then
+  [[ "$(grep -Fxc 'HVDesignTask = HV-D00|VisualFoundation|READY|RELEASED' "${plan}" || true)" -eq 1 ]] ||
+    fail "HV-D00 must be READY and RELEASED after HF-DG4 PASS"
+  for visual_task in "${visual_tasks[@]:1}"; do
+    [[ "$(grep -Fxc "HVDesignTask = ${visual_task}|BLOCKED|NOT_RELEASED" "${plan}" || true)" -eq 1 ]] ||
+      fail "HV-D01..HV-D05 must remain BLOCKED and NOT_RELEASED"
+  done
+  [[ "$(grep -Ec '^HVDesignTask = .*\|READY\|RELEASED$' "${plan}" || true)" -eq 1 ]] ||
+    fail "exactly HV-D00 may be READY and RELEASED"
+else
+  for visual_task in "${visual_tasks[@]}"; do
+    [[ "$(grep -Fxc "HVDesignTask = ${visual_task}|BLOCKED|NOT_RELEASED" "${plan}" || true)" -eq 1 ]] ||
+      fail "visual design tasks must remain BLOCKED and NOT_RELEASED"
+  done
+fi
 
 cross_domain_result="$(awk -F'|' '
   /^CrossDomainScenario = / {
@@ -936,5 +1036,8 @@ printf '%s\n' \
   "ReverseMigrationTraceCount = 30" \
   "CrossDomainScenarioCount = 2" \
   "VisualDesignTaskCount = 6" \
+  "ReviewedPreparationSHA = ${reviewed_preparation_sha:-NOT_REVIEWED}" \
+  "HF-DG4 FixedDesignReview = $([[ "${contract_stage}" == "CLOSURE" ]] && printf PASS || printf NOT_RUN)" \
+  "HV-D00 = $([[ "${contract_stage}" == "CLOSURE" ]] && printf 'READY / RELEASED' || printf 'BLOCKED / NOT_RELEASED')" \
   "HighFidelityVisualDesign = NOT_RUN" \
   "HighFidelityUsabilityValidation = NOT_RUN"

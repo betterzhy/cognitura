@@ -48,7 +48,9 @@ canonical_output="$("${verifier}" --coverage "${coverage}" --document "${documen
 for expected_line in \
   "HighFidelityContractCoverageValidation = PASS" \
   "CoverageRowCount = 4" \
-  "GateClosure = DEFERRED_UNTIL_HF_D04"; do
+  "CoverageStatus = REVIEWED_CLOSED" \
+  "GateClosure = HF-DG4 PASS" \
+  "ReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
 done
@@ -59,11 +61,30 @@ sed -i.bak '/^| STATE-CODES |/d' "${missing_coverage}"
 rm "${missing_coverage}.bak"
 expect_failure "${missing_coverage}" "missing coverage ID: STATE-CODES"
 
-premature_gate="${test_tmp_root}/premature-gate.md"
-cp "${coverage}" "${premature_gate}"
-sed -i.bak 's/^GateClosure = DEFERRED_UNTIL_HF_D04$/GateClosure = PASS/' "${premature_gate}"
-rm "${premature_gate}.bak"
-expect_failure "${premature_gate}" "GateClosure must remain DEFERRED_UNTIL_HF_D04"
+stale_gate="${test_tmp_root}/stale-gate.md"
+cp "${coverage}" "${stale_gate}"
+sed -i.bak 's/^GateClosure = HF-DG4 PASS$/GateClosure = DEFERRED_UNTIL_HF_D04/' "${stale_gate}"
+rm "${stale_gate}.bak"
+expect_failure "${stale_gate}" "GateClosure must be HF-DG4 PASS"
+
+stale_status="${test_tmp_root}/stale-status.md"
+cp "${coverage}" "${stale_status}"
+sed -i.bak 's/^CoverageStatus = REVIEWED_CLOSED$/CoverageStatus = CANDIDATE_TRACE_REGISTERED/' "${stale_status}"
+rm "${stale_status}.bak"
+expect_failure "${stale_status}" "CoverageStatus must be REVIEWED_CLOSED"
+
+missing_reviewed_sha="${test_tmp_root}/missing-reviewed-sha.md"
+cp "${coverage}" "${missing_reviewed_sha}"
+sed -i.bak '/^ReviewedPreparationSHA = /d' "${missing_reviewed_sha}"
+rm "${missing_reviewed_sha}.bak"
+expect_failure "${missing_reviewed_sha}" "ReviewedPreparationSHA must match promoted document"
+
+mismatched_reviewed_sha="${test_tmp_root}/mismatched-reviewed-sha.md"
+cp "${coverage}" "${mismatched_reviewed_sha}"
+sed -i.bak -E 's/^ReviewedPreparationSHA = [0-9a-f]{40}$/ReviewedPreparationSHA = 0000000000000000000000000000000000000000/' \
+  "${mismatched_reviewed_sha}"
+rm "${mismatched_reviewed_sha}.bak"
+expect_failure "${mismatched_reviewed_sha}" "ReviewedPreparationSHA must match promoted document"
 
 empty_document="${test_tmp_root}/empty-candidate.md"
 : >"${empty_document}"
@@ -71,4 +92,4 @@ expect_document_failure "${empty_document}" "expected 46 unique original StateCo
 
 printf '%s\n' \
   "HighFidelityContractCoverageTests = PASS" \
-  "NegativeCases = 3"
+  "NegativeCases = 6"

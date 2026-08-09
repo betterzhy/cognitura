@@ -57,14 +57,17 @@ status="$(sed -n 's/^    status: //p' "${manifest}")"
 declared_size="$(sed -n 's/^    sizeBytes: //p' "${manifest}")"
 declared_hash="$(sed -n 's/^    sha256: //p' "${manifest}")"
 fingerprint_scope="$(sed -n 's/^    fingerprintScope: //p' "${manifest}")"
+reviewed_preparation_sha="$(sed -n 's/^    reviewedPreparationSha: //p' "${manifest}")"
 
 [[ "${source_path}" == "Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md" ]] ||
   fail "PATH_MISMATCH"
-[[ "${role}" == "HIGH_FIDELITY_INTERACTION_SPECIALTY_CANDIDATE" ]] || fail "ROLE_MISMATCH"
+[[ "${role}" == "HIGH_FIDELITY_INTERACTION_SPECIALTY_BASELINE" ]] || fail "ROLE_MISMATCH"
 [[ "${version}" == "Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0" ]] ||
   fail "VERSION_MISMATCH"
-[[ "${status}" == "CANDIDATE_AWAITING_REPOSITORY_GATE" ]] || fail "STATUS_MISMATCH"
-[[ "${fingerprint_scope}" == "HF-DG4_FIXED_CANDIDATE_REVIEW" ]] ||
+[[ "${status}" == "FORMAL_SPECIALTY_BASELINE" ]] || fail "STATUS_MISMATCH"
+[[ "${reviewed_preparation_sha}" == "463fd4829e7c4bb8da071253e8ae9b15cee2a0cf" ]] ||
+  fail "REVIEWED_PREPARATION_SHA_MISMATCH"
+[[ "${fingerprint_scope}" == "HF-DG4_FORMAL_SPECIALTY_PROMOTION" ]] ||
   fail "FINGERPRINT_SCOPE_MISMATCH"
 
 source_file="${repo_root}/${source_path}"
@@ -75,12 +78,18 @@ actual_size="$(wc -c <"${source_file}" | tr -d '[:space:]')"
 actual_hash="$(hash_file "${source_file}")"
 [[ "${declared_hash}" == "${actual_hash}" ]] ||
   fail "SHA256_MISMATCH: declared ${declared_hash}, actual ${actual_hash}"
+source_status="$(awk '/^Status =$/ {getline; sub(/^[[:space:]]+/, ""); print; exit}' "${source_file}")"
+[[ "${source_status}" == "FORMAL_SPECIALTY_BASELINE" ]] || fail "SOURCE_STATUS_MISMATCH"
+source_reviewed_sha="$(sed -n 's/^ReviewedPreparationSHA = //p' "${source_file}" | LC_ALL=C sort -u)"
+[[ "${source_reviewed_sha}" == "${reviewed_preparation_sha}" ]] ||
+  fail "REVIEWED_PREPARATION_SHA_MISMATCH"
 
 printf '%s\n' \
   "HighFidelityDesignManifestValidation = PASS" \
   "SourceBodyManifestCoupling = REQUIRED" \
   "SourceCount = 1" \
-  "SourceStatus = CANDIDATE_AWAITING_REPOSITORY_GATE" \
-  "SourceFingerprintScope = HF-DG4_FIXED_CANDIDATE_REVIEW" \
+  "SourceStatus = FORMAL_SPECIALTY_BASELINE" \
+  "ReviewedPreparationSHA = ${reviewed_preparation_sha}" \
+  "SourceFingerprintScope = HF-DG4_FORMAL_SPECIALTY_PROMOTION" \
   "SourceSizeBytes = ${actual_size}" \
   "SourceSha256 = ${actual_hash}"
