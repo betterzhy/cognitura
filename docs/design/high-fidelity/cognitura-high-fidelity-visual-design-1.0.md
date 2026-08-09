@@ -3,10 +3,12 @@
 ```text
 CanonicalProjectName = Cognitura
 DesignKind = HIGH_FIDELITY_VISUAL_DESIGN
-DesignStatus = VISUAL_FOUNDATION_ESTABLISHED
+DesignStatus = MODULE_DEFAULT_READING_EVIDENCE_ESTABLISHED
 ContractSource = Cognitura-High-Fidelity-Interaction-Specialty-1.0
 ContractGate = HF-DG4 PASS
 FoundationGate = HV-D00 PASS
+ModuleDefaultReadingGate = HV-D01 PASS
+HighFidelityModuleDefaultReading = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
@@ -31,9 +33,10 @@ ErrorToken = --status-error
 ```
 
 本文件是后续 HV 卡共同消费的视觉基础，不是生产页面规格或前端实现选择。
-`HV-D00` 只建立 token、响应式阈值、fixture 治理和基础截图；默认 Module、Relation、
-SourceEvidence、Revision、Recovery、跨层、小屏与导出的真实视觉验收仍由
-`HV-D01..D04` 逐卡完成，最终可用性由 `HV-D05` 固定候选审查。
+`HV-D00` 只建立 token、响应式阈值、fixture 治理和基础截图；`HV-D01` 只建立
+Module 默认阅读证据并关闭其七项视觉 Owner。Relation、SourceEvidence、Revision、
+Recovery、跨层、小屏与导出的真实视觉验收仍由 `HV-D02..D04` 逐卡完成，最终
+可用性由 `HV-D05` 固定候选审查。
 
 ## 1. Reading First 构图
 
@@ -174,12 +177,37 @@ FoundationArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
 捕获边界和验收含义。验证器必须用当前 HTML/CSS/JS 在 1440×1100 重新捕获临时 PNG，
 并与提交证据逐字节一致；截图只能证明所属 HV 卡的视觉结果，不能推导可用性或实现。
 
+### 6.1 HV-D01 Module 默认阅读证据
+
+```text
+ModuleDefaultReadingArtifact = docs/design/high-fidelity/evidence/module-default-reading-desktop.png
+ModuleDefaultReadingArtifactState = module-default
+ModuleDefaultReadingArtifactViewport = 1440x1100
+ModuleDefaultReadingArtifactStatus = CAPTURED_HIGH_FIDELITY_VISUAL
+ModuleDefaultReadingArtifactFreshness = CHROME_RECAPTURE_BYTE_IDENTICAL
+ModuleDefaultReadingContentSource = EMBEDDED_DETERMINISTIC_SYNTHETIC_MECHANISM
+ModuleDefaultReadingRawDocxAccess = FORBIDDEN
+ModuleDefaultReadingNetworkAccess = FORBIDDEN
+ModuleDefaultReadingPersistence = FORBIDDEN
+ModuleDefaultReadingPrimaryVisualProjectionCount = 1
+ModuleDefaultReadingPersistentGovernanceSidePanels = 0
+ModuleDefaultReadingKeyRelationCount = 2
+ModuleDefaultReadingKnowledgeElementEntry = ON_DEMAND
+ModuleDefaultReadingSourceEvidenceEntry = ON_DEMAND
+```
+
+截图与求值后 DOM 共同证明 CoreQuestion、CoreConclusion、连续解释、
+PrimaryCognitiveSpine、单一机制投影、Conditions、Results、Boundaries/Exceptions、
+两条 Relation、KnowledgeElement 定位/展开入口和 SourceEvidence 按需入口。默认正文
+没有卡片瀑布、长文章退化、常驻治理侧栏或 Perspective 依赖；所有按钮继承既定
+`:focus-visible` 与 44px 触达合同。
+
 ## 7. 阶段边界
 
 ```text
 HF-DG4 FixedDesignReview = PASS
 HV-D00 VisualFoundation = PASS
-HV-D01 ModuleDefaultReading = NOT_RUN
+HV-D01 ModuleDefaultReading = PASS
 HV-D02 FocusAndSource = NOT_RUN
 HV-D03 RevisionAndRecovery = NOT_RUN
 HV-D04 CrossLayerResponsiveAndExport = NOT_RUN

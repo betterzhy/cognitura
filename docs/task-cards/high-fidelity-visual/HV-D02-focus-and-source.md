@@ -3,7 +3,7 @@
 ```text
 TaskCardID = HV-D02
 CardKind = HIGH_FIDELITY_VISUAL_DESIGN
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = HV-D02 NOT_RUN
 Risk = HIGH
 DependsOn = HV-D01
@@ -20,7 +20,7 @@ WriteSetItemCount = 18
 
 ## 2. 前置条件与输入
 
-等待 `HV-D01 PASS`；消费正式 RelationFocus 与 SourceEvidenceVerification 合同。
+`HV-D01 PASS` 已满足；消费正式 RelationFocus 与 SourceEvidenceVerification 合同。
 
 ## 3. 写集
 

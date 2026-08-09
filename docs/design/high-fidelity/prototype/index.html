@@ -28,6 +28,7 @@
       </div>
     </header>
 
+    <div id="visual-foundation-fixture">
     <div class="reading-shell">
       <nav class="hierarchy-rail" aria-label="认知层级位置">
         <p class="rail-label">当前位置</p>
@@ -123,6 +124,138 @@
           <p>HF-DG4 contract baseline retained</p>
         </footer>
       </main>
+    </div>
+    </div>
+
+    <div id="module-default-fixture" hidden>
+      <div class="module-default-shell">
+        <nav class="hierarchy-rail module-rail" aria-label="Module 默认阅读层级位置">
+          <p class="rail-label">Primary Cognitive Spine · 当前定位</p>
+          <ol>
+            <li><span>01</span><div><small>Knowledge Landscape</small><strong>数据系统</strong></div></li>
+            <li><span>02</span><div><small>Knowledge Theme</small><strong>并发与一致性</strong></div></li>
+            <li class="current"><span>03</span><div><small>Cognitive Module</small><strong>一致性读的版本选择</strong></div></li>
+            <li><span>04</span><div><small>Knowledge Element</small><strong>Read View · 按需展开</strong></div></li>
+          </ol>
+          <p class="rail-note">唯一主归属保持可见；轨道只用于定位，不承载来源、修订或关系治理。</p>
+        </nav>
+
+        <main
+          id="module-default-document"
+          class="module-default-document"
+          tabindex="-1"
+          data-evidence-class="CognitiveModuleDefaultReading"
+          data-core-question="VISIBLE"
+          data-core-conclusion="VISIBLE"
+          data-conditions="VISIBLE"
+          data-results="VISIBLE"
+          data-boundaries-and-exceptions="VISIBLE"
+        >
+          <div class="document-meta module-meta">
+            <span>MODULE DEFAULT · READING MODE</span>
+            <span>ZERO INTERACTION CLOSURE</span>
+          </div>
+
+          <header class="module-opening">
+            <div>
+              <p class="eyebrow">CoreQuestion · 核心问题</p>
+              <h1>一次一致性读，如何从多个记录版本中选出当前事务真正可见的那个？</h1>
+            </div>
+            <div class="module-conclusion-lead" aria-labelledby="module-conclusion-title">
+              <p class="eyebrow">CoreConclusion · 核心结论</p>
+              <h2 id="module-conclusion-title">Read View 划定可见边界，版本链提供候选，判断规则完成选择。</h2>
+              <p>三者缺一不可：快照只描述边界，版本链只保存历史，最终结果来自二者在隔离语义下的共同作用。</p>
+            </div>
+          </header>
+
+          <section class="module-narrative" aria-labelledby="module-mechanism-title">
+            <p>
+              一致性读面对的不是“有没有旧版本”，而是“哪个版本对当前事务成立”。读取先建立观察边界，
+              再检查记录版本是否位于边界内；若当前版本不可见，就沿 Undo 版本链向过去回溯，直到找到
+              第一个满足可见性条件的候选。这个顺序把观察范围、历史候选与选择规则连接成连续机制。
+            </p>
+
+            <figure
+              class="module-primary-projection"
+              aria-labelledby="module-mechanism-title"
+              aria-describedby="module-projection-caption"
+            >
+              <figcaption class="module-projection-heading">
+                <span>
+                  <small>Primary Cognitive Spine · 唯一主要视觉投影</small>
+                  <strong id="module-mechanism-title">从观察边界到一致性读结果</strong>
+                </span>
+                <em>1 projection · 4 emphasized objects</em>
+              </figcaption>
+              <div class="module-flow" role="img" aria-label="Read View 经过可见性判断，从当前版本或 Undo 版本链选出一致性读结果">
+                <span><small>观察边界</small><strong>Read View</strong></span>
+                <i aria-hidden="true">→</i>
+                <span><small>判断规则</small><strong>版本可见性</strong></span>
+                <i aria-hidden="true">→</i>
+                <span><small>候选来源</small><strong>当前版本 / Undo 链</strong></span>
+                <i aria-hidden="true">→</i>
+                <span class="module-flow-result"><small>Result</small><strong>可见版本</strong></span>
+              </div>
+              <p id="module-projection-caption">投影只压缩选择顺序；隔离级别、当前读与冲突边界仍由正文精确说明。</p>
+            </figure>
+
+            <p>
+              在可重复读中，同一事务通常复用观察边界，因此两次查询可以保持一致；在读已提交中，新的语句可建立
+              新边界，结果可能随已提交版本前进。这里的关键 Relation 是：隔离级别决定 Read View 的创建时机，
+              Read View 又约束版本可见性；它们不是并列标签，而是机制闭环中的因果连接。
+            </p>
+          </section>
+
+          <section class="module-closure" aria-label="Conditions、Results、Boundaries and Exceptions">
+            <div>
+              <p class="eyebrow">Conditions · 成立条件</p>
+              <h2>读取必须属于快照语义</h2>
+              <p>事务标识、活跃事务范围与隔离级别共同提供有效判断上下文。</p>
+            </div>
+            <div>
+              <p class="eyebrow">Results · 结果</p>
+              <h2>得到一个可解释的可见版本</h2>
+              <p>结果可回溯到观察边界、判断规则与实际经过的版本链路径。</p>
+            </div>
+            <div>
+              <p class="eyebrow">Boundaries / Exceptions · 边界与例外</p>
+              <h2>当前读不消费历史快照</h2>
+              <p>加锁读与写操作读取当前版本；版本链耗尽时也不能静默补造结果。</p>
+            </div>
+          </section>
+
+          <section class="module-relations" aria-labelledby="module-relations-title">
+            <p class="eyebrow">Relations · 2 / 1–3</p>
+            <h2 id="module-relations-title">关键关系保持在默认正文中可理解</h2>
+            <ol>
+              <li><strong>隔离级别</strong><span>决定</span><strong>Read View 创建时机</strong></li>
+              <li><strong>Read View</strong><span>约束</span><strong>记录版本可见性</strong></li>
+            </ol>
+          </section>
+
+          <section class="module-inline-entries" aria-label="按需认知与来源入口">
+            <div>
+              <p class="eyebrow">KnowledgeElement 定位</p>
+              <p><strong>Read View</strong> 位于当前 Module 的“观察边界”段落；详细字段与判定示例按需展开。</p>
+              <button class="module-inline-entry" type="button" aria-label="展开 KnowledgeElement：Read View">
+                展开 KnowledgeElement <span aria-hidden="true">↓</span>
+              </button>
+            </div>
+            <div>
+              <p class="eyebrow">SourceEvidence · 按需核验</p>
+              <p>来源入口附着于当前结论，不在默认阅读中常驻治理 Workspace。</p>
+              <button class="module-inline-entry source-marker" type="button" aria-label="按需查看 SourceEvidence 支持范围">
+                查看 SourceEvidence <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </section>
+
+          <footer class="document-footer module-footer">
+            <p>HV-D01 module-default · deterministic synthetic mechanism</p>
+            <p>Persistent governance side panels · 0</p>
+          </footer>
+        </main>
+      </div>
     </div>
 
     <script src="prototype.js"></script>

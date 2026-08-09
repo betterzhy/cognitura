@@ -9,6 +9,7 @@ HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
 HighFidelityVisualFoundation = PASS
+HighFidelityModuleDefaultReading = PASS
 VisualTaskCardArtifactsActual = CREATED
 HV-D00ReleaseCondition = HF_D04_FIXED_CANDIDATE_DOUBLE_REVIEW_PASS
 BusinessImplementation = NOT_AUTHORIZED
@@ -17,8 +18,9 @@ RemotePush = NOT_AUTHORIZED
 ```
 
 本文件固定后续证据路径、输入状态和 Gate。`HV-D00` 已建立 docs-only 非生产原型
-基础和一张 1440×1100 foundation 截图；这只证明视觉 token 与原型治理基线，
-不构成 Module 等八类真实视觉证据或可用性结果，二者仍为 `NOT_RUN`。
+基础和一张 1440×1100 foundation 截图；`HV-D01` 已建立 Module 默认阅读 DOM 与
+1440×1100 视觉证据，只关闭七项正式 RF Owner。其余七类路径、整体视觉设计与
+可用性结果仍为 `NOT_RUN`。
 
 ## 1. 八类有序证据路径
 
@@ -57,7 +59,7 @@ CrossDomainScenario = RULE_POLICY_DOMAIN|EvidenceClass=KnowledgeLandscapeAndKnow
 以下 `HVDesignTask` 六行是 `HF-DG4` 关闭时的历史投影快照，继续供合同 Gate
 复验；`VisualTaskCardArtifacts = NOT_CREATED` 也只表示该历史时点。Task 6 此后已
 创建精确六卡集合、视觉基础、确定性原型和 foundation 截图并关闭 `HV-D00`。
-当前实际状态由 `HVExecutionTask` 六行承担，仅 `HV-D01` 被释放为唯一 `READY`。
+当前实际状态由 `HVExecutionTask` 六行承担，仅 `HV-D02` 被释放为唯一 `READY`。
 
 ```text
 VisualTaskCardArtifacts = NOT_CREATED
@@ -69,8 +71,8 @@ HVDesignTask = HV-D04|CrossLayerResponsiveAndExport|BLOCKED|NOT_RELEASED
 HVDesignTask = HV-D05|FixedVisualUsabilityReview|BLOCKED|NOT_RELEASED
 
 HVExecutionTask = HV-D00|VisualFoundation|DONE|PASS
-HVExecutionTask = HV-D01|ModuleDefaultReading|READY|RELEASED
-HVExecutionTask = HV-D02|FocusAndSource|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
+HVExecutionTask = HV-D01|ModuleDefaultReading|DONE|PASS
+HVExecutionTask = HV-D02|FocusAndSource|READY|RELEASED
 HVExecutionTask = HV-D03|RevisionAndRecovery|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
 HVExecutionTask = HV-D04|CrossLayerResponsiveAndExport|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
 HVExecutionTask = HV-D05|FixedVisualUsabilityReview|BLOCKED_BY_DEPENDENCY|NOT_RELEASED
@@ -86,7 +88,20 @@ VisualFoundationStatus = PASS
 VisualFoundationMeaning = TOKEN_AND_PROTOTYPE_GOVERNANCE_BASELINE_ONLY
 ```
 
-## 5. 阶段隔离
+## 5. Module 默认阅读证据
+
+```text
+ModuleDefaultReadingArtifact = docs/design/high-fidelity/evidence/module-default-reading-desktop.png
+ModuleDefaultReadingViewport = DESKTOP_1440x1100
+ModuleDefaultReadingPrototypeState = module-default
+ModuleDefaultReadingStatus = PASS
+ModuleDefaultReadingValidationStage = HIGH_FIDELITY_VISUAL
+ModuleDefaultReadingRFOwnerPass = RF-AC-02,04,05,06,08,11,12
+ModuleDefaultReadingDoesNotClose = RF-AC-01,03,07,09,10,13,14,15,16,17,18,19,20
+HVExecutionEvidence = HV-D01|EvidencePath=01|EvidenceClass=CognitiveModuleDefaultReading|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D01 PASS
+```
+
+## 6. 阶段隔离
 
 ```text
 CONTRACT = HF-DG3_EVIDENCE_INPUT_CONTRACT_PASS

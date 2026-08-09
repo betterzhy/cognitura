@@ -17,9 +17,14 @@ ReviewStage2P1 = 0
 ReviewStage2P2 = 0
 UltraReviewUsed = NO
 EvidenceArtifactCapture = NOT_RUN
+HVExecutionArtifactCapture = PARTIAL_HV_D01
 VisualFoundationArtifactCapture = PASS
 VisualFoundationArtifact = docs/design/high-fidelity/evidence/visual-foundation-desktop.png
 VisualFoundationViewport = DESKTOP_1440x1100
+ModuleDefaultReadingArtifactCapture = PASS
+ModuleDefaultReadingArtifact = docs/design/high-fidelity/evidence/module-default-reading-desktop.png
+ModuleDefaultReadingViewport = DESKTOP_1440x1100
+ModuleDefaultReadingValidationStage = HIGH_FIDELITY_VISUAL
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
@@ -28,9 +33,10 @@ FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
 
-本台账中的 RF/Exception 行仍只定义未来验收。`HV-D00` 已产生一张不绑定 RF 行的
-foundation 截图与 docs-only 原型；它只证明视觉 token 与原型治理，不改变任何
-`PLANNED:` 行的 `Status=NOT_RUN`，也不构成视觉或可用性阶段 PASS。
+`HV-D00` 已产生一张不绑定 RF 行的 foundation 截图与 docs-only 原型；`HV-D01`
+又以求值后 DOM 和 Module 默认阅读截图，只推进其正式 Owner 集
+`RF-AC-02,04,05,06,08,11,12` 的 `HIGH_FIDELITY_VISUAL` 结果。其他 RF、全部异常、
+整体视觉、可用性和实现结果仍为 `NOT_RUN`。
 
 ## 1. RF-AC 证据验收
 
@@ -128,7 +134,27 @@ VisualFoundationScope = TOKENS,RESPONSIVE_THRESHOLDS,A11Y_FOCUS,READING_FIRST_ZE
 VisualFoundationDoesNotClose = HV-D01,HV-D02,HV-D03,HV-D04,HV-D05
 ```
 
-## 5. 当前 Gate 结论
+## 5. HV-D01 Module 默认阅读视觉记录
+
+```text
+ModuleDefaultReadingAcceptance = HV-D01|Scenario=MODULE_DEFAULT_READING|Viewport=DESKTOP_1440x1100|InputState=READING_MODE+IDLE|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|DOMState=module-default|Status=PASS|ValidationStage=HIGH_FIDELITY_VISUAL
+ModuleDefaultReadingClosure = CoreQuestion,CoreConclusion,ContinuousNarrative,PrimaryCognitiveSpine,OnePrimaryProjection,Conditions,Results,BoundariesAndExceptions,TwoRelations,KnowledgeElementEntry,SourceEvidenceEntry
+ModuleDefaultReadingRFOwnerPass = RF-AC-02,04,05,06,08,11,12
+ModuleDefaultReadingFutureRFStatus = NOT_RUN
+ModuleDefaultReadingPersistentGovernanceSidePanels = 0
+ModuleDefaultReadingUsabilityStatus = NOT_RUN
+ModuleDefaultReadingImplementationStatus = NOT_RUN
+
+HVVisualAcceptanceObservation = RF-AC-02|Owner=HV-D01|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-04|Owner=HV-D01|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-05|Owner=HV-D01|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-06|Owner=HV-D01|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-08|Owner=HV-D01|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-11|Owner=HV-D01|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+HVVisualAcceptanceObservation = RF-AC-12|Owner=HV-D01|Artifact=docs/design/high-fidelity/evidence/module-default-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY|Usability=NOT_RUN|Implementation=NOT_RUN
+```
+
+## 6. 当前 Gate 结论
 
 ```text
 HF-DG3 HighFidelityEvidenceContract = PASS
@@ -140,5 +166,6 @@ GateUsabilityEvidenceStatus = NOT_RUN
 GateImplementationStatus = NOT_RUN
 ```
 
-`HF-DG4` 只关闭合同设计固定候选审查；`HV-D00` 只关闭视觉基础并释放 `HV-D01`。
-其余 HV 视觉结果与 W1-I 业务实现仍未授权。
+`HF-DG4` 只关闭合同设计固定候选审查；`HV-D00` 只关闭视觉基础，`HV-D01` 只
+关闭 Module 默认阅读的七项 RF Owner 视觉结果并释放 `HV-D02`。其余 HV 视觉
+结果与 W1-I 业务实现仍未授权。

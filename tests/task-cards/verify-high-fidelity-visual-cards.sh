@@ -80,15 +80,18 @@ for expected_line in \
   "HighFidelityVisualTaskCardValidation = PASS" \
   "TaskCardCount = 6" \
   "TaskCardSetStatus = READY_FOR_EXECUTION" \
-  "ActiveTaskCard = HV-D01" \
-  "DoneTaskCardCount = 1" \
+  "ActiveTaskCard = HV-D02" \
+  "DoneTaskCardCount = 2" \
   "ReadyTaskCardCount = 1" \
-  "BlockedTaskCardCount = 4" \
+  "BlockedTaskCardCount = 3" \
   "Task6WriteSetItemCount = 22" \
   "VisualFoundationPrototypeValidation = PASS" \
   "VisualFoundationEvidence = 1440x1100" \
   "UnknownFixtureStateRejection = PASS" \
   "VisualFoundationEvidenceFreshness = PASS" \
+  "ModuleDefaultReadingPrototypeValidation = PASS" \
+  "ModuleDefaultReadingEvidence = 1440x1100" \
+  "ModuleDefaultReadingEvidenceFreshness = PASS" \
   "HighFidelityVisualDesign = NOT_RUN" \
   "HighFidelityUsabilityValidation = NOT_RUN" \
   "BusinessImplementation = NOT_AUTHORIZED" \
@@ -106,8 +109,8 @@ expect_failure "${missing_card}" "actual visual task card count 5 does not match
 second_ready="${test_tmp_root}/second-ready"
 make_fixture "${second_ready}"
 sed -i.bak 's/^Status = BLOCKED_BY_DEPENDENCY$/Status = READY/' \
-  "${second_ready}/cards/HV-D02-focus-and-source.md"
-rm "${second_ready}/cards/HV-D02-focus-and-source.md.bak"
+  "${second_ready}/cards/HV-D03-revision-and-recovery.md"
+rm "${second_ready}/cards/HV-D03-revision-and-recovery.md.bak"
 expect_failure "${second_ready}" "exactly one READY card is required"
 
 wrong_write_set="${test_tmp_root}/wrong-write-set"
@@ -261,5 +264,75 @@ mv "${wrong_png}/evidence/visual-foundation-wrong-size.png" \
 printf 'not a png\n' >"${wrong_png}/evidence/visual-foundation-desktop.png"
 expect_failure "${wrong_png}" "visual foundation evidence must be a 1440x1100 PNG"
 
+wrong_module_projection_budget="${test_tmp_root}/wrong-module-projection-budget"
+make_fixture "${wrong_module_projection_budget}"
+sed -i.bak \
+  's/dataset.primaryVisualProjectionCount = "1"/dataset.primaryVisualProjectionCount = "2"/' \
+  "${wrong_module_projection_budget}/prototype/prototype.js"
+rm "${wrong_module_projection_budget}/prototype/prototype.js.bak"
+expect_failure "${wrong_module_projection_budget}" \
+  'module-default DOM is missing contract: data-primary-visual-projection-count="1"'
+
+persistent_module_governance="${test_tmp_root}/persistent-module-governance"
+make_fixture "${persistent_module_governance}"
+sed -i.bak \
+  's/dataset.persistentGovernanceSidePanelCount = "0"/dataset.persistentGovernanceSidePanelCount = "1"/' \
+  "${persistent_module_governance}/prototype/prototype.js"
+rm "${persistent_module_governance}/prototype/prototype.js.bak"
+expect_failure "${persistent_module_governance}" \
+  'module-default DOM is missing contract: data-persistent-governance-side-panel-count="0"'
+
+missing_module_source_label="${test_tmp_root}/missing-module-source-label"
+make_fixture "${missing_module_source_label}"
+sed -i.bak \
+  's/aria-label="按需查看 SourceEvidence 支持范围"/aria-label="来源"/' \
+  "${missing_module_source_label}/prototype/index.html"
+rm "${missing_module_source_label}/prototype/index.html.bak"
+expect_failure "${missing_module_source_label}" \
+  'module-default DOM is missing contract: aria-label="按需查看 SourceEvidence 支持范围"'
+
+missing_module_element_label="${test_tmp_root}/missing-module-element-label"
+make_fixture "${missing_module_element_label}"
+sed -i.bak \
+  's/aria-label="展开 KnowledgeElement：Read View"/aria-label="展开"/' \
+  "${missing_module_element_label}/prototype/index.html"
+rm "${missing_module_element_label}/prototype/index.html.bak"
+expect_failure "${missing_module_element_label}" \
+  'module-default DOM is missing contract: aria-label="展开 KnowledgeElement：Read View"'
+
+stale_module_evidence="${test_tmp_root}/stale-module-evidence"
+make_fixture "${stale_module_evidence}"
+sed -i.bak \
+  's/一次一致性读，如何从多个记录版本中选出当前事务真正可见的那个？/模块标题改变但截图仍旧。/' \
+  "${stale_module_evidence}/prototype/index.html"
+rm "${stale_module_evidence}/prototype/index.html.bak"
+expect_failure "${stale_module_evidence}" \
+  'module-default visual evidence is stale for the current prototype'
+
+wrong_module_png="${test_tmp_root}/wrong-module-png"
+make_fixture "${wrong_module_png}"
+printf 'not a png\n' >"${wrong_module_png}/evidence/module-default-reading-desktop.png"
+expect_failure "${wrong_module_png}" \
+  'module-default visual evidence must be a 1440x1100 PNG'
+
+regressed_completed_owner="${test_tmp_root}/regressed-completed-owner"
+make_fixture "${regressed_completed_owner}"
+sed -i.bak \
+  '/^HVVisualAcceptanceObservation = RF-AC-02|/ s/Status=PASS_HIGH_FIDELITY_VISUAL_ONLY/Status=NOT_RUN/' \
+  "${regressed_completed_owner}/acceptance.md"
+rm "${regressed_completed_owner}/acceptance.md.bak"
+expect_failure "${regressed_completed_owner}" \
+  'RF-AC-02 must record PASS_HIGH_FIDELITY_VISUAL_ONLY'
+
+premature_future_owner="${test_tmp_root}/premature-future-owner"
+make_fixture "${premature_future_owner}"
+sed -i.bak \
+  '/^RFAcceptance = RF-AC-03|/ s/Status=NOT_RUN/Status=PASS/' \
+  "${premature_future_owner}/acceptance.md"
+rm "${premature_future_owner}/acceptance.md.bak"
+expect_failure "${premature_future_owner}" \
+  'RF-AC-03 canonical input contract must remain PLANNED/NOT_RUN'
+
 printf 'HighFidelityVisualTaskCardContractTests = PASS\n'
-printf 'NegativeFixtureCount = 44\n'
+printf 'ExistingNegativeFixtureCount = 44\n'
+printf 'NegativeFixtureCount = 52\n'

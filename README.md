@@ -15,7 +15,7 @@ KnowledgeLandscape
 
 ```text
 CurrentStage =
-  HIGH_FIDELITY_VISUAL_FOUNDATION_ESTABLISHED
+  HIGH_FIDELITY_MODULE_DEFAULT_READING_ESTABLISHED
 
 Wave0ExecutionStatus = COMPLETE
 ActiveTaskCard = NONE
@@ -41,11 +41,12 @@ HighFidelityReadingPresentationContract = PASS
 HighFidelityInteractionStateModel = PASS
 HighFidelityEvidenceContract = PASS
 HighFidelityVisualFoundation = PASS
+HighFidelityModuleDefaultReading = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
-HighFidelityVisualProjectedEntry = HV-D01 READY / RELEASED
-ActiveDesignTaskCard = HV-D01
+HighFidelityVisualProjectedEntry = HV-D02 READY / RELEASED
+ActiveDesignTaskCard = HV-D02
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
@@ -141,8 +142,10 @@ Gate，`HF-D04` 已对准备提交
 六轴、临时 UI、流程、事件或派生结果，五级持久化与恢复边界已通过 `HF-DG2`。
 八类 Canonical 证据路径、20 项 RF-AC、20 异常、30 RM、机制域/规则政策域场景和
 六项 HV 序列的合同已通过 `HF-DG4`；`HV-D00` 已完成视觉 token、静态 docs-only
-fixture 治理与 1440×1100 基础截图，实际六卡集合已创建且仅 `HV-D01` 为唯一
-`READY`。Module 默认阅读及后续视觉/可用性验收仍为 `NOT_RUN`，实现继续延后。
+fixture 治理与 1440×1100 基础截图，`HV-D01` 已完成机制型 Module 默认阅读 DOM
+和 1440×1100 视觉证据，仅推进 `RF-AC-02,04,05,06,08,11,12` 的
+`HIGH_FIDELITY_VISUAL` 结果。当前仅 `HV-D02` 为唯一 `READY`；整体视觉设计、
+可用性与实现仍为 `NOT_RUN`。
 本轮不创建或释放 `W1-I00`，也不授权
 业务实现、正式数据库写入或远程推送。
 

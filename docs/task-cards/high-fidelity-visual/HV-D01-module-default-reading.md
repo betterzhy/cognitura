@@ -3,8 +3,8 @@
 ```text
 TaskCardID = HV-D01
 CardKind = HIGH_FIDELITY_VISUAL_DESIGN
-Status = READY
-Gate = HV-D01 NOT_RUN
+Status = DONE
+Gate = HV-D01 PASS
 Risk = MEDIUM
 DependsOn = HV-D00
 ReviewRoute = MAIN_AGENT_LOCAL_GATE
@@ -64,6 +64,16 @@ git diff --check
 ## 7. Gate 与完成定义
 
 默认阅读截图与 DOM 同时证明零交互闭环后才允许 `HV-D01 PASS`；可用性仍为 `NOT_RUN`。
+
+```text
+ModuleDefaultReadingArtifact = docs/design/high-fidelity/evidence/module-default-reading-desktop.png
+ModuleDefaultReadingViewport = DESKTOP_1440x1100
+ModuleDefaultReadingState = module-default
+ModuleDefaultReadingVisualResult = PASS
+RFOwnerVisualPass = RF-AC-02,04,05,06,08,11,12
+HighFidelityUsabilityValidation = NOT_RUN
+ImplementationValidation = NOT_RUN
+```
 
 ## 8. 提交与审查
 

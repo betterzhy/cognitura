@@ -14,7 +14,7 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage =
-  HIGH_FIDELITY_VISUAL_FOUNDATION_ESTABLISHED
+  HIGH_FIDELITY_MODULE_DEFAULT_READING_ESTABLISHED
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
@@ -36,11 +36,12 @@ HighFidelityReadingPresentationContract = PASS
 HighFidelityInteractionStateModel = PASS
 HighFidelityEvidenceContract = PASS
 HighFidelityVisualFoundation = PASS
+HighFidelityModuleDefaultReading = PASS
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityUsabilityValidation = NOT_RUN
 HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
-HighFidelityVisualProjectedEntry = HV-D01 READY / RELEASED
-ActiveDesignTaskCard = HV-D01
+HighFidelityVisualProjectedEntry = HV-D02 READY / RELEASED
+ActiveDesignTaskCard = HV-D02
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
@@ -62,8 +63,9 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 `HF-D01` 仅关闭 Reading First 页面与呈现合同，`HF-D02` 仅关闭正交状态、持久化
 与恢复边界，`HF-D03` 仅关闭八类证据、20 项 RF-AC、20 异常、30 RM 和跨域场景
 的输入合同，`HF-D04` 仅关闭固定合同候选审查。`HV-D00` 已建立 docs-only
-非生产视觉 token、确定性 URL fixture、基础截图和六卡串行治理，并仅释放
-`HV-D01`；Module 默认阅读及后续高保真视觉、可用性和实现仍未执行。
+非生产视觉 token、确定性 URL fixture、基础截图和六卡串行治理；`HV-D01` 已以
+机制型合成内容和 1440×1100 证据关闭 Module 默认阅读视觉 Owner 集，并仅释放
+`HV-D02`。Relation/Source 及后续高保真视觉、整体可用性和实现仍未执行。
 
 ## 3. 正式事实来源
 
