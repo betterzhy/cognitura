@@ -6,5 +6,5 @@ sources:
     role: HIGH_FIDELITY_INTERACTION_SPECIALTY_CANDIDATE
     version: Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0
     status: CANDIDATE_AWAITING_REPOSITORY_GATE
-    sizeBytes: 145525
-    sha256: acfa0e84d08477a700c96d0cae2a75250c4f29a7cd1bb0a3dd44a584ecca86d5
+    sizeBytes: 147906
+    sha256: 731017f3672d6a56e64a55b14bf281703484f25b0b90fd0116ec0511fa89036b

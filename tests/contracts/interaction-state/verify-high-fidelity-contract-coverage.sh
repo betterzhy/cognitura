@@ -29,6 +29,17 @@ expect_failure() {
     fail "expected error '${expected_message}', got: ${output}"
 }
 
+expect_document_failure() {
+  local fixture="$1"
+  local expected_message="$2"
+  local output
+  if output="$("${verifier}" --coverage "${coverage}" --document "${fixture}" 2>&1)"; then
+    fail "invalid candidate document unexpectedly passed: ${fixture}"
+  fi
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "expected error '${expected_message}', got: ${output}"
+}
+
 [[ -x "${verifier}" ]] || fail "high-fidelity coverage verifier is missing or not executable"
 [[ -f "${coverage}" ]] || fail "high-fidelity contract coverage is missing"
 
@@ -54,6 +65,10 @@ sed -i.bak 's/^GateClosure = DEFERRED_UNTIL_HF_D04$/GateClosure = PASS/' "${prem
 rm "${premature_gate}.bak"
 expect_failure "${premature_gate}" "GateClosure must remain DEFERRED_UNTIL_HF_D04"
 
+empty_document="${test_tmp_root}/empty-candidate.md"
+: >"${empty_document}"
+expect_document_failure "${empty_document}" "expected 46 unique original StateCode rows"
+
 printf '%s\n' \
   "HighFidelityContractCoverageTests = PASS" \
-  "NegativeCases = 2"
+  "NegativeCases = 3"

@@ -29,8 +29,51 @@ if [[ -z "${document}" ]]; then
 fi
 [[ -f "${document}" ]] || fail "MISSING_DOCUMENT: ${document}"
 
+require_exact_line_once() {
+  local line="$1"
+  local message="$2"
+  local count
+  count="$(grep -Fxc "${line}" "${document}" || true)"
+  [[ "${count}" -eq 1 ]] || fail "${message}"
+}
+
 grep -Fqx 'CanonicalProjectName = Cognitura' "${document}" ||
   fail "CanonicalProjectName must be Cognitura"
+require_exact_line_once \
+  'PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING' \
+  'PrimaryPurpose must be PERSONAL_COGNITIVE_STRUCTURE_BUILDING'
+require_exact_line_once \
+  'DesignPurpose =' \
+  'DesignPurpose must be declared exactly once'
+require_exact_line_once \
+  'V1Architecture = MODULAR_MONOLITH' \
+  'V1Architecture must be MODULAR_MONOLITH'
+require_exact_line_once \
+  'HistoricalHierarchyCompositeAlias = DomainPanorama_Theme_Module_Element' \
+  'legacy hierarchy composite must only be a historical alias'
+[[ "$(grep -Fxc 'DomainPanorama_Theme_Module_Element' "${document}" || true)" -eq 0 ]] ||
+  fail "legacy hierarchy composite must only be a historical alias"
+if grep -Eq '= PASS$|\| PASS \|' "${document}"; then
+  fail "candidate must not declare contract PASS before applicable HF Gates"
+fi
+
+contract_p0_count="$(grep -c '^ContractP0Remaining = ' "${document}" || true)"
+contract_p0_deferred_count="$(grep -Fxc 'ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04' "${document}" || true)"
+[[ "${contract_p0_count}" -ge 1 && "${contract_p0_count}" -eq "${contract_p0_deferred_count}" ]] ||
+  fail "ContractP0Remaining must remain deferred through HF-D04"
+input_ready_count="$(grep -c '^HighFidelityInputReady = ' "${document}" || true)"
+input_candidate_count="$(grep -Fxc 'HighFidelityInputReady = CANDIDATE_ONLY' "${document}" || true)"
+[[ "${input_ready_count}" -ge 1 && "${input_ready_count}" -eq "${input_candidate_count}" ]] ||
+  fail "HighFidelityInputReady must remain CANDIDATE_ONLY"
+require_exact_line_once \
+  'ContractDefined = CANDIDATE_ONLY' \
+  'ContractDefined must remain CANDIDATE_ONLY'
+require_exact_line_once \
+  'ContractCompleteness = DEFERRED_TO_HF_D01_THROUGH_HF_D04' \
+  'ContractCompleteness must remain deferred through HF-D04'
+require_exact_line_once \
+  'FormalDesignInputCompletion = DEFERRED_TO_HF_D04' \
+  'FormalDesignInputCompletion must remain deferred to HF-D04'
 canonical_hierarchy="$(awk '
   /^CanonicalHierarchy =$/ {
     getline; one=$0
@@ -47,12 +90,18 @@ canonical_hierarchy="$(awk '
 status="$(awk '/^Status =$/ {getline; sub(/^[[:space:]]+/, ""); print; exit}' "${document}")"
 [[ "${status}" == "CANDIDATE_AWAITING_REPOSITORY_GATE" ]] ||
   fail "candidate status must remain CANDIDATE_AWAITING_REPOSITORY_GATE"
-grep -Fqx 'BusinessImplementation = NOT_AUTHORIZED' "${document}" ||
-  fail "BusinessImplementation must be NOT_AUTHORIZED"
+for boundary in BusinessImplementation FormalDatabaseWrite RemotePush; do
+  require_exact_line_once \
+    "${boundary} = NOT_AUTHORIZED" \
+    "${boundary} must be exactly NOT_AUTHORIZED"
+done
 grep -Fqx 'RepositoryIntegrationStatus = UNTRACKED_CANDIDATE_REGISTERED_BY_HF_D00' "${document}" ||
   fail "actual repository integration status is missing"
-grep -Fqx 'DocumentationGap = DOC-GAP-HF-001' "${document}" ||
-  fail "missing predecessor bodies must be DocumentationGap"
+for gap_id in DOC-GAP-HF-001 DOC-GAP-HF-002 DOC-GAP-HF-003; do
+  require_exact_line_once \
+    "DocumentationGap = ${gap_id}" \
+    "${gap_id} must appear exactly once"
+done
 grep -Fqx 'HistoricalHierarchyAliases =' "${document}" ||
   fail "historical hierarchy aliases are not mapped"
 

@@ -12,12 +12,15 @@ HistoricalDesignName = Cognitive Knowledge Atlas V1
 Product = Cognitura
 DeliveryPlatform = WEB_BROWSER
 PrimaryExperience = DESKTOP_WEB
+V1Architecture = MODULAR_MONOLITH
 BasicResponsiveSafety = REQUIRED
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 
-PrimaryPurpose =
+PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
+
+DesignPurpose =
   COMPLETE_THE_REMAINING_INTERACTION_STATE_CONTRACT,
   ESTABLISH_READING_FIRST_PRESENTATION,
   RESTRAIN_DEFAULT_INTERACTION_AND_VISUAL_DENSITY,
@@ -277,8 +280,7 @@ HighFidelityVisualValidation =
 RemainingInteractionStateP0 =
   CLOSED_BY_THIS_DOCUMENT
 
-HighFidelityInputReady =
-  CANDIDATE_ONLY
+HighFidelityInputReady = CANDIDATE_ONLY
 
 HighFidelityVisualDesign =
   NOT_RUN
@@ -330,9 +332,9 @@ StaticImageMarkdownPdfProjectionBoundaryNotExplicit = TRUE
 以上是初始 `1.0` 创建前的缺口记录。完成本轮后：
 
 ```text
-CurrentRemainingReadingFirstGaps = 0
-CurrentRemainingHighFidelityStateInputGaps = 0
-ContractP0Remaining = 0
+CurrentRemainingReadingFirstGaps = DEFERRED_TO_HF_D01
+CurrentRemainingHighFidelityStateInputGaps = DEFERRED_TO_HF_D02_THROUGH_HF_D03
+ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04
 ```
 
 ### 0.8 PlannedMinimalPatchScope
@@ -409,7 +411,7 @@ Relationship =
 
 ```text
 ProductGoal
-DomainPanorama_Theme_Module_Element
+HistoricalHierarchyCompositeAlias = DomainPanorama_Theme_Module_Element
 PrimaryCognitiveSpine
 CoreQuestionDrivenStructure
 ThemeQuestionBoundary
@@ -3527,12 +3529,12 @@ PersistentSidePanels = 0
 
 ```text
 ValidationStage = CONTRACT
-ZeroInteractionReadingContract = PASS
-DocumentContinuityContract = PASS
-CardAndContainerRestraintContract = PASS
-VisualPrimitiveDensityContract = PASS
-InteractionExposureContract = PASS
-RelationUnderstandabilityContract = PASS
+ZeroInteractionReadingContract = CANDIDATE_AWAITING_HF_DG1
+DocumentContinuityContract = CANDIDATE_AWAITING_HF_DG1
+CardAndContainerRestraintContract = CANDIDATE_AWAITING_HF_DG1
+VisualPrimitiveDensityContract = CANDIDATE_AWAITING_HF_DG1
+InteractionExposureContract = CANDIDATE_AWAITING_HF_DG1
+RelationUnderstandabilityContract = CANDIDATE_AWAITING_HF_DG1
 
 HighFidelityVisualResult = NOT_RUN
 HighFidelityUsabilityResult = NOT_RUN
@@ -3586,12 +3588,12 @@ CardGridAsPrimaryBody = NO
 
 ```text
 ValidationStage = CONTRACT
-ZeroInteractionReadingContract = PASS
-DocumentContinuityContract = PASS
-CardAndContainerRestraintContract = PASS
-VisualPrimitiveDensityContract = PASS
-InteractionExposureContract = PASS
-RelationUnderstandabilityContract = PASS
+ZeroInteractionReadingContract = CANDIDATE_AWAITING_HF_DG1
+DocumentContinuityContract = CANDIDATE_AWAITING_HF_DG1
+CardAndContainerRestraintContract = CANDIDATE_AWAITING_HF_DG1
+VisualPrimitiveDensityContract = CANDIDATE_AWAITING_HF_DG1
+InteractionExposureContract = CANDIDATE_AWAITING_HF_DG1
+RelationUnderstandabilityContract = CANDIDATE_AWAITING_HF_DG1
 
 HighFidelityVisualResult = NOT_RUN
 HighFidelityUsabilityResult = NOT_RUN
@@ -3601,9 +3603,9 @@ HighFidelityUsabilityResult = NOT_RUN
 
 ```text
 ValidationStage = CONTRACT
-MechanismTypeScenarioContract = PASS
-RuleTypeScenarioContract = PASS
-CrossDomainScenarioContractValidation = PASS
+MechanismTypeScenarioContract = CANDIDATE_AWAITING_HF_DG1
+RuleTypeScenarioContract = CANDIDATE_AWAITING_HF_DG1
+CrossDomainScenarioContractValidation = CANDIDATE_AWAITING_HF_DG1
 
 SingleDomainPageModelRequired = NO
 GlobalKnowledgeGraphRequired = NO
@@ -3730,15 +3732,15 @@ ContractPASSDoesNotImplyUsabilityPASS = REQUIRED
 
 | 阶段 | 验收对象 | 当前状态 |
 |---|---|---|
-| `CONTRACT` | 规则、状态、字段、边界、矩阵和可执行验收输入是否完整 | PASS |
+| `CONTRACT` | 规则、状态、字段、边界、矩阵和可执行验收输入是否完整 | DEFERRED_TO_HF_D01_THROUGH_HF_D03 |
 | `HIGH_FIDELITY_VISUAL` | 真实高保真页面是否满足层级、密度、连续性和状态表达 | NOT_RUN |
 | `HIGH_FIDELITY_USABILITY` | 用户是否能在真实原型中理解、操作、返回和恢复 | NOT_RUN |
 | `IMPLEMENTATION` | 前端代码是否实现并通过自动化与人工验收 | NOT_RUN |
 
 ```text
-ContractDefined = PASS
-ContractCompleteness = PASS
-HighFidelityInputReady = YES
+ContractDefined = CANDIDATE_ONLY
+ContractCompleteness = DEFERRED_TO_HF_D01_THROUGH_HF_D04
+HighFidelityInputReady = CANDIDATE_ONLY
 
 HighFidelityVisualDesign = NOT_RUN
 HighFidelityVisualValidation = NOT_RUN
@@ -3752,56 +3754,56 @@ HighFidelityStateAcceptance = NOT_RUN
 
 | ID | 验收动作 | 通过标准 | ValidationStage | Contract Result | High-Fidelity Result |
 |---|---|---|---|---|---|
-| RF-AC-01 | 关闭所有非必要交互 | 四层页面仍能完成主要认知任务 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-02 | 只阅读默认 Module | 获得完整认知闭环 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-03 | 删除右侧面板 | 关键 Relation 仍可理解 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-04 | 检查页面主体 | 禁止同规格卡片网格作为主体 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-05 | 检查视觉组件 | 禁止大量异形组件集合 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-06 | 阅读连续正文 | 必须连接机制、关系、条件和边界 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-07 | 检查默认状态 | 禁止常驻治理面板 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-08 | 统计默认控件 | 必须符合页面级与 Section 级预算 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-09 | 追溯事实来源 | 同一事实只来自 Canonical Model | CONTRACT | PASS | NOT_RUN |
-| RF-AC-10 | 比较 Web/图片/Markdown/PDF | Object 和 Relation 身份一致 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-11 | 检查 Element 表达 | 普通 Element 不全部卡片化或节点化 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-12 | 检查 Perspective | 核心正文不依赖视角切换 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-13 | 检查 Revision | 高风险影响默认展开并阻断提交 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-14 | 检查提交后状态 | 四类处理、部分失败和撤销明确 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-15 | 检查小屏 | 默认仍为连续文档阅读 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-16 | 执行点击/Escape/空白区矩阵 | 所有切换结果唯一且不丢上下文 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-17 | 执行 URL/History/Refresh 矩阵 | 只恢复稳定语义状态和草稿 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-18 | 执行异常恢复矩阵 | 保存边界、重试、回退和去重明确 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-19 | 检查导出身份 | 稳定 ID 机器可读且默认不打扰读者 | CONTRACT | PASS | NOT_RUN |
-| RF-AC-20 | 检查第二轮追溯 | 已接受结论与当前关闭位置可定位 | CONTRACT | PASS | NOT_RUN |
+| RF-AC-01 | 关闭所有非必要交互 | 四层页面仍能完成主要认知任务 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-02 | 只阅读默认 Module | 获得完整认知闭环 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-03 | 删除右侧面板 | 关键 Relation 仍可理解 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-04 | 检查页面主体 | 禁止同规格卡片网格作为主体 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-05 | 检查视觉组件 | 禁止大量异形组件集合 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-06 | 阅读连续正文 | 必须连接机制、关系、条件和边界 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-07 | 检查默认状态 | 禁止常驻治理面板 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-08 | 统计默认控件 | 必须符合页面级与 Section 级预算 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-09 | 追溯事实来源 | 同一事实只来自 Canonical Model | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-10 | 比较 Web/图片/Markdown/PDF | Object 和 Relation 身份一致 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-11 | 检查 Element 表达 | 普通 Element 不全部卡片化或节点化 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-12 | 检查 Perspective | 核心正文不依赖视角切换 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-13 | 检查 Revision | 高风险影响默认展开并阻断提交 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-14 | 检查提交后状态 | 四类处理、部分失败和撤销明确 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-15 | 检查小屏 | 默认仍为连续文档阅读 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-16 | 执行点击/Escape/空白区矩阵 | 所有切换结果唯一且不丢上下文 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-17 | 执行 URL/History/Refresh 矩阵 | 只恢复稳定语义状态和草稿 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-18 | 执行异常恢复矩阵 | 保存边界、重试、回退和去重明确 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-19 | 检查导出身份 | 稳定 ID 机器可读且默认不打扰读者 | CONTRACT | DEFERRED | NOT_RUN |
+| RF-AC-20 | 检查第二轮追溯 | 已接受结论与当前关闭位置可定位 | CONTRACT | DEFERRED | NOT_RUN |
 
-### 19.3 当前可声明为 PASS 的契约
+### 19.3 当前候选合同状态（不得声明 PASS）
 
 ```text
-ReadingFirstPresentationContract = PASS
-InteractiveCognitiveDocumentContract = PASS
-ZeroInteractionReadingContract = PASS
-DocumentContinuityContract = PASS
-CardAndContainerRestraintContract = PASS
-VisualPrimitiveDensityContract = PASS
-InteractionExposureContract = PASS
-ReadingGovernanceSeparationContract = PASS
-StaticProjectionContract = PASS
-CrossDomainScenarioContractValidation = PASS
+ReadingFirstPresentationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+InteractiveCognitiveDocumentContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ZeroInteractionReadingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+DocumentContinuityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+CardAndContainerRestraintContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+VisualPrimitiveDensityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+InteractionExposureContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ReadingGovernanceSeparationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+StaticProjectionContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+CrossDomainScenarioContractValidation = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 
-PreviewAndPinnedFocusContract = PASS
-ElementRelationFocusPriorityContract = PASS
-QuickFullRevisionRoutingContract = PASS
-UnifiedImpactPreviewContract = PASS
-PostCommitProcessingContract = PASS
-DraftReturnAndRecoveryContract = PASS
-HighFidelityInteractionStateMatrix = PASS
-ExceptionAndRecoveryStateMatrix = PASS
-URLHistoryAndRefreshContract = PASS
-BudgetMeasurementDefinition = PASS
-StableIdentityExportContract = PASS
-SecondRoundLowFidelityTraceability = PASS
+PreviewAndPinnedFocusContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ElementRelationFocusPriorityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+QuickFullRevisionRoutingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+UnifiedImpactPreviewContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+PostCommitProcessingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+DraftReturnAndRecoveryContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+HighFidelityInteractionStateMatrix = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ExceptionAndRecoveryStateMatrix = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+URLHistoryAndRefreshContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+BudgetMeasurementDefinition = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+StableIdentityExportContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+SecondRoundLowFidelityTraceability = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 
-ContractP0Remaining = 0
-HighFidelityInputReady = YES
+ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04
+HighFidelityInputReady = CANDIDATE_ONLY
 ```
 
 ### 19.4 当前禁止声明为 PASS
@@ -4065,15 +4067,15 @@ RecommendedCommit =
 本次产物级检查：
 
 ```text
-MarkdownHeadingStructureCheck = PASS
-CodeFenceBalanceCheck = PASS
-DuplicateStateCodeCheck = PASS
-RequiredInteractionStateCoverage = PASS
-RequiredExceptionCoverage = PASS
-ValidationStageBoundaryCheck = PASS
-PrematureHighFidelityPassCheck = PASS
-FinalStatusConsistencyCheck = PASS
-ParallelAuthorityFileCheck = PASS
+MarkdownHeadingStructureCheck = CANDIDATE_SELF_CHECK_ONLY
+CodeFenceBalanceCheck = CANDIDATE_SELF_CHECK_ONLY
+DuplicateStateCodeCheck = CANDIDATE_SELF_CHECK_ONLY
+RequiredInteractionStateCoverage = CANDIDATE_SELF_CHECK_ONLY
+RequiredExceptionCoverage = CANDIDATE_SELF_CHECK_ONLY
+ValidationStageBoundaryCheck = CANDIDATE_SELF_CHECK_ONLY
+PrematureHighFidelityPassCheck = DEFERRED_TO_HF_D04
+FinalStatusConsistencyCheck = CANDIDATE_SELF_CHECK_ONLY
+ParallelAuthorityFileCheck = CANDIDATE_SELF_CHECK_ONLY
 ```
 
 仓库落地后仍需执行：
@@ -4097,30 +4099,30 @@ DesignVersion =
 Status =
   CANDIDATE_AWAITING_REPOSITORY_GATE
 
-ReadingFirstPresentationContract = PASS
-InteractiveCognitiveDocumentContract = PASS
-ZeroInteractionReadingContract = PASS
-DocumentContinuityContract = PASS
-CardAndContainerRestraintContract = PASS
-VisualPrimitiveDensityContract = PASS
-InteractionExposureContract = PASS
-ReadingGovernanceSeparationContract = PASS
-StaticProjectionContract = PASS
+ReadingFirstPresentationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+InteractiveCognitiveDocumentContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ZeroInteractionReadingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+DocumentContinuityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+CardAndContainerRestraintContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+VisualPrimitiveDensityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+InteractionExposureContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ReadingGovernanceSeparationContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+StaticProjectionContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 
-PreviewAndPinnedFocusContract = PASS
-ElementRelationFocusPriorityContract = PASS
-QuickFullRevisionRoutingContract = PASS
-UnifiedImpactPreviewContract = PASS
-PostCommitProcessingContract = PASS
-DraftReturnAndRecoveryContract = PASS
+PreviewAndPinnedFocusContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ElementRelationFocusPriorityContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+QuickFullRevisionRoutingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+UnifiedImpactPreviewContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+PostCommitProcessingContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+DraftReturnAndRecoveryContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 
-HighFidelityInteractionStateMatrix = PASS
-ExceptionAndRecoveryStateMatrix = PASS
-URLHistoryAndRefreshContract = PASS
-BudgetMeasurementDefinition = PASS
-StableIdentityExportContract = PASS
-SecondRoundLowFidelityTraceability = PASS
-CrossDomainScenarioContractValidation = PASS
+HighFidelityInteractionStateMatrix = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+ExceptionAndRecoveryStateMatrix = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+URLHistoryAndRefreshContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+BudgetMeasurementDefinition = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+StableIdentityExportContract = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+SecondRoundLowFidelityTraceability = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
+CrossDomainScenarioContractValidation = CANDIDATE_AWAITING_APPLICABLE_HF_GATE
 
 ContractP0Remaining = DEFERRED_TO_HF_D01_THROUGH_HF_D04
 HighFidelityInputReady = CANDIDATE_ONLY
@@ -4194,7 +4196,7 @@ HistoryAndRefreshRecovery
 
 ```text
 AdditionalDesignSpecialtyBeforeHighFidelity = FORBIDDEN
-FormalDesignInputCompletion = CLOSED
+FormalDesignInputCompletion = DEFERRED_TO_HF_D04
 ```
 
 本文件现为 Cognitura 唯一已登记的高保真交互专项候选。HF-D00 不使其成为正式

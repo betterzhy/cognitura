@@ -29,6 +29,36 @@ fi
 [[ -f "${coverage}" ]] || fail "MISSING_COVERAGE: ${coverage}"
 [[ -f "${document}" ]] || fail "MISSING_DOCUMENT: ${document}"
 
+count_unique_rows() {
+  local marker="$1"
+  awk -F'|' -v marker="${marker}" '
+    $2 ~ "`" marker "`" {
+      value=$3
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (value != "") seen[value]=1
+      rows++
+    }
+    END {
+      unique=0
+      for (value in seen) unique++
+      print rows ":" unique
+    }
+  ' "${document}"
+}
+
+state_counts="$(count_unique_rows StateCode)"
+[[ "${state_counts}" == "46:46" ]] ||
+  fail "expected 46 unique original StateCode rows, found ${state_counts}"
+exception_counts="$(count_unique_rows ExceptionCode)"
+[[ "${exception_counts}" == "20:20" ]] ||
+  fail "expected 20 unique ExceptionCode rows, found ${exception_counts}"
+rf_counts="$(awk -F'|' '/^\| RF-AC-[0-9][0-9] / {gsub(/ /, "", $2); seen[$2]=1; rows++} END {unique=0; for (v in seen) unique++; print rows ":" unique}' "${document}")"
+[[ "${rf_counts}" == "20:20" ]] ||
+  fail "expected 20 unique RF-AC rows, found ${rf_counts}"
+rm_counts="$(awk '/^ISHFI-RM-[0-9][0-9] =$/ {seen[$1]=1; rows++} END {unique=0; for (v in seen) unique++; print rows ":" unique}' "${document}")"
+[[ "${rm_counts}" == "30:30" ]] ||
+  fail "expected 30 unique reverse-migration items, found ${rm_counts}"
+
 grep -Fqx 'GateClosure = DEFERRED_UNTIL_HF_D04' "${coverage}" ||
   fail "GateClosure must remain DEFERRED_UNTIL_HF_D04"
 
@@ -48,10 +78,14 @@ for id in STATE-CODES EXCEPTION-CODES RF-AC REVERSE-MIGRATION; do
 done
 row_count="$(grep -c '^| \(STATE-CODES\|EXCEPTION-CODES\|RF-AC\|REVERSE-MIGRATION\) |' "${coverage}" || true)"
 [[ "${row_count}" -eq 4 ]] || fail "CoverageRowCount must be 4"
-grep -Fq '| STATE-CODES | 46 |' "${coverage}" || fail "STATE-CODES count must be 46"
-grep -Fq '| EXCEPTION-CODES | 20 |' "${coverage}" || fail "EXCEPTION-CODES count must be 20"
-grep -Fq '| RF-AC | 20 |' "${coverage}" || fail "RF-AC count must be 20"
-grep -Fq '| REVERSE-MIGRATION | 30 |' "${coverage}" || fail "REVERSE-MIGRATION count must be 30"
+grep -Fq "| STATE-CODES | ${state_counts%%:*} |" "${coverage}" ||
+  fail "STATE-CODES coverage count must match candidate inventory"
+grep -Fq "| EXCEPTION-CODES | ${exception_counts%%:*} |" "${coverage}" ||
+  fail "EXCEPTION-CODES coverage count must match candidate inventory"
+grep -Fq "| RF-AC | ${rf_counts%%:*} |" "${coverage}" ||
+  fail "RF-AC coverage count must match candidate inventory"
+grep -Fq "| REVERSE-MIGRATION | ${rm_counts%%:*} |" "${coverage}" ||
+  fail "REVERSE-MIGRATION coverage count must match candidate inventory"
 grep -Fq 'Cognitive-Knowledge-Atlas-Interaction-State-Completion-and-High-Fidelity-Input-Design-1.0.md' "${coverage}" ||
   fail "candidate source trace is missing"
 
