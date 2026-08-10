@@ -480,7 +480,7 @@
           </div>
 
           <div class="verification-actions" aria-label="完整来源核验操作">
-            <span><b>Quick Source 已升级</b> · 原阅读 Anchor 已保留</span>
+            <span id="verification-action-feedback" aria-live="polite"><b>Quick Source 已升级</b> · 原阅读 Anchor 已保留</span>
             <button type="button" data-enter-action="CONFIRM_VERIFICATION" data-touch-equivalent="CONFIRM_VERIFICATION">确认核验裁决</button>
             <button
               class="quiet source-verification-close"
@@ -570,7 +570,7 @@
           data-canonical-version="v13" data-changeset-id="cs-1042"
           data-idempotency-key="idem-hv-d03-1042" data-origin-anchor-id="recovery-origin-anchor"
           data-draft-state="RECOVERABLE_DRAFT" data-recovery-axis="REFRESH_RESTORING">
-          <section class="saved-boundary">
+          <section id="recovery-canonical-boundary" class="saved-boundary" tabindex="-1">
             <div class="saved-mark" aria-hidden="true">✓</div>
             <div><p class="eyebrow">Canonical boundary · confirmed</p><h1>正式结构已保存为 v13</h1><p>ChangeSet 与当前指针已确认；失败只发生在后续投影处理，禁止伪装成未提交。</p></div>
             <span>ONE CANONICAL VERSION</span>
@@ -587,7 +587,7 @@
           </section>
 
           <section class="recovery-grid">
-            <article class="stale-projection">
+            <article id="module-results" class="stale-projection" tabindex="-1">
               <div><p class="eyebrow">Current projection</p><span class="stale-badge">OUTDATED · based on v12</span></div>
               <h2>一致性读受 Read View 约束</h2>
               <p>旧表达保留用于阅读对照；在重新基线化前禁止基于它继续正式修订。</p>
@@ -596,7 +596,7 @@
             <aside class="recovery-actions-panel">
               <p class="eyebrow">Recovery · same result identity</p>
               <h2>只重试失败通道</h2>
-              <p class="result-query-feedback">刷新已恢复 Target、Workspace、draft r7 与语义 Anchor。</p>
+              <p class="result-query-feedback" aria-live="polite">刷新已恢复 Target、Workspace、draft r7 与语义 Anchor。</p>
               <button class="retry-recompute" type="button" data-touch-equivalent="RETRY_RECOMPUTE">重试 Theme Closure</button>
               <button class="query-original-result" type="button" data-touch-equivalent="QUERY_ORIGINAL_RESULT">用同一幂等键查询原结果</button>
               <button class="restore-draft" type="button" data-touch-equivalent="RESTORE_DRAFT">验证刷新恢复</button>

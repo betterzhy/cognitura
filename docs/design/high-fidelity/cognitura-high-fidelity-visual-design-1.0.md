@@ -233,7 +233,9 @@ Relation 聚焦中只有完整 Relation 陈述是稳定主焦点；起点、终�
 PrimaryCognitiveSpine 都是次级上下文。来源核验 Workspace 保留相同 Canonical
 Target 和原阅读 Anchor，以支持矩阵区分直接支持、结构重组、范围受限、显式冲突与
 来源缺口。真实浏览器探针分别以 Enter、显式点击和 Escape 验证键盘/触控等价与焦点
-归还；两个状态都只投影正式 Relation 和 EvidenceBinding，不创建独立事实。
+归还；HV-D05 第二阶段修复再以真实 `history.pushState` + reload 打开完整核验
+Workspace，并确认核验裁决落到真实 Document 状态、浏览器 History 状态与可见反馈。
+两个状态都只投影正式 Relation 和 EvidenceBinding，不创建独立事实。
 
 ### 6.3 HV-D03 Revision、Impact 与 Recovery 证据
 
@@ -269,6 +271,20 @@ ConflictedDraftStateCode = CONFLICTED_DRAFT+COMMIT_BLOCKED
 已经保存与后续重算/生成/核验的部分失败，旧投影保持可读但标记 `OUTDATED`；重试、
 同幂等键结果查询和 Revert-as-new-ChangeSet 都是非生产确定性转换。冲突草稿补充证据
 保留 Before/Latest/Draft 三方差异、草稿和原 Focus，在重新基线化前阻止提交。
+HV-D05 第二阶段修复使用浏览器 `history.state` 验证 push、reload、back、forward 后的
+Workspace、draft、processing 与语义 Anchor 恢复；草稿保存、语义通道重试、失败通道
+重试、草稿副本保留与继续编辑都必须改变真实求值后 DOM/History 状态。非生产异常
+harness 逐一执行 20 个正式异常 ID 的恢复动作、可见反馈与焦点落点，但不把正式
+`RFAcceptance` 或 `ExceptionAcceptance` 从 `PLANNED/NOT_RUN` 提前关闭。
+
+```text
+HV-D05Stage2TransitionProbe = QUICK_SOURCE,VERIFICATION_CONFIRM,SAVE_DRAFT,SEMANTIC_RETRY,RECOMPUTE_RETRY,DRAFT_COPY,CONTINUE_EDITING
+HV-D05Stage2HistoryProbe = PUSH,RELOAD,BACK,FORWARD
+HV-D05Stage2ExceptionProbeCount = 20
+HV-D05Stage2ObservationStatus = PASS_HIGH_FIDELITY_USABILITY_ONLY
+HV-D05Stage2FormalAcceptanceStatus = NOT_RUN
+HV-D05Stage2ImplementationStatus = NOT_RUN
+```
 
 ### 6.4 HV-D04 跨层、小屏与静态导出证据
 

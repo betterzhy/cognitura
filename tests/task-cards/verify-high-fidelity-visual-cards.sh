@@ -70,9 +70,25 @@ chrome_bin="${CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/Google 
 
 terminate_headless_chrome() {
   local chrome_pid="$1"
+  local terminate_attempt=0
   kill "${chrome_pid}" 2>/dev/null || true
+  while kill -0 "${chrome_pid}" 2>/dev/null && [[ "${terminate_attempt}" -lt 20 ]]; do
+    sleep 0.1
+    terminate_attempt=$((terminate_attempt + 1))
+  done
+  if kill -0 "${chrome_pid}" 2>/dev/null; then
+    kill -KILL "${chrome_pid}" 2>/dev/null || true
+  fi
   wait "${chrome_pid}" 2>/dev/null || true
 }
+
+bash -c 'trap "" TERM; exec sleep 10' &
+stubborn_headless_pid=$!
+sleep 0.1
+terminate_headless_chrome "${stubborn_headless_pid}"
+if kill -0 "${stubborn_headless_pid}" 2>/dev/null; then
+  fail "bounded headless cleanup must escalate after ignored TERM"
+fi
 
 recapture_module_evidence() {
   local fixture_root="$1"
@@ -369,6 +385,51 @@ rm "${small_theme_missing_identity}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${small_theme_missing_identity}" module-small-screen \
   module-default-reading-small-screen.png \
   'module-small-screen browser selector probe data-probe-theme-object-id must be theme-concurrency-consistency, got '
+
+history_pushstate_noop="${test_tmp_root}/history-pushstate-noop"
+make_fixture "${history_pushstate_noop}"
+sed -i.bak \
+  's#    <script src="prototype.js"></script>#    <script>if (new URLSearchParams(location.search).get("state") === "partial-failure") { history.pushState = function () {}; }</script><script src="prototype.js"></script>#' \
+  "${history_pushstate_noop}/prototype/index.html"
+rm "${history_pushstate_noop}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${history_pushstate_noop}" partial-failure \
+  module-recovery-desktop.png \
+  'Chrome could not evaluate the HV-D05 History and reload probe'
+
+quick_source_upgrade_noop="${test_tmp_root}/quick-source-upgrade-noop"
+make_fixture "${quick_source_upgrade_noop}"
+sed -i.bak 's/data-touch-equivalent="UPGRADE_FULL_VERIFICATION"/data-touch-equivalent="NO_OP_FULL_VERIFICATION"/' \
+  "${quick_source_upgrade_noop}/prototype/index.html"
+rm "${quick_source_upgrade_noop}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${quick_source_upgrade_noop}" relation-focus \
+  module-relation-focus-desktop.png \
+  'relation-to-source browser selector probe data-probe-target-state must be source-verification, got relation-focus'
+
+preserve_draft_copy_noop="${test_tmp_root}/preserve-draft-copy-noop"
+make_fixture "${preserve_draft_copy_noop}"
+sed -i.bak 's/data-touch-equivalent="PRESERVE_DRAFT_COPY"/data-touch-equivalent="NO_OP_PRESERVE_DRAFT_COPY"/' \
+  "${preserve_draft_copy_noop}/prototype/index.html"
+rm "${preserve_draft_copy_noop}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${preserve_draft_copy_noop}" conflicted-draft \
+  module-conflicted-draft-desktop.png \
+  'conflicted-draft browser selector probe data-probe-preserve-copy-transition must be DRAFT_COPY_PRESERVED, got '
+
+missing_exception_acceptance="${test_tmp_root}/missing-exception-acceptance"
+make_fixture "${missing_exception_acceptance}"
+sed -i.bak '/^ExceptionAcceptance = EX-PREVIEW-TARGET-DELETED|/d' \
+  "${missing_exception_acceptance}/acceptance.md"
+rm "${missing_exception_acceptance}/acceptance.md.bak"
+expect_failure "${missing_exception_acceptance}" \
+  'exception acceptance contract count must be 20, got 19'
+
+exception_recovery_action_mismatch="${test_tmp_root}/exception-recovery-action-mismatch"
+make_fixture "${exception_recovery_action_mismatch}"
+sed -i.bak 's/CLOSE_PREVIEW_AND_RESTORE_FOCUS/CLOSE_PREVIEW_WITHOUT_FOCUS/' \
+  "${exception_recovery_action_mismatch}/prototype/prototype.js"
+rm "${exception_recovery_action_mismatch}/prototype/prototype.js.bak"
+expect_hvd02_dom_failure "${exception_recovery_action_mismatch}" relation-focus \
+  module-relation-focus-desktop.png \
+  'exception-matrix browser selector probe data-probe-exception-pass-count must be 20, got 19'
 
 cross_domain_fifth_object="${test_tmp_root}/cross-domain-fifth-object"
 make_fixture "${cross_domain_fifth_object}"
@@ -1144,7 +1205,7 @@ expect_hvd02_dom_failure "${enabled_revision_commit}" revision-impact \
 
 hidden_saved_boundary="${test_tmp_root}/hidden-saved-boundary"
 make_fixture "${hidden_saved_boundary}"
-sed -i.bak 's/<section class="saved-boundary"/<section hidden class="saved-boundary"/' \
+sed -i.bak 's/<section id="recovery-canonical-boundary" class="saved-boundary"/<section id="recovery-canonical-boundary" hidden class="saved-boundary"/' \
   "${hidden_saved_boundary}/prototype/index.html"
 rm "${hidden_saved_boundary}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${hidden_saved_boundary}" partial-failure \
@@ -1390,6 +1451,7 @@ expect_failure "${premature_future_owner}" \
   'RF-AC-13 canonical input contract must remain PLANNED/NOT_RUN'
 
 printf 'HighFidelityVisualTaskCardContractTests = PASS\n'
+printf 'HeadlessCleanupEscalation = PASS\n'
 printf 'ExistingNegativeFixtureCount = 44\n'
 printf 'HV-D01FixRound1DOMNegativeFixtureCount = 15\n'
 printf 'HV-D01FixRound2AdversarialNegativeFixtureCount = 1\n'
@@ -1414,4 +1476,5 @@ printf 'HV-D04FixRound14NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound15NegativeFixtureCount = 1\n'
 printf 'HV-D05Stage1OwnerRepair1NegativeFixtureCount = 3\n'
 printf 'HV-D05Stage1OwnerRepair2NegativeFixtureCount = 2\n'
-printf 'NegativeFixtureCount = 146\n'
+printf 'HV-D05Stage2OwnerRepair1NegativeFixtureCount = 5\n'
+printf 'NegativeFixtureCount = 151\n'

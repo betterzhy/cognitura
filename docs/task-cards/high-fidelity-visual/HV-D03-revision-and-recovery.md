@@ -83,4 +83,5 @@ DuplicateRefreshRebaseEscapeTransitionValidation = PASS
 RFOwnerVisualPass = RF-AC-13,14,17,18
 UsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
+FixedReviewRepair = HV-D05-STAGE2|REAL_HISTORY_RELOAD_BACK_FORWARD_CONTROL_TRANSITIONS_AND_20_EXCEPTION_OBSERVATIONS|PASS_HIGH_FIDELITY_USABILITY_ONLY
 ```

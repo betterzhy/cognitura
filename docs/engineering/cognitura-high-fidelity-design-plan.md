@@ -144,6 +144,8 @@ RevisionAndRecoveryRFOwnerPass = RF-AC-13,14,17,18
 RevisionAndRecoveryDoesNotClose = RF-AC-01,02,03,04,05,06,07,08,09,10,11,12,15,16,19,20
 HVExecutionEvidence = HV-D03|EvidencePath=04|EvidenceClass=RevisionAndImpact|Artifact=docs/design/high-fidelity/evidence/module-revision-impact-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D03 PASS
 HVExecutionEvidence = HV-D03|EvidencePath=05|EvidenceClass=Recovery|Artifact=docs/design/high-fidelity/evidence/module-recovery-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D03 PASS
+HVUsabilityExecutionEvidence = HV-D05-STAGE2-REPAIR|Owners=RF-AC-07,13,14,16,17,18|Artifacts=docs/design/high-fidelity/evidence/module-relation-focus-desktop.png,docs/design/high-fidelity/evidence/module-source-verification-desktop.png,docs/design/high-fidelity/evidence/module-revision-impact-desktop.png,docs/design/high-fidelity/evidence/module-recovery-desktop.png,docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png|TransitionProbe=EVALUATED_DOM_AND_HISTORY_LIFECYCLE|Status=PASS_HIGH_FIDELITY_USABILITY_ONLY|FormalRFAcceptance=NOT_RUN|Implementation=NOT_RUN
+HVUsabilityExceptionEvidence = HV-D05-STAGE2-REPAIR|ExceptionCount=20|TransitionProbe=EVALUATED_DOM_RECOVERY_ACTION_AND_FOCUS|Status=PASS_HIGH_FIDELITY_USABILITY_ONLY|FormalExceptionAcceptance=NOT_RUN|Implementation=NOT_RUN
 ```
 
 ## 8. 跨层、小屏与静态导出证据

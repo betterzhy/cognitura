@@ -87,11 +87,16 @@ IndependentFactCount = 0
 HighFidelityFocusAndSource = PASS
 ```
 
-两张证据均使用内嵌确定性合成内容，不读取 Golden Case DOCX，不访问网络或持久化。
+两张证据均使用内嵌确定性合成内容，不读取 Golden Case DOCX，不访问网络、
+`localStorage`、`sessionStorage`、Cookie 或数据库。
 真实 DOM 与交互探针核验唯一主聚焦、origin anchor、完整 Relation 陈述、两个次级
 端点、支持范围、冲突、来源缺口、Enter/点击等价和 Escape 焦点归还。该证据只使
 `RF-AC-03,07,09,16` 的 `HIGH_FIDELITY_VISUAL` 阶段为 PASS；正式 RF 输入行、异常、
 整体视觉、可用性与实现状态仍不变。
+
+HV-D05 第二阶段补充求值后转换探针：Quick Source 的“进入完整核验”必须通过真实
+History 导航到 `source-verification`，确认裁决必须改变真实 Document、History 与
+可见反馈。该补充只形成 `PASS_HIGH_FIDELITY_USABILITY_ONLY` 观察，不改正式 RF 行。
 
 ## HV-D03 修订、影响与恢复证据
 
@@ -147,6 +152,14 @@ HighFidelityRevisionAndRecovery = PASS
 冲突重新基线化与 Escape 分层焦点归还。该证据只使 `RF-AC-13,14,17,18` 的
 `HIGH_FIDELITY_VISUAL` 阶段为 PASS；正式 RF/Exception 输入行、整体视觉、可用性和
 实现状态仍不变。
+
+HV-D05 第二阶段补充了真实浏览器 History 生命周期：恢复动作写入
+`history.state`，随后实际 reload、back、forward，并核对 Workspace、draft、
+processing、semantic anchor 与焦点；它不使用 `localStorage`、`sessionStorage`、
+Cookie、网络或数据库。修订、部分失败与冲突草稿中的关键按钮还必须改变真实 DOM
+和 History 状态。20 个正式异常 ID 逐一运行非生产恢复 harness，验证可见反馈、准确
+恢复动作及焦点落点。所有结果仅作为高保真可用性观察，正式 `RFAcceptance`、
+`ExceptionAcceptance`、整体可用性和实现仍为 `NOT_RUN`。
 
 ## HV-D04 跨层、小屏与静态导出证据
 

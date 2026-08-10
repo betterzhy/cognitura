@@ -597,6 +597,85 @@ for owner_contract in \
   fi
 done
 
+exception_acceptance_ids=(
+  EX-PREVIEW-TARGET-DELETED
+  EX-RELATION-SUPERSEDED
+  EX-ELEMENT-PRIMARY-PARENT-CHANGED
+  EX-AUTO-UPGRADE-FAILED
+  EX-IMPACT-ANALYSIS-FAILED
+  EX-CANONICAL-SAVED-RECOMPUTE-FAILED
+  EX-CANONICAL-SAVED-GENERATION-FAILED
+  EX-GENERATED-CONFLICTS-LOCKED
+  EX-DRAFT-CONFLICTS-LATEST
+  EX-SOURCE-INVALIDATED
+  EX-REFRESH-FOCUS-RESTORE-FAILED
+  EX-SEMANTIC-ANCHOR-MOVED
+  EX-SMALL-SCREEN-PANEL-OVERFLOW
+  EX-TOUCH-NO-HOVER
+  EX-KEYBOARD-ENTERS-GRAPH
+  EX-DUPLICATE-SUBMIT-CLICK
+  EX-NETWORK-TIMEOUT-SAVE-UNKNOWN
+  EX-UI-FAILED-CANONICAL-SAVED
+  EX-REVERT-AFFECTS-LATER-CHANGES
+  EX-WORKSPACE-SWITCH-WITH-DRAFT
+)
+[[ "$(grep -c '^ExceptionAcceptance = ' "${acceptance}" || true)" -eq 20 ]] ||
+  fail "exception acceptance contract count must be 20, got $(grep -c '^ExceptionAcceptance = ' "${acceptance}" || true)"
+for exception_id in "${exception_acceptance_ids[@]}"; do
+  [[ "$(grep -Ec "^ExceptionAcceptance = ${exception_id}\\|" "${acceptance}" || true)" -eq 1 ]] ||
+    fail "${exception_id} must have exactly one formal exception acceptance row"
+  grep -Eq "^ExceptionAcceptance = ${exception_id}\\|.*\\|Artifact=PLANNED:[^|]+\\|Status=NOT_RUN\\|Gate=HV-D0[1-4]$" "${acceptance}" ||
+    fail "${exception_id} formal exception contract must remain PLANNED/NOT_RUN"
+done
+
+if [[ "${active_number}" -ge 5 ]]; then
+  for usability_contract in \
+    'RF-AC-07|HV-D02|module-source-verification-desktop.png|QUICK_SOURCE_TO_FULL_VERIFICATION_AND_CONFIRM' \
+    'RF-AC-13|HV-D03|module-revision-impact-desktop.png|SAVE_DRAFT_AND_RETRY_SEMANTIC_CHANNEL' \
+    'RF-AC-14|HV-D03|module-recovery-desktop.png|RETRY_QUERY_RESTORE_AND_REVERT' \
+    'RF-AC-16|HV-D02|module-relation-focus-desktop.png|KEYBOARD_QUICK_SOURCE_AND_FOCUS_RETURN' \
+    'RF-AC-17|HV-D03|module-recovery-desktop.png|PUSH_RELOAD_BACK_FORWARD_RESTORE' \
+    'RF-AC-18|HV-D03|module-recovery-desktop.png|TWENTY_EXCEPTION_RECOVERY_MATRIX'; do
+    usability_rf="${usability_contract%%|*}"
+    usability_remaining="${usability_contract#*|}"
+    usability_owner="${usability_remaining%%|*}"
+    usability_remaining="${usability_remaining#*|}"
+    usability_artifact="${usability_remaining%%|*}"
+    usability_probe="${usability_remaining#*|}"
+    require_line_once "${acceptance}" "HVUsabilityAcceptanceObservation = ${usability_rf}|Owner=${usability_owner}|Artifact=docs/design/high-fidelity/evidence/${usability_artifact}|TransitionProbe=${usability_probe}|Status=PASS_HIGH_FIDELITY_USABILITY_ONLY|FormalRFAcceptance=NOT_RUN|Implementation=NOT_RUN"
+  done
+
+  for exception_observation in \
+    'EX-PREVIEW-TARGET-DELETED|HV-D02|module-relation-focus-desktop.png' \
+    'EX-RELATION-SUPERSEDED|HV-D02|module-relation-focus-desktop.png' \
+    'EX-ELEMENT-PRIMARY-PARENT-CHANGED|HV-D01|module-default-reading-desktop.png' \
+    'EX-AUTO-UPGRADE-FAILED|HV-D03|module-revision-impact-desktop.png' \
+    'EX-IMPACT-ANALYSIS-FAILED|HV-D03|module-revision-impact-desktop.png' \
+    'EX-CANONICAL-SAVED-RECOMPUTE-FAILED|HV-D03|module-recovery-desktop.png' \
+    'EX-CANONICAL-SAVED-GENERATION-FAILED|HV-D03|module-recovery-desktop.png' \
+    'EX-GENERATED-CONFLICTS-LOCKED|HV-D03|module-conflicted-draft-desktop.png' \
+    'EX-DRAFT-CONFLICTS-LATEST|HV-D03|module-conflicted-draft-desktop.png' \
+    'EX-SOURCE-INVALIDATED|HV-D02|module-source-verification-desktop.png' \
+    'EX-REFRESH-FOCUS-RESTORE-FAILED|HV-D03|module-recovery-desktop.png' \
+    'EX-SEMANTIC-ANCHOR-MOVED|HV-D03|module-recovery-desktop.png' \
+    'EX-SMALL-SCREEN-PANEL-OVERFLOW|HV-D04|module-default-reading-small-screen.png' \
+    'EX-TOUCH-NO-HOVER|HV-D04|module-default-reading-small-screen.png' \
+    'EX-KEYBOARD-ENTERS-GRAPH|HV-D02|module-relation-focus-desktop.png' \
+    'EX-DUPLICATE-SUBMIT-CLICK|HV-D03|module-revision-impact-desktop.png' \
+    'EX-NETWORK-TIMEOUT-SAVE-UNKNOWN|HV-D03|module-recovery-desktop.png' \
+    'EX-UI-FAILED-CANONICAL-SAVED|HV-D03|module-recovery-desktop.png' \
+    'EX-REVERT-AFFECTS-LATER-CHANGES|HV-D03|module-recovery-desktop.png' \
+    'EX-WORKSPACE-SWITCH-WITH-DRAFT|HV-D03|module-conflicted-draft-desktop.png'; do
+    exception_id="${exception_observation%%|*}"
+    exception_remaining="${exception_observation#*|}"
+    exception_owner="${exception_remaining%%|*}"
+    exception_artifact="${exception_remaining#*|}"
+    require_line_once "${acceptance}" "HVUsabilityExceptionObservation = ${exception_id}|Owner=${exception_owner}|Artifact=docs/design/high-fidelity/evidence/${exception_artifact}|TransitionProbe=EVALUATED_DOM_RECOVERY_ACTION|Status=PASS_HIGH_FIDELITY_USABILITY_ONLY|FormalExceptionAcceptance=NOT_RUN|Implementation=NOT_RUN"
+  done
+  [[ "$(grep -c '^HVUsabilityExceptionObservation = ' "${acceptance}" || true)" -eq 20 ]] ||
+    fail "high-fidelity usability exception observation count must be 20"
+fi
+
 grep -Eq '^EvidencePath = 01\|CognitiveModuleDefaultReading\|.*\|Artifact=PLANNED:docs/design/high-fidelity/evidence/module-default-reading-desktop\.png\|Status=NOT_RUN\|Gate=HV-D01$' "${evidence_plan}" ||
   fail "EvidencePath 01 canonical input contract must remain PLANNED/NOT_RUN"
 if [[ "${active_number}" -ge 2 ]]; then
@@ -629,6 +708,8 @@ if [[ "${active_number}" -ge 5 ]]; then
   require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D04|EvidencePath=07|EvidenceClass=SmallScreenSafeReadable|Artifact=docs/design/high-fidelity/evidence/module-default-reading-small-screen.png|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D04 PASS'
   require_line_once "${evidence_plan}" 'HVExecutionEvidence = HV-D04|EvidencePath=08|EvidenceClass=StaticExport|Artifact=docs/design/high-fidelity/evidence/static-export-example.png|CompanionManifest=docs/design/high-fidelity/evidence/static-export-manifest.json|Status=CAPTURED|ValidationStage=HIGH_FIDELITY_VISUAL|Gate=HV-D04 PASS'
   require_line_once "${acceptance}" 'HVSupportingVisualEvidence = RF-AC-20|Owner=HV-D04|Artifact=docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png|Status=CAPTURED_NOT_CLOSED|FormalRFAcceptance=NOT_RUN|Gate=HV-D05'
+  require_line_once "${evidence_plan}" 'HVUsabilityExecutionEvidence = HV-D05-STAGE2-REPAIR|Owners=RF-AC-07,13,14,16,17,18|Artifacts=docs/design/high-fidelity/evidence/module-relation-focus-desktop.png,docs/design/high-fidelity/evidence/module-source-verification-desktop.png,docs/design/high-fidelity/evidence/module-revision-impact-desktop.png,docs/design/high-fidelity/evidence/module-recovery-desktop.png,docs/design/high-fidelity/evidence/module-conflicted-draft-desktop.png|TransitionProbe=EVALUATED_DOM_AND_HISTORY_LIFECYCLE|Status=PASS_HIGH_FIDELITY_USABILITY_ONLY|FormalRFAcceptance=NOT_RUN|Implementation=NOT_RUN'
+  require_line_once "${evidence_plan}" 'HVUsabilityExceptionEvidence = HV-D05-STAGE2-REPAIR|ExceptionCount=20|TransitionProbe=EVALUATED_DOM_RECOVERY_ACTION_AND_FOCUS|Status=PASS_HIGH_FIDELITY_USABILITY_ONLY|FormalExceptionAcceptance=NOT_RUN|Implementation=NOT_RUN'
 fi
 
 for artifact in index.html styles.css prototype.js; do
@@ -740,6 +821,9 @@ small_screen_dom_chrome_profile="${runtime_tmp}/chrome-profile-small-screen-dom"
 small_screen_png_chrome_profile="${runtime_tmp}/chrome-profile-small-screen-png"
 static_export_dom_chrome_profile="${runtime_tmp}/chrome-profile-static-export-dom"
 static_export_png_chrome_profile="${runtime_tmp}/chrome-profile-static-export-png"
+hvd05_relation_transition_chrome_profile="${runtime_tmp}/chrome-profile-hvd05-relation-transition"
+hvd05_history_chrome_profile="${runtime_tmp}/chrome-profile-hvd05-history"
+hvd05_exception_chrome_profile="${runtime_tmp}/chrome-profile-hvd05-exception"
 cleanup_runtime() {
   rm -rf "${runtime_tmp}"
 }
@@ -747,7 +831,15 @@ trap cleanup_runtime EXIT
 
 terminate_headless_chrome() {
   local chrome_pid="$1"
+  local terminate_attempt=0
   kill "${chrome_pid}" 2>/dev/null || true
+  while kill -0 "${chrome_pid}" 2>/dev/null && [[ "${terminate_attempt}" -lt 20 ]]; do
+    sleep 0.1
+    terminate_attempt=$((terminate_attempt + 1))
+  done
+  if kill -0 "${chrome_pid}" 2>/dev/null; then
+    kill -KILL "${chrome_pid}" 2>/dev/null || true
+  fi
   wait "${chrome_pid}" 2>/dev/null || true
 }
 
@@ -1087,6 +1179,14 @@ write_hvd02_selector_probe() {
       setProbe("rendered-interactable-return-target-count", renderedInteractableCount(fixtureSelector + " #source-origin-anchor.source-return-anchor"));
       setProbe("close-control-count", root.querySelectorAll(".source-verification-close[data-focus-return-target='source-origin-anchor']").length);
       setProbe("rendered-interactable-close-control-count", renderedInteractableCount(rootSelector + " .source-verification-close[data-focus-return-target='source-origin-anchor']"));
+      const verificationFeedback = root.querySelector("#verification-action-feedback");
+      const verificationSession = targetDocument.defaultView.history.state ?
+        targetDocument.defaultView.history.state.cognituraVerificationDecision || null : null;
+      setProbe("verification-status", root.dataset.verificationStatus || "");
+      setProbe("verification-decision", root.dataset.verificationDecision || "");
+      setProbe("verification-session-status", verificationSession ? verificationSession.status || "" : "");
+      setProbe("verification-feedback-visible", Boolean(verificationFeedback &&
+        verificationFeedback.innerText.includes("核验裁决已确认")));
     }
     setProbe("status", "READY");
   };
@@ -1219,6 +1319,20 @@ write_hvd03_selector_probe() {
       setProbe("draft-preserved-count", root.querySelectorAll(".draft-preserved").length);
       setProbe("commit-control-count", root.querySelectorAll("button.commit-control").length);
       setProbe("disabled-commit-count", root.querySelectorAll("button.commit-control:disabled[aria-disabled='true']").length);
+      const saveDraftControl = root.querySelector("[data-touch-equivalent='SAVE_DRAFT']");
+      if (saveDraftControl) { saveDraftControl.click(); }
+      const storedDraft = targetDocument.defaultView.history.state ?
+        targetDocument.defaultView.history.state.cognituraRevisionDraft || null : null;
+      setProbe("save-draft-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("saved-draft-state", root.dataset.draftState || "");
+      setProbe("stored-draft-state", storedDraft ? storedDraft.state || "" : "");
+      const semanticRetryControl = root.querySelector("[data-touch-equivalent='RETRY_SEMANTIC_ANALYSIS']");
+      if (semanticRetryControl) { semanticRetryControl.click(); }
+      const semanticLane = root.querySelector(".impact-lane.impact-semantic");
+      setProbe("semantic-retry-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("semantic-retry-scope", targetDocument.body.dataset.retryScope || "");
+      setProbe("semantic-channel-state", semanticLane ? semanticLane.dataset.processingState || "" : "");
+      setProbe("semantic-channel-busy", semanticLane ? semanticLane.getAttribute("aria-busy") || "" : "");
       root.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
       setProbe("escape-transition", targetDocument.body.dataset.lastTransition || "");
       setProbe("escape-focus", targetDocument.activeElement ? targetDocument.activeElement.id : "");
@@ -1267,6 +1381,9 @@ write_hvd03_selector_probe() {
       root.querySelector(".retry-recompute").click();
       setProbe("retry-transition", targetDocument.body.dataset.lastTransition || "");
       setProbe("retry-scope", targetDocument.body.dataset.retryScope || "");
+      const failedChannel = root.querySelector(".processing-state.failed");
+      setProbe("retry-channel-state", failedChannel ? failedChannel.dataset.channelState || "" : "");
+      setProbe("retry-channel-busy", failedChannel ? failedChannel.getAttribute("aria-busy") || "" : "");
       root.querySelector(".query-original-result").click();
       setProbe("query-transition", targetDocument.body.dataset.lastTransition || "");
       setProbe("result-query-key", targetDocument.body.dataset.resultQueryKey || "");
@@ -1296,6 +1413,18 @@ write_hvd03_selector_probe() {
       setProbe("rendered-guard-count", renderedCount(rootSelector + " .conflict-guard"));
       setProbe("rebase-count", interactableCount(rootSelector + " .rebase-draft"));
       setProbe("disabled-commit-count", root.querySelectorAll("button.conflict-commit:disabled[aria-disabled='true']").length);
+      const preserveCopyControl = root.querySelector("[data-touch-equivalent='PRESERVE_DRAFT_COPY']");
+      if (preserveCopyControl) { preserveCopyControl.click(); }
+      const storedCopy = targetDocument.defaultView.history.state ?
+        targetDocument.defaultView.history.state.cognituraPreservedDraftCopy || null : null;
+      setProbe("preserve-copy-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("draft-copy-status", root.dataset.draftCopyStatus || "");
+      setProbe("stored-copy-id", storedCopy ? storedCopy.draftId || "" : "");
+      const continueEditingControl = root.querySelector("[data-touch-equivalent='CONTINUE_EDITING']");
+      if (continueEditingControl) { continueEditingControl.click(); }
+      setProbe("continue-editing-transition", targetDocument.body.dataset.lastTransition || "");
+      setProbe("draft-mode", root.dataset.draftMode || "");
+      setProbe("continue-editing-focus", targetDocument.activeElement ? targetDocument.activeElement.className || "" : "");
       root.querySelector(".rebase-draft").click();
       setProbe("rebase-transition", targetDocument.body.dataset.lastTransition || "");
       setProbe("rebase-status", targetDocument.body.dataset.rebaseStatus || "");
@@ -1313,6 +1442,225 @@ write_hvd03_selector_probe() {
   if (frame.contentDocument && frame.contentDocument.readyState === "complete") {
     window.setTimeout(evaluateTarget, 0);
   }
+}());
+</script>
+</body></html>
+EOF
+  } >"${output_file}"
+}
+
+write_hvd05_relation_transition_probe() {
+  local output_file="$1"
+  local target_url="$2"
+  {
+    printf '%s\n' '<!doctype html>' '<html><head><meta charset="utf-8"><title>HV-D05 relation transition probe</title></head><body>'
+    printf '<iframe id="target" src="%s"></iframe>\n' "${target_url}"
+    cat <<'EOF'
+<script>
+(function () {
+  "use strict";
+  const frame = document.getElementById("target");
+  let stage = 0;
+  let finished = false;
+  const setProbe = function (name, value) {
+    document.documentElement.setAttribute("data-probe-" + name, String(value));
+  };
+  const finish = function () {
+    if (finished) { return; }
+    finished = true;
+    const targetDocument = frame.contentDocument;
+    const state = targetDocument && targetDocument.body ? targetDocument.body.dataset.stateFixture || "" : "";
+    const sourceDocument = targetDocument ? targetDocument.getElementById("source-verification-document") : null;
+    const feedback = targetDocument ? targetDocument.getElementById("verification-action-feedback") : null;
+    setProbe("target-state", state);
+    setProbe("history-workspace", frame.contentWindow.history.state ?
+      frame.contentWindow.history.state.cognituraWorkspace || "" : "");
+    if (sourceDocument) {
+      const confirm = sourceDocument.querySelector("[data-touch-equivalent='CONFIRM_VERIFICATION']");
+      if (confirm) { confirm.click(); }
+    }
+    setProbe("verification-status", sourceDocument ? sourceDocument.dataset.verificationStatus || "" : "");
+    setProbe("verification-decision", sourceDocument ? sourceDocument.dataset.verificationDecision || "" : "");
+    setProbe("feedback-visible", Boolean(feedback && feedback.innerText.includes("核验裁决已确认")));
+    setProbe("status", "READY");
+  };
+  frame.addEventListener("load", function () {
+    const targetDocument = frame.contentDocument;
+    if (!targetDocument || targetDocument.documentElement.dataset.fixtureStatus !== "ACCEPTED") { return; }
+    if (stage === 0) {
+      stage = 1;
+      const trigger = targetDocument.getElementById("relation-quick-source-trigger");
+      trigger.click();
+      const upgrade = targetDocument.querySelector(".quick-source-panel [data-touch-equivalent]");
+      upgrade.click();
+      window.setTimeout(finish, 500);
+      return;
+    }
+    if (stage === 1 && targetDocument.body.dataset.stateFixture === "source-verification") {
+      finish();
+    }
+  });
+  window.setTimeout(finish, 2500);
+}());
+</script>
+</body></html>
+EOF
+  } >"${output_file}"
+}
+
+write_hvd05_history_probe() {
+  local output_file="$1"
+  local target_url="$2"
+  {
+    printf '%s\n' '<!doctype html>' '<html><head><meta charset="utf-8"><title>HV-D05 history reload probe</title></head><body>'
+    printf '<iframe id="target" src="%s"></iframe>\n' "${target_url}"
+    cat <<'EOF'
+<script>
+(function () {
+  "use strict";
+  const frame = document.getElementById("target");
+  let stage = 0;
+  let immediatePush = false;
+  let reloadRestored = false;
+  let backRestored = false;
+  let forwardRestored = false;
+  let finished = false;
+  const setProbe = function (name, value) {
+    document.documentElement.setAttribute("data-probe-" + name, String(value));
+  };
+  const finish = function () {
+    if (finished) { return; }
+    finished = true;
+    setProbe("pushstate-recorded", immediatePush);
+    setProbe("reload-restored", reloadRestored);
+    setProbe("back-restored", backRestored);
+    setProbe("forward-restored", forwardRestored);
+    setProbe("history-roundtrip", immediatePush && reloadRestored && backRestored && forwardRestored);
+    setProbe("status", "READY");
+  };
+  frame.addEventListener("load", function () {
+    const targetDocument = frame.contentDocument;
+    const targetWindow = frame.contentWindow;
+    if (!targetDocument || targetDocument.documentElement.dataset.fixtureStatus !== "ACCEPTED") { return; }
+    if (stage === 0) {
+      stage = 1;
+      targetDocument.querySelector(".restore-draft").click();
+      const pushed = targetWindow.history.state && targetWindow.history.state.cognituraRecovery;
+      const stored = targetWindow.CognituraRecoveryHarness.readStoredSnapshot();
+      immediatePush = Boolean(pushed && pushed.restoreSequence === 1 &&
+        pushed.semanticAnchor === "module-results" && stored && stored.draftId === "draft-r7");
+      targetWindow.location.reload();
+      return;
+    }
+    if (stage === 1) {
+      stage = 2;
+      reloadRestored = targetDocument.body.dataset.recoveryLifecycle === "RELOADED_FROM_HISTORY" &&
+        targetDocument.body.dataset.restoredDraft === "draft-r7" &&
+        targetDocument.body.dataset.restoredSemanticAnchor === "module-results";
+      targetWindow.addEventListener("popstate", function onBack() {
+        backRestored = targetDocument.body.dataset.recoveryLifecycle === "POPSTATE_RESTORE" &&
+          targetDocument.body.dataset.historyRestoreSequence === "0" &&
+          targetDocument.body.dataset.restoredSemanticAnchor === "recovery-canonical-boundary";
+        targetWindow.addEventListener("popstate", function onForward() {
+          forwardRestored = targetDocument.body.dataset.recoveryLifecycle === "POPSTATE_RESTORE" &&
+            targetDocument.body.dataset.historyRestoreSequence === "1" &&
+            targetDocument.body.dataset.restoredSemanticAnchor === "module-results";
+          finish();
+        }, {once: true});
+        targetWindow.history.forward();
+      }, {once: true});
+      targetWindow.history.back();
+    }
+  });
+  window.setTimeout(finish, 5000);
+}());
+</script>
+</body></html>
+EOF
+  } >"${output_file}"
+}
+
+write_hvd05_exception_probe() {
+  local output_file="$1"
+  local prototype_url="$2"
+  {
+    printf '%s\n' '<!doctype html>' '<html><head><meta charset="utf-8"><title>HV-D05 exception probe</title></head><body>'
+    printf '<iframe id="target"></iframe>\n'
+    printf '<script>document.documentElement.setAttribute("data-probe-prototype-url", "%s");</script>\n' "${prototype_url}"
+    cat <<'EOF'
+<script>
+(function () {
+  "use strict";
+  const frame = document.getElementById("target");
+  const prototypeUrl = document.documentElement.getAttribute("data-probe-prototype-url");
+  const cases = [
+    ["EX-PREVIEW-TARGET-DELETED", "relation-focus", "CLOSE_PREVIEW_AND_RESTORE_FOCUS", "relation-origin-anchor", "PREVIEW_CLOSED"],
+    ["EX-RELATION-SUPERSEDED", "relation-focus", "EXPLAIN_SUPERSESSION_AND_RESTORE_ORIGIN", "relation-origin-anchor", "RELATION_SUPERSEDED_EXPLAINED"],
+    ["EX-ELEMENT-PRIMARY-PARENT-CHANGED", "module-default", "REBASE_CANONICAL_LOCATION", "module-default-document", "CANONICAL_LOCATION_REBASED"],
+    ["EX-AUTO-UPGRADE-FAILED", "revision-impact", "PRESERVE_DRAFT_AND_OPEN_FULL_REVISION", "revision-origin-anchor", "FULL_REVISION_FALLBACK"],
+    ["EX-IMPACT-ANALYSIS-FAILED", "revision-impact", "BLOCK_COMMIT_AND_RETRY_ANALYSIS", "revision-impact-document", "IMPACT_RETRY_REQUIRED"],
+    ["EX-CANONICAL-SAVED-RECOMPUTE-FAILED", "partial-failure", "RETRY_RECOMPUTE_ONLY", "recovery-origin-anchor", "RECOMPUTE_RETRY_READY"],
+    ["EX-CANONICAL-SAVED-GENERATION-FAILED", "partial-failure", "RETRY_GENERATION_ONLY", "recovery-origin-anchor", "GENERATION_RETRY_READY"],
+    ["EX-GENERATED-CONFLICTS-LOCKED", "conflicted-draft", "BLOCK_REPLACEMENT_AND_SHOW_LOCK", "conflict-detail-trigger", "LOCKED_CONTENT_PROTECTED"],
+    ["EX-DRAFT-CONFLICTS-LATEST", "conflicted-draft", "PRESERVE_DRAFT_AND_REQUIRE_REBASE", "conflict-origin-anchor", "DRAFT_REBASE_REQUIRED"],
+    ["EX-SOURCE-INVALIDATED", "source-verification", "MARK_INVALID_AND_REQUIRE_REVERIFY", "source-origin-anchor", "SOURCE_REVERIFICATION_REQUIRED"],
+    ["EX-REFRESH-FOCUS-RESTORE-FAILED", "partial-failure", "FOCUS_NEAREST_CANONICAL_PARENT", "recovery-canonical-boundary", "FOCUS_FALLBACK_EXPLICIT"],
+    ["EX-SEMANTIC-ANCHOR-MOVED", "partial-failure", "REBASE_MOVED_SEMANTIC_ANCHOR", "recovery-canonical-boundary", "SEMANTIC_ANCHOR_REBASED"],
+    ["EX-SMALL-SCREEN-PANEL-OVERFLOW", "module-small-screen", "OPEN_SAFE_OVERLAY", "small-element-overlay", "SAFE_OVERLAY_OPEN"],
+    ["EX-TOUCH-NO-HOVER", "module-small-screen", "USE_EXPLICIT_TOUCH_CONTROL", "small-element-overlay", "TOUCH_EQUIVALENT_OPEN"],
+    ["EX-KEYBOARD-ENTERS-GRAPH", "relation-focus", "KEEP_LINEAR_FOCUS_AND_ESCAPE_RETURN", "relation-origin-anchor", "LINEAR_FOCUS_ORDER_RETAINED"],
+    ["EX-DUPLICATE-SUBMIT-CLICK", "revision-impact", "DEDUPLICATE_SUBMISSION_WITH_FEEDBACK", "revision-origin-anchor", "DUPLICATE_SUBMISSION_DEDUPED"],
+    ["EX-NETWORK-TIMEOUT-SAVE-UNKNOWN", "partial-failure", "QUERY_ORIGINAL_RESULT_SAME_KEY", "recovery-origin-anchor", "ORIGINAL_RESULT_QUERIED"],
+    ["EX-UI-FAILED-CANONICAL-SAVED", "partial-failure", "SHOW_CANONICAL_SAVED_TRUTH", "recovery-canonical-boundary", "CANONICAL_SAVED_RETAINED"],
+    ["EX-REVERT-AFFECTS-LATER-CHANGES", "partial-failure", "CREATE_REVERT_CHANGESET_AFTER_IMPACT", "recovery-origin-anchor", "REVERT_CHANGESET_DRAFTED"],
+    ["EX-WORKSPACE-SWITCH-WITH-DRAFT", "conflicted-draft", "SHOW_SAVE_DISCARD_CANCEL_GUARD", "conflict-origin-anchor", "WORKSPACE_SWITCH_GUARDED"]
+  ];
+  let index = 0;
+  let passCount = 0;
+  const failures = [];
+  const setProbe = function (name, value) {
+    document.documentElement.setAttribute("data-probe-" + name, String(value));
+  };
+  const loadNext = function () {
+    if (index >= cases.length) {
+      setProbe("exception-case-count", cases.length);
+      setProbe("exception-pass-count", passCount);
+      setProbe("exception-failure-count", failures.length);
+      setProbe("status", "READY");
+      return;
+    }
+    const current = cases[index];
+    frame.src = prototypeUrl + "?state=" + current[1] + "&exceptionProbe=" + index;
+  };
+  frame.addEventListener("load", function () {
+    if (index >= cases.length) { return; }
+    const current = cases[index];
+    const targetDocument = frame.contentDocument;
+    const targetWindow = frame.contentWindow;
+    if (!targetDocument || targetDocument.documentElement.dataset.fixtureStatus !== "ACCEPTED") { return; }
+    const ran = targetWindow.CognituraExceptionHarness && targetWindow.CognituraExceptionHarness.run(current[0]);
+    const observation = targetDocument.querySelector(".exception-recovery-observation");
+    const style = observation ? targetWindow.getComputedStyle(observation) : null;
+    const rendered = Boolean(observation && style.display !== "none" && style.visibility !== "hidden" &&
+      Number(style.opacity) !== 0 && observation.getClientRects().length > 0);
+    const passed = Boolean(ran && rendered && observation.dataset.exceptionId === current[0] &&
+      observation.dataset.recoveryAction === current[2] &&
+      targetDocument.activeElement && targetDocument.activeElement.id === current[3] &&
+      targetDocument.body.dataset.exceptionEffect === current[4] &&
+      targetDocument.body.dataset.exceptionHarnessStatus === "RECOVERED_WITH_FEEDBACK");
+    if (passed) { passCount += 1; } else { failures.push(current[0]); }
+    index += 1;
+    window.setTimeout(loadNext, 0);
+  });
+  loadNext();
+  window.setTimeout(function () {
+    if (document.documentElement.getAttribute("data-probe-status") !== "READY") {
+      setProbe("exception-case-count", cases.length);
+      setProbe("exception-pass-count", passCount);
+      setProbe("exception-failure-count", cases.length - passCount);
+      setProbe("status", "READY");
+    }
+  }, 10000);
 }());
 </script>
 </body></html>
@@ -2217,6 +2565,10 @@ if [[ "${active_number}" -ge 3 ]]; then
     'data-probe-last-transition|ESCAPE_CLOSE' \
     'data-probe-keyboard-enter-action|CONFIRM_VERIFICATION' \
     'data-probe-touch-equivalent-action|CONFIRM_VERIFICATION' \
+    'data-probe-verification-status|CONFIRMED' \
+    'data-probe-verification-decision|ACCEPT_CANONICAL_TARGET_WITH_SCOPE' \
+    'data-probe-verification-session-status|CONFIRMED' \
+    'data-probe-verification-feedback-visible|true' \
     'data-probe-rendered-interactable-enter-control-count|1' \
     'data-probe-button-count|4' \
     'data-probe-touch-equivalent-control-count|4'; do
@@ -2306,6 +2658,13 @@ if [[ "${active_number}" -ge 4 ]]; then
     'data-probe-draft-preserved-count|1' \
     'data-probe-commit-control-count|1' \
     'data-probe-disabled-commit-count|1' \
+    'data-probe-save-draft-transition|SESSION_DRAFT_SAVED' \
+    'data-probe-saved-draft-state|SAVED_SESSION_DRAFT' \
+    'data-probe-stored-draft-state|SAVED_SESSION_DRAFT' \
+    'data-probe-semantic-retry-transition|SEMANTIC_ANALYSIS_RETRYING' \
+    'data-probe-semantic-retry-scope|SEMANTIC_ONLY' \
+    'data-probe-semantic-channel-state|RETRYING' \
+    'data-probe-semantic-channel-busy|true' \
     'data-probe-escape-transition|ESCAPE_CLOSE' \
     'data-probe-escape-focus|revision-origin-anchor'; do
     revision_attribute="${revision_contract%%|*}"
@@ -2358,6 +2717,8 @@ if [[ "${active_number}" -ge 4 ]]; then
     'data-probe-revert-count|1' \
     'data-probe-retry-transition|RETRY_FAILED_CHANNEL' \
     'data-probe-retry-scope|RECOMPUTING_ONLY' \
+    'data-probe-retry-channel-state|RETRYING' \
+    'data-probe-retry-channel-busy|true' \
     'data-probe-query-transition|QUERY_ORIGINAL_RESULT_SAME_KEY' \
     'data-probe-result-query-key|idem-hv-d03-1042' \
     'data-probe-restore-transition|REFRESH_DRAFT_RESTORED' \
@@ -2406,6 +2767,12 @@ if [[ "${active_number}" -ge 4 ]]; then
     'data-probe-rendered-guard-count|1' \
     'data-probe-rebase-count|1' \
     'data-probe-disabled-commit-count|1' \
+    'data-probe-preserve-copy-transition|DRAFT_COPY_PRESERVED' \
+    'data-probe-draft-copy-status|PRESERVED' \
+    'data-probe-stored-copy-id|draft-r7-copy' \
+    'data-probe-continue-editing-transition|DRAFT_EDITING_RESUMED' \
+    'data-probe-draft-mode|EDITING' \
+    'data-probe-continue-editing-focus|diff-draft' \
     'data-probe-rebase-transition|REBASE_PREVIEWED' \
     'data-probe-rebase-status|DRAFT_PRESERVED' \
     'data-probe-first-escape-transition|CONFLICT_DETAIL_ESCAPE_CLOSE' \
@@ -2729,6 +3096,67 @@ NODE
       fail "Chrome could not recapture the ${screenshot_state} evidence"
     cmp -s "${captured_screenshot}" "${screenshot_evidence}" ||
       fail "${screenshot_state} visual evidence is stale for the current prototype"
+  done
+
+  relation_transition_probe_file="${runtime_tmp}/hvd05-relation-transition-probe.html"
+  write_hvd05_relation_transition_probe "${relation_transition_probe_file}" \
+    "file://${prototype_dir}/index.html?state=relation-focus"
+  relation_transition_probe_dom_file="${runtime_tmp}/hvd05-relation-transition-probe-dom.html"
+  run_headless_dump_dom "${hvd05_relation_transition_chrome_profile}" \
+    "${relation_transition_probe_dom_file}" "file://${relation_transition_probe_file}" \
+    --allow-file-access-from-files --virtual-time-budget=5000 ||
+    fail "Chrome could not evaluate the HV-D05 Relation to Source transition probe"
+  relation_transition_probe_dom="$(<"${relation_transition_probe_dom_file}")"
+  for transition_contract in \
+    'data-probe-status|READY' \
+    'data-probe-target-state|source-verification' \
+    'data-probe-history-workspace|source-verification' \
+    'data-probe-verification-status|CONFIRMED' \
+    'data-probe-verification-decision|ACCEPT_CANONICAL_TARGET_WITH_SCOPE' \
+    'data-probe-feedback-visible|true'; do
+    transition_attribute="${transition_contract%%|*}"
+    transition_expected="${transition_contract#*|}"
+    require_hvd02_probe_value relation-to-source "${relation_transition_probe_dom}" \
+      "${transition_attribute}" "${transition_expected}"
+  done
+
+  history_probe_file="${runtime_tmp}/hvd05-history-probe.html"
+  write_hvd05_history_probe "${history_probe_file}" \
+    "file://${prototype_dir}/index.html?state=partial-failure"
+  history_probe_dom_file="${runtime_tmp}/hvd05-history-probe-dom.html"
+  run_headless_dump_dom "${hvd05_history_chrome_profile}" "${history_probe_dom_file}" \
+    "file://${history_probe_file}" --allow-file-access-from-files --virtual-time-budget=7000 ||
+    fail "Chrome could not evaluate the HV-D05 History and reload probe"
+  history_probe_dom="$(<"${history_probe_dom_file}")"
+  for history_contract in \
+    'data-probe-status|READY' \
+    'data-probe-pushstate-recorded|true' \
+    'data-probe-reload-restored|true' \
+    'data-probe-back-restored|true' \
+    'data-probe-forward-restored|true' \
+    'data-probe-history-roundtrip|true'; do
+    history_attribute="${history_contract%%|*}"
+    history_expected="${history_contract#*|}"
+    require_hvd02_probe_value partial-failure "${history_probe_dom}" \
+      "${history_attribute}" "${history_expected}"
+  done
+
+  exception_probe_file="${runtime_tmp}/hvd05-exception-probe.html"
+  write_hvd05_exception_probe "${exception_probe_file}" "file://${prototype_dir}/index.html"
+  exception_probe_dom_file="${runtime_tmp}/hvd05-exception-probe-dom.html"
+  run_headless_dump_dom "${hvd05_exception_chrome_profile}" "${exception_probe_dom_file}" \
+    "file://${exception_probe_file}" --allow-file-access-from-files --virtual-time-budget=12000 ||
+    fail "Chrome could not evaluate the HV-D05 exception recovery probe"
+  exception_probe_dom="$(<"${exception_probe_dom_file}")"
+  for exception_contract in \
+    'data-probe-status|READY' \
+    'data-probe-exception-case-count|20' \
+    'data-probe-exception-pass-count|20' \
+    'data-probe-exception-failure-count|0'; do
+    exception_attribute="${exception_contract%%|*}"
+    exception_expected="${exception_contract#*|}"
+    require_hvd02_probe_value exception-matrix "${exception_probe_dom}" \
+      "${exception_attribute}" "${exception_expected}"
   done
 fi
 

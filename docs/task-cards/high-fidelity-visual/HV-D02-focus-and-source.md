@@ -80,4 +80,5 @@ KeyboardTouchEscapeTransitionValidation = PASS
 RFOwnerVisualPass = RF-AC-03,07,09,16
 UsabilityValidation = NOT_RUN
 ImplementationValidation = NOT_RUN
+FixedReviewRepair = HV-D05-STAGE2|REAL_HISTORY_NAVIGATION_AND_VERIFICATION_DOM_TRANSITION|PASS_HIGH_FIDELITY_USABILITY_ONLY
 ```
