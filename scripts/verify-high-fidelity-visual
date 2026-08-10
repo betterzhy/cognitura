@@ -1599,10 +1599,33 @@ write_hvd04_selector_probe() {
           rect.right <= boundary.right && rect.bottom <= boundary.bottom;
       };
       const exportTitleVisualRects = [exportTitleRect].concat(exportTitleRects);
-      const opaqueColor = function (color) {
-        return color !== "transparent" &&
-          !/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(color) &&
-          !/^color\([^/]+\/\s*0(?:\.0+)?\s*\)$/.test(color);
+      const colorAlpha = function (color) {
+        if (color === "transparent") {
+          return 0;
+        }
+        const parseAlpha = function (token) {
+          const normalized = token.trim();
+          if (normalized.endsWith("%")) {
+            return Number.parseFloat(normalized) / 100;
+          }
+          return Number.parseFloat(normalized);
+        };
+        const slashMatch = color.match(/\/\s*([0-9.]+%?)\s*\)/);
+        if (slashMatch) {
+          return parseAlpha(slashMatch[1]);
+        }
+        const functionalMatch = color.match(/^rgba?\((.*)\)$/);
+        if (functionalMatch) {
+          const commaParts = functionalMatch[1].split(",");
+          if (commaParts.length === 4) {
+            return parseAlpha(commaParts[3]);
+          }
+        }
+        return 1;
+      };
+      const readableColor = function (color) {
+        const alpha = colorAlpha(color);
+        return Number.isFinite(alpha) && alpha >= 0.99;
       };
       const titleAncestorsPreserveVisibility = function () {
         let ancestor = exportTitle;
@@ -1645,8 +1668,9 @@ write_hvd04_selector_probe() {
         !["hidden", "clip"].includes(exportTitleStyle.overflowX) &&
         !["hidden", "clip"].includes(exportTitleStyle.overflowY) &&
         exportTitleStyle.textOverflow !== "ellipsis" && exportTitleRects.length === 1 &&
-        exportTitleStyle.color === "rgb(23, 32, 29)" && opaqueColor(exportTitleStyle.color) &&
-        opaqueColor(exportTitleStyle.webkitTextFillColor) && exportTitleHasReadableMetrics &&
+        exportTitleStyle.color === "rgb(23, 32, 29)" && readableColor(exportTitleStyle.color) &&
+        exportTitleStyle.webkitTextFillColor === "rgb(23, 32, 29)" &&
+        readableColor(exportTitleStyle.webkitTextFillColor) && exportTitleHasReadableMetrics &&
         exportTitleRects.every(function (rect) {
           return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
         }) && isRendered(exportTitle) && isRendered(exportHeader) && titleAncestorsPreserveVisibility() &&
