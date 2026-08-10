@@ -1690,6 +1690,32 @@ write_hvd04_selector_probe() {
         return Math.min(left.right, right.right) - Math.max(left.left, right.left) > 0.5 &&
           Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > 0.5;
       };
+      const elementParticipatesInPaint = function (element) {
+        let current = element;
+        while (current && current.nodeType === targetDocument.defaultView.Node.ELEMENT_NODE) {
+          const style = targetDocument.defaultView.getComputedStyle(current);
+          if (style.display === "none" || style.visibility !== "visible" ||
+              Number(style.opacity) < 0.01 || style.contentVisibility === "hidden") {
+            return false;
+          }
+          current = current.parentElement;
+        }
+        return true;
+      };
+      const paintOverflowIsAbsent = function (style) {
+        const outlineWidth = Number.parseFloat(style.outlineWidth);
+        const borderImageOutsets = style.borderImageOutset.split(/\s+/).map(function (value) {
+          return Number.parseFloat(value);
+        });
+        return style.boxShadow === "none" && style.textShadow === "none" &&
+          style.filter === "none" && style.backdropFilter === "none" &&
+          (!style.webkitBackdropFilter || style.webkitBackdropFilter === "none") &&
+          (!style.webkitBoxReflect || style.webkitBoxReflect === "none") &&
+          (style.outlineStyle === "none" || !Number.isFinite(outlineWidth) || outlineWidth === 0) &&
+          (style.borderImageSource === "none" || borderImageOutsets.every(function (value) {
+            return !Number.isFinite(value) || value === 0;
+          }));
+      };
       const titleHasNoExternalOverlap = Array.from(targetDocument.body.querySelectorAll("*")).every(
         function (element) {
           if (element.contains(exportTitle) || exportTitle.contains(element)) {
@@ -1697,8 +1723,13 @@ write_hvd04_selector_probe() {
           }
           const style = targetDocument.defaultView.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
-          if (style.display === "none" || style.visibility !== "visible" ||
-              Number(style.opacity) < 0.01 || rect.width <= 0.5 || rect.height <= 0.5) {
+          if (!elementParticipatesInPaint(element)) {
+            return true;
+          }
+          if (!paintOverflowIsAbsent(style)) {
+            return false;
+          }
+          if (rect.width <= 0.5 || rect.height <= 0.5) {
             return true;
           }
           return exportTitleRects.every(function (titleRect) {
@@ -1706,8 +1737,11 @@ write_hvd04_selector_probe() {
           });
         }
       );
-      const exportHasNoGeneratedPaintLayers = [root].concat(Array.from(root.querySelectorAll("*"))).every(
+      const exportHasNoGeneratedPaintLayers = Array.from(targetDocument.body.querySelectorAll("*")).every(
         function (element) {
+          if (!elementParticipatesInPaint(element)) {
+            return true;
+          }
           return ["::before", "::after"].every(function (pseudo) {
             const style = targetDocument.defaultView.getComputedStyle(element, pseudo);
             return ["none", "normal"].includes(style.content);
