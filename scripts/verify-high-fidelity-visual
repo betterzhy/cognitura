@@ -1354,16 +1354,24 @@ write_hvd04_selector_probe() {
           rect.bottom > targetDocument.defaultView.innerHeight) {
         return false;
       }
-      const hitPoints = [
-        [rect.left + rect.width / 2, rect.top + rect.height / 2],
-        [rect.left + 1, rect.top + 1],
-        [rect.right - 1, rect.top + 1],
-        [rect.left + 1, rect.bottom - 1],
-        [rect.right - 1, rect.bottom - 1]
-      ];
-      return hitPoints.every(function (point) {
-        const hitTarget = targetDocument.elementFromPoint(point[0], point[1]);
-        return hitTarget === element || element.contains(hitTarget);
+      const pixelCenters = function (start, end) {
+        const values = [];
+        for (let value = start + 0.5; value <= end - 0.5; value += 1) {
+          values.push(value);
+        }
+        const finalCenter = end - 0.5;
+        if (values.length === 0 || Math.abs(values[values.length - 1] - finalCenter) > 0.01) {
+          values.push(finalCenter);
+        }
+        return values;
+      };
+      const hitXs = pixelCenters(rect.left, rect.right);
+      const hitYs = pixelCenters(rect.top, rect.bottom);
+      return hitYs.every(function (y) {
+        return hitXs.every(function (x) {
+          const hitTarget = targetDocument.elementFromPoint(x, y);
+          return hitTarget === element || element.contains(hitTarget);
+        });
       });
     };
     const interactableCount = function (selector) {
@@ -1424,10 +1432,31 @@ write_hvd04_selector_probe() {
         if (!isRendered(separator)) {
           return false;
         }
+        const beforeContent = targetDocument.defaultView.getComputedStyle(separator, "::before").content;
+        const afterContent = targetDocument.defaultView.getComputedStyle(separator, "::after").content;
+        const hasVisibleGeneratedContent = function (content) {
+          return !["none", "normal", "", "\"\"", "''"].includes(content);
+        };
+        if (separator.children.length !== 0 || separator.childNodes.length !== 1 ||
+            separator.childNodes[0].nodeType !== targetDocument.defaultView.Node.TEXT_NODE ||
+            separator.textContent.trim() !== "→" || separator.innerText.trim() !== "→" ||
+            hasVisibleGeneratedContent(beforeContent) || hasVisibleGeneratedContent(afterContent)) {
+          return false;
+        }
         const rect = separator.getBoundingClientRect();
-        return rect.width <= 24 && rect.height <= 24 &&
+        const contentRange = targetDocument.createRange();
+        contentRange.selectNodeContents(separator);
+        const contentRects = Array.from(contentRange.getClientRects()).filter(function (contentRect) {
+          return contentRect.width > 0 && contentRect.height > 0;
+        });
+        return contentRects.length === 1 && rect.width <= 24 && rect.height <= 24 &&
           rect.left >= hierarchyRect.left && rect.top >= hierarchyRect.top &&
-          rect.right <= hierarchyRect.right && rect.bottom <= hierarchyRect.bottom;
+          rect.right <= hierarchyRect.right && rect.bottom <= hierarchyRect.bottom &&
+          contentRects.every(function (contentRect) {
+            return contentRect.width <= 24 && contentRect.height <= 24 &&
+              contentRect.left >= hierarchyRect.left - 2 && contentRect.top >= hierarchyRect.top - 2 &&
+              contentRect.right <= hierarchyRect.right + 2 && contentRect.bottom <= hierarchyRect.bottom + 2;
+          });
       }).length;
     };
     setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
@@ -1551,6 +1580,21 @@ write_hvd04_selector_probe() {
       const exportTitle = root.querySelector(".export-header h1");
       const exportTitleRange = targetDocument.createRange();
       exportTitleRange.selectNodeContents(exportTitle);
+      const exportTitleRect = exportTitle.getBoundingClientRect();
+      const exportTitleStyle = targetDocument.defaultView.getComputedStyle(exportTitle);
+      const exportTitleRects = Array.from(exportTitleRange.getClientRects()).filter(function (rect) {
+        return rect.width > 0 && rect.height > 0;
+      });
+      const expectedExportTitle = "一致性读：从观察边界到可见版本";
+      const exportTitleVisibleComplete = exportTitle.innerText.trim() === expectedExportTitle &&
+        exportTitle.textContent.trim() === expectedExportTitle &&
+        exportTitle.scrollWidth <= exportTitle.clientWidth &&
+        !["hidden", "clip"].includes(exportTitleStyle.overflowX) &&
+        !["hidden", "clip"].includes(exportTitleStyle.overflowY) &&
+        exportTitleStyle.textOverflow !== "ellipsis" && exportTitleRects.length === 1 &&
+        exportTitleRects.every(function (rect) {
+          return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
+        });
       const rawIds = ["landscape-data-systems", "theme-concurrency-consistency",
         "module-mvcc-consistent-read", "element-read-view", "element-version-chain",
         "rel-read-view-selects-version", "src-mvcc-mechanism"];
@@ -1559,9 +1603,8 @@ write_hvd04_selector_probe() {
       setProbe("machine-identity-source", targetDocument.body.dataset.machineIdentitySource || "");
       setProbe("raw-technical-ids-visible", targetDocument.body.dataset.rawTechnicalIdsVisible || "");
       setProbe("image-canonical-authority", targetDocument.body.dataset.imageCanonicalAuthority || "");
-      setProbe("title-line-count", Array.from(exportTitleRange.getClientRects()).filter(function (rect) {
-        return rect.width > 0 && rect.height > 0;
-      }).length);
+      setProbe("title-line-count", exportTitleRects.length);
+      setProbe("title-visible-complete", exportTitleVisibleComplete);
       setProbe("hierarchy-count", renderedCount(rootSelector + " .export-hierarchy [data-object-id]"));
       setProbe("core-question-count", renderedCount(rootSelector + " .export-opening"));
       setProbe("mechanism-count", renderedCount(rootSelector + " .export-mechanism"));
@@ -2296,6 +2339,7 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-image-canonical-authority|NONE' \
     'data-probe-forbidden-surface-count|0' \
     'data-probe-title-line-count|1' \
+    'data-probe-title-visible-complete|true' \
     'data-probe-hierarchy-count|4' \
     'data-probe-core-question-count|1' \
     'data-probe-mechanism-count|1' \

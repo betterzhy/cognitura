@@ -352,6 +352,15 @@ expect_hvd02_dom_failure "${cross_domain_separator_overflow}" theme-default \
   cross-domain-reading-desktop.png \
   'theme-default browser selector probe data-probe-mechanism-safe-separator-count must be 3, got 0'
 
+cross_domain_separator_descendant_overflow="${test_tmp_root}/cross-domain-separator-descendant-overflow"
+make_fixture "${cross_domain_separator_descendant_overflow}"
+sed -i.bak '/MVCC 一致性读/ s#<i>→</i>#<i>→<span style="position: fixed; top: 20px; left: 360px; z-index: 30;">↓</span></i>#' \
+  "${cross_domain_separator_descendant_overflow}/prototype/index.html"
+rm "${cross_domain_separator_descendant_overflow}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${cross_domain_separator_descendant_overflow}" theme-default \
+  cross-domain-reading-desktop.png \
+  'theme-default browser selector probe data-probe-mechanism-safe-separator-count must be 3, got 2'
+
 static_orphan_title="${test_tmp_root}/static-orphan-title"
 make_fixture "${static_orphan_title}"
 sed -i.bak 's/max-width: 800px;/max-width: 720px;/' \
@@ -360,6 +369,16 @@ rm "${static_orphan_title}/prototype/styles.css.bak"
 expect_hvd02_dom_failure "${static_orphan_title}" static-export \
   static-export-example.png \
   'static-export browser selector probe data-probe-title-line-count must be 1, got 2'
+
+static_clipped_title="${test_tmp_root}/static-clipped-title"
+make_fixture "${static_clipped_title}"
+sed -i.bak \
+  's#<h1>一致性读：从观察边界到可见版本</h1>#<h1 style="width: 240px; max-width: 240px; white-space: nowrap; overflow: hidden;">一致性读：从观察边界到可见版本</h1>#' \
+  "${static_clipped_title}/prototype/index.html"
+rm "${static_clipped_title}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_clipped_title}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
 
 small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
 make_fixture "${small_noninteractive_close}"
@@ -398,6 +417,16 @@ sed -i.bak \
   "${small_occluded_close}/prototype/index.html"
 rm "${small_occluded_close}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${small_occluded_close}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
+
+small_unsampled_occlusion="${test_tmp_root}/small-unsampled-occlusion"
+make_fixture "${small_unsampled_occlusion}"
+sed -i.bak \
+  's#<button id="small-overlay-close"#<span aria-hidden="true" style="position: fixed; z-index: 30; top: 20px; left: 60px; width: 100px; height: 44px;"></span><button id="small-overlay-close"#' \
+  "${small_unsampled_occlusion}/prototype/index.html"
+rm "${small_unsampled_occlusion}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_unsampled_occlusion}" module-small-screen \
   module-default-reading-small-screen.png \
   'module-small-screen browser selector probe data-probe-close-control-count must be 1, got 0'
 
@@ -1228,4 +1257,5 @@ printf 'HV-D04FixRound2NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound3NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound4NegativeFixtureCount = 3\n'
 printf 'HV-D04FixRound5NegativeFixtureCount = 5\n'
-printf 'NegativeFixtureCount = 129\n'
+printf 'HV-D04FixRound6NegativeFixtureCount = 3\n'
+printf 'NegativeFixtureCount = 132\n'
