@@ -1599,12 +1599,21 @@ write_hvd04_selector_probe() {
           rect.right <= boundary.right && rect.bottom <= boundary.bottom;
       };
       const exportTitleVisualRects = [exportTitleRect].concat(exportTitleRects);
+      const opaqueColor = function (color) {
+        return color !== "transparent" &&
+          !/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(color) &&
+          !/^color\([^/]+\/\s*0(?:\.0+)?\s*\)$/.test(color);
+      };
       const titleAncestorsPreserveVisibility = function () {
         let ancestor = exportTitle;
         while (ancestor && root.contains(ancestor)) {
           const ancestorStyle = targetDocument.defaultView.getComputedStyle(ancestor);
+          const ancestorZoom = Number.parseFloat(ancestorStyle.zoom || "1");
           if (ancestorStyle.display === "none" || ancestorStyle.visibility !== "visible" ||
-              Number(ancestorStyle.opacity) < 0.99) {
+              Number(ancestorStyle.opacity) < 0.99 || ancestorStyle.transform !== "none" ||
+              ancestorStyle.filter !== "none" || ancestorStyle.clipPath !== "none" ||
+              ancestorStyle.maskImage !== "none" || ancestorStyle.contentVisibility === "hidden" ||
+              !Number.isFinite(ancestorZoom) || Math.abs(ancestorZoom - 1) > 0.001) {
             return false;
           }
           const ancestorRect = ancestor.getBoundingClientRect();
@@ -1621,12 +1630,23 @@ write_hvd04_selector_probe() {
         return true;
       };
       const expectedExportTitle = "一致性读：从观察边界到可见版本";
+      const exportTitleFontSize = Number.parseFloat(exportTitleStyle.fontSize);
+      const exportTitleLineHeight = Number.parseFloat(exportTitleStyle.lineHeight);
+      const exportTitleHasReadableMetrics = exportTitleFontSize >= 48 &&
+        exportTitleLineHeight >= 50 && exportTitle.clientWidth >= 700 &&
+        exportTitle.clientHeight >= 50 && exportTitleRect.width >= exportTitle.clientWidth * 0.95 &&
+        exportTitleRect.height >= exportTitle.clientHeight * 0.95 &&
+        exportTitleRects.every(function (rect) {
+          return rect.width >= 700 && rect.height >= exportTitleFontSize;
+        });
       const exportTitleVisibleComplete = exportTitle.innerText.trim() === expectedExportTitle &&
         exportTitle.textContent.trim() === expectedExportTitle &&
         exportTitle.scrollWidth <= exportTitle.clientWidth &&
         !["hidden", "clip"].includes(exportTitleStyle.overflowX) &&
         !["hidden", "clip"].includes(exportTitleStyle.overflowY) &&
         exportTitleStyle.textOverflow !== "ellipsis" && exportTitleRects.length === 1 &&
+        exportTitleStyle.color === "rgb(23, 32, 29)" && opaqueColor(exportTitleStyle.color) &&
+        opaqueColor(exportTitleStyle.webkitTextFillColor) && exportTitleHasReadableMetrics &&
         exportTitleRects.every(function (rect) {
           return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
         }) && isRendered(exportTitle) && isRendered(exportHeader) && titleAncestorsPreserveVisibility() &&
