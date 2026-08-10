@@ -1704,11 +1704,13 @@ write_hvd04_selector_probe() {
       };
       const paintOverflowIsAbsent = function (style) {
         const outlineWidth = Number.parseFloat(style.outlineWidth);
-        const borderImageOutsets = style.borderImageOutset.split(/\s+/).map(function (value) {
+        const borderImageOutsets = (style.borderImageOutset || "0").split(/\s+/).map(function (value) {
           return Number.parseFloat(value);
         });
-        return style.boxShadow === "none" && style.textShadow === "none" &&
-          style.filter === "none" && style.backdropFilter === "none" &&
+        return (!style.boxShadow || style.boxShadow === "none") &&
+          (!style.textShadow || style.textShadow === "none") &&
+          (!style.filter || style.filter === "none") &&
+          (!style.backdropFilter || style.backdropFilter === "none") &&
           (!style.webkitBackdropFilter || style.webkitBackdropFilter === "none") &&
           (!style.webkitBoxReflect || style.webkitBoxReflect === "none") &&
           (style.outlineStyle === "none" || !Number.isFinite(outlineWidth) || outlineWidth === 0) &&
@@ -1737,17 +1739,30 @@ write_hvd04_selector_probe() {
           });
         }
       );
+      const generatedPaintPseudos = ["::before", "::after", "::marker", "::first-letter",
+        "::first-line", "::file-selector-button", "::placeholder", "::backdrop"];
       const exportHasNoGeneratedPaintLayers = Array.from(targetDocument.body.querySelectorAll("*")).every(
         function (element) {
           if (!elementParticipatesInPaint(element)) {
             return true;
           }
-          return ["::before", "::after"].every(function (pseudo) {
+          return generatedPaintPseudos.every(function (pseudo) {
             const style = targetDocument.defaultView.getComputedStyle(element, pseudo);
-            return ["none", "normal"].includes(style.content);
+            const backgroundAlpha = colorAlpha(style.backgroundColor);
+            return ["none", "normal"].includes(style.content) &&
+              (!style.backgroundImage || style.backgroundImage === "none") &&
+              Number.isFinite(backgroundAlpha) && backgroundAlpha < 0.01 &&
+              paintOverflowIsAbsent(style);
           });
         }
       );
+      let exportHasNoTopLayerOcclusion = targetDocument.fullscreenElement === null;
+      try {
+        exportHasNoTopLayerOcclusion = exportHasNoTopLayerOcclusion &&
+          targetDocument.querySelector(":modal, [popover]:popover-open") === null;
+      } catch (error) {
+        exportHasNoTopLayerOcclusion = false;
+      }
       const exportTitleFontSize = Number.parseFloat(exportTitleStyle.fontSize);
       const exportTitleLineHeight = Number.parseFloat(exportTitleStyle.lineHeight);
       const exportTitleHasReadableMetrics = exportTitleFontSize >= 48 &&
@@ -1774,7 +1789,8 @@ write_hvd04_selector_probe() {
         exportTitle.childNodes[0].nodeType === targetDocument.defaultView.Node.TEXT_NODE &&
         generatedContentIsAbsent("::before") && generatedContentIsAbsent("::after") &&
         titleRegionIsTopmost && titleHasNoExternalOverlap &&
-        exportHasNoGeneratedPaintLayers && exportTitleHasReadableMetrics &&
+        exportHasNoGeneratedPaintLayers && exportHasNoTopLayerOcclusion &&
+        exportTitleHasReadableMetrics &&
         exportTitleRects.every(function (rect) {
           return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
         }) && isRendered(exportTitle) && isRendered(exportHeader) && titleAncestorsPreserveVisibility() &&

@@ -440,6 +440,16 @@ expect_hvd02_dom_failure "${static_shadow_occluded_title}" static-export \
   static-export-example.png \
   'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
 
+static_marker_occluded_title="${test_tmp_root}/static-marker-occluded-title"
+make_fixture "${static_marker_occluded_title}"
+sed -i.bak \
+  's#<h1>一致性读：从观察边界到可见版本</h1>#<h1>一致性读：从观察边界到可见版本</h1><style>.paint-marker::marker { content: "██████████████"; color: rgb(255, 253, 248); font-size: 70px; }</style><ul aria-hidden="true" style="position: fixed; left: 950px; top: 130px; width: 1px; height: 1px; z-index: 99; pointer-events: none; margin: 0; padding: 0;"><li class="paint-marker" style="width: 1px; height: 1px;"></li></ul>#' \
+  "${static_marker_occluded_title}/prototype/index.html"
+rm "${static_marker_occluded_title}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_marker_occluded_title}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
+
 small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
 make_fixture "${small_noninteractive_close}"
 sed -i.bak \
@@ -1324,4 +1334,5 @@ printf 'HV-D04FixRound9NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound10NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound11NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound12NegativeFixtureCount = 1\n'
-printf 'NegativeFixtureCount = 138\n'
+printf 'HV-D04FixRound13NegativeFixtureCount = 1\n'
+printf 'NegativeFixtureCount = 139\n'
