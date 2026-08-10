@@ -1588,11 +1588,14 @@ write_hvd04_selector_probe() {
       const trigger = root.querySelector("#small-element-trigger");
       const overlay = root.querySelector("#small-element-overlay");
       const closeControl = root.querySelector("#small-overlay-close");
+      const smallTheme = root.querySelector(".small-hierarchy .theme-level");
       const smallModule = root.querySelector(".small-hierarchy .module-level");
       setProbe("evidence-stage", targetDocument.body.dataset.smallScreenEvidence || "");
       setProbe("primary-surface", targetDocument.body.dataset.smallScreenPrimarySurface || "");
       setProbe("root-width", Math.round(root.getBoundingClientRect().width));
       setProbe("hierarchy-count", renderedCount(rootSelector + " .small-hierarchy .canonical-level"));
+      setProbe("theme-object-id", smallTheme ? smallTheme.dataset.objectId || "" : "");
+      setProbe("theme-label", smallTheme ? smallTheme.innerText.trim() : "");
       setProbe("module-object-id", smallModule ? smallModule.dataset.objectId || "" : "");
       setProbe("module-label", smallModule ? smallModule.innerText.trim() : "");
       setProbe("core-question-count", renderedCount(rootSelector + " .small-core-question"));
@@ -2562,6 +2565,8 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-forbidden-surface-count|0' \
     'data-probe-root-width|390' \
     'data-probe-hierarchy-count|4' \
+    'data-probe-theme-object-id|theme-concurrency-consistency' \
+    'data-probe-theme-label|并发与一致性' \
     'data-probe-module-object-id|module-consistent-read' \
     'data-probe-module-label|一致性读的版本选择' \
     'data-probe-core-question-count|1' \

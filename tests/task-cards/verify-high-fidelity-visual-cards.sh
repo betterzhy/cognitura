@@ -350,6 +350,26 @@ expect_hvd02_dom_failure "${stale_text_low_contrast}" partial-failure \
   module-recovery-desktop.png \
   'partial-failure browser selector probe data-probe-stale-text-contrast-safe must be true, got false'
 
+small_theme_identity_mismatch="${test_tmp_root}/small-theme-identity-mismatch"
+make_fixture "${small_theme_identity_mismatch}"
+sed -i.bak \
+  's#<span class="canonical-level theme-level" data-object-id="theme-concurrency-consistency">并发与一致性</span>#<span class="canonical-level theme-level" data-object-id="theme-concurrency-consistency">旁路主题</span>#' \
+  "${small_theme_identity_mismatch}/prototype/index.html"
+rm "${small_theme_identity_mismatch}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_theme_identity_mismatch}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-theme-label must be 并发与一致性, got 旁路主题'
+
+small_theme_missing_identity="${test_tmp_root}/small-theme-missing-identity"
+make_fixture "${small_theme_missing_identity}"
+sed -i.bak \
+  's#<span class="canonical-level theme-level" data-object-id="theme-concurrency-consistency">并发与一致性</span>#<span class="canonical-level theme-level">并发与一致性</span>#' \
+  "${small_theme_missing_identity}/prototype/index.html"
+rm "${small_theme_missing_identity}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${small_theme_missing_identity}" module-small-screen \
+  module-default-reading-small-screen.png \
+  'module-small-screen browser selector probe data-probe-theme-object-id must be theme-concurrency-consistency, got '
+
 cross_domain_fifth_object="${test_tmp_root}/cross-domain-fifth-object"
 make_fixture "${cross_domain_fifth_object}"
 sed -i.bak \
@@ -1393,4 +1413,5 @@ printf 'HV-D04FixRound13NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound14NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound15NegativeFixtureCount = 1\n'
 printf 'HV-D05Stage1OwnerRepair1NegativeFixtureCount = 3\n'
-printf 'NegativeFixtureCount = 144\n'
+printf 'HV-D05Stage1OwnerRepair2NegativeFixtureCount = 2\n'
+printf 'NegativeFixtureCount = 146\n'
