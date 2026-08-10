@@ -380,6 +380,16 @@ expect_hvd02_dom_failure "${static_clipped_title}" static-export \
   static-export-example.png \
   'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
 
+static_offscreen_title="${test_tmp_root}/static-offscreen-title"
+make_fixture "${static_offscreen_title}"
+sed -i.bak \
+  's#<h1>一致性读：从观察边界到可见版本</h1>#<h1 style="transform: translateX(-2000px);">一致性读：从观察边界到可见版本</h1>#' \
+  "${static_offscreen_title}/prototype/index.html"
+rm "${static_offscreen_title}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_offscreen_title}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
+
 small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
 make_fixture "${small_noninteractive_close}"
 sed -i.bak \
@@ -1258,4 +1268,5 @@ printf 'HV-D04FixRound3NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound4NegativeFixtureCount = 3\n'
 printf 'HV-D04FixRound5NegativeFixtureCount = 5\n'
 printf 'HV-D04FixRound6NegativeFixtureCount = 3\n'
-printf 'NegativeFixtureCount = 132\n'
+printf 'HV-D04FixRound7NegativeFixtureCount = 1\n'
+printf 'NegativeFixtureCount = 133\n'

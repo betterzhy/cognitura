@@ -1578,13 +1578,48 @@ write_hvd04_selector_probe() {
 
     if (kind === "static-export") {
       const exportTitle = root.querySelector(".export-header h1");
+      const exportHeader = root.querySelector(".export-header");
       const exportTitleRange = targetDocument.createRange();
       exportTitleRange.selectNodeContents(exportTitle);
       const exportTitleRect = exportTitle.getBoundingClientRect();
+      const exportHeaderRect = exportHeader.getBoundingClientRect();
+      const exportRootRect = root.getBoundingClientRect();
+      const viewportRect = {
+        left: 0,
+        top: 0,
+        right: targetDocument.defaultView.innerWidth,
+        bottom: targetDocument.defaultView.innerHeight
+      };
       const exportTitleStyle = targetDocument.defaultView.getComputedStyle(exportTitle);
       const exportTitleRects = Array.from(exportTitleRange.getClientRects()).filter(function (rect) {
         return rect.width > 0 && rect.height > 0;
       });
+      const rectWithin = function (rect, boundary) {
+        return rect.left >= boundary.left && rect.top >= boundary.top &&
+          rect.right <= boundary.right && rect.bottom <= boundary.bottom;
+      };
+      const exportTitleVisualRects = [exportTitleRect].concat(exportTitleRects);
+      const titleAncestorsPreserveVisibility = function () {
+        let ancestor = exportTitle;
+        while (ancestor && root.contains(ancestor)) {
+          const ancestorStyle = targetDocument.defaultView.getComputedStyle(ancestor);
+          if (ancestorStyle.display === "none" || ancestorStyle.visibility !== "visible" ||
+              Number(ancestorStyle.opacity) < 0.99) {
+            return false;
+          }
+          const ancestorRect = ancestor.getBoundingClientRect();
+          const clipsX = ["hidden", "clip", "scroll", "auto"].includes(ancestorStyle.overflowX);
+          const clipsY = ["hidden", "clip", "scroll", "auto"].includes(ancestorStyle.overflowY);
+          if (exportTitleVisualRects.some(function (rect) {
+            return (clipsX && (rect.left < ancestorRect.left || rect.right > ancestorRect.right)) ||
+              (clipsY && (rect.top < ancestorRect.top || rect.bottom > ancestorRect.bottom));
+          })) {
+            return false;
+          }
+          ancestor = ancestor.parentElement;
+        }
+        return true;
+      };
       const expectedExportTitle = "一致性读：从观察边界到可见版本";
       const exportTitleVisibleComplete = exportTitle.innerText.trim() === expectedExportTitle &&
         exportTitle.textContent.trim() === expectedExportTitle &&
@@ -1594,6 +1629,10 @@ write_hvd04_selector_probe() {
         exportTitleStyle.textOverflow !== "ellipsis" && exportTitleRects.length === 1 &&
         exportTitleRects.every(function (rect) {
           return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
+        }) && isRendered(exportTitle) && isRendered(exportHeader) && titleAncestorsPreserveVisibility() &&
+        exportTitleVisualRects.every(function (rect) {
+          return rectWithin(rect, viewportRect) && rectWithin(rect, exportRootRect) &&
+            rectWithin(rect, exportHeaderRect);
         });
       const rawIds = ["landscape-data-systems", "theme-concurrency-consistency",
         "module-mvcc-consistent-read", "element-read-view", "element-version-chain",
