@@ -1632,10 +1632,20 @@ write_hvd04_selector_probe() {
         while (ancestor && root.contains(ancestor)) {
           const ancestorStyle = targetDocument.defaultView.getComputedStyle(ancestor);
           const ancestorZoom = Number.parseFloat(ancestorStyle.zoom || "1");
+          const expectedBackground = ancestor === root
+            ? "rgb(255, 253, 248)"
+            : "rgba(0, 0, 0, 0)";
           if (ancestorStyle.display === "none" || ancestorStyle.visibility !== "visible" ||
               Number(ancestorStyle.opacity) < 0.99 || ancestorStyle.transform !== "none" ||
               ancestorStyle.filter !== "none" || ancestorStyle.clipPath !== "none" ||
               ancestorStyle.maskImage !== "none" || ancestorStyle.contentVisibility === "hidden" ||
+              ancestorStyle.mixBlendMode !== "normal" ||
+              ancestorStyle.backgroundBlendMode.split(",").some(function (mode) {
+                return mode.trim() !== "normal";
+              }) || ancestorStyle.backdropFilter !== "none" ||
+              (ancestorStyle.webkitBackdropFilter && ancestorStyle.webkitBackdropFilter !== "none") ||
+              ancestorStyle.backgroundColor !== expectedBackground ||
+              ancestorStyle.backgroundImage !== "none" ||
               !Number.isFinite(ancestorZoom) || Math.abs(ancestorZoom - 1) > 0.001) {
             return false;
           }
@@ -1653,6 +1663,10 @@ write_hvd04_selector_probe() {
         return true;
       };
       const expectedExportTitle = "一致性读：从观察边界到可见版本";
+      const generatedContentIsAbsent = function (pseudo) {
+        const content = targetDocument.defaultView.getComputedStyle(exportTitle, pseudo).content;
+        return ["none", "normal", "", "\"\"", "''"].includes(content);
+      };
       const exportTitleFontSize = Number.parseFloat(exportTitleStyle.fontSize);
       const exportTitleLineHeight = Number.parseFloat(exportTitleStyle.lineHeight);
       const exportTitleHasReadableMetrics = exportTitleFontSize >= 48 &&
@@ -1670,7 +1684,15 @@ write_hvd04_selector_probe() {
         exportTitleStyle.textOverflow !== "ellipsis" && exportTitleRects.length === 1 &&
         exportTitleStyle.color === "rgb(23, 32, 29)" && readableColor(exportTitleStyle.color) &&
         exportTitleStyle.webkitTextFillColor === "rgb(23, 32, 29)" &&
-        readableColor(exportTitleStyle.webkitTextFillColor) && exportTitleHasReadableMetrics &&
+        readableColor(exportTitleStyle.webkitTextFillColor) &&
+        exportTitleStyle.fontWeight === "620" && exportTitleStyle.fontStyle === "normal" &&
+        exportTitleStyle.fontStretch === "100%" && exportTitleStyle.letterSpacing === "normal" &&
+        exportTitleStyle.textShadow === "none" && exportTitleStyle.webkitTextStrokeWidth === "0px" &&
+        exportTitleStyle.textDecorationLine === "none" &&
+        exportTitle.children.length === 0 && exportTitle.childNodes.length === 1 &&
+        exportTitle.childNodes[0].nodeType === targetDocument.defaultView.Node.TEXT_NODE &&
+        generatedContentIsAbsent("::before") && generatedContentIsAbsent("::after") &&
+        exportTitleHasReadableMetrics &&
         exportTitleRects.every(function (rect) {
           return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
         }) && isRendered(exportTitle) && isRendered(exportHeader) && titleAncestorsPreserveVisibility() &&

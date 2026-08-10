@@ -410,6 +410,16 @@ expect_hvd02_dom_failure "${static_translucent_title}" static-export \
   static-export-example.png \
   'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
 
+static_blended_title="${test_tmp_root}/static-blended-title"
+make_fixture "${static_blended_title}"
+sed -i.bak \
+  's#<h1>一致性读：从观察边界到可见版本</h1>#<h1 style="mix-blend-mode: screen;">一致性读：从观察边界到可见版本</h1>#' \
+  "${static_blended_title}/prototype/index.html"
+rm "${static_blended_title}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_blended_title}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
+
 small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
 make_fixture "${small_noninteractive_close}"
 sed -i.bak \
@@ -1291,4 +1301,5 @@ printf 'HV-D04FixRound6NegativeFixtureCount = 3\n'
 printf 'HV-D04FixRound7NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound8NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound9NegativeFixtureCount = 1\n'
-printf 'NegativeFixtureCount = 135\n'
+printf 'HV-D04FixRound10NegativeFixtureCount = 1\n'
+printf 'NegativeFixtureCount = 136\n'
