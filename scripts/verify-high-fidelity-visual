@@ -1756,6 +1756,10 @@ write_hvd04_selector_probe() {
           });
         }
       );
+      const customHighlightRegistry = targetDocument.defaultView.CSS &&
+        targetDocument.defaultView.CSS.highlights;
+      const exportHasNoCustomHighlightPaint = !customHighlightRegistry ||
+        customHighlightRegistry.size === 0;
       let exportHasNoTopLayerOcclusion = targetDocument.fullscreenElement === null;
       try {
         exportHasNoTopLayerOcclusion = exportHasNoTopLayerOcclusion &&
@@ -1789,7 +1793,8 @@ write_hvd04_selector_probe() {
         exportTitle.childNodes[0].nodeType === targetDocument.defaultView.Node.TEXT_NODE &&
         generatedContentIsAbsent("::before") && generatedContentIsAbsent("::after") &&
         titleRegionIsTopmost && titleHasNoExternalOverlap &&
-        exportHasNoGeneratedPaintLayers && exportHasNoTopLayerOcclusion &&
+        exportHasNoGeneratedPaintLayers && exportHasNoCustomHighlightPaint &&
+        exportHasNoTopLayerOcclusion &&
         exportTitleHasReadableMetrics &&
         exportTitleRects.every(function (rect) {
           return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
