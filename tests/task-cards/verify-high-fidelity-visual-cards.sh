@@ -431,6 +431,27 @@ expect_hvd02_dom_failure "${exception_recovery_action_mismatch}" relation-focus 
   module-relation-focus-desktop.png \
   'exception-matrix browser selector probe data-probe-exception-pass-count must be 20, got 19'
 
+duplicate_submit_effect_noop="${test_tmp_root}/duplicate-submit-effect-noop"
+make_fixture "${duplicate_submit_effect_noop}"
+sed -i.bak \
+  -e '/root.dataset.submissionAttemptCount = "1";/d' \
+  -e '/root.dataset.duplicateSubmission = "DEDUPED";/d' \
+  "${duplicate_submit_effect_noop}/prototype/prototype.js"
+rm "${duplicate_submit_effect_noop}/prototype/prototype.js.bak"
+expect_hvd02_dom_failure "${duplicate_submit_effect_noop}" revision-impact \
+  module-revision-impact-desktop.png \
+  'exception-matrix browser selector probe data-probe-exception-pass-count must be 20, got 19'
+
+history_recovery_focus_noop="${test_tmp_root}/history-recovery-focus-noop"
+make_fixture "${history_recovery_focus_noop}"
+sed -i.bak \
+  '/const applyRecoverySnapshot/,/const pushRecoverySnapshot/ { /focusTarget.focus();/d; }' \
+  "${history_recovery_focus_noop}/prototype/prototype.js"
+rm "${history_recovery_focus_noop}/prototype/prototype.js.bak"
+expect_hvd02_dom_failure "${history_recovery_focus_noop}" partial-failure \
+  module-recovery-desktop.png \
+  'partial-failure browser selector probe data-probe-history-focus-roundtrip must be true, got false'
+
 cross_domain_fifth_object="${test_tmp_root}/cross-domain-fifth-object"
 make_fixture "${cross_domain_fifth_object}"
 sed -i.bak \
@@ -1477,4 +1498,5 @@ printf 'HV-D04FixRound15NegativeFixtureCount = 1\n'
 printf 'HV-D05Stage1OwnerRepair1NegativeFixtureCount = 3\n'
 printf 'HV-D05Stage1OwnerRepair2NegativeFixtureCount = 2\n'
 printf 'HV-D05Stage2OwnerRepair1NegativeFixtureCount = 5\n'
-printf 'NegativeFixtureCount = 151\n'
+printf 'HV-D05Stage2OwnerRepair2NegativeFixtureCount = 2\n'
+printf 'NegativeFixtureCount = 153\n'

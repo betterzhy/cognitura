@@ -1521,9 +1521,13 @@ write_hvd05_history_probe() {
   const frame = document.getElementById("target");
   let stage = 0;
   let immediatePush = false;
+  let pushFocusRestored = false;
   let reloadRestored = false;
+  let reloadFocusRestored = false;
   let backRestored = false;
+  let backFocusRestored = false;
   let forwardRestored = false;
+  let forwardFocusRestored = false;
   let finished = false;
   const setProbe = function (name, value) {
     document.documentElement.setAttribute("data-probe-" + name, String(value));
@@ -1532,10 +1536,16 @@ write_hvd05_history_probe() {
     if (finished) { return; }
     finished = true;
     setProbe("pushstate-recorded", immediatePush);
+    setProbe("push-focus-restored", pushFocusRestored);
     setProbe("reload-restored", reloadRestored);
+    setProbe("reload-focus-restored", reloadFocusRestored);
     setProbe("back-restored", backRestored);
+    setProbe("back-focus-restored", backFocusRestored);
     setProbe("forward-restored", forwardRestored);
+    setProbe("forward-focus-restored", forwardFocusRestored);
     setProbe("history-roundtrip", immediatePush && reloadRestored && backRestored && forwardRestored);
+    setProbe("history-focus-roundtrip", pushFocusRestored && reloadFocusRestored &&
+      backFocusRestored && forwardFocusRestored);
     setProbe("status", "READY");
   };
   frame.addEventListener("load", function () {
@@ -1549,6 +1559,8 @@ write_hvd05_history_probe() {
       const stored = targetWindow.CognituraRecoveryHarness.readStoredSnapshot();
       immediatePush = Boolean(pushed && pushed.restoreSequence === 1 &&
         pushed.semanticAnchor === "module-results" && stored && stored.draftId === "draft-r7");
+      pushFocusRestored = targetDocument.activeElement &&
+        targetDocument.activeElement.id === "recovery-origin-anchor";
       targetWindow.location.reload();
       return;
     }
@@ -1557,14 +1569,20 @@ write_hvd05_history_probe() {
       reloadRestored = targetDocument.body.dataset.recoveryLifecycle === "RELOADED_FROM_HISTORY" &&
         targetDocument.body.dataset.restoredDraft === "draft-r7" &&
         targetDocument.body.dataset.restoredSemanticAnchor === "module-results";
+      reloadFocusRestored = targetDocument.activeElement &&
+        targetDocument.activeElement.id === "recovery-origin-anchor";
       targetWindow.addEventListener("popstate", function onBack() {
         backRestored = targetDocument.body.dataset.recoveryLifecycle === "POPSTATE_RESTORE" &&
           targetDocument.body.dataset.historyRestoreSequence === "0" &&
           targetDocument.body.dataset.restoredSemanticAnchor === "recovery-canonical-boundary";
+        backFocusRestored = targetDocument.activeElement &&
+          targetDocument.activeElement.id === "recovery-origin-anchor";
         targetWindow.addEventListener("popstate", function onForward() {
           forwardRestored = targetDocument.body.dataset.recoveryLifecycle === "POPSTATE_RESTORE" &&
             targetDocument.body.dataset.historyRestoreSequence === "1" &&
             targetDocument.body.dataset.restoredSemanticAnchor === "module-results";
+          forwardFocusRestored = targetDocument.activeElement &&
+            targetDocument.activeElement.id === "recovery-origin-anchor";
           finish();
         }, {once: true});
         targetWindow.history.forward();
@@ -1621,6 +1639,83 @@ write_hvd05_exception_probe() {
   const setProbe = function (name, value) {
     document.documentElement.setAttribute("data-probe-" + name, String(value));
   };
+  const effectMatches = function (exceptionId, targetDocument, fixture, root) {
+    const one = function (selector) { return fixture.querySelector(selector); };
+    if (exceptionId === "EX-PREVIEW-TARGET-DELETED") {
+      const preview = one(".quick-source-panel");
+      return Boolean(preview && preview.hidden);
+    }
+    if (exceptionId === "EX-RELATION-SUPERSEDED") {
+      const relation = one(".relation-focus-primary");
+      return Boolean(relation && relation.dataset.relationStatus === "SUPERSEDED_EXPLAINED");
+    }
+    if (exceptionId === "EX-ELEMENT-PRIMARY-PARENT-CHANGED") {
+      return root.dataset.canonicalLocation === "REBASED_WITHOUT_SECOND_TREE";
+    }
+    if (exceptionId === "EX-AUTO-UPGRADE-FAILED") {
+      return root.dataset.autoUpgradeStatus === "FAILED_FULL_REVISION_FALLBACK" &&
+        root.dataset.draftState === "DIRTY_DRAFT_PRESERVED";
+    }
+    if (exceptionId === "EX-IMPACT-ANALYSIS-FAILED") {
+      const commit = one(".commit-control");
+      return root.dataset.impactAnalysisStatus === "FAILED_RETRY_REQUIRED" &&
+        Boolean(commit && commit.disabled);
+    }
+    if (exceptionId === "EX-CANONICAL-SAVED-RECOMPUTE-FAILED") {
+      const failed = one(".processing-state.failed");
+      return Boolean(failed && failed.dataset.channelState === "RETRY_READY");
+    }
+    if (exceptionId === "EX-CANONICAL-SAVED-GENERATION-FAILED") {
+      const stale = one(".processing-state.stale");
+      return Boolean(stale && stale.dataset.channelState === "RETRY_READY");
+    }
+    if (exceptionId === "EX-GENERATED-CONFLICTS-LOCKED") {
+      return root.dataset.lockedContentDisposition === "REPLACEMENT_BLOCKED";
+    }
+    if (exceptionId === "EX-DRAFT-CONFLICTS-LATEST") {
+      return root.dataset.draftPreserved === "true" && root.dataset.rebaseRequired === "true";
+    }
+    if (exceptionId === "EX-SOURCE-INVALIDATED") {
+      const source = one(".source-evidence-item");
+      return Boolean(source && source.dataset.sourceStatus === "INVALIDATED") &&
+        root.dataset.verificationStatus === "REVERIFICATION_REQUIRED";
+    }
+    if (exceptionId === "EX-REFRESH-FOCUS-RESTORE-FAILED" ||
+        exceptionId === "EX-SEMANTIC-ANCHOR-MOVED") {
+      return targetDocument.body.dataset.semanticAnchorDisposition === "REBASED_TO_CANONICAL_PARENT" &&
+        targetDocument.body.dataset.restoredSemanticAnchor === "recovery-canonical-boundary";
+    }
+    if (exceptionId === "EX-SMALL-SCREEN-PANEL-OVERFLOW" ||
+        exceptionId === "EX-TOUCH-NO-HOVER") {
+      const overlay = one("#small-element-overlay");
+      return Boolean(overlay && !overlay.hidden &&
+        targetDocument.body.dataset.lastTransition === "SMALL_ELEMENT_OVERLAY_OPEN");
+    }
+    if (exceptionId === "EX-KEYBOARD-ENTERS-GRAPH") {
+      return root.dataset.focusOrder === "LINEAR_RELATION_ENDPOINTS";
+    }
+    if (exceptionId === "EX-DUPLICATE-SUBMIT-CLICK") {
+      return root.dataset.submissionAttemptCount === "1" &&
+        root.dataset.duplicateSubmission === "DEDUPED";
+    }
+    if (exceptionId === "EX-NETWORK-TIMEOUT-SAVE-UNKNOWN") {
+      return targetDocument.body.dataset.lastTransition === "QUERY_ORIGINAL_RESULT_SAME_KEY" &&
+        targetDocument.body.dataset.resultQueryKey === "idem-hv-d03-1042";
+    }
+    if (exceptionId === "EX-UI-FAILED-CANONICAL-SAVED") {
+      return root.dataset.processingState === "CANONICAL_SAVED" &&
+        root.dataset.falseRollback === "FORBIDDEN";
+    }
+    if (exceptionId === "EX-REVERT-AFFECTS-LATER-CHANGES") {
+      return targetDocument.body.dataset.lastTransition === "REVERT_CHANGESET_DRAFTED" &&
+        targetDocument.body.dataset.revertDisposition === "CREATE_NEW_CHANGESET";
+    }
+    if (exceptionId === "EX-WORKSPACE-SWITCH-WITH-DRAFT") {
+      return root.dataset.workspaceSwitchGuard === "SAVE_DISCARD_CANCEL_REQUIRED" &&
+        root.dataset.draftPreserved === "true";
+    }
+    return false;
+  };
   const loadNext = function () {
     if (index >= cases.length) {
       setProbe("exception-case-count", cases.length);
@@ -1640,6 +1735,8 @@ write_hvd05_exception_probe() {
     if (!targetDocument || targetDocument.documentElement.dataset.fixtureStatus !== "ACCEPTED") { return; }
     const ran = targetWindow.CognituraExceptionHarness && targetWindow.CognituraExceptionHarness.run(current[0]);
     const observation = targetDocument.querySelector(".exception-recovery-observation");
+    const fixture = targetDocument.getElementById(current[1] + "-fixture");
+    const root = fixture && (fixture.querySelector("main, [data-state-code]") || fixture);
     const style = observation ? targetWindow.getComputedStyle(observation) : null;
     const rendered = Boolean(observation && style.display !== "none" && style.visibility !== "hidden" &&
       Number(style.opacity) !== 0 && observation.getClientRects().length > 0);
@@ -1647,6 +1744,7 @@ write_hvd05_exception_probe() {
       observation.dataset.recoveryAction === current[2] &&
       targetDocument.activeElement && targetDocument.activeElement.id === current[3] &&
       targetDocument.body.dataset.exceptionEffect === current[4] &&
+      fixture && root && effectMatches(current[0], targetDocument, fixture, root) &&
       targetDocument.body.dataset.exceptionHarnessStatus === "RECOVERED_WITH_FEEDBACK");
     if (passed) { passCount += 1; } else { failures.push(current[0]); }
     index += 1;
@@ -3134,7 +3232,8 @@ NODE
     'data-probe-reload-restored|true' \
     'data-probe-back-restored|true' \
     'data-probe-forward-restored|true' \
-    'data-probe-history-roundtrip|true'; do
+    'data-probe-history-roundtrip|true' \
+    'data-probe-history-focus-roundtrip|true'; do
     history_attribute="${history_contract%%|*}"
     history_expected="${history_contract#*|}"
     require_hvd02_probe_value partial-failure "${history_probe_dom}" \
