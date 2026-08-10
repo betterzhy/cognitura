@@ -170,15 +170,23 @@ index="${cards_dir}/README.md"
 [[ "$(field_value "${index}" TaskCardIDs)" == "HV-D00,HV-D01,HV-D02,HV-D03,HV-D04,HV-D05" ]] ||
   fail "TaskCardIDs must be HV-D00..HV-D05"
 [[ "$(field_value "${index}" TaskCardCount)" == "6" ]] || fail "TaskCardCount must be 6"
-[[ "$(field_value "${index}" TaskCardSetStatus)" == "READY_FOR_EXECUTION" ]] ||
-  fail "TaskCardSetStatus must be READY_FOR_EXECUTION"
-active_task="$(field_value "${index}" ActiveTaskCard)"
-case "${active_task}" in
-  HV-D01|HV-D02|HV-D03|HV-D04|HV-D05) ;;
-  *) fail "ActiveTaskCard must identify the sole READY HV design card" ;;
+task_card_set_status="$(field_value "${index}" TaskCardSetStatus)"
+case "${task_card_set_status}" in
+  READY_FOR_EXECUTION|COMPLETE) ;;
+  *) fail "TaskCardSetStatus must be READY_FOR_EXECUTION or COMPLETE" ;;
 esac
-active_suffix="${active_task#HV-D}"
-active_number=$((10#${active_suffix}))
+active_task="$(field_value "${index}" ActiveTaskCard)"
+if [[ "${task_card_set_status}" == "COMPLETE" ]]; then
+  [[ "${active_task}" == "NONE" ]] || fail "ActiveTaskCard must be NONE when the visual card set is COMPLETE"
+  active_number=6
+else
+  case "${active_task}" in
+    HV-D01|HV-D02|HV-D03|HV-D04|HV-D05) ;;
+    *) fail "ActiveTaskCard must identify the sole READY HV design card" ;;
+  esac
+  active_suffix="${active_task#HV-D}"
+  active_number=$((10#${active_suffix}))
+fi
 for boundary in \
   "BusinessImplementation=NOT_AUTHORIZED" \
   "FormalDatabaseWrite=NOT_AUTHORIZED" \
@@ -208,7 +216,10 @@ for preflight_card in "${actual_cards[@]}"; do
     preflight_ready_count=$((preflight_ready_count + 1))
   fi
 done
-[[ "${preflight_ready_count}" -eq 1 ]] || fail "exactly one READY card is required"
+expected_ready_count=1
+[[ "${task_card_set_status}" == "COMPLETE" ]] && expected_ready_count=0
+[[ "${preflight_ready_count}" -eq "${expected_ready_count}" ]] ||
+  fail "READY card count must be ${expected_ready_count} for ${task_card_set_status}"
 
 ready_count=0
 done_count=0
@@ -351,10 +362,12 @@ for task_id in "${declared_ids[@]}"; do
   esac
   card_index=$((card_index + 1))
 done
-[[ "${ready_count}" -eq 1 ]] || fail "exactly one READY card is required"
+[[ "${ready_count}" -eq "${expected_ready_count}" ]] ||
+  fail "READY card count must be ${expected_ready_count} for ${task_card_set_status}"
 [[ "${done_count}" -eq "${active_number}" ]] ||
   fail "DONE card count must match active stage ${active_task}"
-expected_blocked_count=$((5 - active_number))
+expected_blocked_count=0
+[[ "${task_card_set_status}" == "READY_FOR_EXECUTION" ]] && expected_blocked_count=$((5 - active_number))
 [[ "${blocked_count}" -eq "${expected_blocked_count}" ]] ||
   fail "dependency-blocked card count must match active stage ${active_task}"
 
@@ -485,27 +498,62 @@ for sync_file in \
   "${root_task_index}"; do
   [[ -f "${sync_file}" ]] || fail "state synchronization file is missing: ${sync_file}"
 done
+expected_visual_task_set="${task_card_set_status}"
+expected_projected_entry="${active_task} READY / RELEASED"
+expected_current_stage=''
+if [[ "${task_card_set_status}" == "COMPLETE" ]]; then
+  expected_projected_entry='NONE'
+  expected_current_stage='HIGH_FIDELITY_VISUAL_AND_USABILITY_COMPLETE'
+fi
 for project_status in \
   'HighFidelityVisualFoundation = PASS' \
-  'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION' \
-  "HighFidelityVisualProjectedEntry = ${active_task} READY / RELEASED" \
+  "HighFidelityVisualTaskCardSet = ${expected_visual_task_set}" \
+  "HighFidelityVisualProjectedEntry = ${expected_projected_entry}" \
   "ActiveDesignTaskCard = ${active_task}"; do
   require_line_once "${script_root}/AGENTS.md" "${project_status}"
   require_line_once "${script_root}/README.md" "${project_status}"
 done
-case "${active_task}" in
-  HV-D01) expected_current_stage='HIGH_FIDELITY_VISUAL_FOUNDATION_ESTABLISHED' ;;
-  HV-D02) expected_current_stage='HIGH_FIDELITY_MODULE_DEFAULT_READING_ESTABLISHED' ;;
-  HV-D03) expected_current_stage='HIGH_FIDELITY_FOCUS_AND_SOURCE_ESTABLISHED' ;;
-  HV-D04) expected_current_stage='HIGH_FIDELITY_REVISION_AND_RECOVERY_ESTABLISHED' ;;
-  HV-D05) expected_current_stage='HIGH_FIDELITY_CROSS_LAYER_RESPONSIVE_EXPORT_ESTABLISHED' ;;
-esac
+if [[ "${task_card_set_status}" == "READY_FOR_EXECUTION" ]]; then
+  case "${active_task}" in
+    HV-D01) expected_current_stage='HIGH_FIDELITY_VISUAL_FOUNDATION_ESTABLISHED' ;;
+    HV-D02) expected_current_stage='HIGH_FIDELITY_MODULE_DEFAULT_READING_ESTABLISHED' ;;
+    HV-D03) expected_current_stage='HIGH_FIDELITY_FOCUS_AND_SOURCE_ESTABLISHED' ;;
+    HV-D04) expected_current_stage='HIGH_FIDELITY_REVISION_AND_RECOVERY_ESTABLISHED' ;;
+    HV-D05) expected_current_stage='HIGH_FIDELITY_CROSS_LAYER_RESPONSIVE_EXPORT_ESTABLISHED' ;;
+  esac
+fi
 for current_stage_file in \
   "${script_root}/AGENTS.md" \
   "${script_root}/README.md" \
   "${design_index}"; do
   require_field_value "${current_stage_file}" CurrentStage "${expected_current_stage}"
 done
+if [[ "${task_card_set_status}" == "COMPLETE" ]]; then
+  for complete_status_file in \
+    "${script_root}/AGENTS.md" \
+    "${script_root}/README.md" \
+    "${design_index}"; do
+    require_field_value "${complete_status_file}" HighFidelityDesignStatus COMPLETE
+  done
+  require_field_value "${acceptance}" EvidenceArtifactCapture NOT_RUN
+  require_field_value "${acceptance}" HVExecutionArtifactCapture COMPLETE_HV_D05
+  require_line_once "${cards_dir}/HV-D05-fixed-visual-usability-review.md" \
+    'ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7'
+  require_line_once "${cards_dir}/HV-D05-fixed-visual-usability-review.md" \
+    'ReviewStage1Verdict = GO'
+  require_line_once "${cards_dir}/HV-D05-fixed-visual-usability-review.md" \
+    'ReviewStage2Verdict = GO'
+  for review_ledger in "${evidence_plan}" "${acceptance}"; do
+    require_line_once "${review_ledger}" \
+      'HV-D05ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7'
+    require_line_once "${review_ledger}" \
+      'HV-D05ReviewStage1 = GO|Model=gpt-5.6-sol/high|P0=0|P1=0|P2=0'
+    require_line_once "${review_ledger}" \
+      'HV-D05ReviewStage2 = GO|Model=gpt-5.6-sol/high|P0=0|P1=0|P2=0'
+  done
+  require_line_once "${visual_design}" \
+    'HV-D05 ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7'
+fi
 execution_names=(VisualFoundation ModuleDefaultReading FocusAndSource RevisionAndRecovery CrossLayerResponsiveAndExport FixedVisualUsabilityReview)
 for execution_index in 0 1 2 3 4 5; do
   execution_id="HV-D0${execution_index}"
@@ -532,35 +580,47 @@ for status_contract in \
   require_field_value "${acceptance}" "${status_key}" "${status_value}"
   require_field_value "${evidence_plan}" "${status_key}" "${status_value}"
 done
-require_line_once "${design_index}" 'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION'
+require_line_once "${design_index}" "HighFidelityVisualTaskCardSet = ${task_card_set_status}"
 require_line_once "${design_index}" 'HighFidelityVisualFoundation = PASS'
 require_line_once "${design_index}" "ActiveDesignTaskCard = ${active_task}"
-require_line_once "${root_task_index}" 'HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION'
+require_line_once "${root_task_index}" "HighFidelityVisualTaskCardSet = ${task_card_set_status}"
 require_line_once "${root_task_index}" "HighFidelityVisualActiveTaskCard = ${active_task}"
 
 for projection_contract in \
-  "${visual_design}|HighFidelityVisualDesign|NOT_RUN" \
-  "${visual_design}|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${visual_design}|HighFidelityVisualDesign|PASS" \
+  "${visual_design}|HighFidelityVisualValidation|PASS" \
+  "${visual_design}|HighFidelityUsabilityValidation|PASS" \
+  "${visual_design}|HighFidelityStateAcceptance|PASS" \
   "${visual_design}|ImplementationValidation|NOT_RUN" \
   "${visual_design}|BusinessImplementation|NOT_AUTHORIZED" \
   "${visual_design}|FormalDatabaseWrite|NOT_AUTHORIZED" \
   "${visual_design}|RemotePush|NOT_AUTHORIZED" \
-  "${evidence_dir}/README.md|HighFidelityVisualDesign|NOT_RUN" \
-  "${evidence_dir}/README.md|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${evidence_dir}/README.md|HighFidelityVisualDesign|PASS" \
+  "${evidence_dir}/README.md|HighFidelityVisualValidation|PASS" \
+  "${evidence_dir}/README.md|HighFidelityUsabilityValidation|PASS" \
+  "${evidence_dir}/README.md|HighFidelityStateAcceptance|PASS" \
   "${evidence_dir}/README.md|ImplementationValidation|NOT_RUN" \
-  "${index}|HighFidelityVisualDesign|NOT_RUN" \
-  "${index}|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${index}|HighFidelityVisualDesign|PASS" \
+  "${index}|HighFidelityVisualValidation|PASS" \
+  "${index}|HighFidelityUsabilityValidation|PASS" \
+  "${index}|HighFidelityStateAcceptance|PASS" \
   "${index}|BusinessImplementation|NOT_AUTHORIZED" \
   "${index}|FormalDatabaseWrite|NOT_AUTHORIZED" \
   "${index}|RemotePush|NOT_AUTHORIZED" \
-  "${design_index}|HighFidelityVisualDesign|NOT_RUN" \
-  "${design_index}|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${design_index}|HighFidelityVisualDesign|PASS" \
+  "${design_index}|HighFidelityVisualValidation|PASS" \
+  "${design_index}|HighFidelityUsabilityValidation|PASS" \
+  "${design_index}|HighFidelityStateAcceptance|PASS" \
   "${design_index}|BusinessImplementation|NOT_AUTHORIZED" \
-  "${script_root}/AGENTS.md|HighFidelityVisualDesign|NOT_RUN" \
-  "${script_root}/AGENTS.md|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${script_root}/AGENTS.md|HighFidelityVisualDesign|PASS" \
+  "${script_root}/AGENTS.md|HighFidelityVisualValidation|PASS" \
+  "${script_root}/AGENTS.md|HighFidelityUsabilityValidation|PASS" \
+  "${script_root}/AGENTS.md|HighFidelityStateAcceptance|PASS" \
   "${script_root}/AGENTS.md|BusinessImplementation|NOT_AUTHORIZED" \
-  "${script_root}/README.md|HighFidelityVisualDesign|NOT_RUN" \
-  "${script_root}/README.md|HighFidelityUsabilityValidation|NOT_RUN" \
+  "${script_root}/README.md|HighFidelityVisualDesign|PASS" \
+  "${script_root}/README.md|HighFidelityVisualValidation|PASS" \
+  "${script_root}/README.md|HighFidelityUsabilityValidation|PASS" \
+  "${script_root}/README.md|HighFidelityStateAcceptance|PASS" \
   "${script_root}/README.md|BusinessImplementation|NOT_AUTHORIZED"; do
   projection_file="${projection_contract%%|*}"
   remaining_projection="${projection_contract#*|}"
@@ -586,7 +646,11 @@ for owner_contract in \
   rf_gate_suffix="${rf_gate#HV-D}"
   rf_gate_number=$((10#${rf_gate_suffix}))
   observation_count="$(grep -Ec "^HVVisualAcceptanceObservation = ${rf_id}\\|" "${acceptance}" || true)"
-  if [[ "${rf_gate_number}" -lt "${active_number}" ]]; then
+  if [[ "${rf_id}" == "RF-AC-20" && "${task_card_set_status}" == "COMPLETE" ]]; then
+    [[ "${observation_count}" -eq 0 ]] || fail "RF-AC-20 must close through the fixed-candidate review"
+    require_line_once "${acceptance}" \
+      'HVFixedCandidateAcceptanceObservation = RF-AC-20|Owner=HV-D05|Artifact=docs/design/high-fidelity/evidence/knowledge-landscape-theme-desktop.png|SupplementalArtifact=docs/design/high-fidelity/evidence/cross-domain-reading-desktop.png|Status=PASS_HIGH_FIDELITY_VISUAL_AND_USABILITY|FormalRFAcceptance=NOT_RUN|Implementation=NOT_RUN'
+  elif [[ "${rf_gate_number}" -lt "${active_number}" ]]; then
     [[ "${observation_count}" -eq 1 ]] ||
       fail "${rf_id} must have exactly one completed visual observation"
     grep -Eq "^HVVisualAcceptanceObservation = ${rf_id}\\|Owner=${rf_gate}\\|Artifact=docs/design/high-fidelity/evidence/[^|]+\\|Status=PASS_HIGH_FIDELITY_VISUAL_ONLY\\|Usability=NOT_RUN\\|Implementation=NOT_RUN$" "${acceptance}" ||
@@ -3261,7 +3325,7 @@ fi
 
 printf 'HighFidelityVisualTaskCardValidation = PASS\n'
 printf 'TaskCardCount = 6\n'
-printf 'TaskCardSetStatus = READY_FOR_EXECUTION\n'
+printf 'TaskCardSetStatus = %s\n' "${task_card_set_status}"
 printf 'ActiveTaskCard = %s\n' "${active_task}"
 printf 'DoneTaskCardCount = %s\n' "${done_count}"
 printf 'ReadyTaskCardCount = %s\n' "${ready_count}"
@@ -3320,8 +3384,12 @@ if [[ "${active_number}" -ge 5 ]]; then
   printf 'StaticExportEvidence = 1200x1600\n'
   printf 'StaticExportEvidenceFreshness = PASS\n'
 fi
-printf 'HighFidelityVisualDesign = NOT_RUN\n'
-printf 'HighFidelityUsabilityValidation = NOT_RUN\n'
+printf 'HighFidelityVisualDesign = PASS\n'
+printf 'HighFidelityDesignStatus = COMPLETE\n'
+printf 'HighFidelityVisualValidation = PASS\n'
+printf 'HighFidelityUsabilityValidation = PASS\n'
+printf 'HighFidelityStateAcceptance = PASS\n'
+printf 'ImplementationValidation = NOT_RUN\n'
 printf 'BusinessImplementation = NOT_AUTHORIZED\n'
 printf 'FormalDatabaseWrite = NOT_AUTHORIZED\n'
 printf 'RemotePush = NOT_AUTHORIZED\n'

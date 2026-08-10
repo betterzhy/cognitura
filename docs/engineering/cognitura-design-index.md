@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 RepositoryName = cognitura
-CurrentStage = HIGH_FIDELITY_CROSS_LAYER_RESPONSIVE_EXPORT_ESTABLISHED
+CurrentStage = HIGH_FIDELITY_VISUAL_AND_USABILITY_COMPLETE
 CurrentDesignBaseline = Cognitura-Overall-Design-1.2
 CanonicalSourceManifest =
   docs/engineering/cognitura-source-manifest.yaml
@@ -36,7 +36,7 @@ HighFidelityDesignManifest =
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml
 HighFidelityContractCoverage =
   docs/engineering/cognitura-high-fidelity-contract-coverage.md
-HighFidelityDesignStatus = FORMAL_SPECIALTY_BASELINE
+HighFidelityDesignStatus = COMPLETE
 HighFidelityDesignGate = HF-DG4 PASS
 HighFidelityReviewedPreparationSHA = 463fd4829e7c4bb8da071253e8ae9b15cee2a0cf
 HighFidelityReadingPresentationContract = PASS
@@ -48,15 +48,18 @@ HighFidelityEvidenceAcceptance =
 HighFidelityEvidenceContract = PASS
 HighFidelityVisualBaseline =
   docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md
-HighFidelityVisualTaskCardSet = READY_FOR_EXECUTION
+HighFidelityVisualTaskCardSet = COMPLETE
 HighFidelityVisualFoundation = PASS
 HighFidelityModuleDefaultReading = PASS
 HighFidelityFocusAndSource = PASS
 HighFidelityRevisionAndRecovery = PASS
 HighFidelityCrossLayerResponsiveAndExport = PASS
-HighFidelityVisualDesign = NOT_RUN
-HighFidelityUsabilityValidation = NOT_RUN
-ActiveDesignTaskCard = HV-D05
+HighFidelityVisualDesign = PASS
+HighFidelityVisualValidation = PASS
+HighFidelityUsabilityValidation = PASS
+HighFidelityStateAcceptance = PASS
+ImplementationValidation = NOT_RUN
+ActiveDesignTaskCard = NONE
 BusinessImplementation = NOT_AUTHORIZED
 ```
 

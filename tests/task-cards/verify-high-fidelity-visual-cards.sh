@@ -271,10 +271,10 @@ canonical_output="$(run_verifier \
 for expected_line in \
   "HighFidelityVisualTaskCardValidation = PASS" \
   "TaskCardCount = 6" \
-  "TaskCardSetStatus = READY_FOR_EXECUTION" \
-  "ActiveTaskCard = HV-D05" \
-  "DoneTaskCardCount = 5" \
-  "ReadyTaskCardCount = 1" \
+  "TaskCardSetStatus = COMPLETE" \
+  "ActiveTaskCard = NONE" \
+  "DoneTaskCardCount = 6" \
+  "ReadyTaskCardCount = 0" \
   "BlockedTaskCardCount = 0" \
   "Task6WriteSetItemCount = 22" \
   "CurrentStageProjectionValidation = PASS" \
@@ -322,8 +322,12 @@ for expected_line in \
   "StaticExportManifestValidation = PASS" \
   "StaticExportEvidence = 1200x1600" \
   "StaticExportEvidenceFreshness = PASS" \
-  "HighFidelityVisualDesign = NOT_RUN" \
-  "HighFidelityUsabilityValidation = NOT_RUN" \
+  "HighFidelityVisualDesign = PASS" \
+  "HighFidelityDesignStatus = COMPLETE" \
+  "HighFidelityVisualValidation = PASS" \
+  "HighFidelityUsabilityValidation = PASS" \
+  "HighFidelityStateAcceptance = PASS" \
+  "ImplementationValidation = NOT_RUN" \
   "BusinessImplementation = NOT_AUTHORIZED" \
   "FormalDatabaseWrite = NOT_AUTHORIZED" \
   "RemotePush = NOT_AUTHORIZED"; do
@@ -737,7 +741,7 @@ make_fixture "${second_ready}"
 sed -i.bak 's/^Status = DONE$/Status = READY/' \
   "${second_ready}/cards/HV-D04-cross-layer-responsive-export.md"
 rm "${second_ready}/cards/HV-D04-cross-layer-responsive-export.md.bak"
-expect_failure "${second_ready}" "exactly one READY card is required"
+expect_failure "${second_ready}" "READY card count must be 0 for COMPLETE"
 
 wrong_write_set="${test_tmp_root}/wrong-write-set"
 make_fixture "${wrong_write_set}"

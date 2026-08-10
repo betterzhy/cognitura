@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 DesignKind = HIGH_FIDELITY_VISUAL_DESIGN
-DesignStatus = CROSS_LAYER_RESPONSIVE_EXPORT_EVIDENCE_ESTABLISHED
+DesignStatus = COMPLETE
 ContractSource = Cognitura-High-Fidelity-Interaction-Specialty-1.0
 ContractGate = HF-DG4 PASS
 FoundationGate = HV-D00 PASS
@@ -12,8 +12,10 @@ HighFidelityModuleDefaultReading = PASS
 HighFidelityFocusAndSource = PASS
 HighFidelityRevisionAndRecovery = PASS
 HighFidelityCrossLayerResponsiveAndExport = PASS
-HighFidelityVisualDesign = NOT_RUN
-HighFidelityUsabilityValidation = NOT_RUN
+HighFidelityVisualDesign = PASS
+HighFidelityVisualValidation = PASS
+HighFidelityUsabilityValidation = PASS
+HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -38,8 +40,9 @@ ErrorToken = --status-error
 本文件是后续 HV 卡共同消费的视觉基础，不是生产页面规格或前端实现选择。
 `HV-D00` 只建立 token、响应式阈值、fixture 治理和基础截图；`HV-D01` 只建立
 Module 默认阅读证据并关闭其七项视觉 Owner。Relation、SourceEvidence、Revision、
-Recovery、跨层、小屏与导出的真实视觉验收仍由 `HV-D02..D04` 逐卡完成，最终
-可用性由 `HV-D05` 固定候选审查。
+Recovery、跨层、小屏与导出的真实视觉验收已由 `HV-D02..D04` 逐卡完成；最终
+固定候选 `62da1bc08a932bbfc76769a2add984dcec4160b7` 已通过 `HV-D05` 两个独立
+`gpt-5.6-sol/high` 零发现审查。该完成态不授权实现。
 
 ## 1. Reading First 构图
 
@@ -329,5 +332,8 @@ HV-D01 ModuleDefaultReading = PASS
 HV-D02 FocusAndSource = PASS
 HV-D03 RevisionAndRecovery = PASS
 HV-D04 CrossLayerResponsiveAndExport = PASS
-HV-D05 FixedVisualUsabilityReview = NOT_RUN
+HV-D05 FixedVisualUsabilityReview = PASS
+HV-D05 ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7
+HV-D05 ReviewStage1 = GO|gpt-5.6-sol/high|P0=0|P1=0|P2=0
+HV-D05 ReviewStage2 = GO|gpt-5.6-sol/high|P0=0|P1=0|P2=0
 ```

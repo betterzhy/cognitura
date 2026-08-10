@@ -64,7 +64,7 @@ CrossDomainScenario = RULE_POLICY_DOMAIN|EvidenceClass=KnowledgeLandscapeAndKnow
 以下 `HVDesignTask` 六行是 `HF-DG4` 关闭时的历史投影快照，继续供合同 Gate
 复验；`VisualTaskCardArtifacts = NOT_CREATED` 也只表示该历史时点。Task 6 此后已
 创建精确六卡集合、视觉基础、确定性原型和 foundation 截图并关闭 `HV-D00`。
-当前实际状态由 `HVExecutionTask` 六行承担，仅 `HV-D05` 被释放为唯一 `READY`。
+当前实际状态由 `HVExecutionTask` 六行承担，六卡均已完成。
 
 ```text
 VisualTaskCardArtifacts = NOT_CREATED
@@ -80,7 +80,7 @@ HVExecutionTask = HV-D01|ModuleDefaultReading|DONE|PASS
 HVExecutionTask = HV-D02|FocusAndSource|DONE|PASS
 HVExecutionTask = HV-D03|RevisionAndRecovery|DONE|PASS
 HVExecutionTask = HV-D04|CrossLayerResponsiveAndExport|DONE|PASS
-HVExecutionTask = HV-D05|FixedVisualUsabilityReview|READY|RELEASED
+HVExecutionTask = HV-D05|FixedVisualUsabilityReview|DONE|PASS
 ```
 
 ## 4. 视觉基础证据
@@ -186,3 +186,17 @@ W1-I00Release = FORBIDDEN
 ```
 
 合同 PASS 不得推导视觉、可用性、实现、正式数据库写入或远程推送 PASS。
+
+## 10. HV-D05 固定候选审查
+
+```text
+HV-D05ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7
+HV-D05ReviewStage1 = GO|Model=gpt-5.6-sol/high|P0=0|P1=0|P2=0
+HV-D05ReviewStage2 = GO|Model=gpt-5.6-sol/high|P0=0|P1=0|P2=0
+HV-D05FixedVisualUsabilityReview = PASS
+HVExecutionVisualDesign = PASS
+HVExecutionVisualValidation = PASS
+HVExecutionUsabilityValidation = PASS
+HVExecutionStateAcceptance = PASS
+HVExecutionImplementationValidation = NOT_RUN
+```

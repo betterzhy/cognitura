@@ -13,8 +13,10 @@ CaptureKind = CHROME_HEADLESS_LOCAL_FILE
 ArtifactStatus = CAPTURED_FOUNDATION_FIXTURE
 EvidenceMeaning = VISUAL_TOKEN_AND_PROTOTYPE_GOVERNANCE_BASELINE_ONLY
 FreshnessCheck = CHROME_RECAPTURE_1440x1100_BYTE_IDENTICAL
-HighFidelityVisualDesign = NOT_RUN
-HighFidelityUsabilityValidation = NOT_RUN
+HighFidelityVisualDesign = PASS
+HighFidelityVisualValidation = PASS
+HighFidelityUsabilityValidation = PASS
+HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
 ```
 
@@ -203,8 +205,9 @@ HighFidelityCrossLayerResponsiveAndExport = PASS
 ThemeClosure；跨域补图证明机制与规则/政策不会创建第五层。小屏 fixture 使用单列
 连续正文和按需 overlay，Escape 返回原 KnowledgeElement 入口。静态导出正文保持
 核心问题、解释、Relation、边界和来源脚注，稳定 ID 仅由 companion manifest 与 DOM
-属性携带。该证据只使 `RF-AC-01,10,15,19` 的视觉阶段为 PASS；`RF-AC-20` 只有
-supporting evidence，正式状态继续 `NOT_RUN` 等待 HV-D05。
+属性携带。该证据使 `RF-AC-01,10,15,19` 的视觉阶段为 PASS；`RF-AC-20` 的
+supporting evidence 与固定候选观察已由 `HV-D05` 关闭为高保真 PASS，正式输入行
+仍保持历史 `NOT_RUN`，实现也未执行。
 
 ## 后续主证据与 RF Owner
 
@@ -218,5 +221,5 @@ RFOwner = HV-D04|RF-AC-01,10,15,19
 RFOwner = HV-D05|RF-AC-20
 ```
 
-前四卡只能关闭各自 Owner 行；`HV-D04` 可捕获 `RF-AC-20` 的 supporting visual
-evidence，但不得提前把该正式验收行从 `NOT_RUN` 改为 `PASS`。
+前四卡只能关闭各自 Owner 行；`HV-D04` 只捕获 `RF-AC-20` 的 supporting visual
+evidence，最终由 `HV-D05` 固定候选审查关闭独立高保真观察，不改写正式输入合同。

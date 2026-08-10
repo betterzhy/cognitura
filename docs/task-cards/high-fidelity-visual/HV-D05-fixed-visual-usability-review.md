@@ -3,8 +3,8 @@
 ```text
 TaskCardID = HV-D05
 CardKind = HIGH_FIDELITY_VISUAL_DESIGN
-Status = READY
-Gate = HV-D05 NOT_RUN
+Status = DONE
+Gate = HV-D05 PASS
 Risk = HIGH
 DependsOn = HV-D04
 ReviewRoute = TWO_INDEPENDENT_gpt-5.6-sol/high_STAGES
@@ -66,3 +66,15 @@ git diff --check
 ## 8. 提交与审查
 
 形成独立本地提交 `docs: close high fidelity visual design gate`；不 push。
+
+```text
+ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7
+ReviewStage1Model = gpt-5.6-sol/high
+ReviewStage1Verdict = GO
+ReviewStage1P0P1P2 = 0/0/0
+ReviewStage2Model = gpt-5.6-sol/high
+ReviewStage2Verdict = GO
+ReviewStage2P0P1P2 = 0/0/0
+UltraReviewUsed = NO
+ImplementationValidation = NOT_RUN
+```
