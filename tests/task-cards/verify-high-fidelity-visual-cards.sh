@@ -315,6 +315,41 @@ for expected_line in \
     fail "canonical output is missing: ${expected_line}"
 done
 
+cross_projection_module_identity_mismatch="${test_tmp_root}/cross-projection-module-identity-mismatch"
+make_fixture "${cross_projection_module_identity_mismatch}"
+sed -i.bak \
+  's#<span class="canonical-level module-level" data-layer="CognitiveModule" data-object-id="module-consistent-read"><small>03 · CognitiveModule</small><strong>一致性读的版本选择</strong></span>#<span class="canonical-level module-level" data-layer="CognitiveModule" data-object-id="module-consistent-read"><small>03 · CognitiveModule</small><strong>旁路模块</strong></span>#' \
+  "${cross_projection_module_identity_mismatch}/prototype/index.html"
+rm "${cross_projection_module_identity_mismatch}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${cross_projection_module_identity_mismatch}" domain-default \
+  knowledge-landscape-theme-desktop.png \
+  'domain-default browser selector probe data-probe-module-label must be 一致性读的版本选择, got 旁路模块'
+
+static_relation_semantic_mismatch="${test_tmp_root}/static-relation-semantic-mismatch"
+make_fixture "${static_relation_semantic_mismatch}"
+sed -i.bak \
+  's#Read View <b>约束</b> 记录版本可见性；这条 Relation 在 Web、核验、修订与导出中保持同一身份。#Read View <b>映射</b> 历史版本；这条 Relation 在 Web、核验、修订与导出中保持同一身份。#' \
+  "${static_relation_semantic_mismatch}/prototype/index.html"
+rm "${static_relation_semantic_mismatch}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_relation_semantic_mismatch}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-cross-projection-relation-signature must be rel-read-view-visibility|element-read-view→element-record-version-visibility|Read View 约束 记录版本可见性, got rel-read-view-visibility|element-read-view→element-record-version-visibility|Read View 映射 历史版本'
+
+stale_text_low_contrast="${test_tmp_root}/stale-text-low-contrast"
+make_fixture "${stale_text_low_contrast}"
+sed -i.bak 's/--status-stale: #965717/--status-stale: #b7772f/' \
+  "${stale_text_low_contrast}/prototype/styles.css"
+rm "${stale_text_low_contrast}/prototype/styles.css.bak"
+recapture_hvd02_evidence "${stale_text_low_contrast}" source-verification \
+  module-source-verification-desktop.png
+recapture_hvd02_evidence "${stale_text_low_contrast}" revision-impact \
+  module-revision-impact-desktop.png
+recapture_hvd02_evidence "${stale_text_low_contrast}" conflicted-draft \
+  module-conflicted-draft-desktop.png
+expect_hvd02_dom_failure "${stale_text_low_contrast}" partial-failure \
+  module-recovery-desktop.png \
+  'partial-failure browser selector probe data-probe-stale-text-contrast-safe must be true, got false'
+
 cross_domain_fifth_object="${test_tmp_root}/cross-domain-fifth-object"
 make_fixture "${cross_domain_fifth_object}"
 sed -i.bak \
@@ -327,7 +362,7 @@ expect_hvd02_dom_failure "${cross_domain_fifth_object}" theme-default \
 
 cross_domain_classless_fifth="${test_tmp_root}/cross-domain-classless-fifth"
 make_fixture "${cross_domain_classless_fifth}"
-sed -i.bak '/MVCC 一致性读/ s#<span class="canonical-level element-level">Read View</span>#<span class="canonical-level element-level">Read View</span><div class="domain-object-decoy">第五领域对象</div>#' \
+sed -i.bak '/一致性读的版本选择/ s#<span class="canonical-level element-level">Read View</span>#<span class="canonical-level element-level">Read View</span><div class="domain-object-decoy">第五领域对象</div>#' \
   "${cross_domain_classless_fifth}/prototype/index.html"
 rm "${cross_domain_classless_fifth}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${cross_domain_classless_fifth}" theme-default \
@@ -336,7 +371,7 @@ expect_hvd02_dom_failure "${cross_domain_classless_fifth}" theme-default \
 
 cross_domain_canonical_class_swap="${test_tmp_root}/cross-domain-canonical-class-swap"
 make_fixture "${cross_domain_canonical_class_swap}"
-sed -i.bak '/MVCC 一致性读/ s#<span class="canonical-level landscape-level">数据系统</span><i>→</i>#<span class="landscape-level">数据系统</span><i class="canonical-level">→</i>#' \
+sed -i.bak '/一致性读的版本选择/ s#<span class="canonical-level landscape-level">数据系统</span><i>→</i>#<span class="landscape-level">数据系统</span><i class="canonical-level">→</i>#' \
   "${cross_domain_canonical_class_swap}/prototype/index.html"
 rm "${cross_domain_canonical_class_swap}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${cross_domain_canonical_class_swap}" theme-default \
@@ -345,7 +380,7 @@ expect_hvd02_dom_failure "${cross_domain_canonical_class_swap}" theme-default \
 
 cross_domain_separator_overflow="${test_tmp_root}/cross-domain-separator-overflow"
 make_fixture "${cross_domain_separator_overflow}"
-sed -i.bak '/MVCC 一致性读/ s#<i>→</i>#<i style="width: auto; height: auto; justify-self: stretch; transform: rotate(90deg);">→</i>#g' \
+sed -i.bak '/一致性读的版本选择/ s#<i>→</i>#<i style="width: auto; height: auto; justify-self: stretch; transform: rotate(90deg);">→</i>#g' \
   "${cross_domain_separator_overflow}/prototype/index.html"
 rm "${cross_domain_separator_overflow}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${cross_domain_separator_overflow}" theme-default \
@@ -354,7 +389,7 @@ expect_hvd02_dom_failure "${cross_domain_separator_overflow}" theme-default \
 
 cross_domain_separator_descendant_overflow="${test_tmp_root}/cross-domain-separator-descendant-overflow"
 make_fixture "${cross_domain_separator_descendant_overflow}"
-sed -i.bak '/MVCC 一致性读/ s#<i>→</i>#<i>→<span style="position: fixed; top: 20px; left: 360px; z-index: 30;">↓</span></i>#' \
+sed -i.bak '/一致性读的版本选择/ s#<i>→</i>#<i>→<span style="position: fixed; top: 20px; left: 360px; z-index: 30;">↓</span></i>#' \
   "${cross_domain_separator_descendant_overflow}/prototype/index.html"
 rm "${cross_domain_separator_descendant_overflow}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${cross_domain_separator_descendant_overflow}" theme-default \
@@ -554,7 +589,7 @@ manifest_wrong_endpoints="${test_tmp_root}/manifest-wrong-endpoints"
 make_fixture "${manifest_wrong_endpoints}"
 sed -i.bak \
   -e 's/"sourceId": "element-read-view"/"sourceId": "landscape-data-systems"/' \
-  -e 's/"targetId": "element-version-chain"/"targetId": "theme-concurrency-consistency"/' \
+  -e 's/"targetId": "element-record-version-visibility"/"targetId": "theme-concurrency-consistency"/' \
   "${manifest_wrong_endpoints}/evidence/static-export-manifest.json"
 rm "${manifest_wrong_endpoints}/evidence/static-export-manifest.json.bak"
 expect_failure "${manifest_wrong_endpoints}" \
@@ -563,7 +598,7 @@ expect_failure "${manifest_wrong_endpoints}" \
 static_hidden_duplicate_relation="${test_tmp_root}/static-hidden-duplicate-relation"
 make_fixture "${static_hidden_duplicate_relation}"
 sed -i.bak \
-  's#<blockquote class="export-relation"#<span hidden data-relation-id="rel-read-view-selects-version"></span><blockquote class="export-relation"#' \
+  's#<blockquote class="export-relation"#<span hidden data-relation-id="rel-read-view-visibility"></span><blockquote class="export-relation"#' \
   "${static_hidden_duplicate_relation}/prototype/index.html"
 rm "${static_hidden_duplicate_relation}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${static_hidden_duplicate_relation}" static-export \
@@ -583,8 +618,8 @@ expect_hvd02_dom_failure "${static_hidden_duplicate_source}" static-export \
 manifest_wrong_supports="${test_tmp_root}/manifest-wrong-supports"
 make_fixture "${manifest_wrong_supports}"
 sed -i.bak '/"supports": \[/,/]/ {
-  s/"module-mvcc-consistent-read"/"landscape-data-systems"/
-  s/"rel-read-view-selects-version"/"theme-concurrency-consistency"/
+  s/"module-consistent-read"/"landscape-data-systems"/
+  s/"rel-read-view-visibility"/"theme-concurrency-consistency"/
 }' "${manifest_wrong_supports}/evidence/static-export-manifest.json"
 rm "${manifest_wrong_supports}/evidence/static-export-manifest.json.bak"
 expect_failure "${manifest_wrong_supports}" \
@@ -1206,7 +1241,7 @@ expect_hvd02_dom_failure "${missing_theme_core_question}" domain-default \
 
 missing_mechanism_module_layer="${test_tmp_root}/missing-mechanism-module-layer"
 make_fixture "${missing_mechanism_module_layer}"
-sed -i.bak 's/class="canonical-level module-level">MVCC/class="canonical-level">MVCC/' \
+sed -i.bak '/<section class="cross-domain-case mechanism-domain"/,/<\/section>/ s/class="canonical-level module-level" data-object-id="module-consistent-read"/class="canonical-level" data-object-id="module-consistent-read"/' \
   "${missing_mechanism_module_layer}/prototype/index.html"
 rm "${missing_mechanism_module_layer}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${missing_mechanism_module_layer}" theme-default \
@@ -1260,16 +1295,16 @@ expect_hvd02_dom_failure "${static_visible_raw_id}" static-export \
 
 static_relation_id_mismatch="${test_tmp_root}/static-relation-id-mismatch"
 make_fixture "${static_relation_id_mismatch}"
-sed -i.bak 's/data-relation-id="rel-read-view-selects-version"/data-relation-id="rel-wrong"/' \
+sed -i.bak 's/data-relation-id="rel-read-view-visibility"/data-relation-id="rel-wrong"/' \
   "${static_relation_id_mismatch}/prototype/index.html"
 rm "${static_relation_id_mismatch}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${static_relation_id_mismatch}" static-export \
   static-export-example.png \
-  'static-export browser selector probe data-probe-relation-id-set must be rel-read-view-selects-version, got rel-wrong'
+  'static-export browser selector probe data-probe-relation-id-set must be rel-read-view-visibility, got rel-wrong'
 
 manifest_relation_mismatch="${test_tmp_root}/manifest-relation-mismatch"
 make_fixture "${manifest_relation_mismatch}"
-sed -i.bak 's/"rel-read-view-selects-version"/"rel-manifest-wrong"/' \
+sed -i.bak 's/"rel-read-view-visibility"/"rel-manifest-wrong"/' \
   "${manifest_relation_mismatch}/evidence/static-export-manifest.json"
 rm "${manifest_relation_mismatch}/evidence/static-export-manifest.json.bak"
 expect_failure "${manifest_relation_mismatch}" \
@@ -1357,4 +1392,5 @@ printf 'HV-D04FixRound12NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound13NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound14NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound15NegativeFixtureCount = 1\n'
-printf 'NegativeFixtureCount = 141\n'
+printf 'HV-D05Stage1OwnerRepair1NegativeFixtureCount = 3\n'
+printf 'NegativeFixtureCount = 144\n'

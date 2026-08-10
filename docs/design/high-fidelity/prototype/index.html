@@ -134,7 +134,7 @@
           <ol>
             <li><span>01</span><div><small>Knowledge Landscape</small><strong>数据系统</strong></div></li>
             <li><span>02</span><div><small>Knowledge Theme</small><strong>并发与一致性</strong></div></li>
-            <li class="current"><span>03</span><div><small>Cognitive Module</small><strong>一致性读的版本选择</strong></div></li>
+            <li class="current" data-object-id="module-consistent-read"><span>03</span><div><small>Cognitive Module</small><strong>一致性读的版本选择</strong></div></li>
             <li><span>04</span><div><small>Knowledge Element</small><strong>Read View · 按需展开</strong></div></li>
           </ol>
           <p class="rail-note">唯一主归属保持可见；轨道只用于定位，不承载来源、修订或关系治理。</p>
@@ -295,7 +295,7 @@
             <span>ONE STABLE PRIMARY FOCUS</span>
           </div>
 
-          <section class="relation-focus-primary" aria-labelledby="relation-focus-title">
+          <section class="relation-focus-primary" aria-labelledby="relation-focus-title" data-relation-id="rel-read-view-visibility" data-source-object-id="element-read-view" data-target-object-id="element-record-version-visibility">
             <div class="focus-kicker">
               <p class="eyebrow">Primary Relation · 主聚焦</p>
               <span>relation · rel-read-view-visibility</span>
@@ -310,14 +310,14 @@
           </section>
 
           <section class="relation-endpoints" aria-label="Relation 次级端点">
-            <article class="relation-endpoint">
+            <article class="relation-endpoint" data-object-id="element-read-view">
               <p class="eyebrow">Subject · 次级端点</p>
               <h2>Read View</h2>
               <p>观察边界 · 当前 Module 的 KnowledgeElement</p>
               <button type="button" data-touch-equivalent="OPEN_SUBJECT">进入起点 <span aria-hidden="true">→</span></button>
             </article>
             <div class="relation-direction" aria-hidden="true"><span>约束</span><i>→</i></div>
-            <article class="relation-endpoint">
+            <article class="relation-endpoint" data-object-id="element-record-version-visibility">
               <p class="eyebrow">Object · 次级端点</p>
               <h2>记录版本可见性</h2>
               <p>判断规则 · 当前 Module 的机制节点</p>
@@ -672,7 +672,7 @@
           <i aria-hidden="true">→</i>
           <span class="canonical-level theme-level" data-layer="KnowledgeTheme"><small>02 · KnowledgeTheme</small><strong>并发与一致性</strong></span>
           <i aria-hidden="true">→</i>
-          <span class="canonical-level module-level" data-layer="CognitiveModule"><small>03 · CognitiveModule</small><strong>一致性读机制</strong></span>
+          <span class="canonical-level module-level" data-layer="CognitiveModule" data-object-id="module-consistent-read"><small>03 · CognitiveModule</small><strong>一致性读的版本选择</strong></span>
           <i aria-hidden="true">→</i>
           <span class="canonical-level element-level" data-layer="KnowledgeElement"><small>04 · KnowledgeElement</small><strong>Read View</strong></span>
         </nav>
@@ -724,7 +724,7 @@
         </header>
         <section class="cross-domain-case mechanism-domain" data-content-form="MECHANISM">
           <nav class="canonical-hierarchy" aria-label="Mechanism canonical hierarchy">
-            <span class="canonical-level landscape-level">数据系统</span><i>→</i><span class="canonical-level theme-level">并发与一致性</span><i>→</i><span class="canonical-level module-level">MVCC 一致性读</span><i>→</i><span class="canonical-level element-level">Read View</span>
+            <span class="canonical-level landscape-level">数据系统</span><i>→</i><span class="canonical-level theme-level">并发与一致性</span><i>→</i><span class="canonical-level module-level" data-object-id="module-consistent-read">一致性读的版本选择</span><i>→</i><span class="canonical-level element-level">Read View</span>
           </nav>
           <div class="domain-reading-copy"><p class="eyebrow">Mechanism · CognitiveModule</p><h2>Read View 如何从版本链中选出可见记录？</h2><p>观察边界先排除未来提交和未完成事务，再沿 Undo 历史寻找满足条件的版本。机制内容仍然收敛为 Module 的问题、条件、结果与边界。</p><div class="domain-closure"><b>Closure</b><span>Read View 定义边界，版本链提供候选，判断规则完成选择。</span></div></div>
         </section>
@@ -740,9 +740,9 @@
 
     <div id="module-small-screen-fixture" hidden>
       <main id="small-screen-document" class="small-reading-document" tabindex="-1" data-state-code="SMALL_SCREEN_SAFE_READING">
-        <header class="small-reading-header"><span class="brand-mark" aria-hidden="true">C</span><div><small>READING MODE · SMALL SCREEN</small><strong>一致性读机制</strong></div></header>
+        <header class="small-reading-header"><span class="brand-mark" aria-hidden="true">C</span><div><small>READING MODE · SMALL SCREEN</small><strong>一致性读的版本选择</strong></div></header>
         <nav class="small-hierarchy" aria-label="Small screen four layer hierarchy">
-          <span class="canonical-level landscape-level">数据系统</span><i>›</i><span class="canonical-level theme-level">并发</span><i>›</i><span class="canonical-level module-level">一致性读</span><i>›</i><span class="canonical-level element-level">Read View</span>
+          <span class="canonical-level landscape-level">数据系统</span><i>›</i><span class="canonical-level theme-level">并发</span><i>›</i><span class="canonical-level module-level" data-object-id="module-consistent-read">一致性读的版本选择</span><i>›</i><span class="canonical-level element-level">Read View</span>
         </nav>
         <article class="small-document-flow">
           <p class="eyebrow">CoreQuestion</p>
@@ -762,10 +762,10 @@
 
     <div id="static-export-fixture" hidden>
       <article id="static-export-document" class="export-sheet" tabindex="-1" data-state-code="PUBLISHED_CANONICAL_PROJECTION"
-        data-object-id="module-mvcc-consistent-read" data-export-snapshot="cognitura-snapshot-v13">
+        data-object-id="module-consistent-read" data-export-snapshot="cognitura-snapshot-v13">
         <header class="export-header"><div><p class="eyebrow">Cognitura · static reading snapshot</p><h1>一致性读：从观察边界到可见版本</h1></div><span>PUBLISHED · v13</span></header>
         <nav class="export-hierarchy" aria-label="Exported four layer position">
-          <span data-object-id="landscape-data-systems">数据系统</span><i>→</i><span data-object-id="theme-concurrency-consistency">并发与一致性</span><i>→</i><span data-object-id="module-mvcc-consistent-read">一致性读机制</span><i>→</i><span data-object-id="element-read-view">Read View</span>
+          <span data-object-id="landscape-data-systems">数据系统</span><i>→</i><span data-object-id="theme-concurrency-consistency">并发与一致性</span><i>→</i><span data-object-id="module-consistent-read">一致性读的版本选择</span><i>→</i><span data-object-id="element-read-view">Read View</span>
         </nav>
         <section class="export-opening"><p class="eyebrow">CoreQuestion</p><h2>一次读取如何从多个记录版本中选出真正可见的那个？</h2><p class="export-lead">稳定观察来自明确边界，而不是把变化隐藏起来。</p></section>
         <section class="export-mechanism" aria-label="Static mechanism alternative description">
@@ -773,10 +773,10 @@
           <i aria-hidden="true">→</i>
           <div data-object-id="element-version-chain"><small>候选历史</small><strong>Version chain</strong><p>沿 Undo 历史保留同一记录的旧版本。</p></div>
           <i aria-hidden="true">→</i>
-          <div><small>阅读结果</small><strong>Visible version</strong><p>选择第一个满足边界的候选。</p></div>
+          <div data-object-id="element-record-version-visibility"><small>阅读结果</small><strong>记录版本可见性</strong><p>选择第一个满足边界的候选。</p></div>
         </section>
         <section class="export-narrative"><h2>条件、结论与例外</h2><p>Read View 定义当前事务的观察范围，版本链提供候选。快照读遵循该边界；当前读则读取最新已提交结果。若没有候选满足条件，记录对本次快照不可见。</p></section>
-        <blockquote class="export-relation" data-relation-id="rel-read-view-selects-version" data-source-object-id="element-read-view" data-target-object-id="element-version-chain">Read View <b>约束</b> 版本链中的可见版本；这条 Relation 在 Web、核验、修订与导出中保持同一身份。</blockquote>
+        <blockquote class="export-relation" data-relation-id="rel-read-view-visibility" data-source-object-id="element-read-view" data-target-object-id="element-record-version-visibility">Read View <b>约束</b> 记录版本可见性；这条 Relation 在 Web、核验、修订与导出中保持同一身份。</blockquote>
         <section class="export-boundary"><h2>Boundary</h2><p>静态图片只负责分享、离线降级和版本快照；它不是正式知识事实，也不能替代可访问正文。</p></section>
         <footer class="export-source" data-source-id="src-mvcc-mechanism"><span>Source trace 01</span><p>机制型合成证据 · 支持核心问题、结论和可见性 Relation。</p><small>Companion manifest preserves machine identity; technical IDs stay silent in normal reading.</small></footer>
       </article>

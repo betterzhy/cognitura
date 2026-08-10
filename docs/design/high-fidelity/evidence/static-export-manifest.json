@@ -20,9 +20,9 @@
       "label": "并发与一致性"
     },
     {
-      "id": "module-mvcc-consistent-read",
+      "id": "module-consistent-read",
       "type": "CognitiveModule",
-      "label": "一致性读机制"
+      "label": "一致性读的版本选择"
     },
     {
       "id": "element-read-view",
@@ -33,14 +33,19 @@
       "id": "element-version-chain",
       "type": "KnowledgeElement",
       "label": "Version chain"
+    },
+    {
+      "id": "element-record-version-visibility",
+      "type": "KnowledgeElement",
+      "label": "记录版本可见性"
     }
   ],
   "relations": [
     {
-      "id": "rel-read-view-selects-version",
+      "id": "rel-read-view-visibility",
       "sourceId": "element-read-view",
-      "targetId": "element-version-chain",
-      "statement": "Read View 约束版本链中的可见版本"
+      "targetId": "element-record-version-visibility",
+      "statement": "Read View 约束记录版本可见性"
     }
   ],
   "sources": [
@@ -48,8 +53,8 @@
       "id": "src-mvcc-mechanism",
       "label": "机制型合成证据",
       "supports": [
-        "module-mvcc-consistent-read",
-        "rel-read-view-selects-version"
+        "module-consistent-read",
+        "rel-read-view-visibility"
       ]
     }
   ]

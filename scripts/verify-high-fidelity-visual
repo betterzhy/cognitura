@@ -1167,6 +1167,28 @@ write_hvd03_selector_probe() {
     const interactableCount = function (selector) {
       return Array.prototype.filter.call(targetDocument.querySelectorAll(selector), isKeyboardInteractable).length;
     };
+    const resolveColor = function (value) {
+      const sample = targetDocument.createElement("span");
+      sample.style.color = value;
+      targetDocument.body.appendChild(sample);
+      const components = (targetDocument.defaultView.getComputedStyle(sample).color.match(/[\d.]+/g) || [])
+        .slice(0, 3).map(Number);
+      sample.remove();
+      return components.length === 3 ? components : null;
+    };
+    const relativeLuminance = function (rgb) {
+      const channels = rgb.map(function (value) {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    };
+    const contrastRatio = function (first, second) {
+      const firstLuminance = relativeLuminance(first);
+      const secondLuminance = relativeLuminance(second);
+      return (Math.max(firstLuminance, secondLuminance) + 0.05) /
+        (Math.min(firstLuminance, secondLuminance) + 0.05);
+    };
     setProbe("fixture-status", targetDocument.documentElement.dataset.fixtureStatus || "");
     setProbe("state-fixture", targetDocument.body.dataset.stateFixture || "");
     setProbe("document-count", targetDocument.querySelectorAll(rootSelector).length);
@@ -1203,6 +1225,24 @@ write_hvd03_selector_probe() {
     }
 
     if (kind === "partial-failure") {
+      const rootStyle = targetDocument.defaultView.getComputedStyle(targetDocument.documentElement);
+      const staleColor = resolveColor(rootStyle.getPropertyValue("--status-stale"));
+      const staleBackgrounds = ["--color-paper", "--color-paper-raised"].map(function (name) {
+        return resolveColor(rootStyle.getPropertyValue(name));
+      });
+      const renderedStaleText = Array.prototype.filter.call(
+        root.querySelectorAll(".processing-state.stale em, .stale-badge"), isRendered);
+      const staleTextUsesToken = staleColor && renderedStaleText.length === 2 &&
+        renderedStaleText.every(function (element) {
+          const actualColor = resolveColor(targetDocument.defaultView.getComputedStyle(element).color);
+          return actualColor && actualColor.every(function (value, index) {
+            return value === staleColor[index];
+          });
+        });
+      setProbe("stale-text-contrast-safe", Boolean(staleTextUsesToken &&
+        staleBackgrounds.every(function (background) {
+          return background && contrastRatio(staleColor, background) >= 4.5;
+        })));
       setProbe("evidence-stage", targetDocument.body.dataset.recoveryEvidence || "");
       setProbe("canonical-saved-boundary", targetDocument.body.dataset.canonicalSavedBoundary || "");
       setProbe("canonical-version", root.dataset.canonicalVersion || "");
@@ -1470,11 +1510,14 @@ write_hvd04_selector_probe() {
     ));
 
     if (kind === "domain-default") {
+      const moduleLevel = root.querySelector(":scope > .canonical-hierarchy .module-level");
       setProbe("evidence-stage", targetDocument.body.dataset.crossLayerEvidence || "");
       setProbe("hierarchy-count", renderedCount(rootSelector + " > .canonical-hierarchy .canonical-level"));
       setProbe("landscape-level-count", renderedCount(rootSelector + " > .canonical-hierarchy .landscape-level"));
       setProbe("theme-level-count", renderedCount(rootSelector + " > .canonical-hierarchy .theme-level"));
       setProbe("module-level-count", renderedCount(rootSelector + " > .canonical-hierarchy .module-level"));
+      setProbe("module-object-id", moduleLevel ? moduleLevel.dataset.objectId || "" : "");
+      setProbe("module-label", moduleLevel ? moduleLevel.querySelector("strong").innerText.trim() : "");
       setProbe("element-level-count", renderedCount(rootSelector + " > .canonical-hierarchy .element-level"));
       setProbe("landscape-thesis-count", renderedCount(rootSelector + " .landscape-thesis"));
       setProbe("theme-responsibility-count", renderedCount(rootSelector + " .theme-responsibility"));
@@ -1496,6 +1539,7 @@ write_hvd04_selector_probe() {
     }
 
     if (kind === "theme-default") {
+      const mechanismModule = root.querySelector(".mechanism-domain .module-level");
       setProbe("evidence-stage", targetDocument.body.dataset.crossDomainEvidence || "");
       setProbe("case-count", renderedCount(rootSelector + " .cross-domain-case"));
       setProbe("mechanism-case-count", renderedCount(rootSelector + " .mechanism-domain"));
@@ -1528,6 +1572,8 @@ write_hvd04_selector_probe() {
       setProbe("mechanism-landscape-count", renderedCount(rootSelector + " .mechanism-domain .landscape-level"));
       setProbe("mechanism-theme-count", renderedCount(rootSelector + " .mechanism-domain .theme-level"));
       setProbe("mechanism-module-count", renderedCount(rootSelector + " .mechanism-domain .module-level"));
+      setProbe("mechanism-module-object-id", mechanismModule ? mechanismModule.dataset.objectId || "" : "");
+      setProbe("mechanism-module-label", mechanismModule ? mechanismModule.innerText.trim() : "");
       setProbe("mechanism-element-count", renderedCount(rootSelector + " .mechanism-domain .element-level"));
       setProbe("rule-landscape-count", renderedCount(rootSelector + " .rule-policy-domain .landscape-level"));
       setProbe("rule-theme-count", renderedCount(rootSelector + " .rule-policy-domain .theme-level"));
@@ -1542,10 +1588,13 @@ write_hvd04_selector_probe() {
       const trigger = root.querySelector("#small-element-trigger");
       const overlay = root.querySelector("#small-element-overlay");
       const closeControl = root.querySelector("#small-overlay-close");
+      const smallModule = root.querySelector(".small-hierarchy .module-level");
       setProbe("evidence-stage", targetDocument.body.dataset.smallScreenEvidence || "");
       setProbe("primary-surface", targetDocument.body.dataset.smallScreenPrimarySurface || "");
       setProbe("root-width", Math.round(root.getBoundingClientRect().width));
       setProbe("hierarchy-count", renderedCount(rootSelector + " .small-hierarchy .canonical-level"));
+      setProbe("module-object-id", smallModule ? smallModule.dataset.objectId || "" : "");
+      setProbe("module-label", smallModule ? smallModule.innerText.trim() : "");
       setProbe("core-question-count", renderedCount(rootSelector + " .small-core-question"));
       setProbe("core-conclusion-count", renderedCount(rootSelector + " .small-core-conclusion"));
       setProbe("narrative-count", renderedCount(rootSelector + " .small-narrative"));
@@ -1579,6 +1628,8 @@ write_hvd04_selector_probe() {
     if (kind === "static-export") {
       const exportTitle = root.querySelector(".export-header h1");
       const exportHeader = root.querySelector(".export-header");
+      const exportModule = root.querySelector(".export-hierarchy [data-object-id='module-consistent-read']");
+      const exportRelation = root.querySelector(".export-relation[data-relation-id]");
       const exportTitleRange = targetDocument.createRange();
       exportTitleRange.selectNodeContents(exportTitle);
       const exportTitleRect = exportTitle.getBoundingClientRect();
@@ -1807,10 +1858,12 @@ write_hvd04_selector_probe() {
             rectWithin(rect, exportHeaderRect);
         });
       const rawIds = ["landscape-data-systems", "theme-concurrency-consistency",
-        "module-mvcc-consistent-read", "element-read-view", "element-version-chain",
-        "rel-read-view-selects-version", "src-mvcc-mechanism"];
+        "module-consistent-read", "element-read-view", "element-version-chain",
+        "element-record-version-visibility", "rel-read-view-visibility", "src-mvcc-mechanism"];
       const visibleText = root.innerText || "";
       setProbe("evidence-stage", targetDocument.body.dataset.staticExportEvidence || "");
+      setProbe("module-object-id", root.dataset.objectId || "");
+      setProbe("module-label", exportModule ? exportModule.innerText.trim() : "");
       setProbe("machine-identity-source", targetDocument.body.dataset.machineIdentitySource || "");
       setProbe("raw-technical-ids-visible", targetDocument.body.dataset.rawTechnicalIdsVisible || "");
       setProbe("image-canonical-authority", targetDocument.body.dataset.imageCanonicalAuthority || "");
@@ -1830,6 +1883,11 @@ write_hvd04_selector_probe() {
       setProbe("source-id-set", uniqueAttributeValues("[data-source-id]", "data-source-id"));
       setProbe("relation-source-object-id", root.querySelector(".export-relation").dataset.sourceObjectId || "");
       setProbe("relation-target-object-id", root.querySelector(".export-relation").dataset.targetObjectId || "");
+      setProbe("cross-projection-relation-signature", exportRelation
+        ? exportRelation.dataset.relationId + "|" + exportRelation.dataset.sourceObjectId + "→" +
+          exportRelation.dataset.targetObjectId + "|" + exportRelation.innerText.split("；")[0]
+            .trim().replace(/\s+/g, " ")
+        : "");
       setProbe("raw-id-visible-count", rawIds.filter(function (id) { return visibleText.includes(id); }).length);
     }
     setProbe("status", "READY");
@@ -2288,6 +2346,7 @@ if [[ "${active_number}" -ge 4 ]]; then
     'data-probe-pending-count|1' \
     'data-probe-stale-projection-count|1' \
     'data-probe-rendered-stale-projection-count|1' \
+    'data-probe-stale-text-contrast-safe|true' \
     'data-probe-before-after-count|2' \
     'data-probe-rendered-before-after-count|2' \
     'data-probe-retry-count|1' \
@@ -2408,6 +2467,8 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-landscape-level-count|1' \
     'data-probe-theme-level-count|1' \
     'data-probe-module-level-count|1' \
+    'data-probe-module-object-id|module-consistent-read' \
+    'data-probe-module-label|一致性读的版本选择' \
     'data-probe-element-level-count|1' \
     'data-probe-landscape-thesis-count|1' \
     'data-probe-theme-responsibility-count|3' \
@@ -2465,12 +2526,14 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-mechanism-landscape-count|1' \
     'data-probe-mechanism-theme-count|1' \
     'data-probe-mechanism-module-count|1' \
+    'data-probe-mechanism-module-object-id|module-consistent-read' \
+    'data-probe-mechanism-module-label|一致性读的版本选择' \
     'data-probe-mechanism-element-count|1' \
     'data-probe-rule-landscape-count|1' \
     'data-probe-rule-theme-count|1' \
     'data-probe-rule-module-count|1' \
     'data-probe-rule-element-count|1' \
-    'data-probe-mechanism-layer-signature|landscape-level=数据系统;theme-level=并发与一致性;module-level=MVCC 一致性读;element-level=Read View' \
+    'data-probe-mechanism-layer-signature|landscape-level=数据系统;theme-level=并发与一致性;module-level=一致性读的版本选择;element-level=Read View' \
     'data-probe-rule-layer-signature|landscape-level=采购管理;theme-level=验收与付款;module-level=先验收后付款规则;element-level=验收凭证' \
     'data-probe-closure-count|2'; do
     cross_domain_attribute="${cross_domain_contract%%|*}"
@@ -2499,6 +2562,8 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-forbidden-surface-count|0' \
     'data-probe-root-width|390' \
     'data-probe-hierarchy-count|4' \
+    'data-probe-module-object-id|module-consistent-read' \
+    'data-probe-module-label|一致性读的版本选择' \
     'data-probe-core-question-count|1' \
     'data-probe-core-conclusion-count|1' \
     'data-probe-narrative-count|1' \
@@ -2551,6 +2616,8 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-forbidden-surface-count|0' \
     'data-probe-title-line-count|1' \
     'data-probe-title-visible-complete|true' \
+    'data-probe-module-object-id|module-consistent-read' \
+    'data-probe-module-label|一致性读的版本选择' \
     'data-probe-hierarchy-count|4' \
     'data-probe-core-question-count|1' \
     'data-probe-mechanism-count|1' \
@@ -2560,11 +2627,12 @@ if [[ "${active_number}" -ge 5 ]]; then
     'data-probe-source-count|1' \
     'data-probe-raw-relation-identity-count|1' \
     'data-probe-raw-source-identity-count|1' \
-    'data-probe-object-id-set|element-read-view,element-version-chain,landscape-data-systems,module-mvcc-consistent-read,theme-concurrency-consistency' \
-    'data-probe-relation-id-set|rel-read-view-selects-version' \
+    'data-probe-object-id-set|element-read-view,element-record-version-visibility,element-version-chain,landscape-data-systems,module-consistent-read,theme-concurrency-consistency' \
+    'data-probe-relation-id-set|rel-read-view-visibility' \
     'data-probe-source-id-set|src-mvcc-mechanism' \
     'data-probe-relation-source-object-id|element-read-view' \
-    'data-probe-relation-target-object-id|element-version-chain' \
+    'data-probe-relation-target-object-id|element-record-version-visibility' \
+    'data-probe-cross-projection-relation-signature|rel-read-view-visibility|element-read-view→element-record-version-visibility|Read View 约束 记录版本可见性' \
     'data-probe-raw-id-visible-count|0'; do
     static_export_attribute="${static_export_contract%%|*}"
     static_export_expected="${static_export_contract#*|}"
@@ -2585,7 +2653,7 @@ if (manifest.artifact !== "static-export-example.png") fail("artifact");
 if (manifest.canonicalFactAuthority !== "EXTERNAL_CANONICAL_MODEL_NOT_IMAGE") fail("authority");
 if (manifest.readerVisibility?.rawTechnicalIds !== "HIDDEN_BY_DEFAULT") fail("readerVisibility");
 if (manifest.readerVisibility?.machineIdentityLocation !== "COMPANION_MANIFEST") fail("identityLocation");
-if (!Array.isArray(manifest.objects) || manifest.objects.length !== 5) fail("objects");
+if (!Array.isArray(manifest.objects) || manifest.objects.length !== 6) fail("objects");
 if (!Array.isArray(manifest.relations) || manifest.relations.length !== 1) fail("relations");
 if (!Array.isArray(manifest.sources) || manifest.sources.length !== 1) fail("sources");
 const objectIds = manifest.objects.map((entry) => entry.id);
@@ -2621,14 +2689,16 @@ NODE
     fail "static export DOM object identities do not match companion manifest"
   [[ "${manifest_relations}" == "$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-relation-id-set)" ]] ||
     fail "static export DOM Relation identities do not match companion manifest"
+  [[ "${manifest_relations}" == "$(hvd02_probe_attribute_value source-verification "${source_probe_dom}" data-probe-canonical-target)" ]] ||
+    fail "static export Relation identity does not match the verification projection"
   [[ "${manifest_sources}" == "$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-source-id-set)" ]] ||
     fail "static export DOM source identities do not match companion manifest"
-  [[ "${manifest_relation_endpoints}" == 'element-read-view->element-version-chain' ]] ||
+  [[ "${manifest_relation_endpoints}" == 'element-read-view->element-record-version-visibility' ]] ||
     fail "static export manifest Relation endpoints do not match canonical export"
   dom_relation_endpoints="$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-relation-source-object-id)->$(hvd02_probe_attribute_value static-export "${static_export_probe_dom}" data-probe-relation-target-object-id)"
   [[ "${manifest_relation_endpoints}" == "${dom_relation_endpoints}" ]] ||
     fail "static export DOM Relation endpoints do not match companion manifest"
-  [[ "${manifest_source_supports}" == 'module-mvcc-consistent-read,rel-read-view-selects-version' ]] ||
+  [[ "${manifest_source_supports}" == 'module-consistent-read,rel-read-view-visibility' ]] ||
     fail "static export manifest source supports do not match canonical export"
 
   for screenshot_contract in \
