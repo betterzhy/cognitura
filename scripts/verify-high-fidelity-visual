@@ -1667,6 +1667,53 @@ write_hvd04_selector_probe() {
         const content = targetDocument.defaultView.getComputedStyle(exportTitle, pseudo).content;
         return ["none", "normal", "", "\"\"", "''"].includes(content);
       };
+      const titleRegionIsTopmost = exportTitleRects.every(function (rect) {
+        const sampleAxis = function (start, end) {
+          const points = [];
+          const first = Math.ceil(start) + 1;
+          const last = Math.floor(end) - 1;
+          for (let point = first; point <= last; point += 6) {
+            points.push(point);
+          }
+          if (last >= first && points[points.length - 1] !== last) {
+            points.push(last);
+          }
+          return points;
+        };
+        return sampleAxis(rect.left, rect.right).every(function (x) {
+          return sampleAxis(rect.top, rect.bottom).every(function (y) {
+            return targetDocument.elementFromPoint(x, y) === exportTitle;
+          });
+        });
+      });
+      const rectanglesOverlap = function (left, right) {
+        return Math.min(left.right, right.right) - Math.max(left.left, right.left) > 0.5 &&
+          Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > 0.5;
+      };
+      const titleHasNoExternalOverlap = Array.from(targetDocument.body.querySelectorAll("*")).every(
+        function (element) {
+          if (element.contains(exportTitle) || exportTitle.contains(element)) {
+            return true;
+          }
+          const style = targetDocument.defaultView.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          if (style.display === "none" || style.visibility !== "visible" ||
+              Number(style.opacity) < 0.01 || rect.width <= 0.5 || rect.height <= 0.5) {
+            return true;
+          }
+          return exportTitleRects.every(function (titleRect) {
+            return !rectanglesOverlap(rect, titleRect);
+          });
+        }
+      );
+      const exportHasNoGeneratedPaintLayers = [root].concat(Array.from(root.querySelectorAll("*"))).every(
+        function (element) {
+          return ["::before", "::after"].every(function (pseudo) {
+            const style = targetDocument.defaultView.getComputedStyle(element, pseudo);
+            return ["none", "normal"].includes(style.content);
+          });
+        }
+      );
       const exportTitleFontSize = Number.parseFloat(exportTitleStyle.fontSize);
       const exportTitleLineHeight = Number.parseFloat(exportTitleStyle.lineHeight);
       const exportTitleHasReadableMetrics = exportTitleFontSize >= 48 &&
@@ -1692,7 +1739,8 @@ write_hvd04_selector_probe() {
         exportTitle.children.length === 0 && exportTitle.childNodes.length === 1 &&
         exportTitle.childNodes[0].nodeType === targetDocument.defaultView.Node.TEXT_NODE &&
         generatedContentIsAbsent("::before") && generatedContentIsAbsent("::after") &&
-        exportTitleHasReadableMetrics &&
+        titleRegionIsTopmost && titleHasNoExternalOverlap &&
+        exportHasNoGeneratedPaintLayers && exportTitleHasReadableMetrics &&
         exportTitleRects.every(function (rect) {
           return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
         }) && isRendered(exportTitle) && isRendered(exportHeader) && titleAncestorsPreserveVisibility() &&

@@ -420,6 +420,16 @@ expect_hvd02_dom_failure "${static_blended_title}" static-export \
   static-export-example.png \
   'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
 
+static_occluded_title="${test_tmp_root}/static-occluded-title"
+make_fixture "${static_occluded_title}"
+sed -i.bak \
+  's#<h1>一致性读：从观察边界到可见版本</h1>#<h1>一致性读：从观察边界到可见版本</h1><span aria-hidden="true" style="position: fixed; left: 100px; top: 145px; width: 800px; height: 90px; z-index: 99; background: rgb(255, 253, 248);"></span>#' \
+  "${static_occluded_title}/prototype/index.html"
+rm "${static_occluded_title}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_occluded_title}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
+
 small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
 make_fixture "${small_noninteractive_close}"
 sed -i.bak \
@@ -1201,7 +1211,7 @@ expect_hvd02_dom_failure "${small_hidden_core_text}" module-small-screen \
 
 static_visible_raw_id="${test_tmp_root}/static-visible-raw-id"
 make_fixture "${static_visible_raw_id}"
-sed -i.bak 's#一致性读：从观察边界到可见版本</h1>#一致性读：从观察边界到可见版本</h1><span>landscape-data-systems</span>#' \
+sed -i.bak 's#technical IDs stay silent in normal reading.#technical IDs stay silent in normal reading. landscape-data-systems#' \
   "${static_visible_raw_id}/prototype/index.html"
 rm "${static_visible_raw_id}/prototype/index.html.bak"
 expect_hvd02_dom_failure "${static_visible_raw_id}" static-export \
@@ -1302,4 +1312,5 @@ printf 'HV-D04FixRound7NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound8NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound9NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound10NegativeFixtureCount = 1\n'
-printf 'NegativeFixtureCount = 136\n'
+printf 'HV-D04FixRound11NegativeFixtureCount = 1\n'
+printf 'NegativeFixtureCount = 137\n'
