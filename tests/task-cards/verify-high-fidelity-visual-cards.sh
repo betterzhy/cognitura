@@ -460,6 +460,16 @@ expect_hvd02_dom_failure "${static_custom_highlight_title}" static-export \
   static-export-example.png \
   'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
 
+static_selection_highlight_title="${test_tmp_root}/static-selection-highlight-title"
+make_fixture "${static_selection_highlight_title}"
+sed -i.bak \
+  's#<h1>一致性读：从观察边界到可见版本</h1>#<h1>一致性读：从观察边界到可见版本</h1><style>::selection { color: rgb(255, 253, 248); background-color: rgb(255, 253, 248); }</style><script>const selectedTitle = document.querySelector(".export-header h1"); const selectedRange = new Range(); selectedRange.selectNodeContents(selectedTitle); const titleSelection = window.getSelection(); titleSelection.removeAllRanges(); titleSelection.addRange(selectedRange);</script>#' \
+  "${static_selection_highlight_title}/prototype/index.html"
+rm "${static_selection_highlight_title}/prototype/index.html.bak"
+expect_hvd02_dom_failure "${static_selection_highlight_title}" static-export \
+  static-export-example.png \
+  'static-export browser selector probe data-probe-title-visible-complete must be true, got false'
+
 small_noninteractive_close="${test_tmp_root}/small-noninteractive-close"
 make_fixture "${small_noninteractive_close}"
 sed -i.bak \
@@ -1346,4 +1356,5 @@ printf 'HV-D04FixRound11NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound12NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound13NegativeFixtureCount = 1\n'
 printf 'HV-D04FixRound14NegativeFixtureCount = 1\n'
-printf 'NegativeFixtureCount = 140\n'
+printf 'HV-D04FixRound15NegativeFixtureCount = 1\n'
+printf 'NegativeFixtureCount = 141\n'

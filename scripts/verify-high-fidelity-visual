@@ -1760,6 +1760,9 @@ write_hvd04_selector_probe() {
         targetDocument.defaultView.CSS.highlights;
       const exportHasNoCustomHighlightPaint = !customHighlightRegistry ||
         customHighlightRegistry.size === 0;
+      const exportSelection = targetDocument.defaultView.getSelection();
+      const exportHasNoSelectionHighlightPaint = !exportSelection ||
+        exportSelection.rangeCount === 0 || exportSelection.isCollapsed;
       let exportHasNoTopLayerOcclusion = targetDocument.fullscreenElement === null;
       try {
         exportHasNoTopLayerOcclusion = exportHasNoTopLayerOcclusion &&
@@ -1794,7 +1797,7 @@ write_hvd04_selector_probe() {
         generatedContentIsAbsent("::before") && generatedContentIsAbsent("::after") &&
         titleRegionIsTopmost && titleHasNoExternalOverlap &&
         exportHasNoGeneratedPaintLayers && exportHasNoCustomHighlightPaint &&
-        exportHasNoTopLayerOcclusion &&
+        exportHasNoSelectionHighlightPaint && exportHasNoTopLayerOcclusion &&
         exportTitleHasReadableMetrics &&
         exportTitleRects.every(function (rect) {
           return rect.left >= exportTitleRect.left && rect.right <= exportTitleRect.right;
