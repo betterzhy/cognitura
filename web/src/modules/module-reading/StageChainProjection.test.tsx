@@ -13,7 +13,7 @@ const rendererInput: RendererInput = {
   nodes: [
     {
       nodeId: "renderer-node.mvcc.1",
-      artifactRef: "spine-step.mvcc.1",
+      artifactRef: "module.mvcc",
       contentPath: "/primaryCognitiveSpine/steps/0",
       label: "Create a version",
       summary: "Preserve a historical record state.",
@@ -22,7 +22,7 @@ const rendererInput: RendererInput = {
     },
     {
       nodeId: "renderer-node.mvcc.2",
-      artifactRef: "spine-step.mvcc.2",
+      artifactRef: "module.mvcc",
       contentPath: "/primaryCognitiveSpine/steps/1",
       label: "Select visibility",
       summary: "Choose the newest visible version.",
