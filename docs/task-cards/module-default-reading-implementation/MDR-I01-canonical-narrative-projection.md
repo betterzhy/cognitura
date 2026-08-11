@@ -3,7 +3,8 @@
 ```text
 TaskCardID = MDR-I01
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
+Status = GOVERNED_BY_EXECUTION_STATE
+ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 Gate = MDR-IG1 CanonicalNarrativeProjection
 Risk = HIGH
 DependsOn = MDR-I00
@@ -24,7 +25,8 @@ ReviewRoute = deep_reviewer
 ## 2. 前置条件与输入
 
 - `MDR-I00` 固定提交审查为零发现。
-- 用户另行明确授权并释放本卡。
+- execution-state 账本已记录 `MDR-I00` 的固定 SHA 零发现收据，并把本卡投影为唯一
+  活动且已释放卡。
 - 字段唯一来源为 `schemas/cognition/cognitive-module.schema.json` 与
   `schemas/cognition/primary-cognitive-spine.schema.json`。
 
@@ -96,4 +98,4 @@ git commit -m "feat: project canonical module reading narrative"
 ```
 
 新的 `deep_reviewer` 对固定 SHA 审查 Canonical 来源、顺序和 fail-closed 边界；只有
-零发现 GO 才能关闭本卡，不自动释放下一卡。
+零发现 GO 写入账本单文件状态提交后，才自动释放唯一后继 `MDR-I02`。

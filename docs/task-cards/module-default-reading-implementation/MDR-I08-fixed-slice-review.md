@@ -3,7 +3,8 @@
 ```text
 TaskCardID = MDR-I08
 CardKind = FIXED_CANDIDATE_REVIEW
-Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
+Status = GOVERNED_BY_EXECUTION_STATE
+ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 Gate = MDR-IG8 FixedSliceReview
 Risk = HIGH
 DependsOn = MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07
@@ -23,7 +24,8 @@ ReviewRoute = ultra_gatekeeper
 ## 2. 前置条件与输入
 
 前八卡各自的固定提交均已由独立 `deep_reviewer` 给出
-`GO / P0=0 / P1=0 / P2=0`，工作区只保留 `.idea/`。
+`GO / P0=0 / P1=0 / P2=0`，execution-state 账本已记录完整严格前缀并把本卡投影为
+唯一活动且已释放卡，工作区只保留 `.idea/`。
 
 ## 3. 精确写集
 

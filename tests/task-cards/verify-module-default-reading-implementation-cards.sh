@@ -17,16 +17,89 @@ fail() {
   exit 1
 }
 
-expect_failure() {
-  local fixture_dir="$1"
-  local expected_message="$2"
+negative_cases=0
+
+expect_failure_with_verifier() {
+  local fixture_verifier="$1"
+  local fixture_dir="$2"
+  local expected_message="$3"
   local output
 
-  if output="$("${verifier}" --cards-dir "${fixture_dir}" 2>&1)"; then
+  if output="$("${fixture_verifier}" --cards-dir "${fixture_dir}" 2>&1)"; then
     fail "invalid fixture unexpectedly passed: ${fixture_dir}"
   fi
   [[ "${output}" == *"${expected_message}"* ]] ||
     fail "expected error '${expected_message}', got: ${output}"
+  negative_cases=$((negative_cases + 1))
+}
+
+expect_failure() {
+  local fixture_dir="$1"
+  local expected_message="$2"
+  expect_failure_with_verifier "${verifier}" "${fixture_dir}" "${expected_message}"
+}
+
+set_state_field() {
+  local state_file="$1"
+  local field="$2"
+  local value="$3"
+  sed -i.bak "s#^${field} = .*\$#${field} = ${value}#" "${state_file}"
+  rm "${state_file}.bak"
+}
+
+make_activation_state() {
+  local fixture_dir="$1"
+  local state_file="${fixture_dir}/execution-state.md"
+  local governance_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+  set_state_field "${state_file}" "GovernanceBootstrapStatus" "PASS"
+  set_state_field "${state_file}" "GovernanceReviewedCandidateSHA" "${governance_sha}"
+  set_state_field "${state_file}" "GovernanceReviewVerdict" "GO_P0_0_P1_0_P2_0"
+  set_state_field "${state_file}" "SetAuthorizationStatus" "USER_AUTHORIZED"
+  set_state_field "${state_file}" "TaskCardSetStatus" "IN_PROGRESS"
+  set_state_field "${state_file}" "ActiveImplementationTaskCard" "MDR-I00"
+  set_state_field "${state_file}" "ReleasedTaskCard" "MDR-I00"
+  set_state_field "${state_file}" "NextImplementationTaskCard" "MDR-I00"
+  set_state_field "${state_file}" "TransitionSequence" "1"
+  set_state_field "${state_file}" "TransitionKind" "ACTIVATE_SET"
+  set_state_field "${state_file}" "TransitionBaseSHA" "${governance_sha}"
+  set_state_field "${state_file}" "BusinessImplementation" "AUTHORIZED_FOR_MDR_I00_I08"
+}
+
+make_i00_advance_state() {
+  local fixture_dir="$1"
+  local state_file="${fixture_dir}/execution-state.md"
+  local candidate_sha="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+  make_activation_state "${fixture_dir}"
+  set_state_field "${state_file}" "CompletedTaskCards" "MDR-I00"
+  set_state_field "${state_file}" "CurrentCandidateSHA" "${candidate_sha}"
+  set_state_field "${state_file}" "CurrentGateStatus" "PASS"
+  set_state_field "${state_file}" "CurrentReviewRoute" "deep_reviewer"
+  set_state_field "${state_file}" "CurrentReviewVerdict" "GO_P0_0_P1_0_P2_0"
+  set_state_field "${state_file}" "ActiveImplementationTaskCard" "MDR-I01"
+  set_state_field "${state_file}" "ReleasedTaskCard" "MDR-I01"
+  set_state_field "${state_file}" "NextImplementationTaskCard" "MDR-I01"
+  set_state_field "${state_file}" "TransitionSequence" "2"
+  set_state_field "${state_file}" "TransitionKind" "ADVANCE"
+  set_state_field "${state_file}" "TransitionBaseSHA" "${candidate_sha}"
+}
+
+make_repo_fixture() {
+  local fixture_root="$1"
+  mkdir -p \
+    "${fixture_root}/scripts" \
+    "${fixture_root}/docs/engineering" \
+    "${fixture_root}/docs/task-cards"
+  cp "${verifier}" "${fixture_root}/scripts/verify-module-default-reading-implementation-cards"
+  chmod +x "${fixture_root}/scripts/verify-module-default-reading-implementation-cards"
+  cp "${repo_root}/AGENTS.md" "${fixture_root}/AGENTS.md"
+  cp "${repo_root}/README.md" "${fixture_root}/README.md"
+  cp "${repo_root}/docs/engineering/cognitura-design-index.md" \
+    "${fixture_root}/docs/engineering/cognitura-design-index.md"
+  cp "${repo_root}/docs/task-cards/README.md" "${fixture_root}/docs/task-cards/README.md"
+  cp -R "${cards_dir}" \
+    "${fixture_root}/docs/task-cards/module-default-reading-implementation"
 }
 
 [[ -x "${verifier}" ]] || fail "ModuleDefaultReading task-card verifier is missing or not executable"
@@ -37,12 +110,14 @@ canonical_output="$("${verifier}" --cards-dir "${cards_dir}")" ||
 for expected_line in \
   "ModuleDefaultReadingTaskCardValidation = PASS" \
   "TaskCardCount = 9" \
-  "TaskCardSetStatus = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION" \
+  "ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md" \
+  "GovernanceBootstrapStatus = AWAITING_FIXED_COMMIT_REVIEW" \
+  "SetAuthorizationStatus = USER_AUTHORIZED_AWAITING_GOVERNANCE_BOOTSTRAP" \
+  "TaskCardSetStatus = USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW" \
   "ActiveImplementationTaskCard = NONE" \
   "ReleasedTaskCard = NONE" \
-  "DocumentationGap = DOC-GAP-MDR-001" \
-  "WrittenTaskCardReview = USER_APPROVED" \
-  "ApprovedBlockedCardCount = 9" \
+  "CompletedTaskCards = NONE" \
+  "NextImplementationTaskCard = MDR-I00" \
   "ReadyTaskCardCount = 0"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
@@ -51,31 +126,31 @@ done
 second_status_dir="${test_tmp_root}/second-status"
 cp -R "${cards_dir}" "${second_status_dir}"
 sed -i.bak \
-  's/^Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION$/Status = READY/' \
+  's/^Status = GOVERNED_BY_EXECUTION_STATE$/Status = READY/' \
   "${second_status_dir}/MDR-I00-web-test-foundation.md"
 rm "${second_status_dir}/MDR-I00-web-test-foundation.md.bak"
 expect_failure \
   "${second_status_dir}" \
-  "all cards must remain blocked until separate business implementation authorization"
+  "Status must be GOVERNED_BY_EXECUTION_STATE"
 
 active_card_dir="${test_tmp_root}/active-card"
 cp -R "${cards_dir}" "${active_card_dir}"
 sed -i.bak \
   's/^ActiveImplementationTaskCard = NONE$/ActiveImplementationTaskCard = MDR-I00/' \
-  "${active_card_dir}/README.md"
-rm "${active_card_dir}/README.md.bak"
+  "${active_card_dir}/execution-state.md"
+rm "${active_card_dir}/execution-state.md.bak"
 expect_failure \
   "${active_card_dir}" \
-  "ActiveImplementationTaskCard must be NONE before separate business implementation authorization"
+  "bootstrap pending state cannot release a card"
 
 released_card_dir="${test_tmp_root}/released-card"
 cp -R "${cards_dir}" "${released_card_dir}"
 sed -i.bak 's/^ReleasedTaskCard = NONE$/ReleasedTaskCard = MDR-I00/' \
-  "${released_card_dir}/README.md"
-rm "${released_card_dir}/README.md.bak"
+  "${released_card_dir}/execution-state.md"
+rm "${released_card_dir}/execution-state.md.bak"
 expect_failure \
   "${released_card_dir}" \
-  "ReleasedTaskCard must be NONE before separate business implementation authorization"
+  "bootstrap pending state cannot release a card"
 
 missing_gap_dir="${test_tmp_root}/missing-gap"
 cp -R "${cards_dir}" "${missing_gap_dir}"
@@ -86,12 +161,12 @@ expect_failure "${missing_gap_dir}" "missing required field: DocumentationGap"
 stale_set_approval_dir="${test_tmp_root}/stale-set-approval"
 cp -R "${cards_dir}" "${stale_set_approval_dir}"
 sed -i.bak \
-  's/^TaskCardSetStatus = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION$/TaskCardSetStatus = PLANNED_AWAITING_USER_APPROVAL/' \
-  "${stale_set_approval_dir}/README.md"
-rm "${stale_set_approval_dir}/README.md.bak"
+  's/^TaskCardSetStatus = USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW$/TaskCardSetStatus = PLANNED_AWAITING_USER_APPROVAL/' \
+  "${stale_set_approval_dir}/execution-state.md"
+rm "${stale_set_approval_dir}/execution-state.md.bak"
 expect_failure \
   "${stale_set_approval_dir}" \
-  "TaskCardSetStatus must record user approval without granting implementation"
+  "unsupported TaskCardSetStatus"
 
 stale_written_review_dir="${test_tmp_root}/stale-written-review"
 cp -R "${cards_dir}" "${stale_written_review_dir}"
@@ -101,30 +176,30 @@ sed -i.bak \
 rm "${stale_written_review_dir}/README.md.bak"
 expect_failure \
   "${stale_written_review_dir}" \
-  "WrittenTaskCardReview must record USER_APPROVED"
+  "WrittenTaskCardReview must remain USER_APPROVED"
 
 release_gate_drift_dir="${test_tmp_root}/release-gate-drift"
 cp -R "${cards_dir}" "${release_gate_drift_dir}"
-sed -i.bak 's/^TaskCardRelease = FORBIDDEN$/TaskCardRelease = ALLOWED/' \
+sed -i.bak 's/^TaskCardRelease = GOVERNED_BY_EXECUTION_STATE$/TaskCardRelease = ALLOWED/' \
   "${release_gate_drift_dir}/README.md"
 rm "${release_gate_drift_dir}/README.md.bak"
 expect_failure \
   "${release_gate_drift_dir}" \
-  "TaskCardRelease must remain FORBIDDEN without separate implementation authorization"
+  "TaskCardRelease must reference execution-state authority"
 
 execution_gate_drift_dir="${test_tmp_root}/execution-gate-drift"
 cp -R "${cards_dir}" "${execution_gate_drift_dir}"
-sed -i.bak 's/^TaskCardExecution = FORBIDDEN$/TaskCardExecution = ALLOWED/' \
+sed -i.bak 's/^TaskCardExecution = GOVERNED_BY_EXECUTION_STATE$/TaskCardExecution = ALLOWED/' \
   "${execution_gate_drift_dir}/README.md"
 rm "${execution_gate_drift_dir}/README.md.bak"
 expect_failure \
   "${execution_gate_drift_dir}" \
-  "TaskCardExecution must remain FORBIDDEN without separate implementation authorization"
+  "TaskCardExecution must reference execution-state authority"
 
 index_table_status_drift_dir="${test_tmp_root}/index-table-status-drift"
 cp -R "${cards_dir}" "${index_table_status_drift_dir}"
 sed -i.bak \
-  's/| `MDR-I00` | \([^|]*\) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` |/| `MDR-I00` | \1 | `BLOCKED_BY_USER_APPROVAL` |/' \
+  's/| `MDR-I00` | \([^|]*\) | `GOVERNED_BY_EXECUTION_STATE` |/| `MDR-I00` | \1 | `BLOCKED_BY_USER_APPROVAL` |/' \
   "${index_table_status_drift_dir}/README.md"
 rm "${index_table_status_drift_dir}/README.md.bak"
 expect_failure \
@@ -234,7 +309,7 @@ sed -i.bak '/^git commit -m /a\
 git push origin HEAD\
 ' "${remote_push_command_dir}/MDR-I01-canonical-narrative-projection.md"
 rm "${remote_push_command_dir}/MDR-I01-canonical-narrative-projection.md.bak"
-expect_failure "${remote_push_command_dir}" "remote push command is forbidden"
+expect_failure "${remote_push_command_dir}" "amend or remote push command is forbidden"
 
 missing_unified_entry_dir="${test_tmp_root}/missing-unified-entry"
 cp -R "${cards_dir}" "${missing_unified_entry_dir}"
@@ -302,7 +377,286 @@ expect_failure \
   "${composition_order_drift_dir}" \
   "MDR-I07 must retain the formal ModuleReading projection order"
 
+missing_state_dir="${test_tmp_root}/missing-execution-state"
+cp -R "${cards_dir}" "${missing_state_dir}"
+rm "${missing_state_dir}/execution-state.md"
+expect_failure "${missing_state_dir}" "execution-state authority is missing"
+
+duplicate_central_state_root="${test_tmp_root}/duplicate-central-state-root"
+make_repo_fixture "${duplicate_central_state_root}"
+sed -i.bak \
+  's/^ModuleDefaultReadingActiveImplementationTaskCard = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE$/ModuleDefaultReadingActiveImplementationTaskCard = MDR-I00/' \
+  "${duplicate_central_state_root}/AGENTS.md"
+rm "${duplicate_central_state_root}/AGENTS.md.bak"
+expect_failure_with_verifier \
+  "${duplicate_central_state_root}/scripts/verify-module-default-reading-implementation-cards" \
+  "${duplicate_central_state_root}/docs/task-cards/module-default-reading-implementation" \
+  "AGENTS.md: ModuleDefaultReadingActiveImplementationTaskCard must reference execution-state authority"
+
+legacy_compatible_root="${test_tmp_root}/legacy-compatible-root"
+make_repo_fixture "${legacy_compatible_root}"
+"${legacy_compatible_root}/scripts/verify-module-default-reading-implementation-cards" \
+  --cards-dir \
+  "${legacy_compatible_root}/docs/task-cards/module-default-reading-implementation" >/dev/null ||
+  fail "legacy visual terminal fields plus MDR namespaced authority pointers were rejected"
+
+activation_dir="${test_tmp_root}/valid-activation"
+cp -R "${cards_dir}" "${activation_dir}"
+make_activation_state "${activation_dir}"
+activation_output="$("${verifier}" --cards-dir "${activation_dir}")" ||
+  fail "valid MDR-I00 activation state was rejected"
+[[ "${activation_output}" == *"ActiveImplementationTaskCard = MDR-I00"* ]] ||
+  fail "valid activation output did not expose MDR-I00"
+
+missing_set_authorization_dir="${test_tmp_root}/missing-set-authorization"
+cp -R "${activation_dir}" "${missing_set_authorization_dir}"
+set_state_field \
+  "${missing_set_authorization_dir}/execution-state.md" \
+  "SetAuthorizationStatus" \
+  "USER_AUTHORIZED_AWAITING_GOVERNANCE_BOOTSTRAP"
+expect_failure "${missing_set_authorization_dir}" "set authorization is required before activation"
+
+missing_bootstrap_review_dir="${test_tmp_root}/missing-bootstrap-review"
+cp -R "${activation_dir}" "${missing_bootstrap_review_dir}"
+set_state_field \
+  "${missing_bootstrap_review_dir}/execution-state.md" \
+  "GovernanceReviewVerdict" \
+  "NOT_RUN"
+expect_failure "${missing_bootstrap_review_dir}" "governance review must be zero-finding GO"
+
+invalid_bootstrap_sha_dir="${test_tmp_root}/invalid-bootstrap-sha"
+cp -R "${activation_dir}" "${invalid_bootstrap_sha_dir}"
+set_state_field \
+  "${invalid_bootstrap_sha_dir}/execution-state.md" \
+  "GovernanceReviewedCandidateSHA" \
+  "abc123"
+expect_failure \
+  "${invalid_bootstrap_sha_dir}" \
+  "governance reviewed candidate must be a 40-character SHA"
+
+second_active_dir="${test_tmp_root}/second-active"
+cp -R "${activation_dir}" "${second_active_dir}"
+set_state_field "${second_active_dir}/execution-state.md" "ReleasedTaskCard" "MDR-I01"
+expect_failure \
+  "${second_active_dir}" \
+  "in-progress state must have exactly one identical active and released card"
+
+advance_dir="${test_tmp_root}/valid-i00-advance"
+cp -R "${cards_dir}" "${advance_dir}"
+make_i00_advance_state "${advance_dir}"
+advance_output="$("${verifier}" --cards-dir "${advance_dir}")" ||
+  fail "valid MDR-I00 advance state was rejected"
+[[ "${advance_output}" == *"ActiveImplementationTaskCard = MDR-I01"* ]] ||
+  fail "valid advance output did not expose MDR-I01"
+
+skipped_prefix_dir="${test_tmp_root}/skipped-prefix"
+cp -R "${advance_dir}" "${skipped_prefix_dir}"
+set_state_field \
+  "${skipped_prefix_dir}/execution-state.md" \
+  "CompletedTaskCards" \
+  "MDR-I01"
+expect_failure "${skipped_prefix_dir}" "CompletedTaskCards must be a strict MDR prefix"
+
+review_finding_advance_dir="${test_tmp_root}/review-finding-advance"
+cp -R "${advance_dir}" "${review_finding_advance_dir}"
+set_state_field \
+  "${review_finding_advance_dir}/execution-state.md" \
+  "CurrentReviewVerdict" \
+  "NO_GO_P1_1"
+expect_failure \
+  "${review_finding_advance_dir}" \
+  "advance requires zero-finding review GO"
+
+receipt_sha_mismatch_dir="${test_tmp_root}/receipt-sha-mismatch"
+cp -R "${advance_dir}" "${receipt_sha_mismatch_dir}"
+set_state_field \
+  "${receipt_sha_mismatch_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "cccccccccccccccccccccccccccccccccccccccc"
+expect_failure \
+  "${receipt_sha_mismatch_dir}" \
+  "review receipt candidate SHA must match TransitionBaseSHA"
+
+push_in_state_dir="${test_tmp_root}/push-in-state"
+cp -R "${cards_dir}" "${push_in_state_dir}"
+printf '%s\n' 'git push origin HEAD' >> "${push_in_state_dir}/execution-state.md"
+expect_failure "${push_in_state_dir}" "amend or remote push is forbidden"
+
+forbidden_transition_path_dir="${test_tmp_root}/forbidden-transition-path"
+cp -R "${cards_dir}" "${forbidden_transition_path_dir}"
+printf '%s\n' \
+  'TransitionWritePath = server/src/main/java/io/cognitura/Forbidden.java' >> \
+  "${forbidden_transition_path_dir}/execution-state.md"
+expect_failure \
+  "${forbidden_transition_path_dir}" \
+  "transition WriteSet must contain only execution-state.md"
+
+stopped_active_dir="${test_tmp_root}/stopped-active"
+cp -R "${activation_dir}" "${stopped_active_dir}"
+set_state_field "${stopped_active_dir}/execution-state.md" "TaskCardSetStatus" "STOPPED_BY_USER"
+expect_failure \
+  "${stopped_active_dir}" \
+  "blocked or stopped state cannot retain an active card"
+
+gap_active_dir="${test_tmp_root}/gap-active"
+cp -R "${activation_dir}" "${gap_active_dir}"
+set_state_field \
+  "${gap_active_dir}/execution-state.md" \
+  "TaskCardSetStatus" \
+  "BLOCKED_BY_DOCUMENTATION_GAP"
+expect_failure \
+  "${gap_active_dir}" \
+  "blocked or stopped state cannot retain an active card"
+
+final_no_go_successor_dir="${test_tmp_root}/final-no-go-successor"
+cp -R "${advance_dir}" "${final_no_go_successor_dir}"
+set_state_field \
+  "${final_no_go_successor_dir}/execution-state.md" \
+  "CompletedTaskCards" \
+  "MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07"
+set_state_field "${final_no_go_successor_dir}/execution-state.md" "TaskCardSetStatus" "FINAL_NO_GO"
+set_state_field "${final_no_go_successor_dir}/execution-state.md" "CurrentGateStatus" "NO_GO"
+set_state_field "${final_no_go_successor_dir}/execution-state.md" "CurrentReviewRoute" "ultra_gatekeeper"
+set_state_field "${final_no_go_successor_dir}/execution-state.md" "CurrentReviewVerdict" "NO_GO"
+set_state_field "${final_no_go_successor_dir}/execution-state.md" "TransitionSequence" "10"
+set_state_field "${final_no_go_successor_dir}/execution-state.md" "TransitionKind" "FINAL_NO_GO"
+expect_failure \
+  "${final_no_go_successor_dir}" \
+  "FINAL_NO_GO cannot release a successor"
+
+complete_downstream_release_dir="${test_tmp_root}/complete-downstream-release"
+cp -R "${cards_dir}" "${complete_downstream_release_dir}"
+printf '%s\n' \
+  'TransitionWritePath = docs/task-cards/wave-1-implementation/W1-I00-implementation-governance.md' >> \
+  "${complete_downstream_release_dir}/execution-state.md"
+expect_failure \
+  "${complete_downstream_release_dir}" \
+  "transition WriteSet must contain only execution-state.md"
+
+transition_repo_root="${test_tmp_root}/fixed-transition-repo"
+make_repo_fixture "${transition_repo_root}"
+git -C "${transition_repo_root}" init -q
+git -C "${transition_repo_root}" config user.name "Cognitura Contract Test"
+git -C "${transition_repo_root}" config user.email "contract-test@cognitura.invalid"
+git -C "${transition_repo_root}" add .
+git -C "${transition_repo_root}" commit -qm "test: fix pending governance state"
+bootstrap_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
+transition_cards_dir="${transition_repo_root}/docs/task-cards/module-default-reading-implementation"
+transition_verifier="${transition_repo_root}/scripts/verify-module-default-reading-implementation-cards"
+make_activation_state "${transition_cards_dir}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "GovernanceReviewedCandidateSHA" \
+  "${bootstrap_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "${bootstrap_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: activate test MDR set"
+activation_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${transition_verifier}" \
+  --cards-dir "${transition_cards_dir}" \
+  --transition-base "${bootstrap_sha}" \
+  --transition-head "${activation_sha}" >/dev/null ||
+  fail "valid fixed activation transition was rejected"
+
+mkdir -p "${transition_repo_root}/web"
+printf '%s\n' '{"private":true}' > "${transition_repo_root}/web/package.json"
+git -C "${transition_repo_root}" add web/package.json
+git -C "${transition_repo_root}" commit -qm "test: fix MDR-I00 business candidate"
+business_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
+make_i00_advance_state "${transition_cards_dir}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "GovernanceReviewedCandidateSHA" \
+  "${bootstrap_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "CurrentCandidateSHA" \
+  "${business_candidate_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "${business_candidate_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: advance test MDR state"
+advance_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${transition_verifier}" \
+  --cards-dir "${transition_cards_dir}" \
+  --transition-base "${business_candidate_sha}" \
+  --transition-head "${advance_sha}" >/dev/null ||
+  fail "valid fixed advance transition was rejected"
+
+git -C "${transition_repo_root}" switch -qc invalid-business-transition "${business_candidate_sha}"
+make_i00_advance_state "${transition_cards_dir}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "GovernanceReviewedCandidateSHA" \
+  "${bootstrap_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "CurrentCandidateSHA" \
+  "${business_candidate_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "${business_candidate_sha}"
+mkdir -p "${transition_repo_root}/web/src"
+printf '%s\n' 'export const leaked = true;' > "${transition_repo_root}/web/src/leaked.ts"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md \
+  web/src/leaked.ts
+git -C "${transition_repo_root}" commit -qm "test: leak business file into transition"
+invalid_business_transition_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${business_candidate_sha}" \
+    --transition-head "${invalid_business_transition_sha}" 2>&1
+)" && fail "business-file transition unexpectedly passed"
+[[ "${transition_output}" == *"state transition fixed diff must contain only execution-state.md"* ]] ||
+  fail "business-file transition returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -qc invalid-card-transition "${business_candidate_sha}"
+make_i00_advance_state "${transition_cards_dir}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "GovernanceReviewedCandidateSHA" \
+  "${bootstrap_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "CurrentCandidateSHA" \
+  "${business_candidate_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "${business_candidate_sha}"
+printf '\n' >> "${transition_cards_dir}/MDR-I00-web-test-foundation.md"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md \
+  docs/task-cards/module-default-reading-implementation/MDR-I00-web-test-foundation.md
+git -C "${transition_repo_root}" commit -qm "test: leak card file into transition"
+invalid_card_transition_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${business_candidate_sha}" \
+    --transition-head "${invalid_card_transition_sha}" 2>&1
+)" && fail "card-file transition unexpectedly passed"
+[[ "${transition_output}" == *"state transition fixed diff must contain only execution-state.md"* ]] ||
+  fail "card-file transition returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardContractTests = PASS" \
-  "NegativeCases = 29" \
-  "ApprovedUnauthorizedTerminalCases = 1"
+  "NegativeCases = ${negative_cases}" \
+  "PendingGovernanceTerminalCases = 1" \
+  "ValidActivationCases = 1" \
+  "ValidAdvanceCases = 1" \
+  "ValidFixedTransitionCases = 2"

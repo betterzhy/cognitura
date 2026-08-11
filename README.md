@@ -34,9 +34,12 @@ Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
-ModuleDefaultReadingImplementationTaskCardSet = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION
+ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
+ModuleDefaultReadingImplementationTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingImplementationTaskCardCount = 9
-ModuleDefaultReadingImplementationEntry = BUSINESS_IMPLEMENTATION_AUTHORIZATION_REQUIRED
+ModuleDefaultReadingImplementationEntry = GOVERNED_BY_EXECUTION_STATE
+ModuleDefaultReadingActiveImplementationTaskCard = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
+ModuleDefaultReadingBusinessImplementation = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
 ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 HighFidelityDesignTaskCardSet = COMPLETE
 HighFidelityDesignStatus = COMPLETE
@@ -169,7 +172,10 @@ fixture 治理与 1440×1100 基础截图，`HV-D01` 已完成机制型 Module �
 业务实现、正式数据库写入或远程推送。
 [`cognitura-development-entry-prompt.md`](docs/engineering/cognitura-development-entry-prompt.md)
 已用于建立首个 Module 默认阅读书面实现任务卡规划，卡片文本现已获用户批准。
-在用户另行明确授权业务实现并指定唯一卡前，必须停止在实现授权门，不得直接进入代码。
+运行态、集合级授权和唯一活动卡只从
+`docs/task-cards/module-default-reading-implementation/execution-state.md` 读取；中央文档
+不复制 Active/READY/DONE 事实。只有账本证明治理 bootstrap 零发现 GO 后，才按其
+唯一活动卡进入代码。
 
 ## 当前准入
 
@@ -202,9 +208,8 @@ Wave 1 书面详细设计和 14 张中细粒度实现切片规格均已获用户
 bootstrap 计划已准备完成；其执行仍不授权 W1-I01 业务实现。
 
 首个 `ModuleDefaultReadingState` 已另行规划为 `MDR-I00..MDR-I08` 九张小卡，避免
-覆盖上述 Wave 1 source work。该集合的书面文本已获用户批准，九卡全部
-`BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION`，
-`ActiveImplementationTaskCard = NONE`。它只规划可复用前端投影切片，不接路由、
-HTTP、后端、持久化或 Schema；卡片文本获批不自动构成业务实现授权。
+覆盖上述 Wave 1 source work。该集合的书面文本和自动串行治理规格已获用户批准；
+九卡的当前状态、集合级授权和唯一活动卡只由 execution-state 账本投影。它只规划
+可复用前端投影切片，不接路由、HTTP、后端、持久化或 Schema。
 `DOC-GAP-MDR-001` 明确阻断完整默认阅读验收中的 Conditions/Results
 Canonical 映射，但不阻断当前受限投影切片；若需要字段变更，必须另建 Schema 卡。

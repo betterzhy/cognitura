@@ -3,7 +3,8 @@
 ```text
 TaskCardID = MDR-I04
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
+Status = GOVERNED_BY_EXECUTION_STATE
+ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 Gate = MDR-IG4 StageChainRendererProjection
 Risk = HIGH
 DependsOn = MDR-I03
@@ -23,7 +24,8 @@ ReviewRoute = deep_reviewer
 
 ## 2. 前置条件与输入
 
-`MDR-I03` 固定提交审查为零发现；输入服从现有
+execution-state 账本已记录 `MDR-I03` 固定提交零发现收据，并把本卡投影为唯一活动且
+已释放卡；输入服从现有
 `schemas/ui/renderer-input.schema.json`。
 
 ## 3. 精确写集

@@ -3,7 +3,8 @@
 ```text
 TaskCardID = MDR-I07
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
+Status = GOVERNED_BY_EXECUTION_STATE
+ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 Gate = MDR-IG7 ReadingFirstComposition
 Risk = HIGH
 DependsOn = MDR-I06
@@ -25,7 +26,8 @@ CompositionOrder = CORE_THESIS_SPINE_RENDERER_BOUNDARIES_ELEMENTS_RELATIONS_SOUR
 
 ## 2. 前置条件与输入
 
-`MDR-I06` 固定提交审查为零发现；用户单独释放本卡。
+execution-state 账本已记录 `MDR-I06` 固定提交零发现收据，并把本卡投影为唯一活动且
+已释放卡。
 
 ## 3. 精确写集
 

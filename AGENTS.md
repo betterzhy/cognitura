@@ -29,9 +29,12 @@ Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
-ModuleDefaultReadingImplementationTaskCardSet = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION
+ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
+ModuleDefaultReadingImplementationTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingImplementationTaskCardCount = 9
-ModuleDefaultReadingImplementationEntry = BUSINESS_IMPLEMENTATION_AUTHORIZATION_REQUIRED
+ModuleDefaultReadingImplementationEntry = GOVERNED_BY_EXECUTION_STATE
+ModuleDefaultReadingActiveImplementationTaskCard = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
+ModuleDefaultReadingBusinessImplementation = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
 ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 HighFidelityDesignTaskCardSet = COMPLETE
 HighFidelityDesignStatus = COMPLETE
@@ -87,10 +90,11 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 创建或释放 `W1-I00`、业务实现、正式数据库写入或远程推送。
 开发入口仅由 `docs/engineering/cognitura-development-entry-prompt.md` 提供下一会话的
 书面任务卡规划提示。该提示现已用于建立独立的 `MDR-I00..MDR-I08` 书面卡集；
-卡片文本现已获用户批准；全部卡仍为
-`BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION`，没有活动或已释放实现卡。该卡集
-不替代既有 Wave 1 source work；在用户另行明确授权业务实现并指定唯一卡前，不授权
-编写代码。
+卡片文本和自动串行治理规格现已获用户批准；唯一可变运行态由
+`docs/task-cards/module-default-reading-implementation/execution-state.md` 管理，中央索引
+和逐卡正文不得维护第二份 Active/READY/DONE 事实。该卡集不替代既有 Wave 1 source
+work；只有账本记录治理 bootstrap 固定提交零发现 GO 和集合级授权后，才允许按唯一
+活动卡编写代码。
 
 ## 3. 正式事实来源
 

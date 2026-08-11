@@ -2,8 +2,10 @@
 
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+
 usage() {
-  printf 'Usage: %s --cards-dir <path>\n' "$0" >&2
+  printf 'Usage: %s --cards-dir <path> [--transition-base <sha> --transition-head <sha>]\n' "$0" >&2
   exit 2
 }
 
@@ -13,11 +15,23 @@ fail() {
 }
 
 cards_dir=""
+transition_base=""
+transition_head=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --cards-dir)
       [[ "$#" -ge 2 ]] || usage
       cards_dir="$2"
+      shift 2
+      ;;
+    --transition-base)
+      [[ "$#" -ge 2 ]] || usage
+      transition_base="$2"
+      shift 2
+      ;;
+    --transition-head)
+      [[ "$#" -ge 2 ]] || usage
+      transition_head="$2"
       shift 2
       ;;
     *)
@@ -29,6 +43,11 @@ done
 [[ -n "${cards_dir}" ]] || usage
 [[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
 [[ -f "${cards_dir}/README.md" ]] || fail "task card index is missing: README.md"
+[[ -f "${cards_dir}/execution-state.md" ]] || fail "execution-state authority is missing"
+if [[ -n "${transition_base}" || -n "${transition_head}" ]]; then
+  [[ -n "${transition_base}" && -n "${transition_head}" ]] ||
+    fail "transition-base and transition-head must be provided together"
+fi
 
 field_value() {
   local file="$1"
@@ -36,21 +55,78 @@ field_value() {
   sed -n "s/^${field} = //p" "${file}"
 }
 
-index_field_value() {
-  local field="$1"
+one_field_value() {
+  local file="$1"
+  local field="$2"
+  local label="$3"
   local count
-  count="$(grep -c "^${field} = " "${cards_dir}/README.md" || true)"
-  [[ "${count}" -gt 0 ]] || fail "README.md: missing required field: ${field}"
-  [[ "${count}" -eq 1 ]] ||
-    fail "README.md: expected one ${field} field, found ${count}"
-  field_value "${cards_dir}/README.md" "${field}"
+  count="$(grep -c "^${field} = " "${file}" || true)"
+  [[ "${count}" -gt 0 ]] || fail "${label}: missing required field: ${field}"
+  [[ "${count}" -eq 1 ]] || fail "${label}: expected one ${field} field, found ${count}"
+  field_value "${file}" "${field}"
 }
+
+index_field_value() {
+  one_field_value "${cards_dir}/README.md" "$1" "README.md"
+}
+
+state_file="${cards_dir}/execution-state.md"
+state_value() {
+  one_field_value "${state_file}" "$1" "execution-state.md"
+}
+
+require_projection() {
+  local file="$1"
+  local field="$2"
+  local expected="$3"
+  local label="$4"
+  [[ -f "${file}" ]] || fail "missing central projection: ${label}"
+  [[ "$(one_field_value "${file}" "${field}" "${label}")" == "${expected}" ]] ||
+    fail "${label}: ${field} must reference execution-state authority"
+}
+
+for projection in \
+  "AGENTS.md" \
+  "README.md" \
+  "docs/engineering/cognitura-design-index.md" \
+  "docs/task-cards/README.md"; do
+  require_projection \
+    "${repo_root}/${projection}" \
+    "ModuleDefaultReadingExecutionStateAuthority" \
+    "docs/task-cards/module-default-reading-implementation/execution-state.md" \
+    "${projection}"
+  require_projection \
+    "${repo_root}/${projection}" \
+    "ModuleDefaultReadingImplementationTaskCardSet" \
+    "GOVERNED_BY_EXECUTION_STATE" \
+    "${projection}"
+  require_projection \
+    "${repo_root}/${projection}" \
+    "ModuleDefaultReadingImplementationEntry" \
+    "GOVERNED_BY_EXECUTION_STATE" \
+    "${projection}"
+  require_projection \
+    "${repo_root}/${projection}" \
+    "ModuleDefaultReadingActiveImplementationTaskCard" \
+    "SEE_MODULE_DEFAULT_READING_EXECUTION_STATE" \
+    "${projection}"
+  require_projection \
+    "${repo_root}/${projection}" \
+    "ModuleDefaultReadingBusinessImplementation" \
+    "SEE_MODULE_DEFAULT_READING_EXECUTION_STATE" \
+    "${projection}"
+  [[ "$(one_field_value "${repo_root}/${projection}" "ActiveImplementationTaskCard" "${projection}")" == "NONE" ]] ||
+    fail "${projection}: legacy ActiveImplementationTaskCard must remain NONE"
+  [[ "$(one_field_value "${repo_root}/${projection}" "BusinessImplementation" "${projection}")" == "NOT_AUTHORIZED" ]] ||
+    fail "${projection}: legacy BusinessImplementation must remain NOT_AUTHORIZED"
+done
 
 required_index_fields=(
   "CanonicalProjectName"
   "TaskCardSet"
   "TaskCardIDs"
   "TaskCardCount"
+  "ExecutionStateAuthority"
   "TaskCardSetStatus"
   "ActiveImplementationTaskCard"
   "ReleasedTaskCard"
@@ -69,54 +145,49 @@ for field in "${required_index_fields[@]}"; do
   index_field_value "${field}" >/dev/null
 done
 
+expected_ids="MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MDR-I08"
 [[ "$(index_field_value "CanonicalProjectName")" == "Cognitura" ]] ||
   fail "README.md: CanonicalProjectName must be Cognitura"
 [[ "$(index_field_value "TaskCardSet")" == "MODULE_DEFAULT_READING_IMPLEMENTATION" ]] ||
   fail "README.md: TaskCardSet must be MODULE_DEFAULT_READING_IMPLEMENTATION"
-
-expected_ids="MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MDR-I08"
 [[ "$(index_field_value "TaskCardIDs")" == "${expected_ids}" ]] ||
   fail "README.md: TaskCardIDs must be ${expected_ids}"
 [[ "$(index_field_value "TaskCardCount")" == "9" ]] ||
   fail "README.md: TaskCardCount must be 9"
-[[ "$(index_field_value "TaskCardSetStatus")" == \
-  "USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION" ]] ||
-  fail "TaskCardSetStatus must record user approval without granting implementation"
-[[ "$(index_field_value "ActiveImplementationTaskCard")" == "NONE" ]] ||
-  fail "ActiveImplementationTaskCard must be NONE before separate business implementation authorization"
-[[ "$(index_field_value "ReleasedTaskCard")" == "NONE" ]] ||
-  fail "ReleasedTaskCard must be NONE before separate business implementation authorization"
+[[ "$(index_field_value "ExecutionStateAuthority")" == "execution-state.md" ]] ||
+  fail "README.md: ExecutionStateAuthority must be execution-state.md"
+[[ "$(index_field_value "TaskCardSetStatus")" == "GOVERNED_BY_EXECUTION_STATE" ]] ||
+  fail "README.md: TaskCardSetStatus must reference execution-state authority"
+[[ "$(index_field_value "ActiveImplementationTaskCard")" == "SEE_EXECUTION_STATE" ]] ||
+  fail "README.md: ActiveImplementationTaskCard must reference execution-state authority"
+[[ "$(index_field_value "ReleasedTaskCard")" == "SEE_EXECUTION_STATE" ]] ||
+  fail "README.md: ReleasedTaskCard must reference execution-state authority"
 [[ "$(index_field_value "DocumentationGap")" == "DOC-GAP-MDR-001" ]] ||
   fail "README.md: DocumentationGap must be DOC-GAP-MDR-001"
 [[ "$(index_field_value "WrittenTaskCardReview")" == "USER_APPROVED" ]] ||
-  fail "WrittenTaskCardReview must record USER_APPROVED"
+  fail "README.md: WrittenTaskCardReview must remain USER_APPROVED"
 [[ "$(index_field_value "DesignAlignmentStatus")" == "COMPLETE" ]] ||
   fail "README.md: DesignAlignmentStatus must remain COMPLETE"
 [[ "$(index_field_value "DevelopmentPlanningEntry")" == "READY_FOR_USER_AUTHORIZATION" ]] ||
   fail "README.md: DevelopmentPlanningEntry must remain READY_FOR_USER_AUTHORIZATION"
-[[ "$(index_field_value "BusinessImplementation")" == "NOT_AUTHORIZED" ]] ||
-  fail "README.md: BusinessImplementation must remain NOT_AUTHORIZED"
+[[ "$(index_field_value "BusinessImplementation")" == "SEE_EXECUTION_STATE" ]] ||
+  fail "README.md: BusinessImplementation must reference execution-state authority"
 [[ "$(index_field_value "FormalDatabaseWrite")" == "NOT_AUTHORIZED" ]] ||
   fail "README.md: FormalDatabaseWrite must remain NOT_AUTHORIZED"
 [[ "$(index_field_value "RemotePush")" == "NOT_AUTHORIZED" ]] ||
   fail "README.md: RemotePush must remain NOT_AUTHORIZED"
-[[ "$(index_field_value "TaskCardRelease")" == "FORBIDDEN" ]] ||
-  fail "TaskCardRelease must remain FORBIDDEN without separate implementation authorization"
-[[ "$(index_field_value "TaskCardExecution")" == "FORBIDDEN" ]] ||
-  fail "TaskCardExecution must remain FORBIDDEN without separate implementation authorization"
+[[ "$(index_field_value "TaskCardRelease")" == "GOVERNED_BY_EXECUTION_STATE" ]] ||
+  fail "README.md: TaskCardRelease must reference execution-state authority"
+[[ "$(index_field_value "TaskCardExecution")" == "GOVERNED_BY_EXECUTION_STATE" ]] ||
+  fail "README.md: TaskCardExecution must reference execution-state authority"
 
 IFS=',' read -r -a declared_ids <<< "${expected_ids}"
-
-shopt -s nullglob
-actual_files=("${cards_dir}"/MDR-I*.md)
-shopt -u nullglob
-[[ "${#actual_files[@]}" -eq 9 ]] ||
-  fail "actual task card count ${#actual_files[@]} does not match 9"
 
 required_fields=(
   "TaskCardID"
   "CardKind"
   "Status"
+  "ExecutionStateAuthority"
   "Gate"
   "Risk"
   "DependsOn"
@@ -147,9 +218,7 @@ commit_write_paths() {
       line = $0
       sub(/^git add[[:space:]]+/, "", line)
     }
-    capture && $0 !~ /^git add[[:space:]]/ {
-      line = $0
-    }
+    capture && $0 !~ /^git add[[:space:]]/ { line = $0 }
     capture {
       continued = (line ~ /\\[[:space:]]*$/)
       sub(/[[:space:]]*\\[[:space:]]*$/, "", line)
@@ -157,41 +226,33 @@ commit_write_paths() {
       gsub(/[[:space:]]+$/, "", line)
       count = split(line, path, /[[:space:]]+/)
       for (path_index = 1; path_index <= count; path_index += 1) {
-        if (path[path_index] != "") {
-          print path[path_index]
-        }
+        if (path[path_index] != "") print path[path_index]
       }
-      if (!continued) {
-        capture = 0
-      }
+      if (!continued) capture = 0
     }
   ' "${file}"
 }
 
-ready_count=0
-approved_blocked_count=0
-seen_ids=""
+shopt -s nullglob
+actual_files=("${cards_dir}"/MDR-I*.md)
+shopt -u nullglob
+[[ "${#actual_files[@]}" -eq 9 ]] ||
+  fail "actual task card count ${#actual_files[@]} does not match 9"
 
+seen_ids=""
 for expected_id in "${declared_ids[@]}"; do
   shopt -s nullglob
   matches=("${cards_dir}/${expected_id}-"*.md)
   shopt -u nullglob
-  [[ "${#matches[@]}" -eq 1 ]] ||
-    fail "cannot resolve declared TaskCardID: ${expected_id}"
+  [[ "${#matches[@]}" -eq 1 ]] || fail "cannot resolve declared TaskCardID: ${expected_id}"
   file="${matches[0]}"
   filename="$(basename "${file}")"
 
   for field in "${required_fields[@]}"; do
-    field_count="$(grep -c "^${field} = " "${file}" || true)"
-    [[ "${field_count}" -gt 0 ]] ||
-      fail "${filename}: missing required field: ${field}"
-    [[ "${field_count}" -eq 1 ]] ||
-      fail "${filename}: expected one ${field} field, found ${field_count}"
+    one_field_value "${file}" "${field}" "${filename}" >/dev/null
   done
-
   for section in "${required_sections[@]}"; do
-    grep -Fqx "${section}" "${file}" ||
-      fail "${filename}: missing required section: ${section}"
+    grep -Fqx "${section}" "${file}" || fail "${filename}: missing required section: ${section}"
   done
 
   task_id="$(field_value "${file}" "TaskCardID")"
@@ -202,28 +263,20 @@ for expected_id in "${declared_ids[@]}"; do
   case ",${seen_ids}," in
     *,"${task_id}",*) fail "duplicate TaskCardID: ${task_id}" ;;
   esac
-  if [[ -z "${seen_ids}" ]]; then
-    seen_ids="${task_id}"
-  else
-    seen_ids="${seen_ids},${task_id}"
-  fi
+  if [[ -z "${seen_ids}" ]]; then seen_ids="${task_id}"; else seen_ids="${seen_ids},${task_id}"; fi
 
-  status="$(field_value "${file}" "Status")"
-  if [[ "${status}" == "READY" ]]; then
-    ready_count=$((ready_count + 1))
-  fi
-  if [[ "${status}" == "BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION" ]]; then
-    approved_blocked_count=$((approved_blocked_count + 1))
-  fi
-  [[ "${status}" == "BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION" ]] ||
-    fail "all cards must remain blocked until separate business implementation authorization"
+  [[ "$(field_value "${file}" "Status")" == "GOVERNED_BY_EXECUTION_STATE" ]] ||
+    fail "${filename}: Status must be GOVERNED_BY_EXECUTION_STATE"
+  [[ "$(field_value "${file}" "ExecutionStateAuthority")" == \
+    "docs/task-cards/module-default-reading-implementation/execution-state.md" ]] ||
+    fail "${filename}: ExecutionStateAuthority mismatch"
 
   table_row_pattern="^| \`${task_id}\` |"
   table_row_count="$(grep -c "${table_row_pattern}" "${cards_dir}/README.md" || true)"
   [[ "${table_row_count}" -eq 1 ]] ||
     fail "README.md: expected one task-card table row for ${task_id}"
   table_row="$(grep "${table_row_pattern}" "${cards_dir}/README.md")"
-  [[ "${table_row}" == *'| `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` |'* ]] ||
+  [[ "${table_row}" == *'| `GOVERNED_BY_EXECUTION_STATE` |'* ]] ||
     fail "README.md task-card table status mismatch for ${task_id}"
 
   [[ "$(field_value "${file}" "SchemaChange")" == "FORBIDDEN" ]] ||
@@ -296,35 +349,23 @@ for expected_id in "${declared_ids[@]}"; do
       expected_production_file_limit="0"
       expected_write_set=$'docs/task-cards/module-default-reading-implementation/README.md\ndocs/task-cards/module-default-reading-implementation/MDR-I08-fixed-slice-review.md\ndocs/engineering/cognitura-module-default-reading-implementation-acceptance.md'
       ;;
-    *)
-      fail "unsupported TaskCardID ${task_id}"
-      ;;
+    *) fail "unsupported TaskCardID ${task_id}" ;;
   esac
 
-  [[ "$(field_value "${file}" "Gate")" == "${expected_gate}" ]] ||
-    fail "Gate mismatch for ${task_id}"
-  [[ "$(field_value "${file}" "DependsOn")" == "${expected_dependency}" ]] ||
-    fail "dependency mismatch for ${task_id}"
-  [[ "$(field_value "${file}" "ReviewRoute")" == "${expected_review_route}" ]] ||
-    fail "invalid ReviewRoute for ${task_id}"
-  [[ "$(field_value "${file}" "ProductionFileLimit")" == "${expected_production_file_limit}" ]] ||
-    fail "ProductionFileLimit mismatch for ${task_id}"
-  [[ "$(field_value "${file}" "BusinessImplementationAuthorization")" == "${expected_business_authorization}" ]] ||
-    fail "BusinessImplementationAuthorization mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "Gate")" == "${expected_gate}" ]] || fail "Gate mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "DependsOn")" == "${expected_dependency}" ]] || fail "dependency mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "ReviewRoute")" == "${expected_review_route}" ]] || fail "invalid ReviewRoute for ${task_id}"
+  [[ "$(field_value "${file}" "ProductionFileLimit")" == "${expected_production_file_limit}" ]] || fail "ProductionFileLimit mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "BusinessImplementationAuthorization")" == "${expected_business_authorization}" ]] || fail "BusinessImplementationAuthorization mismatch for ${task_id}"
 
   actual_write_set="$(sed -n 's/^WriteSet = //p' "${file}")"
-  [[ "${actual_write_set}" == "${expected_write_set}" ]] ||
-    fail "WriteSet mismatch for ${task_id}"
-
+  [[ "${actual_write_set}" == "${expected_write_set}" ]] || fail "WriteSet mismatch for ${task_id}"
   expected_commit_paths="$(printf '%s\n' "${expected_write_set}" | LC_ALL=C sort)"
   actual_commit_paths="$(commit_write_paths "${file}" | LC_ALL=C sort)"
-  [[ "${actual_commit_paths}" == "${expected_commit_paths}" ]] ||
-    fail "commit WriteSet mismatch for ${task_id}"
+  [[ "${actual_commit_paths}" == "${expected_commit_paths}" ]] || fail "commit WriteSet mismatch for ${task_id}"
 
-  if grep -Eq '^[[:space:]]*git[[:space:]]+push([[:space:]]|$)' "${file}"; then
-    fail "${filename}: remote push command is forbidden"
-  fi
-
+  grep -Eq '^[[:space:]]*git[[:space:]]+push([[:space:]]|$)|git[[:space:]]+commit[[:space:]]+--amend' "${file}" &&
+    fail "${filename}: amend or remote push command is forbidden"
   while IFS= read -r write_path; do
     case "${write_path}" in
       server/*) fail "task card WriteSet contains forbidden path: server/" ;;
@@ -333,45 +374,208 @@ for expected_id in "${declared_ids[@]}"; do
       .idea/*) fail "task card WriteSet contains forbidden path: .idea/" ;;
     esac
   done < <(sed -n 's/^WriteSet = //p' "${file}")
-
-  grep -Fq 'git commit -m ' "${file}" ||
-    fail "${filename}: missing independent local commit command"
+  grep -Fq 'git commit -m ' "${file}" || fail "${filename}: missing independent local commit command"
 done
-
-[[ "${ready_count}" -eq 0 ]] ||
-  fail "no card may become READY without separate business implementation authorization"
-[[ "${approved_blocked_count}" -eq 9 ]] ||
-  fail "all nine user-approved cards must remain blocked by implementation authorization"
 
 i05="${cards_dir}/MDR-I05-key-relation-projection.md"
 [[ "$(grep -c '^RelationDisplay = ' "${i05}" || true)" -eq 1 ]] &&
   [[ "$(field_value "${i05}" "RelationDisplay")" == "CANONICAL_TYPE_TOKEN" ]] ||
   fail "MDR-I05 must project the canonical RelationType token without invented semantics"
 [[ "$(grep -c '^RendererInputAssertion = ' "${i05}" || true)" -eq 1 ]] &&
-  [[ "$(field_value "${i05}" "RendererInputAssertion")" == \
-    "SAME_INPUT_IDENTITY_TYPE_ENDPOINTS" ]] ||
+  [[ "$(field_value "${i05}" "RendererInputAssertion")" == "SAME_INPUT_IDENTITY_TYPE_ENDPOINTS" ]] ||
   fail "MDR-I05 must assert identity, type, and endpoints from the same RendererInput"
 
 i07="${cards_dir}/MDR-I07-reading-first-composition.md"
 [[ "$(grep -c '^CompositionAssertion = ' "${i07}" || true)" -eq 1 ]] &&
-  [[ "$(field_value "${i07}" "CompositionAssertion")" == \
-    "EXACT_SCOPED_IDENTITY_COUNT_CONTENT_ORDER" ]] ||
+  [[ "$(field_value "${i07}" "CompositionAssertion")" == "EXACT_SCOPED_IDENTITY_COUNT_CONTENT_ORDER" ]] ||
   fail "MDR-I07 must assert exact scoped identity, count, content, and order"
 [[ "$(grep -c '^CompositionOrder = ' "${i07}" || true)" -eq 1 ]] &&
-  [[ "$(field_value "${i07}" "CompositionOrder")" == \
-    "CORE_THESIS_SPINE_RENDERER_BOUNDARIES_ELEMENTS_RELATIONS_SOURCES" ]] ||
+  [[ "$(field_value "${i07}" "CompositionOrder")" == "CORE_THESIS_SPINE_RENDERER_BOUNDARIES_ELEMENTS_RELATIONS_SOURCES" ]] ||
   fail "MDR-I07 must retain the formal ModuleReading projection order"
+
+required_state_fields=(
+  "CanonicalProjectName"
+  "TaskCardSet"
+  "ExecutionStateVersion"
+  "ExecutionStateAuthority"
+  "GovernanceBootstrapStatus"
+  "GovernanceReviewedCandidateSHA"
+  "GovernanceReviewRoute"
+  "GovernanceReviewVerdict"
+  "SetAuthorizationStatus"
+  "SetAuthorizationScope"
+  "HumanCheckpointRequirement"
+  "TaskCardSetStatus"
+  "ActiveImplementationTaskCard"
+  "ReleasedTaskCard"
+  "CompletedTaskCards"
+  "CurrentCandidateSHA"
+  "CurrentGateStatus"
+  "CurrentReviewRoute"
+  "CurrentReviewVerdict"
+  "NextImplementationTaskCard"
+  "TransitionSequence"
+  "TransitionKind"
+  "TransitionBaseSHA"
+  "BusinessImplementation"
+  "FormalDatabaseWrite"
+  "RemotePush"
+)
+for field in "${required_state_fields[@]}"; do state_value "${field}" >/dev/null; done
+
+[[ "$(state_value "CanonicalProjectName")" == "Cognitura" ]] || fail "execution-state.md: CanonicalProjectName must be Cognitura"
+[[ "$(state_value "TaskCardSet")" == "MODULE_DEFAULT_READING_IMPLEMENTATION" ]] || fail "execution-state.md: TaskCardSet mismatch"
+[[ "$(state_value "ExecutionStateVersion")" == "1" ]] || fail "execution-state.md: ExecutionStateVersion must be 1"
+[[ "$(state_value "ExecutionStateAuthority")" == "THIS_DOCUMENT" ]] || fail "execution-state.md must be the sole state authority"
+[[ "$(state_value "SetAuthorizationScope")" == "MDR-I00..MDR-I08_AUTOMATIC_SERIAL" ]] || fail "execution-state.md: authorization scope mismatch"
+[[ "$(state_value "HumanCheckpointRequirement")" == "NONE_WITHIN_AUTHORIZED_SET" ]] || fail "execution-state.md: human checkpoint rule mismatch"
+[[ "$(state_value "FormalDatabaseWrite")" == "NOT_AUTHORIZED" ]] || fail "execution-state.md: FormalDatabaseWrite must remain NOT_AUTHORIZED"
+[[ "$(state_value "RemotePush")" == "NOT_AUTHORIZED" ]] || fail "execution-state.md: RemotePush must remain NOT_AUTHORIZED"
+grep -Eq 'git[[:space:]]+commit[[:space:]]+--amend|git[[:space:]]+push' "${state_file}" &&
+  fail "execution-state.md: amend or remote push is forbidden"
+if grep -q '^TransitionWritePath = ' "${state_file}"; then
+  [[ "$(state_value "TransitionWritePath")" == "docs/task-cards/module-default-reading-implementation/execution-state.md" ]] ||
+    fail "execution-state.md: transition WriteSet must contain only execution-state.md"
+fi
+
+completed="$(state_value "CompletedTaskCards")"
+completed_count=-1
+allowed_prefixes=(
+  "NONE"
+  "MDR-I00"
+  "MDR-I00,MDR-I01"
+  "MDR-I00,MDR-I01,MDR-I02"
+  "MDR-I00,MDR-I01,MDR-I02,MDR-I03"
+  "MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04"
+  "MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05"
+  "MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06"
+  "MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07"
+  "MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MDR-I08"
+)
+for prefix_index in "${!allowed_prefixes[@]}"; do
+  if [[ "${completed}" == "${allowed_prefixes[${prefix_index}]}" ]]; then
+    completed_count="${prefix_index}"
+    break
+  fi
+done
+[[ "${completed_count}" -ge 0 ]] || fail "CompletedTaskCards must be a strict MDR prefix"
+
+task_set_status="$(state_value "TaskCardSetStatus")"
+active="$(state_value "ActiveImplementationTaskCard")"
+released="$(state_value "ReleasedTaskCard")"
+next_card="$(state_value "NextImplementationTaskCard")"
+governance_status="$(state_value "GovernanceBootstrapStatus")"
+governance_sha="$(state_value "GovernanceReviewedCandidateSHA")"
+governance_verdict="$(state_value "GovernanceReviewVerdict")"
+set_authorization="$(state_value "SetAuthorizationStatus")"
+current_sha="$(state_value "CurrentCandidateSHA")"
+current_gate="$(state_value "CurrentGateStatus")"
+current_route="$(state_value "CurrentReviewRoute")"
+current_verdict="$(state_value "CurrentReviewVerdict")"
+transition_sequence="$(state_value "TransitionSequence")"
+transition_kind="$(state_value "TransitionKind")"
+transition_base_state="$(state_value "TransitionBaseSHA")"
+business_implementation="$(state_value "BusinessImplementation")"
+ready_count=0
+
+is_sha() { [[ "$1" =~ ^[0-9a-f]{40}$ ]]; }
+require_governance_pass() {
+  [[ "${governance_status}" == "PASS" ]] || fail "governance bootstrap must PASS before activation"
+  is_sha "${governance_sha}" || fail "governance reviewed candidate must be a 40-character SHA"
+  [[ "$(state_value "GovernanceReviewRoute")" == "deep_reviewer" ]] || fail "governance review route must be deep_reviewer"
+  [[ "${governance_verdict}" == "GO_P0_0_P1_0_P2_0" ]] || fail "governance review must be zero-finding GO"
+  [[ "${set_authorization}" == "USER_AUTHORIZED" ]] || fail "set authorization is required before activation"
+}
+
+case "${task_set_status}" in
+  USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW)
+    [[ "${governance_status}" == "AWAITING_FIXED_COMMIT_REVIEW" ]] || fail "bootstrap pending state must await fixed review"
+    [[ "${governance_sha}" == "NONE" && "${governance_verdict}" == "NOT_RUN" ]] || fail "bootstrap pending state cannot contain review receipt"
+    [[ "${set_authorization}" == "USER_AUTHORIZED_AWAITING_GOVERNANCE_BOOTSTRAP" ]] || fail "bootstrap pending state must retain pending set authorization"
+    [[ "${active}" == "NONE" && "${released}" == "NONE" ]] || fail "bootstrap pending state cannot release a card"
+    [[ "${completed}" == "NONE" && "${next_card}" == "MDR-I00" ]] || fail "bootstrap pending state must point to MDR-I00"
+    [[ "${current_sha}" == "NONE" && "${current_gate}" == "NOT_RUN" && "${current_route}" == "NONE" && "${current_verdict}" == "NOT_RUN" ]] || fail "bootstrap pending state cannot contain business review receipt"
+    [[ "${transition_sequence}" == "0" && "${transition_kind}" == "BOOTSTRAP" && "${transition_base_state}" == "NONE" ]] || fail "bootstrap transition metadata mismatch"
+    [[ "${business_implementation}" == "NOT_AUTHORIZED" ]] || fail "business implementation must remain unauthorized before bootstrap review"
+    ;;
+  IN_PROGRESS)
+    require_governance_pass
+    [[ "${business_implementation}" == "AUTHORIZED_FOR_MDR_I00_I08" ]] || fail "in-progress business authorization scope mismatch"
+    [[ "${completed_count}" -lt 9 ]] || fail "in-progress state cannot have all cards complete"
+    expected_next="${declared_ids[${completed_count}]}"
+    [[ "${next_card}" == "${expected_next}" ]] || fail "next card does not match completed dependency prefix"
+    [[ "${active}" == "${next_card}" && "${released}" == "${next_card}" ]] || fail "in-progress state must have exactly one identical active and released card"
+    ready_count=1
+    if [[ "${completed_count}" -eq 0 ]]; then
+      [[ "${transition_sequence}" == "1" && "${transition_kind}" == "ACTIVATE_SET" ]] || fail "activation transition metadata mismatch"
+      [[ "${transition_base_state}" == "${governance_sha}" ]] || fail "activation must bind the governance reviewed SHA"
+      [[ "${current_sha}" == "NONE" && "${current_gate}" == "NOT_RUN" && "${current_route}" == "NONE" && "${current_verdict}" == "NOT_RUN" ]] || fail "activation cannot invent business review receipt"
+    else
+      [[ "${transition_kind}" == "ADVANCE" ]] || fail "successor release must use ADVANCE transition"
+      [[ "${transition_sequence}" -eq $((completed_count + 1)) ]] || fail "advance transition sequence mismatch"
+      is_sha "${current_sha}" || fail "advance requires a 40-character reviewed candidate SHA"
+      [[ "${transition_base_state}" == "${current_sha}" ]] || fail "review receipt candidate SHA must match TransitionBaseSHA"
+      [[ "${current_gate}" == "PASS" ]] || fail "advance requires Gate PASS"
+      [[ "${current_route}" == "deep_reviewer" ]] || fail "MDR-I00 through MDR-I07 require deep_reviewer"
+      [[ "${current_verdict}" == "GO_P0_0_P1_0_P2_0" ]] || fail "advance requires zero-finding review GO"
+    fi
+    ;;
+  STOPPED_BY_USER|BLOCKED_BY_DOCUMENTATION_GAP|BLOCKED_BY_AUTHORITY_EXPANSION)
+    require_governance_pass
+    [[ "${active}" == "NONE" && "${released}" == "NONE" ]] || fail "blocked or stopped state cannot retain an active card"
+    [[ "${business_implementation}" == "AUTHORIZED_FOR_MDR_I00_I08" ]] || fail "blocked or stopped state must preserve bounded authorization"
+    ;;
+  FINAL_NO_GO)
+    require_governance_pass
+    [[ "${completed_count}" -eq 8 ]] || fail "FINAL_NO_GO must retain the MDR-I00..MDR-I07 prefix"
+    [[ "${active}" == "NONE" && "${released}" == "NONE" && "${next_card}" == "NONE" ]] || fail "FINAL_NO_GO cannot release a successor"
+    is_sha "${current_sha}" || fail "FINAL_NO_GO requires a 40-character candidate SHA"
+    [[ "${transition_base_state}" == "${current_sha}" && "${transition_kind}" == "FINAL_NO_GO" && "${transition_sequence}" == "10" ]] || fail "FINAL_NO_GO transition metadata mismatch"
+    [[ "${current_gate}" == "NO_GO" && "${current_route}" == "ultra_gatekeeper" && "${current_verdict}" == "NO_GO" ]] || fail "FINAL_NO_GO requires ultra gate receipt"
+    [[ "${business_implementation}" == "AUTHORIZED_FOR_MDR_I00_I08" ]] || fail "FINAL_NO_GO authorization scope mismatch"
+    ;;
+  COMPLETE)
+    require_governance_pass
+    [[ "${completed_count}" -eq 9 ]] || fail "COMPLETE must contain all nine MDR cards"
+    [[ "${active}" == "NONE" && "${released}" == "NONE" && "${next_card}" == "NONE" ]] || fail "COMPLETE cannot release a successor"
+    is_sha "${current_sha}" || fail "COMPLETE requires a 40-character candidate SHA"
+    [[ "${transition_base_state}" == "${current_sha}" && "${transition_kind}" == "COMPLETE" && "${transition_sequence}" == "10" ]] || fail "COMPLETE transition metadata mismatch"
+    [[ "${current_gate}" == "PASS" && "${current_route}" == "ultra_gatekeeper" && "${current_verdict}" == "GO_P0_0_P1_0_P2_0" ]] || fail "COMPLETE requires ultra zero-finding GO"
+    [[ "${business_implementation}" == "COMPLETE_FOR_MDR_I00_I08" ]] || fail "COMPLETE business status mismatch"
+    ;;
+  *) fail "unsupported TaskCardSetStatus: ${task_set_status}" ;;
+esac
+
+if [[ -n "${transition_base}" ]]; then
+  resolved_base="$(git -C "${repo_root}" rev-parse "${transition_base}^{commit}" 2>/dev/null)" || fail "cannot resolve transition base"
+  resolved_head="$(git -C "${repo_root}" rev-parse "${transition_head}^{commit}" 2>/dev/null)" || fail "cannot resolve transition head"
+  transition_paths="$(git -C "${repo_root}" diff --name-only "${resolved_base}" "${resolved_head}")"
+  [[ "${transition_paths}" == "docs/task-cards/module-default-reading-implementation/execution-state.md" ]] ||
+    fail "state transition fixed diff must contain only execution-state.md"
+  [[ "${transition_base_state}" == "${resolved_base}" ]] || fail "TransitionBaseSHA must equal the fixed transition base"
+  case "${transition_kind}" in
+    ACTIVATE_SET)
+      [[ "${governance_sha}" == "${resolved_base}" ]] || fail "activation review receipt must bind transition base"
+      ;;
+    ADVANCE|FINAL_NO_GO|COMPLETE)
+      [[ "${current_sha}" == "${resolved_base}" ]] || fail "business review receipt must bind transition base"
+      ;;
+    *) fail "fixed transition verification requires ACTIVATE_SET, ADVANCE, FINAL_NO_GO, or COMPLETE" ;;
+  esac
+fi
 
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardValidation = PASS" \
   "TaskCardCount = 9" \
-  "TaskCardSetStatus = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION" \
-  "ActiveImplementationTaskCard = NONE" \
-  "ReleasedTaskCard = NONE" \
-  "DocumentationGap = DOC-GAP-MDR-001" \
-  "WrittenTaskCardReview = USER_APPROVED" \
-  "ApprovedBlockedCardCount = 9" \
-  "ReadyTaskCardCount = 0" \
-  "BusinessImplementation = NOT_AUTHORIZED" \
+  "ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md" \
+  "GovernanceBootstrapStatus = ${governance_status}" \
+  "SetAuthorizationStatus = ${set_authorization}" \
+  "TaskCardSetStatus = ${task_set_status}" \
+  "ActiveImplementationTaskCard = ${active}" \
+  "ReleasedTaskCard = ${released}" \
+  "CompletedTaskCards = ${completed}" \
+  "NextImplementationTaskCard = ${next_card}" \
+  "ReadyTaskCardCount = ${ready_count}" \
+  "BusinessImplementation = ${business_implementation}" \
   "FormalDatabaseWrite = NOT_AUTHORIZED" \
   "RemotePush = NOT_AUTHORIZED"

@@ -3,7 +3,8 @@
 ```text
 TaskCardID = MDR-I05
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
+Status = GOVERNED_BY_EXECUTION_STATE
+ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 Gate = MDR-IG5 KeyRelationProjection
 Risk = HIGH
 DependsOn = MDR-I04
@@ -25,7 +26,8 @@ RendererInputAssertion = SAME_INPUT_IDENTITY_TYPE_ENDPOINTS
 
 ## 2. 前置条件与输入
 
-`MDR-I04` 固定提交审查为零发现；RendererInput 的 node 与 relation 引用完整。
+execution-state 账本已记录 `MDR-I04` 固定提交零发现收据，并把本卡投影为唯一活动且
+已释放卡；RendererInput 的 node 与 relation 引用完整。
 
 ## 3. 精确写集
 

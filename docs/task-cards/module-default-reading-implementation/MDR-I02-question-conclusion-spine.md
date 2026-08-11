@@ -3,7 +3,8 @@
 ```text
 TaskCardID = MDR-I02
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
+Status = GOVERNED_BY_EXECUTION_STATE
+ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 Gate = MDR-IG2 QuestionConclusionSpine
 Risk = MEDIUM
 DependsOn = MDR-I01
@@ -23,7 +24,8 @@ ReviewRoute = deep_reviewer
 
 ## 2. 前置条件与输入
 
-`MDR-I01` 固定提交审查为零发现，且用户单独释放本卡。
+execution-state 账本已记录 `MDR-I01` 固定提交零发现收据，并把本卡投影为唯一活动且
+已释放卡。
 
 ## 3. 精确写集
 
@@ -80,4 +82,5 @@ git add web/src/modules/module-reading/ModuleNarrative.tsx \
 git commit -m "feat: render module question conclusion and spine"
 ```
 
-新的 `deep_reviewer` 对固定 SHA 作独立零发现审查；不得自动释放 `MDR-I03`。
+新的 `deep_reviewer` 对固定 SHA 作独立零发现审查；只有账本单文件状态提交记录该
+收据后，才自动释放唯一后继 `MDR-I03`。

@@ -5,23 +5,24 @@ CanonicalProjectName = Cognitura
 TaskCardSet = MODULE_DEFAULT_READING_IMPLEMENTATION
 TaskCardIDs = MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MDR-I08
 TaskCardCount = 9
-TaskCardSetStatus = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION
-ActiveImplementationTaskCard = NONE
-ReleasedTaskCard = NONE
+ExecutionStateAuthority = execution-state.md
+TaskCardSetStatus = GOVERNED_BY_EXECUTION_STATE
+ActiveImplementationTaskCard = SEE_EXECUTION_STATE
+ReleasedTaskCard = SEE_EXECUTION_STATE
 DocumentationGap = DOC-GAP-MDR-001
 WrittenTaskCardReview = USER_APPROVED
 DesignAlignmentStatus = COMPLETE
 DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
-BusinessImplementation = NOT_AUTHORIZED
+BusinessImplementation = SEE_EXECUTION_STATE
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
 
 本集合只规划首个 `ModuleDefaultReadingState` 的小型前端投影切片。它不替代已批准
 但尚未执行的 Wave 1 source work，也不占用其 `W1-I00..W1-I13` 编号。所有卡均为
-`BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION`，没有 `READY` 卡。卡片文本已经
-获得用户批准；该批准本身不构成业务实现授权，用户另行明确授权并指定唯一卡前不得
-释放。
+`GOVERNED_BY_EXECUTION_STATE`。卡片文本和自动串行治理规格已经获得用户批准；
+当前授权、Active/READY/DONE 和审查收据只由 [execution-state](execution-state.md)
+投影。卡片正文和本索引不得维护第二份可变运行态。
 
 ## 1. 方案裁决
 
@@ -40,15 +41,15 @@ HTTP、后端或持久化，不声明完整页面、RF-AC-02 或 `Implementation
 
 | ID | 任务卡 | 状态 | 依赖 | Gate | 生产写集上限 |
 |---|---|---|---|---|---|
-| `MDR-I00` | [Web 测试基座](MDR-I00-web-test-foundation.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `NONE` | `MDR-IG0` | `2` |
-| `MDR-I01` | [Canonical 叙事投影](MDR-I01-canonical-narrative-projection.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I00` | `MDR-IG1` | `2` |
-| `MDR-I02` | [问题、结论与主认知脊柱](MDR-I02-question-conclusion-spine.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I01` | `MDR-IG2` | `1` |
-| `MDR-I03` | [Element 与 Boundary 连续阅读](MDR-I03-element-boundary-reading.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I02` | `MDR-IG3` | `3` |
-| `MDR-I04` | [STAGE_CHAIN 主投影](MDR-I04-stage-chain-renderer-projection.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I03` | `MDR-IG4` | `2` |
-| `MDR-I05` | [关键 Relation 内联投影](MDR-I05-key-relation-projection.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I04` | `MDR-IG5` | `2` |
-| `MDR-I06` | [轻量来源入口](MDR-I06-source-entry-projection.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I05` | `MDR-IG6` | `1` |
-| `MDR-I07` | [Reading First 组件组合](MDR-I07-reading-first-composition.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I06` | `MDR-IG7` | `3` |
-| `MDR-I08` | [固定切片候选复核](MDR-I08-fixed-slice-review.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I00..MDR-I07` | `MDR-IG8` | `0` |
+| `MDR-I00` | [Web 测试基座](MDR-I00-web-test-foundation.md) | `GOVERNED_BY_EXECUTION_STATE` | `NONE` | `MDR-IG0` | `2` |
+| `MDR-I01` | [Canonical 叙事投影](MDR-I01-canonical-narrative-projection.md) | `GOVERNED_BY_EXECUTION_STATE` | `MDR-I00` | `MDR-IG1` | `2` |
+| `MDR-I02` | [问题、结论与主认知脊柱](MDR-I02-question-conclusion-spine.md) | `GOVERNED_BY_EXECUTION_STATE` | `MDR-I01` | `MDR-IG2` | `1` |
+| `MDR-I03` | [Element 与 Boundary 连续阅读](MDR-I03-element-boundary-reading.md) | `GOVERNED_BY_EXECUTION_STATE` | `MDR-I02` | `MDR-IG3` | `3` |
+| `MDR-I04` | [STAGE_CHAIN 主投影](MDR-I04-stage-chain-renderer-projection.md) | `GOVERNED_BY_EXECUTION_STATE` | `MDR-I03` | `MDR-IG4` | `2` |
+| `MDR-I05` | [关键 Relation 内联投影](MDR-I05-key-relation-projection.md) | `GOVERNED_BY_EXECUTION_STATE` | `MDR-I04` | `MDR-IG5` | `2` |
+| `MDR-I06` | [轻量来源入口](MDR-I06-source-entry-projection.md) | `GOVERNED_BY_EXECUTION_STATE` | `MDR-I05` | `MDR-IG6` | `1` |
+| `MDR-I07` | [Reading First 组件组合](MDR-I07-reading-first-composition.md) | `GOVERNED_BY_EXECUTION_STATE` | `MDR-I06` | `MDR-IG7` | `3` |
+| `MDR-I08` | [固定切片候选复核](MDR-I08-fixed-slice-review.md) | `GOVERNED_BY_EXECUTION_STATE` | `MDR-I00..MDR-I07` | `MDR-IG8` | `0` |
 
 依赖严格线性：
 
@@ -100,8 +101,8 @@ GapDisposition = SEPARATE_SCHEMA_DESIGN_AND_IMPLEMENTATION_CARD_IF_FIELD_CHANGE_
    `GO / P0=0 / P1=0 / P2=0` 才可关闭该卡。发现必须回到同一卡修复并产生新 SHA。
 6. `MDR-I08` 使用 `ultra_gatekeeper` 对固定完整切片候选作最终 GO/NO-GO；审查卡
    内不得夹带修复。
-7. 即使卡片文本获批，也必须由用户另行明确授权业务实现并指定唯一卡，才可把任何
-   卡改为 `READY`。
+7. 卡片依赖、Gate、固定 SHA 与独立审查全部通过后，只能由 execution-state 单文件
+   状态提交自动释放唯一后继；不得再要求逐卡用户确认，也不得跳过独立审查。
 
 本卡集的当前规划状态使用专用 Bash 3.2 验证器：
 
@@ -111,10 +112,10 @@ scripts/verify-module-default-reading-implementation-cards \
   --cards-dir docs/task-cards/module-default-reading-implementation
 ```
 
-## 5. 当前批准门
+## 5. 运行态权威
 
 ```text
-TaskCardRelease = FORBIDDEN
-TaskCardExecution = FORBIDDEN
+TaskCardRelease = GOVERNED_BY_EXECUTION_STATE
+TaskCardExecution = GOVERNED_BY_EXECUTION_STATE
 ImplementationValidation = NOT_RUN
 ```

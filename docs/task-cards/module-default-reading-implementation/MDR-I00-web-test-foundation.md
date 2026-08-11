@@ -3,7 +3,8 @@
 ```text
 TaskCardID = MDR-I00
 CardKind = IMPLEMENTATION_FOUNDATION
-Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
+Status = GOVERNED_BY_EXECUTION_STATE
+ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 Gate = MDR-IG0 WebTestFoundation
 Risk = HIGH
 DependsOn = NONE
@@ -22,7 +23,8 @@ ReviewRoute = deep_reviewer
 
 ## 2. 前置条件与输入
 
-- 用户已批准本卡集文本并另行释放 `MDR-I00`。
+- execution-state 账本已在治理 bootstrap 固定提交零发现 GO 后把 `MDR-I00` 记录为
+  唯一活动且已释放卡。
 - Node `24.18.0`、pnpm `11.17.0` 与现有 React/Vite 版本保持不变。
 - 新测试依赖必须先由技术基线记录“选什么和精确版本”，并由测试策略记录测试层级、
   统一入口、CI 阶段与隔离边界；任务卡不能成为独立技术权威。
@@ -110,4 +112,5 @@ git commit -m "test: establish module reading web test foundation"
 ```
 
 将该提交的固定 SHA 交给新的 `deep_reviewer`；审查范围只含本卡写集，要求
-`GO / P0=0 / P1=0 / P2=0`。不得自动释放 `MDR-I01`。
+`GO / P0=0 / P1=0 / P2=0`。只有账本单文件状态提交记录该收据后，才自动释放
+唯一后继 `MDR-I01`。

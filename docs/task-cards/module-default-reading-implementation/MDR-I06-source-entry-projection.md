@@ -3,7 +3,8 @@
 ```text
 TaskCardID = MDR-I06
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
+Status = GOVERNED_BY_EXECUTION_STATE
+ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 Gate = MDR-IG6 SourceEntryProjection
 Risk = MEDIUM
 DependsOn = MDR-I05
@@ -22,7 +23,8 @@ ReviewRoute = deep_reviewer
 
 ## 2. 前置条件与输入
 
-`MDR-I05` 固定提交审查为零发现；来源 ID 来自 RendererInput `sourceRefs`。
+execution-state 账本已记录 `MDR-I05` 固定提交零发现收据，并把本卡投影为唯一活动且
+已释放卡；来源 ID 来自 RendererInput `sourceRefs`。
 
 ## 3. 精确写集
 

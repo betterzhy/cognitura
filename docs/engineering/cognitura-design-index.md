@@ -36,9 +36,12 @@ Wave1ImplementationTaskCardPlan =
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 ModuleDefaultReadingImplementationTaskCards =
   docs/task-cards/module-default-reading-implementation/README.md
-ModuleDefaultReadingImplementationTaskCardSet = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION
+ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
+ModuleDefaultReadingImplementationTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingImplementationTaskCardCount = 9
-ModuleDefaultReadingImplementationEntry = BUSINESS_IMPLEMENTATION_AUTHORIZATION_REQUIRED
+ModuleDefaultReadingImplementationEntry = GOVERNED_BY_EXECUTION_STATE
+ModuleDefaultReadingActiveImplementationTaskCard = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
+ModuleDefaultReadingBusinessImplementation = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
 ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 HighFidelityDesignManifest =
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml
@@ -192,9 +195,10 @@ W1-D00 治理说明、W1-D01 至 W1-D04 四份来源设计契约和验收记录�
 
 `ModuleDefaultReadingState` 的首个实现切片另建 `MDR-I00..MDR-I08` 书面卡集，
 不复用或改写上述 source 卡编号与写集。该集合当前为
-`USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION`，所有卡均未释放；其首张业务卡
-仅做 Published `CognitiveModule` 到只读阅读模型的纯投影，Schema、数据库、后端、
-路由和完整页面均在写集之外。
+`GOVERNED_BY_EXECUTION_STATE`；当前状态、集合级授权和唯一活动卡只从
+`docs/task-cards/module-default-reading-implementation/execution-state.md` 读取。其
+首张业务卡仅做 Published `CognitiveModule` 到只读阅读模型的纯投影，Schema、
+数据库、后端、路由和完整页面均在写集之外。
 
 `DOC-GAP-MDR-001` 记录 Conditions/Results 缺少独立 Canonical 投影映射；它阻断
 完整 `ModuleDefaultReadingState` 实现验收，不阻断当前明确缩小的投影切片。任何字段
