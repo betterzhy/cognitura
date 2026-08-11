@@ -40,16 +40,27 @@ ForbiddenWriteSet = schemas/**,server/**,raw/**,.idea/**
 
 ## 4. RED -> GREEN
 
-RED 用固定内存对象断言值与顺序均保持 Canonical 输入：
+RED 使用能通过正式 Schema 的 Published 内存 fixture：其 `primaryCognitiveSpine.steps`
+恰含四个完整 step。断言值、数量、顺序和对象身份均保持 Canonical 输入：
 
 ```ts
-expect(projectModuleNarrative(module)).toEqual({
+const schemaValidSteps = [firstStep, secondStep, thirdStep, fourthStep];
+const projection = projectModuleNarrative({
+  ...module,
+  publicationState: "PUBLISHED",
+  primaryCognitiveSpine: { ...spine, steps: schemaValidSteps },
+});
+
+expect(projection).toEqual({
   moduleRef: "module.mvcc",
   title: "MVCC",
   coreQuestions: ["How does a read choose a visible version?"],
   coreConclusion: "MVCC coordinates readers and writers.",
-  spineSteps: [firstStep, secondStep],
+  spineSteps: schemaValidSteps,
 });
+expect(projection.spineSteps).toHaveLength(4);
+projection.spineSteps.forEach((step, index) =>
+  expect(step).toBe(schemaValidSteps[index]));
 expect(() => projectModuleNarrative({ ...module, publicationState: "DRAFT" }))
   .toThrow("MODULE_READING_REQUIRES_PUBLISHED_CANONICAL_MODULE");
 ```
@@ -71,8 +82,9 @@ git status --short
 
 ## 6. Gate 与完成定义
 
-Published 正例 PASS；Draft/Confirmed 负例 fail closed；无排序、摘要、Condition/
-Result 猜测或第二事实模型；生产文件为 2 个。
+Schema-valid Published 正例 PASS 且 4..9 个 Spine step 全量保持身份和顺序；
+Draft/Confirmed 负例 fail closed；无排序、摘要、Condition/Result 猜测或第二事实模型；
+生产文件为 2 个。
 
 ## 7. 提交与独立固定提交审查
 

@@ -37,6 +37,9 @@ WriteSet = web/src/test/setup.ts
 WriteSet = web/src/test/test-environment.test.tsx
 WriteSet = docs/engineering/cognitura-technology-baseline.md
 WriteSet = docs/engineering/cognitura-test-strategy.md
+WriteSet = scripts/verify-module-default-reading
+WriteSet = tests/ci/verify-ci-contract.sh
+WriteSet = .github/workflows/wave0.yml
 ForbiddenWriteSet = web/src/App.tsx
 ForbiddenWriteSet = web/src/modules/**
 ForbiddenWriteSet = server/**,schemas/**,raw/**,.idea/**
@@ -68,13 +71,18 @@ test 层级、统一入口、CI 阶段和无生产凭据/数据库边界；随�
 `@testing-library/react=16.3.2`、`@testing-library/jest-dom=7.0.1`、
 `@testing-library/user-event=14.6.3`、`jsdom=30.0.1`，增加 `test` 脚本；
 `vite.config.mjs` 配置 `environment: "jsdom"` 和 `setupFiles`，`setup.ts` 只导入
-`@testing-library/jest-dom/vitest`，随后刷新 lockfile。
+`@testing-library/jest-dom/vitest`，随后刷新 lockfile。新增统一入口
+`scripts/verify-module-default-reading`，固定执行 Module reading component tests 与
+`pnpm --dir web build`；CI workflow 增加该入口的独立 step，CI contract 必须断言该
+step 存在且错误会向上传播。不得把组件测试仅留在本地 package script 中。
 
 ## 5. 验证命令
 
 ```bash
 pnpm --dir web test -- src/test/test-environment.test.tsx
 pnpm --dir web build
+scripts/verify-module-default-reading
+bash tests/ci/verify-ci-contract.sh
 scripts/verify-wave0
 scripts/verify-wave1-design
 scripts/verify-high-fidelity-design
@@ -85,8 +93,9 @@ git status --short
 
 ## 6. Gate 与完成定义
 
-目标测试和既有 Gate 全部 PASS；写集只含上述七个路径；技术选择与测试执行职责
-分别回写其正式 Owner；`.idea/` 仍未跟踪且未暂存。
+目标测试、统一入口、CI contract 和既有 Gate 全部 PASS；写集只含上述十个路径；
+技术选择与测试执行职责分别回写其正式 Owner，workflow 真实执行统一入口；`.idea/`
+仍未跟踪且未暂存。
 
 ## 7. 提交与独立固定提交审查
 
@@ -94,7 +103,9 @@ git status --short
 git add web/package.json web/pnpm-lock.yaml web/vite.config.mjs \
   web/src/test/setup.ts web/src/test/test-environment.test.tsx \
   docs/engineering/cognitura-technology-baseline.md \
-  docs/engineering/cognitura-test-strategy.md
+  docs/engineering/cognitura-test-strategy.md \
+  scripts/verify-module-default-reading tests/ci/verify-ci-contract.sh \
+  .github/workflows/wave0.yml
 git commit -m "test: establish module reading web test foundation"
 ```
 

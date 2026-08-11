@@ -42,10 +42,42 @@ RED：
 
 ```tsx
 render(<ModuleDefaultReading module={module} rendererInput={rendererInput} />);
+const main = screen.getByRole("main", { name: module.title });
+const spine = within(main).getByRole("list", { name: "Primary cognitive spine" });
+const stageChain = within(main).getByRole("list", { name: "Stage chain" });
+const relations = within(main).getByRole("list", { name: "Key relations" });
+
 expect(screen.getAllByRole("main")).toHaveLength(1);
 expect(screen.queryByRole("complementary")).toBeNull();
 expect(screen.getAllByRole("button")).toHaveLength(1);
 expect(document.querySelectorAll("[data-primary-visual-projection]")).toHaveLength(1);
+expect(within(spine).getAllByRole("listitem"))
+  .toHaveLength(module.primaryCognitiveSpine.steps.length);
+expect(within(stageChain).getAllByRole("listitem"))
+  .toHaveLength(rendererInput.nodes.length);
+expect(within(relations).getAllByRole("listitem"))
+  .toHaveLength(rendererInput.relations.length);
+
+const expectedRelationTexts = [
+  "Read View 约束 记录版本可见性",
+  "隔离级别 影响 快照创建时机",
+];
+const expectedDocumentOrder = [
+  module.coreQuestions[0],
+  module.thesis,
+  ...module.primaryCognitiveSpine.steps.map((step) => step.statement),
+  ...module.knowledgeElements.flatMap((element) => [element.title, element.content]),
+  ...module.criticalBoundaries.map((boundary) => boundary.statement),
+  ...rendererInput.nodes.flatMap((node) => [node.label, node.summary]),
+  ...expectedRelationTexts,
+  "查看 1 条来源证据",
+];
+let previousIndex = -1;
+for (const canonicalText of expectedDocumentOrder) {
+  const nextIndex = main.textContent?.indexOf(canonicalText) ?? -1;
+  expect(nextIndex).toBeGreaterThan(previousIndex);
+  previousIndex = nextIndex;
+}
 expect(document.body.textContent).not.toContain("evidence.mvcc");
 ```
 
@@ -70,9 +102,11 @@ git status --short
 
 ## 6. Gate 与完成定义
 
-连续文档、0 常驻侧栏、1 个主投影、仅 1 个来源按钮、焦点可见、窄屏安全可读；
-`App.tsx` 不变，HTTP/后端/持久化/Schema 均不存在。Condition/Result 显式栏目与
-其他八类 Renderer 继续未实现，因此 `ImplementationValidation = NOT_RUN`。
+Question、Conclusion、全部 Spine steps、Element、Boundary、单一 StageChain、全部
+已选 Relation 和 SourceEntry 均按固定文档顺序出现；连续文档、0 常驻侧栏、1 个主
+投影、仅 1 个来源按钮、焦点可见、窄屏安全可读。`App.tsx` 不变，HTTP/后端/
+持久化/Schema 均不存在。Condition/Result 显式栏目与其他八类 Renderer 继续未实现，
+因此 `ImplementationValidation = NOT_RUN`。
 
 ## 7. 提交与独立固定提交审查
 

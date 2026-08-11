@@ -132,6 +132,35 @@ required_sections=(
   "## 7. 提交与独立固定提交审查"
 )
 
+commit_write_paths() {
+  local file="$1"
+  awk '
+    /^git add[[:space:]]/ {
+      capture = 1
+      line = $0
+      sub(/^git add[[:space:]]+/, "", line)
+    }
+    capture && $0 !~ /^git add[[:space:]]/ {
+      line = $0
+    }
+    capture {
+      continued = (line ~ /\\[[:space:]]*$/)
+      sub(/[[:space:]]*\\[[:space:]]*$/, "", line)
+      gsub(/^[[:space:]]+/, "", line)
+      gsub(/[[:space:]]+$/, "", line)
+      count = split(line, path, /[[:space:]]+/)
+      for (path_index = 1; path_index <= count; path_index += 1) {
+        if (path[path_index] != "") {
+          print path[path_index]
+        }
+      }
+      if (!continued) {
+        capture = 0
+      }
+    }
+  ' "${file}"
+}
+
 ready_count=0
 seen_ids=""
 
@@ -188,43 +217,65 @@ for expected_id in "${declared_ids[@]}"; do
   expected_gate=""
   expected_dependency=""
   expected_review_route="deep_reviewer"
+  expected_production_file_limit=""
+  expected_business_authorization="REQUIRED_BEFORE_RELEASE"
+  expected_write_set=""
   case "${task_id}" in
     MDR-I00)
       expected_gate="MDR-IG0 WebTestFoundation"
       expected_dependency="NONE"
+      expected_production_file_limit="2"
+      expected_business_authorization="NOT_APPLICABLE_TOOLING_ONLY"
+      expected_write_set=$'web/package.json\nweb/pnpm-lock.yaml\nweb/vite.config.mjs\nweb/src/test/setup.ts\nweb/src/test/test-environment.test.tsx\ndocs/engineering/cognitura-technology-baseline.md\ndocs/engineering/cognitura-test-strategy.md\nscripts/verify-module-default-reading\ntests/ci/verify-ci-contract.sh\n.github/workflows/wave0.yml'
       ;;
     MDR-I01)
       expected_gate="MDR-IG1 CanonicalNarrativeProjection"
       expected_dependency="MDR-I00"
+      expected_production_file_limit="2"
+      expected_write_set=$'web/src/modules/module-reading/model.ts\nweb/src/modules/module-reading/projectModuleNarrative.ts\nweb/src/modules/module-reading/projectModuleNarrative.test.ts'
       ;;
     MDR-I02)
       expected_gate="MDR-IG2 QuestionConclusionSpine"
       expected_dependency="MDR-I01"
+      expected_production_file_limit="1"
+      expected_write_set=$'web/src/modules/module-reading/ModuleNarrative.tsx\nweb/src/modules/module-reading/ModuleNarrative.test.tsx'
       ;;
     MDR-I03)
       expected_gate="MDR-IG3 ElementBoundaryReading"
       expected_dependency="MDR-I02"
+      expected_production_file_limit="3"
+      expected_write_set=$'web/src/modules/module-reading/model.ts\nweb/src/modules/module-reading/projectModuleNarrative.ts\nweb/src/modules/module-reading/ModuleClosure.tsx\nweb/src/modules/module-reading/ModuleClosure.test.tsx'
       ;;
     MDR-I04)
       expected_gate="MDR-IG4 StageChainRendererProjection"
       expected_dependency="MDR-I03"
+      expected_production_file_limit="2"
+      expected_write_set=$'web/src/modules/module-reading/model.ts\nweb/src/modules/module-reading/StageChainProjection.tsx\nweb/src/modules/module-reading/StageChainProjection.test.tsx'
       ;;
     MDR-I05)
       expected_gate="MDR-IG5 KeyRelationProjection"
       expected_dependency="MDR-I04"
+      expected_production_file_limit="2"
+      expected_write_set=$'web/src/modules/module-reading/model.ts\nweb/src/modules/module-reading/KeyRelations.tsx\nweb/src/modules/module-reading/KeyRelations.test.tsx'
       ;;
     MDR-I06)
       expected_gate="MDR-IG6 SourceEntryProjection"
       expected_dependency="MDR-I05"
+      expected_production_file_limit="1"
+      expected_write_set=$'web/src/modules/module-reading/SourceEntry.tsx\nweb/src/modules/module-reading/SourceEntry.test.tsx'
       ;;
     MDR-I07)
       expected_gate="MDR-IG7 ReadingFirstComposition"
       expected_dependency="MDR-I06"
+      expected_production_file_limit="3"
+      expected_write_set=$'web/src/modules/module-reading/ModuleDefaultReading.tsx\nweb/src/modules/module-reading/module-default-reading.css\nweb/src/modules/module-reading/index.ts\nweb/src/modules/module-reading/ModuleDefaultReading.test.tsx'
       ;;
     MDR-I08)
       expected_gate="MDR-IG8 FixedSliceReview"
       expected_dependency="MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07"
       expected_review_route="ultra_gatekeeper"
+      expected_production_file_limit="0"
+      expected_write_set=$'docs/task-cards/module-default-reading-implementation/README.md\ndocs/task-cards/module-default-reading-implementation/MDR-I08-fixed-slice-review.md\ndocs/engineering/cognitura-module-default-reading-implementation-acceptance.md'
       ;;
     *)
       fail "unsupported TaskCardID ${task_id}"
@@ -237,6 +288,23 @@ for expected_id in "${declared_ids[@]}"; do
     fail "dependency mismatch for ${task_id}"
   [[ "$(field_value "${file}" "ReviewRoute")" == "${expected_review_route}" ]] ||
     fail "invalid ReviewRoute for ${task_id}"
+  [[ "$(field_value "${file}" "ProductionFileLimit")" == "${expected_production_file_limit}" ]] ||
+    fail "ProductionFileLimit mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "BusinessImplementationAuthorization")" == "${expected_business_authorization}" ]] ||
+    fail "BusinessImplementationAuthorization mismatch for ${task_id}"
+
+  actual_write_set="$(sed -n 's/^WriteSet = //p' "${file}")"
+  [[ "${actual_write_set}" == "${expected_write_set}" ]] ||
+    fail "WriteSet mismatch for ${task_id}"
+
+  expected_commit_paths="$(printf '%s\n' "${expected_write_set}" | LC_ALL=C sort)"
+  actual_commit_paths="$(commit_write_paths "${file}" | LC_ALL=C sort)"
+  [[ "${actual_commit_paths}" == "${expected_commit_paths}" ]] ||
+    fail "commit WriteSet mismatch for ${task_id}"
+
+  if grep -Eq '^[[:space:]]*git[[:space:]]+push([[:space:]]|$)' "${file}"; then
+    fail "${filename}: remote push command is forbidden"
+  fi
 
   while IFS= read -r write_path; do
     case "${write_path}" in
@@ -253,12 +321,6 @@ done
 
 [[ "${ready_count}" -eq 0 ]] ||
   fail "all cards must remain BLOCKED_BY_USER_APPROVAL before written approval"
-
-i00="${cards_dir}/MDR-I00-web-test-foundation.md"
-grep -Fqx 'WriteSet = docs/engineering/cognitura-technology-baseline.md' "${i00}" ||
-  fail "MDR-I00 must synchronize the frontend technology baseline"
-grep -Fqx 'WriteSet = docs/engineering/cognitura-test-strategy.md' "${i00}" ||
-  fail "MDR-I00 must synchronize the test strategy"
 
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardValidation = PASS" \

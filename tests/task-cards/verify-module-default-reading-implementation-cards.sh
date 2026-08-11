@@ -81,7 +81,7 @@ sed -i.bak '/^WriteSet = docs\/engineering\/cognitura-technology-baseline[.]md$/
 rm "${missing_toolchain_owner_dir}/MDR-I00-web-test-foundation.md.bak"
 expect_failure \
   "${missing_toolchain_owner_dir}" \
-  "MDR-I00 must synchronize the frontend technology baseline"
+  "WriteSet mismatch for MDR-I00"
 
 missing_test_strategy_owner_dir="${test_tmp_root}/missing-test-strategy-owner"
 cp -R "${cards_dir}" "${missing_test_strategy_owner_dir}"
@@ -90,7 +90,7 @@ sed -i.bak '/^WriteSet = docs\/engineering\/cognitura-test-strategy[.]md$/d' \
 rm "${missing_test_strategy_owner_dir}/MDR-I00-web-test-foundation.md.bak"
 expect_failure \
   "${missing_test_strategy_owner_dir}" \
-  "MDR-I00 must synchronize the test strategy"
+  "WriteSet mismatch for MDR-I00"
 
 schema_leak_dir="${test_tmp_root}/schema-leak"
 cp -R "${cards_dir}" "${schema_leak_dir}"
@@ -98,7 +98,7 @@ sed -i.bak '/^## 4[.] RED -> GREEN$/i\
 WriteSet = schemas/cognition/cognitive-module.schema.json\
 ' "${schema_leak_dir}/MDR-I01-canonical-narrative-projection.md"
 rm "${schema_leak_dir}/MDR-I01-canonical-narrative-projection.md.bak"
-expect_failure "${schema_leak_dir}" "task card WriteSet contains forbidden path: schemas/"
+expect_failure "${schema_leak_dir}" "WriteSet mismatch for MDR-I01"
 
 database_leak_dir="${test_tmp_root}/database-leak"
 cp -R "${cards_dir}" "${database_leak_dir}"
@@ -106,7 +106,7 @@ sed -i.bak '/^## 4[.] RED -> GREEN$/i\
 WriteSet = server/src/main/resources/db/migration/V1__module.sql\
 ' "${database_leak_dir}/MDR-I02-question-conclusion-spine.md"
 rm "${database_leak_dir}/MDR-I02-question-conclusion-spine.md.bak"
-expect_failure "${database_leak_dir}" "task card WriteSet contains forbidden path: server/"
+expect_failure "${database_leak_dir}" "WriteSet mismatch for MDR-I02"
 
 wrong_review_route_dir="${test_tmp_root}/wrong-review-route"
 cp -R "${cards_dir}" "${wrong_review_route_dir}"
@@ -136,7 +136,79 @@ sed -i.bak 's/^## 4[.] RED -> GREEN$/## 4. 执行步骤/' \
 rm "${missing_red_green_dir}/MDR-I04-stage-chain-renderer-projection.md.bak"
 expect_failure "${missing_red_green_dir}" "missing required section: ## 4. RED -> GREEN"
 
+app_write_leak_dir="${test_tmp_root}/app-write-leak"
+cp -R "${cards_dir}" "${app_write_leak_dir}"
+sed -i.bak \
+  's#^WriteSet = web/src/modules/module-reading/projectModuleNarrative.ts$#WriteSet = web/src/App.tsx#' \
+  "${app_write_leak_dir}/MDR-I01-canonical-narrative-projection.md"
+rm "${app_write_leak_dir}/MDR-I01-canonical-narrative-projection.md.bak"
+expect_failure "${app_write_leak_dir}" "WriteSet mismatch for MDR-I01"
+
+schema_design_leak_dir="${test_tmp_root}/schema-design-leak"
+cp -R "${cards_dir}" "${schema_design_leak_dir}"
+sed -i.bak '/^## 4[.] RED -> GREEN$/i\
+WriteSet = docs/design/cognitura-schema-baseline-2.0.md\
+' "${schema_design_leak_dir}/MDR-I01-canonical-narrative-projection.md"
+rm "${schema_design_leak_dir}/MDR-I01-canonical-narrative-projection.md.bak"
+expect_failure "${schema_design_leak_dir}" "WriteSet mismatch for MDR-I01"
+
+authorization_drift_dir="${test_tmp_root}/authorization-drift"
+cp -R "${cards_dir}" "${authorization_drift_dir}"
+sed -i.bak \
+  's/^BusinessImplementationAuthorization = REQUIRED_BEFORE_RELEASE$/BusinessImplementationAuthorization = AUTHORIZED/' \
+  "${authorization_drift_dir}/MDR-I01-canonical-narrative-projection.md"
+rm "${authorization_drift_dir}/MDR-I01-canonical-narrative-projection.md.bak"
+expect_failure \
+  "${authorization_drift_dir}" \
+  "BusinessImplementationAuthorization mismatch for MDR-I01"
+
+production_limit_drift_dir="${test_tmp_root}/production-limit-drift"
+cp -R "${cards_dir}" "${production_limit_drift_dir}"
+sed -i.bak 's/^ProductionFileLimit = 2$/ProductionFileLimit = 99/' \
+  "${production_limit_drift_dir}/MDR-I01-canonical-narrative-projection.md"
+rm "${production_limit_drift_dir}/MDR-I01-canonical-narrative-projection.md.bak"
+expect_failure \
+  "${production_limit_drift_dir}" \
+  "ProductionFileLimit mismatch for MDR-I01"
+
+remote_push_command_dir="${test_tmp_root}/remote-push-command"
+cp -R "${cards_dir}" "${remote_push_command_dir}"
+sed -i.bak '/^git commit -m /a\
+git push origin HEAD\
+' "${remote_push_command_dir}/MDR-I01-canonical-narrative-projection.md"
+rm "${remote_push_command_dir}/MDR-I01-canonical-narrative-projection.md.bak"
+expect_failure "${remote_push_command_dir}" "remote push command is forbidden"
+
+missing_unified_entry_dir="${test_tmp_root}/missing-unified-entry"
+cp -R "${cards_dir}" "${missing_unified_entry_dir}"
+sed -i.bak '/^WriteSet = scripts\/verify-module-default-reading$/d' \
+  "${missing_unified_entry_dir}/MDR-I00-web-test-foundation.md"
+rm "${missing_unified_entry_dir}/MDR-I00-web-test-foundation.md.bak"
+expect_failure "${missing_unified_entry_dir}" "WriteSet mismatch for MDR-I00"
+
+missing_ci_workflow_dir="${test_tmp_root}/missing-ci-workflow"
+cp -R "${cards_dir}" "${missing_ci_workflow_dir}"
+sed -i.bak '/^WriteSet = [.]github\/workflows\/wave0[.]yml$/d' \
+  "${missing_ci_workflow_dir}/MDR-I00-web-test-foundation.md"
+rm "${missing_ci_workflow_dir}/MDR-I00-web-test-foundation.md.bak"
+expect_failure "${missing_ci_workflow_dir}" "WriteSet mismatch for MDR-I00"
+
+missing_ci_contract_dir="${test_tmp_root}/missing-ci-contract"
+cp -R "${cards_dir}" "${missing_ci_contract_dir}"
+sed -i.bak '/^WriteSet = tests\/ci\/verify-ci-contract[.]sh$/d' \
+  "${missing_ci_contract_dir}/MDR-I00-web-test-foundation.md"
+rm "${missing_ci_contract_dir}/MDR-I00-web-test-foundation.md.bak"
+expect_failure "${missing_ci_contract_dir}" "WriteSet mismatch for MDR-I00"
+
+commit_write_set_drift_dir="${test_tmp_root}/commit-write-set-drift"
+cp -R "${cards_dir}" "${commit_write_set_drift_dir}"
+sed -i.bak \
+  's#^  web/src/modules/module-reading/projectModuleNarrative.ts \\$#  web/src/App.tsx \\#' \
+  "${commit_write_set_drift_dir}/MDR-I01-canonical-narrative-projection.md"
+rm "${commit_write_set_drift_dir}/MDR-I01-canonical-narrative-projection.md.bak"
+expect_failure "${commit_write_set_drift_dir}" "commit WriteSet mismatch for MDR-I01"
+
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardContractTests = PASS" \
-  "NegativeCases = 11" \
+  "NegativeCases = 20" \
   "PreApprovalTerminalCases = 1"
