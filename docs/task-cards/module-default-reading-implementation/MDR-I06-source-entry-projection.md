@@ -39,13 +39,16 @@ RED：
 
 ```tsx
 render(<SourceEntry sourceRefs={["evidence.mvcc"]} />);
-expect(screen.getByRole("button", { name: "查看 1 条来源证据" })).toBeVisible();
+const button = screen.getByRole("button", { name: "查看 1 条来源证据" });
+expect(button).toBeVisible();
+expect(button).toHaveAttribute("data-source-refs", '["evidence.mvcc"]');
 expect(screen.queryByText("evidence.mvcc")).toBeNull();
 expect(screen.queryByRole("complementary")).toBeNull();
 ```
 
 GREEN 只渲染一个语义 button，把 refs 作为机器属性供后续路由消费；不得读取来源、
-联网、展开侧栏、显示原始 ID 或持久化状态。空 refs 必须 fail closed。
+联网、展开侧栏、显示原始 ID 或持久化状态，并输出唯一
+`data-reading-section="source-entry"`。空 refs 必须 fail closed。
 
 ## 5. 验证命令
 

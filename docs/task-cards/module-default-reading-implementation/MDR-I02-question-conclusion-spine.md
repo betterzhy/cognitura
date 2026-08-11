@@ -41,14 +41,22 @@ RED：
 
 ```tsx
 render(<ModuleNarrative projection={projection} />);
-expect(screen.getByRole("heading", { name: projection.coreQuestions[0] })).toBeVisible();
-expect(screen.getByText(projection.coreConclusion)).toBeVisible();
-expect(screen.getAllByRole("listitem").map((item) => item.textContent))
+const questions = screen.getByRole("list", { name: "Core questions" });
+const conclusion = screen.getByRole("region", { name: "Core conclusion" });
+const spine = screen.getByRole("list", { name: "Primary cognitive spine" });
+expect(within(questions).getAllByRole("listitem").map((item) => item.textContent))
+  .toEqual(projection.coreQuestions);
+expect(within(conclusion).getAllByText(projection.coreConclusion, { exact: true }))
+  .toHaveLength(1);
+expect(within(spine).getAllByRole("listitem").map((item) => item.textContent))
   .toEqual(projection.spineSteps.map((step) => step.statement));
+expect(within(spine).getAllByRole("listitem").map((item) => item.dataset.stepId))
+  .toEqual(projection.spineSteps.map((step) => step.stepId));
 ```
 
 先运行测试，预期因组件不存在而失败。GREEN 只增加一个无本地 state 的语义组件；
-不得隐藏内容到 Tab/Accordion，不得改写句子或重新排序 Spine。
+Questions、Conclusion、Spine 分别投影为唯一的 `data-reading-section`，不得隐藏内容到
+Tab/Accordion，不得改写句子或重新排序 Spine。
 
 ## 5. 验证命令
 

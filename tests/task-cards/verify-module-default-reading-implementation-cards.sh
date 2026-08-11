@@ -208,7 +208,25 @@ sed -i.bak \
 rm "${commit_write_set_drift_dir}/MDR-I01-canonical-narrative-projection.md.bak"
 expect_failure "${commit_write_set_drift_dir}" "commit WriteSet mismatch for MDR-I01"
 
+relation_projection_drift_dir="${test_tmp_root}/relation-projection-drift"
+cp -R "${cards_dir}" "${relation_projection_drift_dir}"
+sed -i.bak '/^RelationDisplay = CANONICAL_TYPE_TOKEN$/d' \
+  "${relation_projection_drift_dir}/MDR-I05-key-relation-projection.md"
+rm "${relation_projection_drift_dir}/MDR-I05-key-relation-projection.md.bak"
+expect_failure \
+  "${relation_projection_drift_dir}" \
+  "MDR-I05 must project the canonical RelationType token without invented semantics"
+
+composition_assertion_drift_dir="${test_tmp_root}/composition-assertion-drift"
+cp -R "${cards_dir}" "${composition_assertion_drift_dir}"
+sed -i.bak '/^CompositionAssertion = EXACT_SCOPED_IDENTITY_COUNT_CONTENT_ORDER$/d' \
+  "${composition_assertion_drift_dir}/MDR-I07-reading-first-composition.md"
+rm "${composition_assertion_drift_dir}/MDR-I07-reading-first-composition.md.bak"
+expect_failure \
+  "${composition_assertion_drift_dir}" \
+  "MDR-I07 must assert exact scoped identity, count, content, and order"
+
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardContractTests = PASS" \
-  "NegativeCases = 20" \
+  "NegativeCases = 22" \
   "PreApprovalTerminalCases = 1"

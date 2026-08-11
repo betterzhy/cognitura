@@ -322,6 +322,17 @@ done
 [[ "${ready_count}" -eq 0 ]] ||
   fail "all cards must remain BLOCKED_BY_USER_APPROVAL before written approval"
 
+i05="${cards_dir}/MDR-I05-key-relation-projection.md"
+[[ "$(grep -c '^RelationDisplay = ' "${i05}" || true)" -eq 1 ]] &&
+  [[ "$(field_value "${i05}" "RelationDisplay")" == "CANONICAL_TYPE_TOKEN" ]] ||
+  fail "MDR-I05 must project the canonical RelationType token without invented semantics"
+
+i07="${cards_dir}/MDR-I07-reading-first-composition.md"
+[[ "$(grep -c '^CompositionAssertion = ' "${i07}" || true)" -eq 1 ]] &&
+  [[ "$(field_value "${i07}" "CompositionAssertion")" == \
+    "EXACT_SCOPED_IDENTITY_COUNT_CONTENT_ORDER" ]] ||
+  fail "MDR-I07 must assert exact scoped identity, count, content, and order"
+
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardValidation = PASS" \
   "TaskCardCount = 9" \

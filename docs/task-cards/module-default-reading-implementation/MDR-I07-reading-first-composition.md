@@ -14,6 +14,7 @@ SchemaChange = FORBIDDEN
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
+CompositionAssertion = EXACT_SCOPED_IDENTITY_COUNT_CONTENT_ORDER
 ```
 
 ## 1. 目标
@@ -43,47 +44,69 @@ RED：
 ```tsx
 render(<ModuleDefaultReading module={module} rendererInput={rendererInput} />);
 const main = screen.getByRole("main", { name: module.title });
+const questions = within(main).getByRole("list", { name: "Core questions" });
+const conclusion = within(main).getByRole("region", { name: "Core conclusion" });
 const spine = within(main).getByRole("list", { name: "Primary cognitive spine" });
+const elements = within(main).getByRole("list", { name: "Knowledge elements" });
+const boundaries = within(main).getByRole("list", { name: "Critical boundaries" });
 const stageChain = within(main).getByRole("list", { name: "Stage chain" });
 const relations = within(main).getByRole("list", { name: "Key relations" });
+const sourceEntry = within(main).getByRole("button", {
+  name: `查看 ${rendererInput.sourceRefs.length} 条来源证据`,
+});
+const nodeById = new Map(rendererInput.nodes.map((node) => [node.nodeId, node]));
 
 expect(screen.getAllByRole("main")).toHaveLength(1);
 expect(screen.queryByRole("complementary")).toBeNull();
 expect(screen.getAllByRole("button")).toHaveLength(1);
 expect(document.querySelectorAll("[data-primary-visual-projection]")).toHaveLength(1);
-expect(within(spine).getAllByRole("listitem"))
-  .toHaveLength(module.primaryCognitiveSpine.steps.length);
-expect(within(stageChain).getAllByRole("listitem"))
-  .toHaveLength(rendererInput.nodes.length);
-expect(within(relations).getAllByRole("listitem"))
-  .toHaveLength(rendererInput.relations.length);
-
-const expectedRelationTexts = [
-  "Read View 约束 记录版本可见性",
-  "隔离级别 影响 快照创建时机",
-];
-const expectedDocumentOrder = [
-  module.coreQuestions[0],
-  module.thesis,
-  ...module.primaryCognitiveSpine.steps.map((step) => step.statement),
-  ...module.knowledgeElements.flatMap((element) => [element.title, element.content]),
-  ...module.criticalBoundaries.map((boundary) => boundary.statement),
-  ...rendererInput.nodes.flatMap((node) => [node.label, node.summary]),
-  ...expectedRelationTexts,
-  "查看 1 条来源证据",
-];
-let previousIndex = -1;
-for (const canonicalText of expectedDocumentOrder) {
-  const nextIndex = main.textContent?.indexOf(canonicalText) ?? -1;
-  expect(nextIndex).toBeGreaterThan(previousIndex);
-  previousIndex = nextIndex;
-}
+expect(within(questions).getAllByRole("listitem").map((item) => item.textContent))
+  .toEqual(module.coreQuestions);
+expect(within(conclusion).getAllByText(module.thesis, { exact: true })).toHaveLength(1);
+expect(within(spine).getAllByRole("listitem").map((item) =>
+  [item.dataset.stepId, item.textContent]))
+  .toEqual(module.primaryCognitiveSpine.steps.map((step) => [step.stepId, step.statement]));
+expect(within(elements).getAllByRole("listitem").map((item) =>
+  [item.dataset.elementId, item.textContent]))
+  .toEqual(module.knowledgeElements.map((element) =>
+    [element.artifactId, `${element.title}${element.content}`]));
+expect(within(boundaries).getAllByRole("listitem").map((item) =>
+  [item.dataset.boundaryId, item.textContent]))
+  .toEqual(module.criticalBoundaries.map((boundary) =>
+    [boundary.boundaryId, boundary.statement]));
+expect(within(stageChain).getAllByRole("listitem").map((item) =>
+  [item.dataset.nodeId, item.textContent]))
+  .toEqual(rendererInput.nodes.map((node) =>
+    [node.nodeId, `${node.label}${node.summary}`]));
+expect(within(relations).getAllByRole("listitem").map((item) => [
+  item.dataset.relationId,
+  ...Array.from(item.querySelectorAll("[data-relation-part]"),
+    (part) => part.textContent),
+])).toEqual(rendererInput.relations.map((relation) => [
+  relation.relationId,
+  nodeById.get(relation.sourceNodeRef)?.label,
+  relation.type,
+  nodeById.get(relation.targetNodeRef)?.label,
+]));
+expect(sourceEntry).toHaveAttribute(
+  "data-source-refs", JSON.stringify(rendererInput.sourceRefs));
+const sectionOrder = Array.from(
+  main.querySelectorAll("[data-reading-section]"),
+  (section) => section.getAttribute("data-reading-section"),
+);
+expect(sectionOrder).toEqual([
+  "questions", "conclusion", "spine", "elements", "boundaries",
+  "stage-chain", "relations", "source-entry",
+]);
+expect(new Set(sectionOrder).size).toBe(sectionOrder.length);
 expect(document.body.textContent).not.toContain("evidence.mvcc");
 ```
 
-先观察组合组件不存在的 RED。GREEN 按 Question/Conclusion/Spine、Element/Boundary、
-单一 StageChain、Relation、SourceEntry 顺序组合，CSS 只实现连续文档、可见焦点和
-安全单列降级。不得复制 docs-only prototype CSS/HTML 作为生产事实。
+先观察组合组件不存在的 RED；随后分别删除、重复、重排每类 section，并更改一项
+Canonical identity/type/source/target，四组 mutation 必须保持 RED。GREEN 按
+Question/Conclusion/Spine、Element/Boundary、单一 StageChain、Relation、SourceEntry
+顺序组合，CSS 只实现连续文档、可见焦点和安全单列降级。不得复制 docs-only
+prototype CSS/HTML 或谓词文本作为生产事实。
 
 ## 5. 验证命令
 

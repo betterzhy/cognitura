@@ -43,14 +43,22 @@ RED：
 ```tsx
 render(<ModuleClosure elements={projection.knowledgeElements}
   boundaries={projection.criticalBoundaries} />);
-expect(screen.getByRole("heading", { name: "Visibility judgment" })).toBeVisible();
-expect(screen.getByText("A read view selects the newest visible version.")).toBeVisible();
-expect(screen.getByText("MVCC does not prevent every write conflict.")).toBeVisible();
+const elements = screen.getByRole("list", { name: "Knowledge elements" });
+const boundaries = screen.getByRole("list", { name: "Critical boundaries" });
+expect(within(elements).getAllByRole("listitem").map((item) => item.textContent))
+  .toEqual(projection.knowledgeElements.map((item) => `${item.title}${item.content}`));
+expect(within(elements).getAllByRole("listitem").map((item) => item.dataset.elementId))
+  .toEqual(projection.knowledgeElements.map((item) => item.artifactId));
+expect(within(boundaries).getAllByRole("listitem").map((item) => item.textContent))
+  .toEqual(projection.criticalBoundaries.map((item) => item.statement));
+expect(within(boundaries).getAllByRole("listitem").map((item) => item.dataset.boundaryId))
+  .toEqual(projection.criticalBoundaries.map((item) => item.boundaryId));
 expect(screen.queryByRole("heading", { name: /Conditions|Results/ })).toBeNull();
 ```
 
 先观察缺少字段/组件的 RED。GREEN 扩展纯投影以传递原始 Element 与 Boundary，再用
-连续 section 渲染；不得卡片墙化、摘要化或生成新语义标签。
+两个唯一的 `data-reading-section` 连续渲染全部输入；不得卡片墙化、摘要化或生成新
+语义标签。
 
 ## 5. 验证命令
 

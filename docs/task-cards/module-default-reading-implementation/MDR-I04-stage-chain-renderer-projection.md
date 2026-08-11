@@ -42,14 +42,18 @@ RED：
 
 ```tsx
 render(<StageChainProjection moduleRef="module.mvcc" input={rendererInput} />);
-expect(screen.getAllByRole("listitem").map((item) => item.textContent))
+const stageChain = screen.getByRole("list", { name: "Stage chain" });
+expect(within(stageChain).getAllByRole("listitem").map((item) => item.textContent))
   .toEqual(rendererInput.nodes.map((node) => `${node.label}${node.summary}`));
+expect(within(stageChain).getAllByRole("listitem").map((item) => item.dataset.nodeId))
+  .toEqual(rendererInput.nodes.map((node) => node.nodeId));
 expect(() => render(<StageChainProjection moduleRef="module.other" input={rendererInput} />))
   .toThrow("RENDERER_MODULE_REF_MISMATCH");
 ```
 
 先观察组件缺失的 RED。GREEN 只按输入顺序显示 node label/summary，并验证
-`rendererType` 与 `moduleRef`；不得补边、改序、总结或从 docs-only fixture 取数据。
+`rendererType` 与 `moduleRef`，并输出唯一 `data-reading-section="stage-chain"`；不得补边、
+改序、总结或从 docs-only fixture 取数据。
 
 ## 5. 验证命令
 

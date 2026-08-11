@@ -167,9 +167,9 @@ fixture 治理与 1440×1100 基础截图，`HV-D01` 已完成机制型 Module �
 `gpt-5.6-sol/high` 零发现审查；整体视觉设计与可用性为 `PASS`，实现仍为 `NOT_RUN`。
 本轮不创建或释放 `W1-I00`，也不授权
 业务实现、正式数据库写入或远程推送。
-下一会话只能从
 [`cognitura-development-entry-prompt.md`](docs/engineering/cognitura-development-entry-prompt.md)
-启动书面实现任务卡规划，并在用户批准卡片前停止，不得直接进入代码。
+已用于建立首个 Module 默认阅读书面实现任务卡规划；当前只能审阅并批准该卡集。
+在用户批准卡片文本且另行明确授权业务实现前，必须停止在规划门，不得直接进入代码。
 
 ## 当前准入
 

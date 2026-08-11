@@ -14,6 +14,7 @@ SchemaChange = FORBIDDEN
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
+RelationDisplay = CANONICAL_TYPE_TOKEN
 ```
 
 ## 1. 目标
@@ -41,14 +42,27 @@ RED：
 
 ```tsx
 render(<KeyRelations input={rendererInputWithTwoRelations} />);
-expect(screen.getAllByRole("listitem")).toHaveLength(2);
-expect(screen.getByText(/Read View.*约束.*记录版本可见性/)).toBeVisible();
+const relationList = screen.getByRole("list", { name: "Key relations" });
+const relationItems = within(relationList).getAllByRole("listitem");
+const nodeById = new Map(rendererInput.nodes.map((node) => [node.nodeId, node]));
+expect(relationItems).toHaveLength(rendererInput.relations.length);
+expect(relationItems.map((item) => item.dataset.relationId))
+  .toEqual(rendererInput.relations.map((relation) => relation.relationId));
+expect(relationItems.map((item) =>
+  Array.from(item.querySelectorAll("[data-relation-part]"), (part) => part.textContent)))
+  .toEqual(rendererInput.relations.map((relation) => [
+    nodeById.get(relation.sourceNodeRef)?.label,
+    relation.type,
+    nodeById.get(relation.targetNodeRef)?.label,
+  ]));
 expect(() => render(<KeyRelations input={rendererInputWithFourRelations} />))
   .toThrow("MODULE_DEFAULT_READING_RELATION_BUDGET_EXCEEDED");
 ```
 
-GREEN 只能用 renderer node label 解析端点，用正式 RelationType 的固定显示词投影谓词；
-缺失端点、未知 type、0 条或超过 3 条均 fail closed，不显示原始技术 ID 代替语义。
+GREEN 只能用 renderer node label 解析端点，并逐字投影正式 `RelationType` token；当前
+没有获授权的本地化谓词映射，不得把 docs-only prototype 文本或自定义显示词带入生产。
+每项保留 `relationId`、source/target node ref 与 type 的机器属性。缺失端点、未知 type、
+0 条或超过 3 条均 fail closed，不把技术对象 ID 当成可见端点文本。
 
 ## 5. 验证命令
 
@@ -64,8 +78,8 @@ git status --short
 
 ## 6. Gate 与完成定义
 
-Relation 数量为 1..3，方向和端点来自同一 RendererInput，技术 ID 默认静默，不出现
-自动排序、自动选 key relation 或第二事实。
+Relation 数量为 1..3，identity、type、方向和端点来自同一 RendererInput，技术 ID
+默认静默，不出现本地化语义发明、自动排序、自动选 key relation 或第二事实。
 
 ## 7. 提交与独立固定提交审查
 
