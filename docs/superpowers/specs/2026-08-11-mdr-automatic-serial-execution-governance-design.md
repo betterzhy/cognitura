@@ -73,6 +73,12 @@ bootstrap 必须同步删除或替换逐卡释放和“不得自动释放”条�
 只能引用该权威，不得各自维护第二份 Active/READY/DONE 事实。bootstrap 初始账本仍为
 九卡全部阻断、Active/Released 均为 `NONE`、业务实现未授权。
 
+已关闭高保真视觉 Gate 所有的无命名空间 `ActiveImplementationTaskCard = NONE` 和
+`BusinessImplementation = NOT_AUTHORIZED` 是历史终态，不是 MDR 运行态投影，必须保持
+不变。MDR 只通过 `ModuleDefaultReadingActiveImplementationTaskCard` 和
+`ModuleDefaultReadingBusinessImplementation` 两个命名空间字段引用本账本；不得借
+bootstrap 重写既有 Gate 的事实 Owner。
+
 bootstrap 必须先 RED 后 GREEN，形成独立非 amend 本地固定提交并取得新的
 `deep_reviewer = GO / P0=0 / P1=0 / P2=0`。该 GO 只证明自动执行治理可用，不释放
 `MDR-I00`；之后仍须第 2 节定义的集合级启动授权。

@@ -238,11 +238,18 @@ In `AGENTS.md`, root `README.md`, `docs/engineering/cognitura-design-index.md`, 
 ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 ModuleDefaultReadingImplementationTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingImplementationEntry = GOVERNED_BY_EXECUTION_STATE
-ActiveImplementationTaskCard = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
-BusinessImplementation = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
+ModuleDefaultReadingActiveImplementationTaskCard = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
+ModuleDefaultReadingBusinessImplementation = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
+ActiveImplementationTaskCard = NONE
+BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
+
+The unqualified Active/Business fields are immutable terminal facts owned by the already-closed
+high-fidelity visual Gate. They must remain unchanged; only the namespaced MDR fields point to the
+new ledger. The MDR validator must reject any attempt to use the unqualified fields as MDR runtime
+state.
 
 In the MDR index and its table, use:
 
