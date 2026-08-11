@@ -12,9 +12,9 @@ GovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 SetAuthorizationStatus = USER_AUTHORIZED
 SetAuthorizationScope = MDR-I00..MDR-I08_AUTOMATIC_SERIAL
 HumanCheckpointRequirement = NONE_WITHIN_AUTHORIZED_SET
-TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP
-ActiveImplementationTaskCard = NONE
-ReleasedTaskCard = NONE
+TaskCardSetStatus = IN_PROGRESS
+ActiveImplementationTaskCard = MDR-I07
+ReleasedTaskCard = MDR-I07
 CompletedTaskCards = MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06
 CurrentCandidateSHA = 637cad53069cf417cbaa2a2bc8029d601bd972a4
 CurrentGateStatus = PASS
@@ -22,18 +22,17 @@ CurrentReviewRoute = deep_reviewer
 CurrentReviewVerdict = GO_P0_0_P1_0_P2_0
 NextImplementationTaskCard = MDR-I07
 TransitionSequence = 8
-TransitionKind = BLOCK_DOCUMENTATION_GAP
-TransitionBaseSHA = 92a0cfdcdde7c4fdaf7b3e1349f52f5fb069ac32
+TransitionKind = RESUME_DOCUMENTATION_GAP
+TransitionBaseSHA = fc316ad95e02e03b3fdfc040cc117432145f579b
 BusinessImplementation = AUTHORIZED_FOR_MDR_I00_I08
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
 
-当前恢复点为 `MDR-I07`。其 RED 要求 `data-reading-section` 前缀为
-`questions → conclusion → spine`，但已经固定审查通过的 `MDR-I02` 组件及测试使用
-`core-questions → core-conclusion → primary-spine`；`MDR-I07` 精确写集不包含前序组件，
-不能同时保持前序唯一 section 与当前 exact-order 断言。恢复前必须先形成获授权的任务卡
-裁决，统一这三个 section identity；不得通过重复包装、越界修改前序卡或复制认知投影绕过。
+`MDR-I07` 的 section identity 缺口已由固定治理候选
+`fc316ad95e02e03b3fdfc040cc117432145f579b` 修复，并取得
+`deep_reviewer = GO / P0=0 / P1=0 / P2=0`。当前恢复保持原完成前缀、I06 审查收据和
+`TransitionSequence = 8`，只重新激活并释放唯一恢复卡 `MDR-I07`。
 
 本文件是 `MDR-I00..MDR-I08` 唯一可变运行态权威。AGENTS、中央索引、卡集索引和
 逐卡正文只能引用本文件，不得复制 Active、READY、DONE、授权或审查收据事实。
