@@ -7,10 +7,13 @@ CanonicalProjectName = Cognitura
 GovernedTaskCardSet = MDR-I00..MDR-I08
 SelectedApproach = A
 DesignDirectionStatus = USER_APPROVED
-WrittenSpecReview = AWAITING_USER_REVIEW
+WrittenSpecReview = USER_APPROVED
 ExecutionContinuationMode = AUTOMATIC_SERIAL_AFTER_EXPLICIT_SET_AUTHORIZATION
-AutomaticSerialExecutionEntry = BLOCKED_BY_GOVERNANCE_BOOTSTRAP_AND_SET_AUTHORIZATION
+AutomaticSerialExecutionEntry = BLOCKED_BY_GOVERNANCE_BOOTSTRAP
 ExecutionStateAuthority = NOT_CREATED
+GovernanceImplementationAuthorization = USER_AUTHORIZED
+SetBusinessImplementationAuthorization = USER_AUTHORIZED_PENDING_GOVERNANCE_BOOTSTRAP
+HumanCheckpointRequirement = NONE_WITHIN_AUTHORIZED_SET
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
@@ -201,3 +204,8 @@ IdeaDirectory = PRESERVE_UNTRACKED
   `ActiveImplementationTaskCard = NONE`，直到新的实现启动授权到达。
 
 本规格获批也只授权编写治理实施计划，不授权执行 `MDR-I00`。
+
+用户随后于 `2026-08-11` 另行明确要求“编写后自动执行，无需人工审核”。该后续指令
+独立授权治理计划执行，并把第 2 节的集合级授权登记为
+`USER_AUTHORIZED_PENDING_GOVERNANCE_BOOTSTRAP`；它只移除逐卡用户确认，不移除固定提交
+独立审查，也不扩张 Schema、数据库、后端、路由、正式库写入或远程推送边界。
