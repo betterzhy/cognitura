@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+
+"${repo_root}/scripts/verify-wave1-design"
+bash "${repo_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
+"${repo_root}/scripts/verify-wave1-implementation-cards" \
+  --cards-dir "${repo_root}/docs/task-cards/wave-1-implementation"
+
+printf '%s\n' "Wave1ImplementationVerification = PASS"

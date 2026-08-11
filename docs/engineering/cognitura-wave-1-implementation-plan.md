@@ -1,0 +1,87 @@
+# Cognitura Wave 1 Implementation Plan
+
+```text
+CanonicalProjectName = Cognitura
+PlanKind = EXECUTION_PROJECTION
+FormalDesignAuthority = docs/design/wave-1/README.md
+TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
+TaskCardCount = 14
+TaskCardSetStatus = READY_FOR_EXECUTION
+ActiveTaskCard = W1-I00
+BusinessImplementation = NOT_AUTHORIZED
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
+
+本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
+Schema 基线。当前只执行非业务治理卡 I00；I00 完成后必须停在 I01 用户授权 Gate。
+
+## 1. 实现卡
+
+| 卡片 | Owner / 风险面 | 依赖 | 当前状态 |
+|---|---|---|---|
+| `W1-I00` | Task-card governance | `NONE` | `READY` |
+| `W1-I01` | Source domain | `I00` | `BLOCKED_BY_USER_AUTHORIZATION` |
+| `W1-I02` | Source persistence | `I01` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I03` | DOCX security | `I01` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I04` | Text/list/section parser | `I03` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I05` | Table fidelity | `I04` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I06` | Image/relationship projection | `I04,I05` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I08` | Stable reference/lineage | `I07` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I09` | Upload/processing command API | `I07` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I10` | Preview query API | `I08,I09` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I11` | Partial acceptance command | `I10` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I12` | Desktop Web source preview | `I10,I11` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I13` | Fixed implementation review | `I00..I12` | `BLOCKED_BY_DEPENDENCY` |
+
+## 2. 依赖图
+
+```text
+I00 -> I01
+I01 -> I02
+I01 -> I03 -> I04 -> I05 -> I06
+I02 + I04 + I05 + I06 -> I07
+I07 -> I08 + I09 -> I10 -> I11
+I10 + I11 -> I12
+I00..I12 -> I13
+```
+
+依赖图不授权并行执行；任一时刻最多一张 READY。
+
+## 3. 授权 Gate
+
+```text
+I01BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+I02DatabaseGate = REQUIRED_BEFORE_READY
+FormalDatabaseWrite = NOT_AUTHORIZED
+DeploymentAndRelease = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
+
+I02 的临时数据库测试授权与正式数据库写入授权严格分离。`raw/**` 原件只读，外部
+relationship 目标禁止访问。
+
+## 4. 统一验证
+
+```bash
+scripts/verify-wave1-implementation
+```
+
+当前入口只运行：
+
+```text
+Wave1DesignVerification
+Wave1ImplementationTaskCardContractTests
+Wave1ImplementationTaskCardValidation
+```
+
+后续业务卡只能在各自 Owner 内增加测试阶段，不得提前把未实现边界伪装为 PASS。
+
+## 5. I00 完成条件
+
+- 14 卡闭集、依赖、状态和写集边界通过 Bash 3.2 验证。
+- 8 个 mutation 负例和合法业务授权阻断终态通过。
+- Wave 0、Wave 1 design 与统一入口全部 PASS。
+- 固定 I00 候选取得新的 `deep_reviewer` 零发现 GO。
+- 关闭后 `ActiveTaskCard = NONE`、I01 保持 `BLOCKED_BY_USER_AUTHORIZATION`。

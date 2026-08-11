@@ -88,6 +88,13 @@ Wave 1 详细设计复审修复候选
 bootstrap，当前只释放非业务治理卡 I00。I00 不创建解析器、页面、数据库对象、
 LLM 调用或其他业务实现；I01 仍需另行授权。
 
+Wave 1 implementation 的当前执行投影见
+[工程实现计划](docs/engineering/cognitura-wave-1-implementation-plan.md)，统一验证入口为：
+
+```bash
+scripts/verify-wave1-implementation
+```
+
 `W0-G1 DesignSourceRegistry = PASS`：四份正式输入已登记到机器可读 manifest，
 并通过路径、角色、版本、字节数与 SHA-256 的正反例验证。
 

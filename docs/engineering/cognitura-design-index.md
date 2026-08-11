@@ -36,6 +36,10 @@ Wave1ImplementationTaskCardPlan =
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
 Wave1ImplementationTaskCards =
   docs/task-cards/wave-1-implementation/README.md
+Wave1ImplementationPlan =
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+Wave1ImplementationVerification =
+  scripts/verify-wave1-implementation
 Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
 ActiveTaskCard = W1-I00
 ActiveTaskCardStatus = READY
