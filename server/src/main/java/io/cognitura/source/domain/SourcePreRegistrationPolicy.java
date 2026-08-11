@@ -58,21 +58,6 @@ public final class SourcePreRegistrationPolicy {
             throw new IllegalArgumentException(
                     "SOURCE_DOCUMENT_AND_IDEMPOTENCY_FACTS_CONFLICT");
         }
-        if (existingById.isPresent()) {
-            SourceDocument existing = existingById.orElseThrow();
-            if (!existing.sourceDocumentId().equals(request.sourceDocumentId())) {
-                throw new IllegalArgumentException("SOURCE_DOCUMENT_ID_LOOKUP_MISMATCH");
-            }
-            if (!existing.workspaceId().equals(request.workspaceId())) {
-                throw new IllegalArgumentException("SOURCE_DOCUMENT_WORKSPACE_IDENTITY_CONFLICT");
-            }
-            if (!sameImmutableUpload(existing, request, actualHash)) {
-                throw new IllegalArgumentException("SOURCE_DOCUMENT_IMMUTABLE_FACT_CONFLICT");
-            }
-            SourceBinary binary = requireExistingBinary(existing, existingFacts.sourceBinaryByHash());
-            return new RegistrationDecision(existing, binary, false, false);
-        }
-
         if (existingByKey.isPresent()) {
             SourceDocument existing = existingByKey.orElseThrow();
             if (!existing.workspaceId().equals(request.workspaceId())
@@ -83,6 +68,20 @@ public final class SourcePreRegistrationPolicy {
                 throw failure(
                         SourceDomainException.Code.IDEMPOTENCY_CONFLICT,
                         "idempotency key is already bound to different source bytes");
+            }
+            SourceBinary binary = requireExistingBinary(existing, existingFacts.sourceBinaryByHash());
+            return new RegistrationDecision(existing, binary, false, false);
+        }
+        if (existingById.isPresent()) {
+            SourceDocument existing = existingById.orElseThrow();
+            if (!existing.sourceDocumentId().equals(request.sourceDocumentId())) {
+                throw new IllegalArgumentException("SOURCE_DOCUMENT_ID_LOOKUP_MISMATCH");
+            }
+            if (!existing.workspaceId().equals(request.workspaceId())) {
+                throw new IllegalArgumentException("SOURCE_DOCUMENT_WORKSPACE_IDENTITY_CONFLICT");
+            }
+            if (!sameImmutableUpload(existing, request, actualHash)) {
+                throw new IllegalArgumentException("SOURCE_DOCUMENT_IMMUTABLE_FACT_CONFLICT");
             }
             SourceBinary binary = requireExistingBinary(existing, existingFacts.sourceBinaryByHash());
             return new RegistrationDecision(existing, binary, false, false);

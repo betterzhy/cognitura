@@ -74,6 +74,27 @@ class SourcePreRegistrationPolicyTest {
     }
 
     @Test
+    void classifiesDigestChangeAsIdempotencyConflictWhenBothLookupsHitSameDocument() {
+        var first = policy.preRegister(
+                request("document-1", "workspace-1", "binary-abc", "key-1", bytes("abc"), ABC_HASH),
+                SourcePreRegistrationPolicy.ExistingFacts.empty());
+
+        assertThatThrownBy(() -> policy.preRegister(
+                        request("document-1", "workspace-1", "binary-abd", "key-1", bytes("abd"), ABD_HASH),
+                        new SourcePreRegistrationPolicy.ExistingFacts(
+                                Optional.of(first.sourceDocument()),
+                                Optional.of(first.sourceDocument()),
+                                Optional.of(first.sourceBinary()))))
+                .isInstanceOf(SourceDomainException.class)
+                .satisfies(error -> {
+                    var domainError = (SourceDomainException) error;
+                    assertThat(domainError.code())
+                            .isEqualTo(SourceDomainException.Code.IDEMPOTENCY_CONFLICT);
+                    assertThat(domainError.retryable()).isFalse();
+                });
+    }
+
+    @Test
     void createsDistinctLogicalUploadButSharesBinaryForDifferentKeyAndSameDigest() {
         var first = policy.preRegister(
                 request("document-1", "workspace-1", "binary-abc", "key-1", bytes("abc"), ABC_HASH),
