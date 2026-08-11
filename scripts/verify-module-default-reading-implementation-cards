@@ -415,6 +415,9 @@ i07="${cards_dir}/MDR-I07-reading-first-composition.md"
 [[ "$(grep -c '^CompositionOrder = ' "${i07}" || true)" -eq 1 ]] &&
   [[ "$(field_value "${i07}" "CompositionOrder")" == "CORE_THESIS_SPINE_RENDERER_BOUNDARIES_ELEMENTS_RELATIONS_SOURCES" ]] ||
   fail "MDR-I07 must retain the formal ModuleReading projection order"
+[[ "$(grep -c '^CompositionSectionIdentities = ' "${i07}" || true)" -eq 1 ]] &&
+  [[ "$(field_value "${i07}" "CompositionSectionIdentities")" == "CORE_QUESTIONS_CORE_CONCLUSION_PRIMARY_SPINE_STAGE_CHAIN_BOUNDARIES_ELEMENTS_RELATIONS_SOURCE_ENTRY" ]] ||
+  fail "MDR-I07 section identities must match the fixed predecessor component contracts"
 
 required_state_fields=(
   "CanonicalProjectName"
@@ -529,7 +532,18 @@ case "${task_set_status}" in
     [[ "${next_card}" == "${expected_next}" ]] || fail "next card does not match completed dependency prefix"
     [[ "${active}" == "${next_card}" && "${released}" == "${next_card}" ]] || fail "in-progress state must have exactly one identical active and released card"
     ready_count=1
-    if [[ "${completed_count}" -eq 0 ]]; then
+    if [[ "${transition_kind}" == "RESUME_DOCUMENTATION_GAP" ]]; then
+      [[ "${transition_sequence}" -eq $((completed_count + 1)) ]] || fail "documentation-gap resume transition sequence mismatch"
+      is_sha "${transition_base_state}" || fail "documentation-gap resume requires a fixed transition base SHA"
+      if [[ "${completed_count}" -eq 0 ]]; then
+        [[ "${current_sha}" == "NONE" && "${current_gate}" == "NOT_RUN" && "${current_route}" == "NONE" && "${current_verdict}" == "NOT_RUN" ]] ||
+          fail "documentation-gap resume before the first completion cannot invent a review receipt"
+      else
+        is_sha "${current_sha}" || fail "documentation-gap resume must preserve the last candidate receipt"
+        [[ "${current_gate}" == "PASS" && "${current_route}" == "deep_reviewer" && "${current_verdict}" == "GO_P0_0_P1_0_P2_0" ]] ||
+          fail "documentation-gap resume must preserve the last zero-finding review receipt"
+      fi
+    elif [[ "${completed_count}" -eq 0 ]]; then
       [[ "${transition_sequence}" == "1" && "${transition_kind}" == "ACTIVATE_SET" ]] || fail "activation transition metadata mismatch"
       [[ "${transition_base_state}" == "${governance_sha}" ]] || fail "activation must bind the governance reviewed SHA"
       [[ "${current_sha}" == "NONE" && "${current_gate}" == "NOT_RUN" && "${current_route}" == "NONE" && "${current_verdict}" == "NOT_RUN" ]] || fail "activation cannot invent business review receipt"
@@ -701,7 +715,18 @@ if [[ -n "${transition_base}" ]]; then
         require_unchanged_state_field "${receipt_field}"
       done
       ;;
-    *) fail "fixed transition verification requires ACTIVATE_SET, ADVANCE, STOP, BLOCK_DOCUMENTATION_GAP, BLOCK_AUTHORITY_EXPANSION, FINAL_NO_GO, or COMPLETE" ;;
+    RESUME_DOCUMENTATION_GAP)
+      [[ "${base_status}" == "BLOCKED_BY_DOCUMENTATION_GAP" ]] ||
+        fail "documentation-gap resume must start from BLOCKED_BY_DOCUMENTATION_GAP"
+      [[ "${base_completed}" == "${completed}" && "${base_sequence}" == "${transition_sequence}" ]] ||
+        fail "documentation-gap resume cannot change the completed prefix or sequence"
+      [[ "${base_active}" == "NONE" && "${base_released}" == "NONE" && "${base_next}" == "${next_card}" ]] ||
+        fail "documentation-gap resume must restore the exact recovery card"
+      for receipt_field in CurrentCandidateSHA CurrentGateStatus CurrentReviewRoute CurrentReviewVerdict BusinessImplementation; do
+        require_unchanged_state_field "${receipt_field}"
+      done
+      ;;
+    *) fail "fixed transition verification requires ACTIVATE_SET, ADVANCE, STOP, BLOCK_DOCUMENTATION_GAP, BLOCK_AUTHORITY_EXPANSION, RESUME_DOCUMENTATION_GAP, FINAL_NO_GO, or COMPLETE" ;;
   esac
 fi
 

@@ -452,6 +452,16 @@ expect_failure \
   "${composition_order_drift_dir}" \
   "MDR-I07 must retain the formal ModuleReading projection order"
 
+composition_section_identity_drift_dir="${test_tmp_root}/composition-section-identity-drift"
+cp -R "${cards_dir}" "${composition_section_identity_drift_dir}"
+sed -i.bak \
+  's/^CompositionSectionIdentities = CORE_QUESTIONS_CORE_CONCLUSION_PRIMARY_SPINE_STAGE_CHAIN_BOUNDARIES_ELEMENTS_RELATIONS_SOURCE_ENTRY$/CompositionSectionIdentities = QUESTIONS_CONCLUSION_SPINE_STAGE_CHAIN_BOUNDARIES_ELEMENTS_RELATIONS_SOURCE_ENTRY/' \
+  "${composition_section_identity_drift_dir}/MDR-I07-reading-first-composition.md"
+rm "${composition_section_identity_drift_dir}/MDR-I07-reading-first-composition.md.bak"
+expect_failure \
+  "${composition_section_identity_drift_dir}" \
+  "MDR-I07 section identities must match the fixed predecessor component contracts"
+
 missing_state_dir="${test_tmp_root}/missing-execution-state"
 cp -R "${cards_dir}" "${missing_state_dir}"
 rm "${missing_state_dir}/execution-state.md"
@@ -587,6 +597,35 @@ set_state_field "${valid_documentation_gap_dir}/execution-state.md" "TaskCardSet
 set_state_field "${valid_documentation_gap_dir}/execution-state.md" "TransitionKind" "BLOCK_DOCUMENTATION_GAP"
 "${verifier}" --cards-dir "${valid_documentation_gap_dir}" >/dev/null ||
   fail "valid documentation-gap recovery state was rejected"
+
+valid_documentation_gap_resume_dir="${test_tmp_root}/valid-documentation-gap-resume"
+cp -R "${valid_documentation_gap_dir}" "${valid_documentation_gap_resume_dir}"
+set_state_field \
+  "${valid_documentation_gap_resume_dir}/execution-state.md" \
+  "TaskCardSetStatus" \
+  "IN_PROGRESS"
+set_state_field \
+  "${valid_documentation_gap_resume_dir}/execution-state.md" \
+  "ActiveImplementationTaskCard" \
+  "MDR-I00"
+set_state_field \
+  "${valid_documentation_gap_resume_dir}/execution-state.md" \
+  "ReleasedTaskCard" \
+  "MDR-I00"
+set_state_field \
+  "${valid_documentation_gap_resume_dir}/execution-state.md" \
+  "TransitionKind" \
+  "RESUME_DOCUMENTATION_GAP"
+set_state_field \
+  "${valid_documentation_gap_resume_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+resume_output="$(${verifier} --cards-dir "${valid_documentation_gap_resume_dir}")" ||
+  fail "valid documentation-gap resume state was rejected"
+[[ "${resume_output}" == *"ActiveImplementationTaskCard = MDR-I00"* ]] ||
+  fail "valid documentation-gap resume output did not restore MDR-I00"
+[[ "${resume_output}" == *"ReadyTaskCardCount = 1"* ]] ||
+  fail "valid documentation-gap resume output did not expose exactly one ready card"
 
 valid_authority_block_dir="${test_tmp_root}/valid-authority-block"
 cp -R "${valid_stopped_dir}" "${valid_authority_block_dir}"
@@ -814,6 +853,146 @@ stopped_transition_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --transition-head "${stopped_transition_sha}" >/dev/null ||
   fail "valid fixed STOP transition was rejected"
 
+git -C "${transition_repo_root}" switch -qc documentation-gap-resume "${advance_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TaskCardSetStatus" \
+  "BLOCKED_BY_DOCUMENTATION_GAP"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "ActiveImplementationTaskCard" \
+  "NONE"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "ReleasedTaskCard" \
+  "NONE"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionKind" \
+  "BLOCK_DOCUMENTATION_GAP"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "${advance_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: block test MDR set on documentation gap"
+documentation_gap_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${transition_verifier}" \
+  --cards-dir "${transition_cards_dir}" \
+  --transition-base "${advance_sha}" \
+  --transition-head "${documentation_gap_sha}" >/dev/null ||
+  fail "valid fixed documentation-gap block transition was rejected"
+
+printf '\n' >> "${transition_cards_dir}/MDR-I07-reading-first-composition.md"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/MDR-I07-reading-first-composition.md
+git -C "${transition_repo_root}" commit -qm "docs: repair test MDR-I07 governance"
+documentation_repair_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TaskCardSetStatus" \
+  "IN_PROGRESS"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "ActiveImplementationTaskCard" \
+  "MDR-I01"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "ReleasedTaskCard" \
+  "MDR-I01"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionKind" \
+  "RESUME_DOCUMENTATION_GAP"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "${documentation_repair_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: resume test MDR set after documentation repair"
+documentation_resume_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${transition_verifier}" \
+  --cards-dir "${transition_cards_dir}" \
+  --transition-base "${documentation_repair_sha}" \
+  --transition-head "${documentation_resume_sha}" >/dev/null ||
+  fail "valid fixed documentation-gap resume transition was rejected"
+
+git -C "${transition_repo_root}" switch -qc invalid-resume-base "${advance_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionKind" \
+  "RESUME_DOCUMENTATION_GAP"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "TransitionBaseSHA" \
+  "${advance_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: illegally resume an in-progress MDR set"
+invalid_resume_base_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${advance_sha}" \
+    --transition-head "${invalid_resume_base_sha}" 2>&1
+)" && fail "documentation-gap resume from IN_PROGRESS unexpectedly passed"
+[[ "${transition_output}" == *"documentation-gap resume must start from BLOCKED_BY_DOCUMENTATION_GAP"* ]] ||
+  fail "wrong-base documentation-gap resume returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -qc invalid-resume-receipt "${documentation_repair_sha}"
+set_state_field "${transition_cards_dir}/execution-state.md" "TaskCardSetStatus" "IN_PROGRESS"
+set_state_field "${transition_cards_dir}/execution-state.md" "ActiveImplementationTaskCard" "MDR-I01"
+set_state_field "${transition_cards_dir}/execution-state.md" "ReleasedTaskCard" "MDR-I01"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionKind" "RESUME_DOCUMENTATION_GAP"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionBaseSHA" "${documentation_repair_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "CurrentCandidateSHA" \
+  "ffffffffffffffffffffffffffffffffffffffff"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: drift receipt while resuming MDR set"
+invalid_resume_receipt_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${documentation_repair_sha}" \
+    --transition-head "${invalid_resume_receipt_sha}" 2>&1
+)" && fail "documentation-gap resume with receipt drift unexpectedly passed"
+[[ "${transition_output}" == *"state transition must preserve CurrentCandidateSHA"* ]] ||
+  fail "receipt-drift documentation-gap resume returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -qc invalid-resume-prefix "${documentation_repair_sha}"
+set_state_field "${transition_cards_dir}/execution-state.md" "TaskCardSetStatus" "IN_PROGRESS"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "CompletedTaskCards" \
+  "MDR-I00,MDR-I01"
+set_state_field "${transition_cards_dir}/execution-state.md" "ActiveImplementationTaskCard" "MDR-I02"
+set_state_field "${transition_cards_dir}/execution-state.md" "ReleasedTaskCard" "MDR-I02"
+set_state_field "${transition_cards_dir}/execution-state.md" "NextImplementationTaskCard" "MDR-I02"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionSequence" "3"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionKind" "RESUME_DOCUMENTATION_GAP"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionBaseSHA" "${documentation_repair_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: skip prefix while resuming MDR set"
+invalid_resume_prefix_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${documentation_repair_sha}" \
+    --transition-head "${invalid_resume_prefix_sha}" 2>&1
+)" && fail "documentation-gap resume with prefix drift unexpectedly passed"
+[[ "${transition_output}" == *"documentation-gap resume cannot change the completed prefix or sequence"* ]] ||
+  fail "prefix-drift documentation-gap resume returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+
 git -C "${transition_repo_root}" switch -qc invalid-business-transition "${business_candidate_sha}"
 make_i00_advance_state "${transition_cards_dir}"
 set_state_field \
@@ -880,6 +1059,7 @@ printf '%s\n' \
   "NegativeCases = ${negative_cases}" \
   "PendingGovernanceTerminalCases = 1" \
   "ValidRecoveryStateCases = 3" \
+  "ValidResumeStateCases = 1" \
   "ValidActivationCases = 1" \
   "ValidAdvanceCases = 1" \
-  "ValidFixedTransitionCases = 3"
+  "ValidFixedTransitionCases = 5"

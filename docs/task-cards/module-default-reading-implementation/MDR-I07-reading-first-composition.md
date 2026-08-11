@@ -17,6 +17,7 @@ RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
 CompositionAssertion = EXACT_SCOPED_IDENTITY_COUNT_CONTENT_ORDER
 CompositionOrder = CORE_THESIS_SPINE_RENDERER_BOUNDARIES_ELEMENTS_RELATIONS_SOURCES
+CompositionSectionIdentities = CORE_QUESTIONS_CORE_CONCLUSION_PRIMARY_SPINE_STAGE_CHAIN_BOUNDARIES_ELEMENTS_RELATIONS_SOURCE_ENTRY
 ```
 
 ## 1. 目标
@@ -98,7 +99,7 @@ const sectionOrder = Array.from(
   (section) => section.getAttribute("data-reading-section"),
 );
 expect(sectionOrder).toEqual([
-  "questions", "conclusion", "spine", "stage-chain", "boundaries",
+  "core-questions", "core-conclusion", "primary-spine", "stage-chain", "boundaries",
   "elements", "relations", "source-entry",
 ]);
 expect(new Set(sectionOrder).size).toBe(sectionOrder.length);
@@ -109,7 +110,9 @@ expect(document.body.textContent).not.toContain("evidence.mvcc");
 Canonical identity/type/source/target，四组 mutation 必须保持 RED。GREEN 服从正式
 `CoreThesis → PrimaryCognitiveSpine → DynamicRenderer → CriticalBoundaries →
 KnowledgeElements → Relations → SourceReferences` 顺序；CoreQuestions 作为 Thesis 的
-阅读入口置于 Conclusion 之前。CSS 只实现连续文档、可见焦点和安全单列降级。不得
+阅读入口置于 Conclusion 之前。前三个 section identity 必须直接复用已固定前序组件的
+`core-questions → core-conclusion → primary-spine`，不得包装、改写或复制前序投影。
+CSS 只实现连续文档、可见焦点和安全单列降级。不得
 复制 docs-only prototype CSS/HTML 或谓词文本作为生产事实。
 
 ## 5. 验证命令
