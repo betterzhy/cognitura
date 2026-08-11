@@ -47,6 +47,35 @@ set_state_field() {
   rm "${state_file}.bak"
 }
 
+state_field_value() {
+  local state_file="$1"
+  local field="$2"
+  sed -n "s/^${field} = //p" "${state_file}"
+}
+
+make_pending_governance_state() {
+  local fixture_dir="$1"
+  local state_file="${fixture_dir}/execution-state.md"
+
+  set_state_field "${state_file}" "GovernanceBootstrapStatus" "AWAITING_FIXED_COMMIT_REVIEW"
+  set_state_field "${state_file}" "GovernanceReviewedCandidateSHA" "NONE"
+  set_state_field "${state_file}" "GovernanceReviewVerdict" "NOT_RUN"
+  set_state_field "${state_file}" "SetAuthorizationStatus" "USER_AUTHORIZED_AWAITING_GOVERNANCE_BOOTSTRAP"
+  set_state_field "${state_file}" "TaskCardSetStatus" "USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW"
+  set_state_field "${state_file}" "ActiveImplementationTaskCard" "NONE"
+  set_state_field "${state_file}" "ReleasedTaskCard" "NONE"
+  set_state_field "${state_file}" "CompletedTaskCards" "NONE"
+  set_state_field "${state_file}" "CurrentCandidateSHA" "NONE"
+  set_state_field "${state_file}" "CurrentGateStatus" "NOT_RUN"
+  set_state_field "${state_file}" "CurrentReviewRoute" "NONE"
+  set_state_field "${state_file}" "CurrentReviewVerdict" "NOT_RUN"
+  set_state_field "${state_file}" "NextImplementationTaskCard" "MDR-I00"
+  set_state_field "${state_file}" "TransitionSequence" "0"
+  set_state_field "${state_file}" "TransitionKind" "BOOTSTRAP"
+  set_state_field "${state_file}" "TransitionBaseSHA" "NONE"
+  set_state_field "${state_file}" "BusinessImplementation" "NOT_AUTHORIZED"
+}
+
 make_activation_state() {
   local fixture_dir="$1"
   local state_file="${fixture_dir}/execution-state.md"
@@ -123,7 +152,32 @@ canonical_output="$("${verifier}" --cards-dir "${cards_dir}")" ||
 for expected_line in \
   "ModuleDefaultReadingTaskCardValidation = PASS" \
   "TaskCardCount = 9" \
-  "ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md" \
+  "ExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md"; do
+  [[ "${canonical_output}" == *"${expected_line}"* ]] ||
+    fail "canonical output is missing: ${expected_line}"
+done
+for state_field in \
+  GovernanceBootstrapStatus \
+  SetAuthorizationStatus \
+  TaskCardSetStatus \
+  ActiveImplementationTaskCard \
+  ReleasedTaskCard \
+  CompletedTaskCards \
+  NextImplementationTaskCard \
+  BusinessImplementation \
+  FormalDatabaseWrite \
+  RemotePush; do
+  expected_line="${state_field} = $(state_field_value "${cards_dir}/execution-state.md" "${state_field}")"
+  [[ "${canonical_output}" == *"${expected_line}"* ]] ||
+    fail "canonical output is missing current ledger value: ${expected_line}"
+done
+
+pending_cards_dir="${test_tmp_root}/canonical-pending-governance"
+cp -R "${cards_dir}" "${pending_cards_dir}"
+make_pending_governance_state "${pending_cards_dir}"
+pending_output="$("${verifier}" --cards-dir "${pending_cards_dir}")" ||
+  fail "valid pending-governance terminal state was rejected"
+for expected_line in \
   "GovernanceBootstrapStatus = AWAITING_FIXED_COMMIT_REVIEW" \
   "SetAuthorizationStatus = USER_AUTHORIZED_AWAITING_GOVERNANCE_BOOTSTRAP" \
   "TaskCardSetStatus = USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW" \
@@ -132,9 +186,10 @@ for expected_line in \
   "CompletedTaskCards = NONE" \
   "NextImplementationTaskCard = MDR-I00" \
   "ReadyTaskCardCount = 0"; do
-  [[ "${canonical_output}" == *"${expected_line}"* ]] ||
-    fail "canonical output is missing: ${expected_line}"
+  [[ "${pending_output}" == *"${expected_line}"* ]] ||
+    fail "pending-governance output is missing: ${expected_line}"
 done
+cards_dir="${pending_cards_dir}"
 
 second_status_dir="${test_tmp_root}/second-status"
 cp -R "${cards_dir}" "${second_status_dir}"
