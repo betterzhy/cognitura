@@ -33,6 +33,26 @@ const canonicalRelations: readonly CognitiveRelation[] = [
     sourceRefs: [sourceRef],
     gapRefs: [],
   },
+  {
+    relationId: "relation.visibility.impacts-version",
+    type: "IMPACTS",
+    sourceRef: "element.visibility",
+    targetRef: "element.version",
+    origin: "SOURCE_EXPLICIT",
+    riskLevel: "LOW",
+    sourceRefs: [sourceRef],
+    gapRefs: [],
+  },
+  {
+    relationId: "relation.visibility.applies-to-version",
+    type: "APPLIES_TO",
+    sourceRef: "element.visibility",
+    targetRef: "element.version",
+    origin: "SOURCE_EXPLICIT",
+    riskLevel: "LOW",
+    sourceRefs: [sourceRef],
+    gapRefs: [],
+  },
 ];
 
 const canonicalModule: CognitiveModule = {
@@ -45,8 +65,48 @@ const canonicalModule: CognitiveModule = {
   thesis: "Visibility judgment depends on and explains record versions.",
   role: "CORE",
   coreQuestions: ["How are visibility and record versions related?"],
-  primaryCognitiveSpine: null,
-  facets: [],
+  primaryCognitiveSpine: {
+    schemaVersion: "2.0.0",
+    artifactId: "spine.mvcc-relations",
+    revisionId: "rev.spine.mvcc-relations.1",
+    publicationState: "PUBLISHED",
+    moduleRef,
+    steps: [
+      {
+        stepId: "spine-step.mvcc-relations.1",
+        order: 1,
+        statement: "Create a record version.",
+        sourceRefs: [sourceRef],
+      },
+      {
+        stepId: "spine-step.mvcc-relations.2",
+        order: 2,
+        statement: "Capture a visibility boundary.",
+        sourceRefs: [sourceRef],
+      },
+      {
+        stepId: "spine-step.mvcc-relations.3",
+        order: 3,
+        statement: "Evaluate visible versions.",
+        sourceRefs: [sourceRef],
+      },
+      {
+        stepId: "spine-step.mvcc-relations.4",
+        order: 4,
+        statement: "Select the newest visible version.",
+        sourceRefs: [sourceRef],
+      },
+    ],
+  },
+  facets: [
+    {
+      facetId: "facet.mvcc-relations.visibility",
+      title: "Visibility",
+      summary: "How visibility judgment relates to record versions.",
+      elementRefs: ["element.visibility", "element.version"],
+      sourceRefs: [sourceRef],
+    },
+  ],
   knowledgeElements: [
     {
       schemaVersion: "2.0.0",
@@ -73,12 +133,51 @@ const canonicalModule: CognitiveModule = {
       relations: canonicalRelations.map((item) => item.relationId),
     },
   ],
-  keyTakeaways: [],
-  criticalBoundaries: [],
+  keyTakeaways: [
+    {
+      statementId: "takeaway.mvcc-relations.1",
+      statement: "Visibility judgment selects among record versions.",
+      sourceRefs: [sourceRef],
+      gapRefs: [],
+    },
+    {
+      statementId: "takeaway.mvcc-relations.2",
+      statement: "Record versions preserve historical states.",
+      sourceRefs: [sourceRef],
+      gapRefs: [],
+    },
+    {
+      statementId: "takeaway.mvcc-relations.3",
+      statement: "The formal relations preserve direction and evidence.",
+      sourceRefs: [sourceRef],
+      gapRefs: [],
+    },
+  ],
+  criticalBoundaries: [
+    {
+      boundaryId: "boundary.mvcc-relations.1",
+      statement: "Visibility does not prevent every write conflict.",
+      sourceRefs: [sourceRef],
+    },
+  ],
   relations: canonicalRelations,
   sourceRefs: [sourceRef],
   gaps: [],
-  qualityAssessment: null,
+  qualityAssessment: {
+    schemaVersion: "2.0.0",
+    artifactId: "assessment.module.mvcc-relations",
+    revisionId: "rev.assessment.module.mvcc-relations.1",
+    publicationState: "PUBLISHED",
+    subjectRef: moduleRef,
+    hierarchyCorrectness: { status: "PASS", findings: [] },
+    granularityFitness: { status: "PASS", findings: [] },
+    cognitiveClosure: { status: "PASS", findings: [] },
+    spineCoherence: { status: "PASS", findings: [] },
+    importanceAccuracy: { status: "PASS", findings: [] },
+    sourceFaithfulness: { status: "PASS", findings: [] },
+    compressionEfficiency: { status: "PASS", findings: [] },
+    hardFailures: [],
+  },
 };
 
 const nodeIdByArtifactRef = new Map([
@@ -125,7 +224,7 @@ const rendererInputWithTwoRelations: RendererInput = {
     },
   ],
   groups: [],
-  relations: canonicalModule.relations.map(projectRelation),
+  relations: canonicalModule.relations.slice(0, 2).map(projectRelation),
   sourceRefs: [sourceRef],
   incompleteState: { status: "COMPLETE", gapRefs: [] },
   interactionHints: ["SHOW_SOURCE"],
@@ -237,10 +336,7 @@ describe("KeyRelations", () => {
   it("rejects more than three authoritative RendererInput relations", () => {
     const input: RendererInput = {
       ...rendererInputWithTwoRelations,
-      relations: Array.from({ length: 4 }, (_, index) => ({
-        ...rendererInputWithTwoRelations.relations[index % 2],
-        relationId: `renderer-relation.budget-${index + 1}`,
-      })),
+      relations: canonicalModule.relations.map(projectRelation),
     };
 
     expect(() => render(<KeyRelations input={input} />)).toThrow(
