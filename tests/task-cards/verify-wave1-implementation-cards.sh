@@ -65,8 +65,20 @@ validation_output="$(
 
 assert_contains "${validation_output}" "Wave1ImplementationTaskCardValidation = PASS"
 assert_contains "${validation_output}" "TaskCardCount = 14"
-assert_contains "${validation_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
-assert_contains "${validation_output}" "ActiveTaskCard = W1-I00"
+
+ready_i00_dir="${test_tmp_root}/ready-i00"
+cp -R "${cards_dir}" "${ready_i00_dir}"
+live_i00_status="$(sed -n 's/^Status = //p' "${ready_i00_dir}/W1-I00-implementation-governance.md")"
+set_field "${ready_i00_dir}/W1-I00-implementation-governance.md" "Status" "READY"
+set_field "${ready_i00_dir}/README.md" "ActiveTaskCard" "W1-I00"
+set_field "${ready_i00_dir}/README.md" "TaskCardSetStatus" "READY_FOR_EXECUTION"
+set_table_status "${ready_i00_dir}/README.md" "W1-I00" "${live_i00_status}" "READY"
+ready_i00_output="$("${verifier}" --cards-dir "${ready_i00_dir}")" ||
+  fail "valid I00 READY bootstrap state was rejected"
+assert_contains "${ready_i00_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
+assert_contains "${ready_i00_output}" "ActiveTaskCard = W1-I00"
+
+cards_dir="${ready_i00_dir}"
 
 negative_cases=0
 
@@ -616,7 +628,8 @@ assert_contains "${blocked_output}" "ActiveTaskCard = NONE"
 
 printf '%s\n' \
   "Wave1ImplementationTaskCardContractTests = PASS" \
-  "PositiveCases = 1" \
+  "PositiveCases = 2" \
+  "CanonicalStateCases = 1" \
   "NegativeCases = ${negative_cases}" \
   "AuthorizedI01Cases = 1" \
   "CompleteTerminalCases = 1" \
