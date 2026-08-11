@@ -163,6 +163,7 @@ for filename in "${expected_files[@]}"; do
   expected_target_command=""
   expected_positive_verification=""
   expected_negative_verification=""
+  expected_commit_message=""
   case "${task_id}" in
     W1-I00)
       expected_gate="W1-IG0 ImplementationGovernance"
@@ -189,6 +190,7 @@ FORMAL_DATABASE_AND_SOURCE_INPUTS'
       expected_target_command='bash tests/task-cards/verify-wave1-implementation-cards.sh'
       expected_positive_verification='VALID_BOOTSTRAP_AND_AUTHORIZATION_TERMINAL'
       expected_negative_verification='CLOSED_SET_STATUS_WRITESET_AND_GATE_MUTATIONS'
+      expected_commit_message='build: establish Wave 1 implementation governance'
       ;;
     W1-I01)
       expected_gate="W1-IG1 SourceIntakeDomain"
@@ -211,6 +213,7 @@ web/**,raw/**,.idea/**'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.domain.*Test' test"
       expected_positive_verification='IDEMPOTENT_SAME_WORKSPACE_SAME_DIGEST'
       expected_negative_verification='DIGEST_IDENTITY_LIFECYCLE_AND_WORKSPACE_CONFLICTS'
+      expected_commit_message='feat: add source ingestion domain'
       ;;
     W1-I02)
       expected_gate="W1-IG2 SourcePersistence"
@@ -232,6 +235,7 @@ FORMAL_DATABASE_CONNECTION_OR_WRITE'
       expected_target_command='./mvnw -f server/pom.xml -Dtest=SourcePersistenceIntegrationTest test'
       expected_positive_verification='ISOLATED_DATABASE_UNIQUE_AND_ROUND_TRIP'
       expected_negative_verification='CONSTRAINT_MAPPING_AND_FORMAL_DATABASE_ACCESS_REJECTION'
+      expected_commit_message='feat: persist source intake records'
       ;;
     W1-I03)
       expected_gate="W1-IG3 DocxSecurity"
@@ -255,6 +259,7 @@ web/**,raw/**,.idea/**'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.docx.security.*Test' test"
       expected_positive_verification='SAFE_SYNTHETIC_DOCX_PACKAGE_ACCEPTED'
       expected_negative_verification='ZIP_XML_LIMIT_AND_EXTERNAL_RELATIONSHIP_REJECTION'
+      expected_commit_message='feat: enforce DOCX package security'
       ;;
     W1-I04)
       expected_gate="W1-IG4 TextListSectionParser"
@@ -277,6 +282,7 @@ web/**,raw/**,.idea/**'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.docx.text.*Test' test"
       expected_positive_verification='HEADING_PARAGRAPH_LIST_ORDER_AND_SECTION_PATH_PRESERVED'
       expected_negative_verification='UNSUPPORTED_BLOCK_ORDER_AND_HIERARCHY_DRIFT_REJECTED'
+      expected_commit_message='feat: parse DOCX text lists and sections'
       ;;
     W1-I05)
       expected_gate="W1-IG5 TableFidelity"
@@ -299,6 +305,7 @@ web/**,raw/**,.idea/**'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.docx.table.*Test' test"
       expected_positive_verification='TABLE_ROWS_CELLS_MERGES_AND_TEXT_EVIDENCE_PRESERVED'
       expected_negative_verification='CELL_ORDER_MERGE_AND_TEXT_FIDELITY_DRIFT_REJECTED'
+      expected_commit_message='feat: preserve DOCX table fidelity'
       ;;
     W1-I06)
       expected_gate="W1-IG6 ImageRelationshipProjection"
@@ -321,6 +328,7 @@ EXTERNAL_RELATIONSHIP_TARGET_ACCESS'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.docx.image.*Test' test"
       expected_positive_verification='IMAGE_ANCHOR_MEDIA_REF_AND_LITERAL_RELATIONSHIP_PRESERVED'
       expected_negative_verification='MISSING_MEDIA_HASH_AND_EXTERNAL_TARGET_ACCESS_REJECTED'
+      expected_commit_message='feat: project DOCX image relationships'
       ;;
     W1-I07)
       expected_gate="W1-IG7 ProcessingPublication"
@@ -343,6 +351,7 @@ FORMAL_DATABASE_CONNECTION_OR_WRITE'
       expected_target_command='./mvnw -f server/pom.xml -Dtest=ProcessingPublicationIntegrationTest test'
       expected_positive_verification='FENCED_SINGLE_TRANSACTION_BLOCK_SET_PUBLICATION'
       expected_negative_verification='STALE_LEASE_LATE_RESULT_AND_PARTIAL_WRITE_REJECTED'
+      expected_commit_message='feat: fence processing publication'
       ;;
     W1-I08)
       expected_gate="W1-IG8 StableReferenceReparse"
@@ -365,6 +374,7 @@ ALIAS_RETARGET_OR_CROSS_REVISION_SILENT_REPLACEMENT'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.reference.*Test' test"
       expected_positive_verification='IMMUTABLE_REFERENCE_ALIAS_AND_REPARSE_LINEAGE_PRESERVED'
       expected_negative_verification='ALIAS_RETARGET_CROSS_REVISION_AND_AMBIGUITY_REJECTED'
+      expected_commit_message='feat: preserve source reference lineage'
       ;;
     W1-I09)
       expected_gate="W1-IG9 UploadProcessingCommandApi"
@@ -387,6 +397,7 @@ web/**,raw/**,.idea/**'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.command.*Test' test"
       expected_positive_verification='AUTHORIZED_UPLOAD_AND_PROCESSING_COMMAND_ACCEPTED'
       expected_negative_verification='WORKSPACE_ENUMERATION_INTERNAL_LEAK_AND_INVALID_COMMAND_REJECTED'
+      expected_commit_message='feat: add source processing commands'
       ;;
     W1-I10)
       expected_gate="W1-IG10 SourcePreviewQueryApi"
@@ -409,6 +420,7 @@ RENDERER_SUMMARY_OR_SECOND_SOURCE_FACTS'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.query.*Test' test"
       expected_positive_verification='EXACT_REVISION_KEYSET_PREVIEW_AND_TYPED_PAYLOAD'
       expected_negative_verification='CURSOR_REVISION_CROSS_WORKSPACE_AND_SECOND_FACT_REJECTED'
+      expected_commit_message='feat: query exact source previews'
       ;;
     W1-I11)
       expected_gate="W1-IG11 PartialAcceptanceCommandApi"
@@ -430,6 +442,7 @@ web/**,raw/**,.idea/**'
       expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.acceptance.*Test' test"
       expected_positive_verification='EXACT_REVISION_DIGEST_ACTOR_AND_IDEMPOTENCY_CONFIRMATION'
       expected_negative_verification='DIGEST_ACTOR_KEY_AND_REPEAT_CONFLICT_REJECTED'
+      expected_commit_message='feat: confirm partial source acceptance'
       ;;
     W1-I12)
       expected_gate="W1-IG12 DesktopWebSourcePreview"
@@ -454,6 +467,7 @@ SUMMARY_RENDERER_OR_SOURCE_FACT_REWRITE'
       expected_target_command='cd web && corepack pnpm test -- src/modules/document-ingestion'
       expected_positive_verification='DESKTOP_UPLOAD_STATUS_PREVIEW_AND_PARTIAL_ACCEPTANCE_FLOW'
       expected_negative_verification='SECOND_FACT_MOBILE_EQUIVALENCE_AND_CROSS_MODULE_WRITE_REJECTED'
+      expected_commit_message='feat: add desktop source preview'
       ;;
     W1-I13)
       expected_gate="W1-IG13 FixedImplementationReview"
@@ -473,6 +487,7 @@ docs/design/wave-1/README.md'
       expected_target_command='scripts/verify-wave0'
       expected_positive_verification='FIXED_CANDIDATE_TWO_STAGE_ZERO_FINDING_REVIEW'
       expected_negative_verification='NONZERO_FINDING_SHA_DRIFT_AND_SCOPE_EXPANSION_REJECTED'
+      expected_commit_message='docs: record Wave 1 implementation review'
       ;;
   esac
 
@@ -519,54 +534,83 @@ docs/design/wave-1/README.md'
   [[ "${red_line}" -lt "${green_line}" ]] || fail "${task_id}: RED must precede GREEN"
 
   validation_section="$(sed -n '/^## 5\. 验证命令$/,/^## 6\. Gate 与完成定义$/p' "${file}")"
-  [[ "$(printf '%s\n' "${validation_section}" | grep -Fxc "${expected_target_command}" || true)" -eq 1 ]] ||
-    fail "${task_id}: missing target verification command in section 5"
-  [[ "$(printf '%s\n' "${validation_section}" | grep -Fxc 'scripts/verify-wave1-implementation' || true)" -eq 1 ]] ||
-    fail "${task_id}: missing unified verification command in section 5"
-  [[ "$(printf '%s\n' "${validation_section}" | grep -Fxc 'git diff --check' || true)" -eq 1 ]] ||
-    fail "${task_id}: missing diff verification command in section 5"
-  [[ "$(printf '%s\n' "${validation_section}" | grep -Fxc 'git status --short' || true)" -eq 1 ]] ||
-    fail "${task_id}: missing worktree verification command in section 5"
+  [[ "$(printf '%s\n' "${validation_section}" | grep -c '^```bash$' || true)" -eq 1 ]] ||
+    fail "${task_id}: validation section must contain exactly one Bash block"
+  [[ "$(printf '%s\n' "${validation_section}" | grep -c '^```$' || true)" -eq 1 ]] ||
+    fail "${task_id}: validation section must contain exactly one Bash block"
+  validation_bash_block="$(
+    printf '%s\n' "${validation_section}" |
+      sed -n '/^```bash$/,/^```$/p' |
+      sed '1d;$d'
+  )"
+  case "${task_id}" in
+    W1-I00)
+      expected_validation_block='bash tests/task-cards/verify-wave1-implementation-cards.sh
+scripts/verify-wave1-implementation
+bash -n scripts/verify-wave1-implementation \
+  scripts/verify-wave1-implementation-cards \
+  tests/task-cards/verify-wave1-implementation-cards.sh
+npm exec --yes --package=node@24.18.0 -- sh -c '\''scripts/verify-wave0'\''
+git diff --check
+git status --short'
+      ;;
+    W1-I12)
+      expected_validation_block="$(printf '%s\n' \
+        "${expected_target_command}" \
+        'cd web && corepack pnpm build' \
+        'scripts/verify-wave1-implementation' \
+        'git diff --check' \
+        'git status --short')"
+      ;;
+    W1-I13)
+      expected_validation_block='scripts/verify-wave0
+scripts/verify-wave1-design
+scripts/verify-wave1-implementation
+git diff --check
+git status --short'
+      ;;
+    *)
+      expected_validation_block="$(printf '%s\n' \
+        "${expected_target_command}" \
+        'scripts/verify-wave1-implementation' \
+        'git diff --check' \
+        'git status --short')"
+      ;;
+  esac
+  [[ "${validation_bash_block}" == "${expected_validation_block}" ]] ||
+    fail "${task_id}: validation Bash block mismatch"
 
   commit_section="$(sed -n '/^## 7\. 提交与审查$/,$p' "${file}")"
-  [[ "$(printf '%s\n' "${commit_section}" | grep -c '^git commit -m "' || true)" -eq 1 ]] ||
-    fail "${task_id}: missing independent local commit"
+  [[ "$(printf '%s\n' "${commit_section}" | grep -c '^```bash$' || true)" -eq 1 ]] ||
+    fail "${task_id}: commit section must contain exactly one Bash block"
+  [[ "$(printf '%s\n' "${commit_section}" | grep -c '^```$' || true)" -eq 1 ]] ||
+    fail "${task_id}: commit section must contain exactly one Bash block"
+  commit_bash_block="$(
+    printf '%s\n' "${commit_section}" |
+      sed -n '/^```bash$/,/^```$/p' |
+      sed '1d;$d'
+  )"
   canonical_card_path="docs/task-cards/wave-1-implementation/${filename}"
-  printf '%s\n' "${commit_section}" | grep -Fqx "  ${canonical_card_path} |" ||
-    fail "${task_id}: staging must derive from the exact WriteSet"
-  [[ "$(printf '%s\n' "${commit_section}" | grep -c '^[[:space:]]*git add ' || true)" -eq 1 ]] ||
-    fail "${task_id}: staging must derive from the exact WriteSet"
-  printf '%s\n' "${commit_section}" | grep -Fqx '  git add --pathspec-from-file=-' ||
-    fail "${task_id}: staging must derive from the exact WriteSet"
-  printf '%s\n' "${commit_section}" | grep -Fqx 'git diff --cached --name-only' ||
-    fail "${task_id}: missing staged WriteSet verification"
+  expected_commit_block="$(printf '%s\n' \
+    "sed -n 's/^WriteSet = //p' \\" \
+    "  ${canonical_card_path} |" \
+    '  git add --pathspec-from-file=-' \
+    'git diff --cached --name-only' \
+    "git commit -m \"${expected_commit_message}\"")"
+  [[ "${commit_bash_block}" == "${expected_commit_block}" ]] ||
+    fail "${task_id}: commit Bash block mismatch"
   printf '%s\n' "${commit_section}" |
     grep -Fq '暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。' ||
     fail "${task_id}: missing staged WriteSet verification"
   if [[ "${task_id}" == "W1-I13" ]]; then
-    [[ "$(printf '%s\n' "${commit_section}" | grep -c '`deep_reviewer`' || true)" -eq 1 ]] ||
-      fail "${task_id}: missing fixed-commit review route"
-    [[ "$(printf '%s\n' "${commit_section}" | grep -c '`ultra_gatekeeper`' || true)" -eq 1 ]] ||
-      fail "${task_id}: missing fixed-commit review route"
+    expected_fixed_review_gate='FixedCommitReviewGate = NEW_DEEP_REVIEWER_THEN_NEW_ULTRA_GATEKEEPER_ZERO_FINDING_REQUIRED'
   else
-    [[ "$(printf '%s\n' "${commit_section}" | grep -c '`deep_reviewer`' || true)" -eq 1 ]] ||
-      fail "${task_id}: missing fixed-commit review route"
+    expected_fixed_review_gate='FixedCommitReviewGate = NEW_DEEP_REVIEWER_ZERO_FINDING_BEFORE_SUCCESSOR_RELEASE'
   fi
-
-  git_invocation_count=0
-  while IFS= read -r git_line; do
-    [[ -n "${git_line}" ]] || continue
-    normalized_git_line="${git_line#"${git_line%%[![:space:]]*}"}"
-    case "${normalized_git_line}" in
-      'git diff --check'|'git status --short'|'git add --pathspec-from-file=-'|'git diff --cached --name-only') ;;
-      *)
-        printf '%s\n' "${normalized_git_line}" | grep -Eq '^git commit -m "[^"]+"$' ||
-          fail "${task_id}: unexpected Git invocation"
-        ;;
-    esac
-    git_invocation_count=$((git_invocation_count + 1))
-  done < <(grep -E '^[[:space:]]*((command|env)[[:space:]]+)?([^[:space:]]*/)?git([[:space:]]|$)' "${file}" || true)
-  [[ "${git_invocation_count}" -eq 5 ]] || fail "${task_id}: unexpected Git invocation"
+  [[ "$(printf '%s\n' "${commit_section}" | grep -Fxc "${expected_fixed_review_gate}" || true)" -eq 1 ]] ||
+    fail "${task_id}: missing fixed-commit review route"
+  [[ "$(grep -Ec '(^|[[:space:]/])git([[:space:]]|$)' "${file}" || true)" -eq 5 ]] ||
+    fail "${task_id}: unexpected Git invocation"
 
   production_limit="$(field_value "${file}" "ProductionFileLimit")"
   production_exception="$(field_value "${file}" "ProductionWriteSetException")"

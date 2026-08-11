@@ -69,6 +69,8 @@ exact revision、keyset 顺序、cursor 绑定、typed payload、partial 标识�
 
 ## 7. 提交与审查
 
+FixedCommitReviewGate = NEW_DEEP_REVIEWER_ZERO_FINDING_BEFORE_SUCCESSOR_RELEASE
+
 ```bash
 sed -n 's/^WriteSet = //p' \
   docs/task-cards/wave-1-implementation/W1-I10-source-preview-query-api.md |

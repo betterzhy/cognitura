@@ -68,6 +68,8 @@ Parser、migration 或 Web 改动。
 
 ## 7. 提交与审查
 
+FixedCommitReviewGate = NEW_DEEP_REVIEWER_ZERO_FINDING_BEFORE_SUCCESSOR_RELEASE
+
 ```bash
 sed -n 's/^WriteSet = //p' \
   docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md |

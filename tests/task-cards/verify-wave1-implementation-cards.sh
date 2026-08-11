@@ -223,7 +223,7 @@ sed -i.bak \
 rm "${i01_missing_target_gate_dir}/W1-I01-source-ingestion-domain.md.bak"
 expect_failure \
   "${i01_missing_target_gate_dir}" \
-  "W1-I01: missing target verification command"
+  "W1-I01: validation Bash block mismatch"
 
 i01_target_gate_decoy_dir="${test_tmp_root}/i01-target-gate-decoy"
 cp -R "${cards_dir}" "${i01_target_gate_decoy_dir}"
@@ -236,18 +236,33 @@ printf '%s\n' \
   "${i01_target_gate_decoy_dir}/W1-I01-source-ingestion-domain.md"
 expect_failure \
   "${i01_target_gate_decoy_dir}" \
-  "W1-I01: missing target verification command in section 5"
+  "W1-I01: validation Bash block mismatch"
+
+i01_target_outside_fence_dir="${test_tmp_root}/i01-target-outside-fence"
+cp -R "${cards_dir}" "${i01_target_outside_fence_dir}"
+sed -i.bak \
+  "/^\.\/mvnw -f server\/pom\.xml -Dtest='io\.cognitura\.source\.domain\.\*Test' test$/d; /^## 6\. Gate 与完成定义$/i\\
+./mvnw -f server/pom.xml -Dtest='io.cognitura.source.domain.*Test' test
+" \
+  "${i01_target_outside_fence_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_target_outside_fence_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure \
+  "${i01_target_outside_fence_dir}" \
+  "W1-I01: validation Bash block mismatch"
 
 i01_missing_commit_dir="${test_tmp_root}/i01-missing-commit"
 cp -R "${cards_dir}" "${i01_missing_commit_dir}"
 sed -i.bak '/^git commit -m "feat: add source ingestion domain"$/d' \
   "${i01_missing_commit_dir}/W1-I01-source-ingestion-domain.md"
 rm "${i01_missing_commit_dir}/W1-I01-source-ingestion-domain.md.bak"
-expect_failure "${i01_missing_commit_dir}" "W1-I01: missing independent local commit"
+expect_failure "${i01_missing_commit_dir}" "W1-I01: commit Bash block mismatch"
 
 i01_missing_fixed_review_dir="${test_tmp_root}/i01-missing-fixed-review"
 cp -R "${cards_dir}" "${i01_missing_fixed_review_dir}"
 sed -i.bak '/^`deep_reviewer`/d' \
+  "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md.bak"
+sed -i.bak '/^FixedCommitReviewGate = /d' \
   "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md"
 rm "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md.bak"
 printf '%s\n' 'deep_reviewer decoy' >> \
@@ -269,7 +284,15 @@ sed -i.bak \
   's#^  git add --pathspec-from-file=-$#  git add server/src/main/java/io/cognitura/source/domain#' \
   "${i01_broad_stage_dir}/W1-I01-source-ingestion-domain.md"
 rm "${i01_broad_stage_dir}/W1-I01-source-ingestion-domain.md.bak"
-expect_failure "${i01_broad_stage_dir}" "W1-I01: staging must derive from the exact WriteSet"
+expect_failure "${i01_broad_stage_dir}" "W1-I01: commit Bash block mismatch"
+
+i01_stage_order_dir="${test_tmp_root}/i01-stage-order"
+cp -R "${cards_dir}" "${i01_stage_order_dir}"
+sed -i.bak \
+  's#^  git add --pathspec-from-file=-$#  __STAGE_ORDER_PLACEHOLDER__#; s#^git diff --cached --name-only$#  git add --pathspec-from-file=-#; s#^  __STAGE_ORDER_PLACEHOLDER__$#git diff --cached --name-only#' \
+  "${i01_stage_order_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_stage_order_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure "${i01_stage_order_dir}" "W1-I01: commit Bash block mismatch"
 
 i01_git_c_add_dir="${test_tmp_root}/i01-git-c-add"
 cp -R "${cards_dir}" "${i01_git_c_add_dir}"
@@ -294,6 +317,24 @@ cp -R "${cards_dir}" "${i01_command_git_push_dir}"
 printf '%s\n' 'command git push' >> \
   "${i01_command_git_push_dir}/W1-I01-source-ingestion-domain.md"
 expect_failure "${i01_command_git_push_dir}" "W1-I01: unexpected Git invocation"
+
+i01_usr_bin_env_git_push_dir="${test_tmp_root}/i01-usr-bin-env-git-push"
+cp -R "${cards_dir}" "${i01_usr_bin_env_git_push_dir}"
+printf '%s\n' '/usr/bin/env git push' >> \
+  "${i01_usr_bin_env_git_push_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_usr_bin_env_git_push_dir}" "W1-I01: unexpected Git invocation"
+
+i01_env_assignment_git_push_dir="${test_tmp_root}/i01-env-assignment-git-push"
+cp -R "${cards_dir}" "${i01_env_assignment_git_push_dir}"
+printf '%s\n' 'env GIT_DIR=.git git push' >> \
+  "${i01_env_assignment_git_push_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_env_assignment_git_push_dir}" "W1-I01: unexpected Git invocation"
+
+i01_assignment_git_push_dir="${test_tmp_root}/i01-assignment-git-push"
+cp -R "${cards_dir}" "${i01_assignment_git_push_dir}"
+printf '%s\n' 'GIT_DIR=.git git push' >> \
+  "${i01_assignment_git_push_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_assignment_git_push_dir}" "W1-I01: unexpected Git invocation"
 
 i01_authorization_block_drift_dir="${test_tmp_root}/i01-authorization-block-drift"
 cp -R "${cards_dir}" "${i01_authorization_block_drift_dir}"

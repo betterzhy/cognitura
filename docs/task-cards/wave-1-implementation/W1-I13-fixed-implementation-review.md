@@ -67,6 +67,8 @@ I13 修复，必须回 Owner 卡形成新候选。
 
 ## 7. 提交与审查
 
+FixedCommitReviewGate = NEW_DEEP_REVIEWER_THEN_NEW_ULTRA_GATEKEEPER_ZERO_FINDING_REQUIRED
+
 ```bash
 sed -n 's/^WriteSet = //p' \
   docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md |

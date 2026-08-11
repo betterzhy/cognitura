@@ -54,7 +54,7 @@ ForbiddenWriteSet = FORMAL_DATABASE_AND_SOURCE_INPUTS
 ## 4. 执行步骤
 
 1. RED：先写会因验证器缺失而失败的正例合同。
-2. GREEN：实现只接受闭集参数的最小验证器，再逐项添加 25 个 mutation 负例。
+2. GREEN：实现只接受闭集参数的最小验证器，再逐项添加 30 个 mutation 负例。
 3. 建立只组合既有设计 Gate 和卡集 Gate 的统一入口。
 4. 固定候选并由新的 `deep_reviewer` 作零发现审查。
 5. 审查 GO 后关闭 I00；I01 保持用户业务授权阻断。
@@ -74,11 +74,13 @@ git status --short
 
 ## 6. Gate 与完成定义
 
-14 张卡闭集、依赖、单一 READY、授权和大小合同全部 fail closed；25 个负例与一个
+14 张卡闭集、依赖、单一 READY、授权和大小合同全部 fail closed；30 个负例与一个
 合法授权阻断终态通过；固定候选取得 `deep_reviewer = GO / P0=0 / P1=0 / P2=0`。
 完成时不得释放 I01。
 
 ## 7. 提交与审查
+
+FixedCommitReviewGate = NEW_DEEP_REVIEWER_ZERO_FINDING_BEFORE_SUCCESSOR_RELEASE
 
 ```bash
 sed -n 's/^WriteSet = //p' \

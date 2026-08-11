@@ -68,6 +68,8 @@ migration、唯一约束、Workspace 隔离和领域对象往返全部 PASS；�
 
 ## 7. 提交与审查
 
+FixedCommitReviewGate = NEW_DEEP_REVIEWER_ZERO_FINDING_BEFORE_SUCCESSOR_RELEASE
+
 ```bash
 sed -n 's/^WriteSet = //p' \
   docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md |
