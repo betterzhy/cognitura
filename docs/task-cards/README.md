@@ -9,6 +9,12 @@ TaskCardSetStatus = COMPLETE
 Wave1FeatureDevelopmentEntry = GO
 HighFidelityVisualTaskCardSet = COMPLETE
 HighFidelityVisualActiveTaskCard = NONE
+DesignAlignmentStatus = COMPLETE
+DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
+BusinessImplementation = NOT_AUTHORIZED
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+ActiveImplementationTaskCard = NONE
 ```
 
 本目录将

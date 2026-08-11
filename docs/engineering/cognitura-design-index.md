@@ -4,6 +4,8 @@
 CanonicalProjectName = Cognitura
 RepositoryName = cognitura
 CurrentStage = HIGH_FIDELITY_VISUAL_AND_USABILITY_COMPLETE
+DesignAlignmentStatus = COMPLETE
+DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
 CurrentDesignBaseline = Cognitura-Overall-Design-1.2
 CanonicalSourceManifest =
   docs/engineering/cognitura-source-manifest.yaml
@@ -59,8 +61,13 @@ HighFidelityVisualValidation = PASS
 HighFidelityUsabilityValidation = PASS
 HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
+DevelopmentEntryPrompt =
+  docs/engineering/cognitura-development-entry-prompt.md
 ActiveDesignTaskCard = NONE
+ActiveImplementationTaskCard = NONE
 BusinessImplementation = NOT_AUTHORIZED
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
 ```
 
 本索引登记实际落地文件，不复制总体设计正文，也不改变历史设计名称。

@@ -14,6 +14,8 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 
 ```text
 CurrentStage = HIGH_FIDELITY_VISUAL_AND_USABILITY_COMPLETE
+DesignAlignmentStatus = COMPLETE
+DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
@@ -44,12 +46,15 @@ HighFidelityVisualValidation = PASS
 HighFidelityUsabilityValidation = PASS
 HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
+ActiveImplementationTaskCard = NONE
 HighFidelityVisualTaskCardSet = COMPLETE
 HighFidelityVisualProjectedEntry = NONE
 ActiveDesignTaskCard = NONE
 W1-I00Creation = FORBIDDEN
 W1-I00Release = FORBIDDEN
 BusinessImplementation = NOT_AUTHORIZED
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
 ```
 
@@ -76,6 +81,8 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 `62da1bc08a932bbfc76769a2add984dcec4160b7` 完成两个独立
 `gpt-5.6-sol/high` 零发现审查并关闭整体视觉与可用性阶段。实现仍未执行，且不授权
 创建或释放 `W1-I00`、业务实现、正式数据库写入或远程推送。
+开发入口仅由 `docs/engineering/cognitura-development-entry-prompt.md` 提供下一会话的
+书面任务卡规划提示；在用户实际发送并批准所生成的实现卡前，不授权编写代码。
 
 ## 3. 正式事实来源
 

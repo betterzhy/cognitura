@@ -77,6 +77,8 @@ make_project_fixture() {
   cp "${repo_root}/README.md" "${fixture_root}/project/README.md"
   cp "${repo_root}/docs/engineering/cognitura-design-index.md" \
     "${fixture_root}/project/docs/engineering/cognitura-design-index.md"
+  cp "${repo_root}/docs/engineering/cognitura-development-entry-prompt.md" \
+    "${fixture_root}/project/docs/engineering/cognitura-development-entry-prompt.md"
   cp "${repo_root}/docs/task-cards/README.md" \
     "${fixture_root}/project/docs/task-cards/README.md"
 }
@@ -359,12 +361,15 @@ for expected_line in \
   "StaticExportManifestValidation = PASS" \
   "StaticExportEvidence = 1200x1600" \
   "StaticExportEvidenceFreshness = PASS" \
+  "DesignAlignmentStatus = COMPLETE" \
+  "DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION" \
   "HighFidelityVisualDesign = PASS" \
   "HighFidelityDesignStatus = COMPLETE" \
   "HighFidelityVisualValidation = PASS" \
   "HighFidelityUsabilityValidation = PASS" \
   "HighFidelityStateAcceptance = PASS" \
   "ImplementationValidation = NOT_RUN" \
+  "ActiveImplementationTaskCard = NONE" \
   "BusinessImplementation = NOT_AUTHORIZED" \
   "FormalDatabaseWrite = NOT_AUTHORIZED" \
   "RemotePush = NOT_AUTHORIZED"; do
@@ -399,6 +404,44 @@ for review_mutation in \
   rm "${review_fixture}/cards/HV-D05-fixed-visual-usability-review.md.bak"
   expect_failure "${review_fixture}" "${expected_review_failure}"
 done
+
+for entry_mutation in \
+  'planning-authorized|project/AGENTS.md|DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION|DevelopmentPlanningEntry = AUTHORIZED|AGENTS.md: DevelopmentPlanningEntry must be READY_FOR_USER_AUTHORIZATION, got AUTHORIZED' \
+  'business-authorized|project/docs/engineering/cognitura-development-entry-prompt.md|BusinessImplementation = NOT_AUTHORIZED|BusinessImplementation = AUTHORIZED|cognitura-development-entry-prompt.md: BusinessImplementation must be NOT_AUTHORIZED, got AUTHORIZED' \
+  'database-authorized|project/docs/engineering/cognitura-design-index.md|FormalDatabaseWrite = NOT_AUTHORIZED|FormalDatabaseWrite = AUTHORIZED|cognitura-design-index.md: FormalDatabaseWrite must be NOT_AUTHORIZED, got AUTHORIZED' \
+  'push-authorized|project/docs/task-cards/README.md|RemotePush = NOT_AUTHORIZED|RemotePush = AUTHORIZED|README.md: RemotePush must be NOT_AUTHORIZED, got AUTHORIZED' \
+  'active-implementation|project/README.md|ActiveImplementationTaskCard = NONE|ActiveImplementationTaskCard = W1-I00|README.md: ActiveImplementationTaskCard must be NONE, got W1-I00'; do
+  mutation_name="${entry_mutation%%|*}"
+  remaining_mutation="${entry_mutation#*|}"
+  mutation_path="${remaining_mutation%%|*}"
+  remaining_mutation="${remaining_mutation#*|}"
+  original_entry_field="${remaining_mutation%%|*}"
+  remaining_mutation="${remaining_mutation#*|}"
+  mutated_entry_field="${remaining_mutation%%|*}"
+  expected_entry_failure="${remaining_mutation#*|}"
+  entry_fixture="${test_tmp_root}/entry-${mutation_name}"
+  make_project_fixture "${entry_fixture}"
+  sed -i.bak "s#${original_entry_field}#${mutated_entry_field}#" \
+    "${entry_fixture}/${mutation_path}"
+  rm "${entry_fixture}/${mutation_path}.bak"
+  expect_project_failure "${entry_fixture}" "${expected_entry_failure}"
+done
+
+missing_user_approval_stop="${test_tmp_root}/entry-missing-user-approval-stop"
+make_project_fixture "${missing_user_approval_stop}"
+sed -i.bak \
+  's/用户明确批准这些书面实现任务卡前立即停止/用户批准后继续/' \
+  "${missing_user_approval_stop}/project/docs/engineering/cognitura-development-entry-prompt.md"
+rm "${missing_user_approval_stop}/project/docs/engineering/cognitura-development-entry-prompt.md.bak"
+expect_project_failure "${missing_user_approval_stop}" \
+  'cognitura-development-entry-prompt.md: missing contract text: 用户明确批准这些书面实现任务卡前立即停止'
+
+premature_implementation_card="${test_tmp_root}/entry-premature-implementation-card"
+make_project_fixture "${premature_implementation_card}"
+printf '# Forbidden premature implementation card\n' > \
+  "${premature_implementation_card}/project/docs/task-cards/W1-I00.md"
+expect_project_failure "${premature_implementation_card}" \
+  'implementation task cards must not be created by the design-entry checkpoint'
 
 cross_projection_module_identity_mismatch="${test_tmp_root}/cross-projection-module-identity-mismatch"
 make_fixture "${cross_projection_module_identity_mismatch}"
@@ -1569,4 +1612,5 @@ printf 'HV-D05Stage1OwnerRepair2NegativeFixtureCount = 2\n'
 printf 'HV-D05Stage2OwnerRepair1NegativeFixtureCount = 5\n'
 printf 'HV-D05Stage2OwnerRepair2NegativeFixtureCount = 2\n'
 printf 'HV-D05ClosureFixRound1NegativeFixtureCount = 6\n'
-printf 'NegativeFixtureCount = 159\n'
+printf 'DevelopmentEntryNegativeFixtureCount = 7\n'
+printf 'NegativeFixtureCount = 166\n'
