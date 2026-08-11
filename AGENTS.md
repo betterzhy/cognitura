@@ -29,6 +29,10 @@ Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
+ModuleDefaultReadingImplementationTaskCardSet = PLANNED_AWAITING_USER_APPROVAL
+ModuleDefaultReadingImplementationTaskCardCount = 9
+ModuleDefaultReadingImplementationEntry = USER_APPROVAL_REQUIRED
+ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 HighFidelityDesignTaskCardSet = COMPLETE
 HighFidelityDesignStatus = COMPLETE
 HighFidelityDesignGate = HF-DG4 PASS
@@ -82,7 +86,10 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 `gpt-5.6-sol/high` 零发现审查并关闭整体视觉与可用性阶段。实现仍未执行，且不授权
 创建或释放 `W1-I00`、业务实现、正式数据库写入或远程推送。
 开发入口仅由 `docs/engineering/cognitura-development-entry-prompt.md` 提供下一会话的
-书面任务卡规划提示；在用户实际发送并批准所生成的实现卡前，不授权编写代码。
+书面任务卡规划提示。该提示现已用于建立独立的 `MDR-I00..MDR-I08` 书面卡集；
+全部卡仍为 `BLOCKED_BY_USER_APPROVAL`，没有活动或已释放实现卡。该卡集不替代
+既有 Wave 1 source work；在用户批准卡片文本并另行明确授权业务实现前，不授权
+编写代码。
 
 ## 3. 正式事实来源
 

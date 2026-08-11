@@ -34,6 +34,12 @@ Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationTaskCardPlan =
   docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
+ModuleDefaultReadingImplementationTaskCards =
+  docs/task-cards/module-default-reading-implementation/README.md
+ModuleDefaultReadingImplementationTaskCardSet = PLANNED_AWAITING_USER_APPROVAL
+ModuleDefaultReadingImplementationTaskCardCount = 9
+ModuleDefaultReadingImplementationEntry = USER_APPROVAL_REQUIRED
+ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 HighFidelityDesignManifest =
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml
 HighFidelityContractCoverage =
@@ -157,6 +163,9 @@ SpecialtyBodyAbsenceBlocksFieldLevelSchemaClosure = NO
 - `docs/task-cards/wave-1/README.md`
 - `docs/superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md`
 - `docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md`
+- `docs/task-cards/module-default-reading-implementation/README.md`
+- `scripts/verify-module-default-reading-implementation-cards`
+- `tests/task-cards/verify-module-default-reading-implementation-cards.sh`
 - `docs/engineering/cognitura-high-fidelity-design-plan.md`
 - `docs/engineering/cognitura-high-fidelity-design-acceptance.md`
 - `docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md`
@@ -180,6 +189,16 @@ W1-D00 治理说明、W1-D01 至 W1-D04 四份来源设计契约和验收记录�
 `gpt-5.6-sol/high` 阶段，`W1-DG5 = PASS`，且完整设计与 14 张中细粒度实现
 切片书面规格均已获用户批准。任务卡 bootstrap 计划已准备完成，业务实现仍未
 授权。
+
+`ModuleDefaultReadingState` 的首个实现切片另建 `MDR-I00..MDR-I08` 书面卡集，
+不复用或改写上述 source 卡编号与写集。该集合当前为
+`PLANNED_AWAITING_USER_APPROVAL`，所有卡均未释放；其首张业务卡仅做 Published
+`CognitiveModule` 到只读阅读模型的纯投影，Schema、数据库、后端、路由和完整页面
+均在写集之外。
+
+`DOC-GAP-MDR-001` 记录 Conditions/Results 缺少独立 Canonical 投影映射；它阻断
+完整 `ModuleDefaultReadingState` 实现验收，不阻断当前明确缩小的投影切片。任何字段
+变更必须先形成独立 Schema 设计/实现卡，不得由 Renderer 或任务卡猜测补齐。
 
 ## 8. 高保真交互正式专项登记
 

@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --cards-dir <path>\n' "$0" >&2
+  exit 2
+}
+
+fail() {
+  printf 'ModuleDefaultReadingTaskCardValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+cards_dir=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --cards-dir)
+      [[ "$#" -ge 2 ]] || usage
+      cards_dir="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+[[ -n "${cards_dir}" ]] || usage
+[[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
+[[ -f "${cards_dir}/README.md" ]] || fail "task card index is missing: README.md"
+
+field_value() {
+  local file="$1"
+  local field="$2"
+  sed -n "s/^${field} = //p" "${file}"
+}
+
+index_field_value() {
+  local field="$1"
+  local count
+  count="$(grep -c "^${field} = " "${cards_dir}/README.md" || true)"
+  [[ "${count}" -gt 0 ]] || fail "README.md: missing required field: ${field}"
+  [[ "${count}" -eq 1 ]] ||
+    fail "README.md: expected one ${field} field, found ${count}"
+  field_value "${cards_dir}/README.md" "${field}"
+}
+
+required_index_fields=(
+  "CanonicalProjectName"
+  "TaskCardSet"
+  "TaskCardIDs"
+  "TaskCardCount"
+  "TaskCardSetStatus"
+  "ActiveImplementationTaskCard"
+  "ReleasedTaskCard"
+  "DocumentationGap"
+  "WrittenTaskCardReview"
+  "DesignAlignmentStatus"
+  "DevelopmentPlanningEntry"
+  "BusinessImplementation"
+  "FormalDatabaseWrite"
+  "RemotePush"
+)
+
+for field in "${required_index_fields[@]}"; do
+  index_field_value "${field}" >/dev/null
+done
+
+[[ "$(index_field_value "CanonicalProjectName")" == "Cognitura" ]] ||
+  fail "README.md: CanonicalProjectName must be Cognitura"
+[[ "$(index_field_value "TaskCardSet")" == "MODULE_DEFAULT_READING_IMPLEMENTATION" ]] ||
+  fail "README.md: TaskCardSet must be MODULE_DEFAULT_READING_IMPLEMENTATION"
+
+expected_ids="MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MDR-I08"
+[[ "$(index_field_value "TaskCardIDs")" == "${expected_ids}" ]] ||
+  fail "README.md: TaskCardIDs must be ${expected_ids}"
+[[ "$(index_field_value "TaskCardCount")" == "9" ]] ||
+  fail "README.md: TaskCardCount must be 9"
+[[ "$(index_field_value "TaskCardSetStatus")" == "PLANNED_AWAITING_USER_APPROVAL" ]] ||
+  fail "README.md: TaskCardSetStatus must be PLANNED_AWAITING_USER_APPROVAL"
+[[ "$(index_field_value "ActiveImplementationTaskCard")" == "NONE" ]] ||
+  fail "ActiveImplementationTaskCard must be NONE before written approval"
+[[ "$(index_field_value "ReleasedTaskCard")" == "NONE" ]] ||
+  fail "ReleasedTaskCard must be NONE before written approval"
+[[ "$(index_field_value "DocumentationGap")" == "DOC-GAP-MDR-001" ]] ||
+  fail "README.md: DocumentationGap must be DOC-GAP-MDR-001"
+[[ "$(index_field_value "WrittenTaskCardReview")" == "AWAITING_USER_APPROVAL" ]] ||
+  fail "README.md: WrittenTaskCardReview must be AWAITING_USER_APPROVAL"
+[[ "$(index_field_value "DesignAlignmentStatus")" == "COMPLETE" ]] ||
+  fail "README.md: DesignAlignmentStatus must remain COMPLETE"
+[[ "$(index_field_value "DevelopmentPlanningEntry")" == "READY_FOR_USER_AUTHORIZATION" ]] ||
+  fail "README.md: DevelopmentPlanningEntry must remain READY_FOR_USER_AUTHORIZATION"
+[[ "$(index_field_value "BusinessImplementation")" == "NOT_AUTHORIZED" ]] ||
+  fail "README.md: BusinessImplementation must remain NOT_AUTHORIZED"
+[[ "$(index_field_value "FormalDatabaseWrite")" == "NOT_AUTHORIZED" ]] ||
+  fail "README.md: FormalDatabaseWrite must remain NOT_AUTHORIZED"
+[[ "$(index_field_value "RemotePush")" == "NOT_AUTHORIZED" ]] ||
+  fail "README.md: RemotePush must remain NOT_AUTHORIZED"
+
+IFS=',' read -r -a declared_ids <<< "${expected_ids}"
+
+shopt -s nullglob
+actual_files=("${cards_dir}"/MDR-I*.md)
+shopt -u nullglob
+[[ "${#actual_files[@]}" -eq 9 ]] ||
+  fail "actual task card count ${#actual_files[@]} does not match 9"
+
+required_fields=(
+  "TaskCardID"
+  "CardKind"
+  "Status"
+  "Gate"
+  "Risk"
+  "DependsOn"
+  "PrimaryBoundary"
+  "ProductionFileLimit"
+  "BusinessImplementationAuthorization"
+  "SchemaChange"
+  "FormalDatabaseGate"
+  "RemotePush"
+  "ReviewRoute"
+)
+
+required_sections=(
+  "## 1. 目标"
+  "## 2. 前置条件与输入"
+  "## 3. 精确写集"
+  "## 4. RED -> GREEN"
+  "## 5. 验证命令"
+  "## 6. Gate 与完成定义"
+  "## 7. 提交与独立固定提交审查"
+)
+
+ready_count=0
+seen_ids=""
+
+for expected_id in "${declared_ids[@]}"; do
+  shopt -s nullglob
+  matches=("${cards_dir}/${expected_id}-"*.md)
+  shopt -u nullglob
+  [[ "${#matches[@]}" -eq 1 ]] ||
+    fail "cannot resolve declared TaskCardID: ${expected_id}"
+  file="${matches[0]}"
+  filename="$(basename "${file}")"
+
+  for field in "${required_fields[@]}"; do
+    field_count="$(grep -c "^${field} = " "${file}" || true)"
+    [[ "${field_count}" -gt 0 ]] ||
+      fail "${filename}: missing required field: ${field}"
+    [[ "${field_count}" -eq 1 ]] ||
+      fail "${filename}: expected one ${field} field, found ${field_count}"
+  done
+
+  for section in "${required_sections[@]}"; do
+    grep -Fqx "${section}" "${file}" ||
+      fail "${filename}: missing required section: ${section}"
+  done
+
+  task_id="$(field_value "${file}" "TaskCardID")"
+  [[ "${task_id}" == "${expected_id}" ]] ||
+    fail "${filename}: TaskCardID ${task_id} does not match ${expected_id}"
+  [[ "${filename}" == "${task_id}-"* ]] ||
+    fail "${filename}: filename does not match TaskCardID ${task_id}"
+  case ",${seen_ids}," in
+    *,"${task_id}",*) fail "duplicate TaskCardID: ${task_id}" ;;
+  esac
+  if [[ -z "${seen_ids}" ]]; then
+    seen_ids="${task_id}"
+  else
+    seen_ids="${seen_ids},${task_id}"
+  fi
+
+  status="$(field_value "${file}" "Status")"
+  if [[ "${status}" == "READY" ]]; then
+    ready_count=$((ready_count + 1))
+  fi
+  [[ "${status}" == "BLOCKED_BY_USER_APPROVAL" ]] ||
+    fail "all cards must remain BLOCKED_BY_USER_APPROVAL before written approval"
+
+  [[ "$(field_value "${file}" "SchemaChange")" == "FORBIDDEN" ]] ||
+    fail "${filename}: SchemaChange must be FORBIDDEN"
+  [[ "$(field_value "${file}" "FormalDatabaseGate")" == "NOT_APPLICABLE" ]] ||
+    fail "${filename}: FormalDatabaseGate must be NOT_APPLICABLE"
+  [[ "$(field_value "${file}" "RemotePush")" == "NOT_AUTHORIZED" ]] ||
+    fail "${filename}: RemotePush must be NOT_AUTHORIZED"
+
+  expected_gate=""
+  expected_dependency=""
+  expected_review_route="deep_reviewer"
+  case "${task_id}" in
+    MDR-I00)
+      expected_gate="MDR-IG0 WebTestFoundation"
+      expected_dependency="NONE"
+      ;;
+    MDR-I01)
+      expected_gate="MDR-IG1 CanonicalNarrativeProjection"
+      expected_dependency="MDR-I00"
+      ;;
+    MDR-I02)
+      expected_gate="MDR-IG2 QuestionConclusionSpine"
+      expected_dependency="MDR-I01"
+      ;;
+    MDR-I03)
+      expected_gate="MDR-IG3 ElementBoundaryReading"
+      expected_dependency="MDR-I02"
+      ;;
+    MDR-I04)
+      expected_gate="MDR-IG4 StageChainRendererProjection"
+      expected_dependency="MDR-I03"
+      ;;
+    MDR-I05)
+      expected_gate="MDR-IG5 KeyRelationProjection"
+      expected_dependency="MDR-I04"
+      ;;
+    MDR-I06)
+      expected_gate="MDR-IG6 SourceEntryProjection"
+      expected_dependency="MDR-I05"
+      ;;
+    MDR-I07)
+      expected_gate="MDR-IG7 ReadingFirstComposition"
+      expected_dependency="MDR-I06"
+      ;;
+    MDR-I08)
+      expected_gate="MDR-IG8 FixedSliceReview"
+      expected_dependency="MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07"
+      expected_review_route="ultra_gatekeeper"
+      ;;
+    *)
+      fail "unsupported TaskCardID ${task_id}"
+      ;;
+  esac
+
+  [[ "$(field_value "${file}" "Gate")" == "${expected_gate}" ]] ||
+    fail "Gate mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "DependsOn")" == "${expected_dependency}" ]] ||
+    fail "dependency mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "ReviewRoute")" == "${expected_review_route}" ]] ||
+    fail "invalid ReviewRoute for ${task_id}"
+
+  while IFS= read -r write_path; do
+    case "${write_path}" in
+      server/*) fail "task card WriteSet contains forbidden path: server/" ;;
+      schemas/*) fail "task card WriteSet contains forbidden path: schemas/" ;;
+      raw/*) fail "task card WriteSet contains forbidden path: raw/" ;;
+      .idea/*) fail "task card WriteSet contains forbidden path: .idea/" ;;
+    esac
+  done < <(sed -n 's/^WriteSet = //p' "${file}")
+
+  grep -Fq 'git commit -m ' "${file}" ||
+    fail "${filename}: missing independent local commit command"
+done
+
+[[ "${ready_count}" -eq 0 ]] ||
+  fail "all cards must remain BLOCKED_BY_USER_APPROVAL before written approval"
+
+i00="${cards_dir}/MDR-I00-web-test-foundation.md"
+grep -Fqx 'WriteSet = docs/engineering/cognitura-technology-baseline.md' "${i00}" ||
+  fail "MDR-I00 must synchronize the frontend technology baseline"
+grep -Fqx 'WriteSet = docs/engineering/cognitura-test-strategy.md' "${i00}" ||
+  fail "MDR-I00 must synchronize the test strategy"
+
+printf '%s\n' \
+  "ModuleDefaultReadingTaskCardValidation = PASS" \
+  "TaskCardCount = 9" \
+  "TaskCardSetStatus = PLANNED_AWAITING_USER_APPROVAL" \
+  "ActiveImplementationTaskCard = NONE" \
+  "ReleasedTaskCard = NONE" \
+  "DocumentationGap = DOC-GAP-MDR-001" \
+  "ReadyTaskCardCount = 0" \
+  "BusinessImplementation = NOT_AUTHORIZED" \
+  "FormalDatabaseWrite = NOT_AUTHORIZED" \
+  "RemotePush = NOT_AUTHORIZED"

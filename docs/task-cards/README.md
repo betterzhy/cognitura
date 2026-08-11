@@ -15,6 +15,10 @@ BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ActiveImplementationTaskCard = NONE
+ModuleDefaultReadingImplementationTaskCardSet = PLANNED_AWAITING_USER_APPROVAL
+ModuleDefaultReadingImplementationTaskCardCount = 9
+ModuleDefaultReadingImplementationEntry = USER_APPROVAL_REQUIRED
+ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 ```
 
 本目录将
@@ -109,5 +113,10 @@ ExpectedActiveTaskCard = NONE
 - [高保真合同设计卡集](high-fidelity-design/README.md)：已完成，`HF-DG4 PASS`。
 - [高保真视觉设计卡集](high-fidelity-visual/README.md)：`HV-D00` 至 `HV-D05`
   均已 `DONE`，固定视觉与可用性双阶段审查为零发现。
+- [ModuleDefaultReadingState 实现任务卡规划](module-default-reading-implementation/README.md)：
+  `MDR-I00..MDR-I08` 均为 `BLOCKED_BY_USER_APPROVAL`，没有 `READY` 卡；不改变
+  Wave 1 source bootstrap 或任何实现授权状态。专用验证入口为
+  `bash tests/task-cards/verify-module-default-reading-implementation-cards.sh`；
+  `DOC-GAP-MDR-001` 继续阻断完整默认阅读实现验收。
 
 这些卡集拥有各自的状态机和验证器；Wave 0 九卡状态仍保持 `COMPLETE`。

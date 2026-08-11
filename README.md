@@ -34,6 +34,10 @@ Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
+ModuleDefaultReadingImplementationTaskCardSet = PLANNED_AWAITING_USER_APPROVAL
+ModuleDefaultReadingImplementationTaskCardCount = 9
+ModuleDefaultReadingImplementationEntry = USER_APPROVAL_REQUIRED
+ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 HighFidelityDesignTaskCardSet = COMPLETE
 HighFidelityDesignStatus = COMPLETE
 HighFidelityDesignGate = HF-DG4 PASS
@@ -133,6 +137,8 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [Wave 1 设计治理说明](docs/superpowers/specs/2026-07-30-wave1-source-ingestion-governance-design.md)
 - [Wave 1 实现切片设计](docs/superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md)
 - [Wave 1 实现任务卡 bootstrap 计划](docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md)
+- [ModuleDefaultReadingState 实现任务卡规划](docs/task-cards/module-default-reading-implementation/README.md)
+- [ModuleDefaultReadingState 任务卡验证器](scripts/verify-module-default-reading-implementation-cards)
 - [高保真交互设计整合规格](docs/superpowers/specs/2026-08-06-high-fidelity-interaction-design-integration.md)
 - [高保真设计任务卡索引](docs/task-cards/high-fidelity-design/README.md)
 - [高保真专项独立 Manifest](docs/engineering/cognitura-high-fidelity-design-manifest.yaml)
@@ -194,3 +200,10 @@ task-card、Schema、Golden Case、UI、server、web 七阶段并通过，固定
 该 GO 仅开放后续受控任务卡，不授权直接实现 Wave 1。
 Wave 1 书面详细设计和 14 张中细粒度实现切片规格均已获用户批准，任务卡
 bootstrap 计划已准备完成；其执行仍不授权 W1-I01 业务实现。
+
+首个 `ModuleDefaultReadingState` 已另行规划为 `MDR-I00..MDR-I08` 九张小卡，避免
+覆盖上述 Wave 1 source work。该集合当前仅为书面候选，九卡全部
+`BLOCKED_BY_USER_APPROVAL`，`ActiveImplementationTaskCard = NONE`。它只规划可复用
+前端投影切片，不接路由、HTTP、后端、持久化或 Schema；卡片文本获批也不自动构成
+业务实现授权。`DOC-GAP-MDR-001` 明确阻断完整默认阅读验收中的 Conditions/Results
+Canonical 映射，但不阻断当前受限投影切片；若需要字段变更，必须另建 Schema 卡。
