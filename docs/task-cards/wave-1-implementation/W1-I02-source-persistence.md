@@ -10,6 +10,8 @@ DependsOn = W1-I01
 PrimaryBoundary = SOURCE_PERSISTENCE
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = ISOLATED_DATABASE_UNIQUE_AND_ROUND_TRIP
+NegativeVerification = CONSTRAINT_MAPPING_AND_FORMAL_DATABASE_ACCESS_REJECTION
 BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = REQUIRED_BEFORE_READY
 RemotePush = NOT_AUTHORIZED
@@ -67,11 +69,12 @@ migration、唯一约束、Workspace 隔离和领域对象往返全部 PASS；�
 ## 7. 提交与审查
 
 ```bash
-git add server/src/main/resources/db/migration/V1__create_source_intake.sql \
-  server/src/main/java/io/cognitura/source/persistence \
-  server/src/test/java/io/cognitura/source/persistence \
-  server/src/test/resources/db/source-persistence-fixture.sql
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "feat: persist source intake records"
 ```
 
-固定提交交给新的 `deep_reviewer`；数据库 Gate 和零发现审查缺一不可。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。固定提交交给新的
+`deep_reviewer`；数据库 Gate 和零发现审查缺一不可。

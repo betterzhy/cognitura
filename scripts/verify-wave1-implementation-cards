@@ -100,6 +100,8 @@ required_fields=(
   PrimaryBoundary
   ProductionFileLimit
   ProductionWriteSetException
+  PositiveVerification
+  NegativeVerification
   BusinessImplementationAuthorization
   FormalDatabaseGate
   RemotePush
@@ -156,78 +158,278 @@ for filename in "${expected_files[@]}"; do
   expected_kind="IMPLEMENTATION"
   expected_route="deep_reviewer"
   allowed_runtime_root=""
+  expected_write_set=""
+  expected_forbidden_write_set=""
+  expected_target_command=""
+  expected_positive_verification=""
+  expected_negative_verification=""
   case "${task_id}" in
     W1-I00)
       expected_gate="W1-IG0 ImplementationGovernance"
       expected_dependency="NONE"
       expected_boundary="TASK_CARD_GOVERNANCE"
       expected_kind="GOVERNANCE"
+      expected_write_set='scripts/verify-wave1-implementation-cards
+tests/task-cards/verify-wave1-implementation-cards.sh
+scripts/verify-wave1-implementation
+docs/engineering/cognitura-wave-1-implementation-plan.md
+docs/task-cards/wave-1-implementation/README.md
+docs/task-cards/wave-1-implementation/W1-I00-implementation-governance.md
+docs/task-cards/wave-1-implementation/W1-I01-source-ingestion-domain.md
+AGENTS.md
+README.md
+docs/design/wave-1/README.md
+docs/engineering/cognitura-design-index.md
+docs/engineering/cognitura-wave-1-design-plan.md
+docs/engineering/cognitura-wave-1-design-acceptance.md
+docs/task-cards/wave-1/README.md
+docs/superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md'
+      expected_forbidden_write_set='ALL_PRODUCT_RUNTIME_PATHS
+FORMAL_DATABASE_AND_SOURCE_INPUTS'
+      expected_target_command='bash tests/task-cards/verify-wave1-implementation-cards.sh'
+      expected_positive_verification='VALID_BOOTSTRAP_AND_AUTHORIZATION_TERMINAL'
+      expected_negative_verification='CLOSED_SET_STATUS_WRITESET_AND_GATE_MUTATIONS'
       ;;
     W1-I01)
       expected_gate="W1-IG1 SourceIntakeDomain"
       expected_dependency="W1-I00"
       expected_boundary="SOURCE_DOMAIN"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/domain/"
+      expected_write_set='server/src/main/java/io/cognitura/source/domain/SourceDocument.java
+server/src/main/java/io/cognitura/source/domain/SourceBinary.java
+server/src/main/java/io/cognitura/source/domain/ProcessingRevision.java
+server/src/main/java/io/cognitura/source/domain/SourcePreRegistrationPolicy.java
+server/src/main/java/io/cognitura/source/domain/SourceHash.java
+server/src/main/java/io/cognitura/source/domain/SourceDomainException.java
+server/src/test/java/io/cognitura/source/domain/SourcePreRegistrationPolicyTest.java
+server/src/test/java/io/cognitura/source/domain/SourceLifecycleTest.java'
+      expected_forbidden_write_set='server/src/main/resources/db/migration/**
+server/src/main/java/io/cognitura/source/persistence/**
+server/src/main/java/io/cognitura/source/docx/**
+server/src/main/java/io/cognitura/source/api/**
+web/**,raw/**,.idea/**'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.domain.*Test' test"
+      expected_positive_verification='IDEMPOTENT_SAME_WORKSPACE_SAME_DIGEST'
+      expected_negative_verification='DIGEST_IDENTITY_LIFECYCLE_AND_WORKSPACE_CONFLICTS'
       ;;
     W1-I02)
       expected_gate="W1-IG2 SourcePersistence"
       expected_dependency="W1-I01"
       expected_boundary="SOURCE_PERSISTENCE"
       allowed_runtime_root="SOURCE_PERSISTENCE"
+      expected_write_set='server/src/main/resources/db/migration/V1__create_source_intake.sql
+server/src/main/java/io/cognitura/source/persistence/SourceDocumentRow.java
+server/src/main/java/io/cognitura/source/persistence/SourceBinaryRow.java
+server/src/main/java/io/cognitura/source/persistence/ProcessingRevisionRow.java
+server/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java
+server/src/main/java/io/cognitura/source/persistence/SourcePersistenceAdapter.java
+server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+server/src/test/resources/db/source-persistence-fixture.sql'
+      expected_forbidden_write_set='server/src/main/java/io/cognitura/source/docx/**
+server/src/main/java/io/cognitura/source/api/**
+web/**,raw/**,.idea/**
+FORMAL_DATABASE_CONNECTION_OR_WRITE'
+      expected_target_command='./mvnw -f server/pom.xml -Dtest=SourcePersistenceIntegrationTest test'
+      expected_positive_verification='ISOLATED_DATABASE_UNIQUE_AND_ROUND_TRIP'
+      expected_negative_verification='CONSTRAINT_MAPPING_AND_FORMAL_DATABASE_ACCESS_REJECTION'
       ;;
     W1-I03)
       expected_gate="W1-IG3 DocxSecurity"
       expected_dependency="W1-I01"
       expected_boundary="DOCX_SECURITY"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/docx/security/"
+      expected_write_set='server/src/main/java/io/cognitura/source/docx/security/DocxSecurityGate.java
+server/src/main/java/io/cognitura/source/docx/security/DocxPackageLimits.java
+server/src/main/java/io/cognitura/source/docx/security/DocxRelationshipClassifier.java
+server/src/main/java/io/cognitura/source/docx/security/DocxSecurityViolation.java
+server/src/main/java/io/cognitura/source/docx/security/SafeDocxPackage.java
+server/src/test/java/io/cognitura/source/docx/security/DocxSecurityGateTest.java
+server/src/test/java/io/cognitura/source/docx/security/ExternalRelationshipIsolationTest.java
+server/src/test/resources/docx/security/**'
+      expected_forbidden_write_set='server/src/main/java/io/cognitura/source/docx/text/**
+server/src/main/java/io/cognitura/source/docx/table/**
+server/src/main/java/io/cognitura/source/docx/image/**
+server/src/main/java/io/cognitura/source/persistence/**
+server/src/main/java/io/cognitura/source/api/**
+web/**,raw/**,.idea/**'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.docx.security.*Test' test"
+      expected_positive_verification='SAFE_SYNTHETIC_DOCX_PACKAGE_ACCEPTED'
+      expected_negative_verification='ZIP_XML_LIMIT_AND_EXTERNAL_RELATIONSHIP_REJECTION'
       ;;
     W1-I04)
       expected_gate="W1-IG4 TextListSectionParser"
       expected_dependency="W1-I03"
       expected_boundary="DOCX_PARSER"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/docx/text/"
+      expected_write_set='server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java
+server/src/main/java/io/cognitura/source/docx/text/DocumentBlockCandidate.java
+server/src/main/java/io/cognitura/source/docx/text/SectionPathTracker.java
+server/src/main/java/io/cognitura/source/docx/text/ListSemantics.java
+server/src/main/java/io/cognitura/source/docx/text/SourceOrderCursor.java
+server/src/test/java/io/cognitura/source/docx/text/TextListSectionParserTest.java
+server/src/test/java/io/cognitura/source/docx/text/SectionPathTrackerTest.java
+server/src/test/resources/docx/text/**'
+      expected_forbidden_write_set='server/src/main/java/io/cognitura/source/docx/table/**
+server/src/main/java/io/cognitura/source/docx/image/**
+server/src/main/java/io/cognitura/source/application/**
+server/src/main/java/io/cognitura/source/api/**
+web/**,raw/**,.idea/**'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.docx.text.*Test' test"
+      expected_positive_verification='HEADING_PARAGRAPH_LIST_ORDER_AND_SECTION_PATH_PRESERVED'
+      expected_negative_verification='UNSUPPORTED_BLOCK_ORDER_AND_HIERARCHY_DRIFT_REJECTED'
       ;;
     W1-I05)
       expected_gate="W1-IG5 TableFidelity"
       expected_dependency="W1-I04"
       expected_boundary="DOCX_TABLE_PARSER"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/docx/table/"
+      expected_write_set='server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java
+server/src/main/java/io/cognitura/source/docx/table/TableBlockCandidate.java
+server/src/main/java/io/cognitura/source/docx/table/TableCellCandidate.java
+server/src/main/java/io/cognitura/source/docx/table/TableMergeProjection.java
+server/src/main/java/io/cognitura/source/docx/table/TableTextEvidence.java
+server/src/test/java/io/cognitura/source/docx/table/TableFidelityParserTest.java
+server/src/test/java/io/cognitura/source/docx/table/TableMergeProjectionTest.java
+server/src/test/resources/docx/table/**'
+      expected_forbidden_write_set='server/src/main/java/io/cognitura/source/docx/image/**
+server/src/main/java/io/cognitura/source/application/**
+server/src/main/java/io/cognitura/source/persistence/**
+server/src/main/java/io/cognitura/source/api/**
+web/**,raw/**,.idea/**'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.docx.table.*Test' test"
+      expected_positive_verification='TABLE_ROWS_CELLS_MERGES_AND_TEXT_EVIDENCE_PRESERVED'
+      expected_negative_verification='CELL_ORDER_MERGE_AND_TEXT_FIDELITY_DRIFT_REJECTED'
       ;;
     W1-I06)
       expected_gate="W1-IG6 ImageRelationshipProjection"
       expected_dependency="W1-I04,W1-I05"
       expected_boundary="DOCX_IMAGE_PARSER"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/docx/image/"
+      expected_write_set='server/src/main/java/io/cognitura/source/docx/image/ImageRelationshipProjector.java
+server/src/main/java/io/cognitura/source/docx/image/ImageAnchor.java
+server/src/main/java/io/cognitura/source/docx/image/ImmutableMediaRef.java
+server/src/main/java/io/cognitura/source/docx/image/MediaDigest.java
+server/src/main/java/io/cognitura/source/docx/image/ExternalRelationshipLiteral.java
+server/src/test/java/io/cognitura/source/docx/image/ImageRelationshipProjectorTest.java
+server/src/test/java/io/cognitura/source/docx/image/ExternalRelationshipNoAccessTest.java
+server/src/test/resources/docx/image/**'
+      expected_forbidden_write_set='server/src/main/java/io/cognitura/source/application/**
+server/src/main/java/io/cognitura/source/persistence/**
+server/src/main/java/io/cognitura/source/api/**
+web/**,raw/**,.idea/**
+EXTERNAL_RELATIONSHIP_TARGET_ACCESS'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.docx.image.*Test' test"
+      expected_positive_verification='IMAGE_ANCHOR_MEDIA_REF_AND_LITERAL_RELATIONSHIP_PRESERVED'
+      expected_negative_verification='MISSING_MEDIA_HASH_AND_EXTERNAL_TARGET_ACCESS_REJECTED'
       ;;
     W1-I07)
       expected_gate="W1-IG7 ProcessingPublication"
       expected_dependency="W1-I02,W1-I04,W1-I05,W1-I06"
       expected_boundary="SOURCE_APPLICATION"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/application/processing/"
+      expected_write_set='server/src/main/java/io/cognitura/source/application/processing/ProcessingAttempt.java
+server/src/main/java/io/cognitura/source/application/processing/AttemptLease.java
+server/src/main/java/io/cognitura/source/application/processing/AttemptFence.java
+server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java
+server/src/main/java/io/cognitura/source/application/processing/BlockSetDigest.java
+server/src/main/java/io/cognitura/source/application/processing/ProcessingPublicationService.java
+server/src/main/java/io/cognitura/source/application/processing/ProcessingPublicationPort.java
+server/src/test/java/io/cognitura/source/application/processing/ProcessingPublicationIntegrationTest.java'
+      expected_forbidden_write_set='server/src/main/resources/db/migration/**
+server/src/main/java/io/cognitura/source/docx/**
+server/src/main/java/io/cognitura/source/api/**
+web/**,raw/**,.idea/**
+FORMAL_DATABASE_CONNECTION_OR_WRITE'
+      expected_target_command='./mvnw -f server/pom.xml -Dtest=ProcessingPublicationIntegrationTest test'
+      expected_positive_verification='FENCED_SINGLE_TRANSACTION_BLOCK_SET_PUBLICATION'
+      expected_negative_verification='STALE_LEASE_LATE_RESULT_AND_PARTIAL_WRITE_REJECTED'
       ;;
     W1-I08)
       expected_gate="W1-IG8 StableReferenceReparse"
       expected_dependency="W1-I07"
       expected_boundary="SOURCE_REFERENCE"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/reference/"
+      expected_write_set='server/src/main/java/io/cognitura/source/reference/StableSourceReference.java
+server/src/main/java/io/cognitura/source/reference/SourceScopedAlias.java
+server/src/main/java/io/cognitura/source/reference/ReparseProfile.java
+server/src/main/java/io/cognitura/source/reference/ReparseLineage.java
+server/src/main/java/io/cognitura/source/reference/ReferenceResolutionService.java
+server/src/main/java/io/cognitura/source/reference/ReferenceResolutionException.java
+server/src/test/java/io/cognitura/source/reference/ReferenceResolutionServiceTest.java
+server/src/test/java/io/cognitura/source/reference/ReparseLineageTest.java'
+      expected_forbidden_write_set='server/src/main/resources/db/migration/**
+server/src/main/java/io/cognitura/source/docx/**
+server/src/main/java/io/cognitura/source/api/**
+web/**,raw/**,.idea/**
+ALIAS_RETARGET_OR_CROSS_REVISION_SILENT_REPLACEMENT'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.reference.*Test' test"
+      expected_positive_verification='IMMUTABLE_REFERENCE_ALIAS_AND_REPARSE_LINEAGE_PRESERVED'
+      expected_negative_verification='ALIAS_RETARGET_CROSS_REVISION_AND_AMBIGUITY_REJECTED'
       ;;
     W1-I09)
       expected_gate="W1-IG9 UploadProcessingCommandApi"
       expected_dependency="W1-I07"
       expected_boundary="SOURCE_HTTP_COMMAND"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/api/command/"
+      expected_write_set='server/src/main/java/io/cognitura/source/api/command/SourceUploadController.java
+server/src/main/java/io/cognitura/source/api/command/ProcessingCommandController.java
+server/src/main/java/io/cognitura/source/api/command/SourceUploadRequest.java
+server/src/main/java/io/cognitura/source/api/command/ProcessingCommandRequest.java
+server/src/main/java/io/cognitura/source/api/command/CommandAcceptedResponse.java
+server/src/main/java/io/cognitura/source/api/command/SourceCommandErrorAdvice.java
+server/src/test/java/io/cognitura/source/api/command/SourceUploadControllerTest.java
+server/src/test/java/io/cognitura/source/api/command/ProcessingCommandControllerTest.java'
+      expected_forbidden_write_set='server/src/main/java/io/cognitura/source/api/query/**
+server/src/main/java/io/cognitura/source/api/acceptance/**
+server/src/main/resources/db/migration/**
+server/src/main/java/io/cognitura/source/docx/**
+web/**,raw/**,.idea/**'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.command.*Test' test"
+      expected_positive_verification='AUTHORIZED_UPLOAD_AND_PROCESSING_COMMAND_ACCEPTED'
+      expected_negative_verification='WORKSPACE_ENUMERATION_INTERNAL_LEAK_AND_INVALID_COMMAND_REJECTED'
       ;;
     W1-I10)
       expected_gate="W1-IG10 SourcePreviewQueryApi"
       expected_dependency="W1-I08,W1-I09"
       expected_boundary="SOURCE_HTTP_QUERY"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/api/query/"
+      expected_write_set='server/src/main/java/io/cognitura/source/api/query/SourcePreviewController.java
+server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java
+server/src/main/java/io/cognitura/source/api/query/SourcePreviewCursor.java
+server/src/main/java/io/cognitura/source/api/query/SourcePreviewPage.java
+server/src/main/java/io/cognitura/source/api/query/SourceBlockPayload.java
+server/src/main/java/io/cognitura/source/api/query/SourcePreviewErrorAdvice.java
+server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java
+server/src/test/java/io/cognitura/source/api/query/SourcePreviewCursorTest.java'
+      expected_forbidden_write_set='server/src/main/java/io/cognitura/source/api/command/**
+server/src/main/java/io/cognitura/source/api/acceptance/**
+server/src/main/resources/db/migration/**
+web/**,raw/**,.idea/**
+RENDERER_SUMMARY_OR_SECOND_SOURCE_FACTS'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.query.*Test' test"
+      expected_positive_verification='EXACT_REVISION_KEYSET_PREVIEW_AND_TYPED_PAYLOAD'
+      expected_negative_verification='CURSOR_REVISION_CROSS_WORKSPACE_AND_SECOND_FACT_REJECTED'
       ;;
     W1-I11)
       expected_gate="W1-IG11 PartialAcceptanceCommandApi"
       expected_dependency="W1-I10"
       expected_boundary="SOURCE_HTTP_COMMAND"
       allowed_runtime_root="server/src/main/java/io/cognitura/source/api/acceptance/"
+      expected_write_set='server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceController.java
+server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceRequest.java
+server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceCommand.java
+server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceService.java
+server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptancePort.java
+server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceResponse.java
+server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceControllerTest.java
+server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceServiceTest.java'
+      expected_forbidden_write_set='server/src/main/java/io/cognitura/source/api/query/**
+server/src/main/resources/db/migration/**
+server/src/main/java/io/cognitura/source/docx/**
+web/**,raw/**,.idea/**'
+      expected_target_command="./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.acceptance.*Test' test"
+      expected_positive_verification='EXACT_REVISION_DIGEST_ACTOR_AND_IDEMPOTENCY_CONFIRMATION'
+      expected_negative_verification='DIGEST_ACTOR_KEY_AND_REPEAT_CONFLICT_REJECTED'
       ;;
     W1-I12)
       expected_gate="W1-IG12 DesktopWebSourcePreview"
@@ -235,6 +437,23 @@ for filename in "${expected_files[@]}"; do
       expected_boundary="WEB_DOCUMENT_INGESTION"
       expected_risk="MEDIUM"
       allowed_runtime_root="web/src/modules/document-ingestion/"
+      expected_write_set='web/src/modules/document-ingestion/SourceIngestionPage.tsx
+web/src/modules/document-ingestion/SourceUploadPanel.tsx
+web/src/modules/document-ingestion/ProcessingStatus.tsx
+web/src/modules/document-ingestion/SourcePreview.tsx
+web/src/modules/document-ingestion/PartialAcceptancePanel.tsx
+web/src/modules/document-ingestion/source-ingestion.css
+web/src/modules/document-ingestion/api.ts
+web/src/modules/document-ingestion/index.ts
+web/src/modules/document-ingestion/SourceIngestionPage.test.tsx
+web/src/modules/document-ingestion/SourcePreview.test.tsx'
+      expected_forbidden_write_set='web/src/modules/module-reading/**
+web/src/App.tsx
+server/**,schemas/**,raw/**,.idea/**
+SUMMARY_RENDERER_OR_SOURCE_FACT_REWRITE'
+      expected_target_command='cd web && corepack pnpm test -- src/modules/document-ingestion'
+      expected_positive_verification='DESKTOP_UPLOAD_STATUS_PREVIEW_AND_PARTIAL_ACCEPTANCE_FLOW'
+      expected_negative_verification='SECOND_FACT_MOBILE_EQUIVALENCE_AND_CROSS_MODULE_WRITE_REJECTED'
       ;;
     W1-I13)
       expected_gate="W1-IG13 FixedImplementationReview"
@@ -242,8 +461,31 @@ for filename in "${expected_files[@]}"; do
       expected_boundary="WAVE1_IMPLEMENTATION_GATE"
       expected_kind="FIXED_CANDIDATE_REVIEW"
       expected_route="DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER"
+      expected_write_set='docs/engineering/cognitura-wave-1-implementation-acceptance.md
+docs/engineering/cognitura-wave-1-implementation-plan.md
+docs/task-cards/wave-1-implementation/README.md
+docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md
+AGENTS.md
+README.md
+docs/engineering/cognitura-design-index.md
+docs/design/wave-1/README.md'
+      expected_forbidden_write_set='server/**,web/**,schemas/**,raw/**,.idea/**'
+      expected_target_command='scripts/verify-wave0'
+      expected_positive_verification='FIXED_CANDIDATE_TWO_STAGE_ZERO_FINDING_REVIEW'
+      expected_negative_verification='NONZERO_FINDING_SHA_DRIFT_AND_SCOPE_EXPANSION_REJECTED'
       ;;
   esac
+
+  actual_write_set="$(sed -n 's/^WriteSet = //p' "${file}")"
+  [[ "${actual_write_set}" == "${expected_write_set}" ]] ||
+    fail "WriteSet mismatch for ${task_id}"
+  actual_forbidden_write_set="$(sed -n 's/^ForbiddenWriteSet = //p' "${file}")"
+  [[ "${actual_forbidden_write_set}" == "${expected_forbidden_write_set}" ]] ||
+    fail "ForbiddenWriteSet mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "PositiveVerification")" == "${expected_positive_verification}" ]] ||
+    fail "PositiveVerification mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "NegativeVerification")" == "${expected_negative_verification}" ]] ||
+    fail "NegativeVerification mismatch for ${task_id}"
 
   [[ "$(field_value "${file}" "CardKind")" == "${expected_kind}" ]] ||
     fail "CardKind mismatch for ${task_id}"
@@ -267,12 +509,48 @@ for filename in "${expected_files[@]}"; do
   [[ "$(field_value "${file}" "RemotePush")" == "NOT_AUTHORIZED" ]] ||
     fail "RemotePush must remain NOT_AUTHORIZED for ${task_id}"
 
+  execution_steps="$(sed -n '/^## 4\. 执行步骤$/,/^## 5\. 验证命令$/p' "${file}")"
+  if [[ "${task_id}" != "W1-I00" ]]; then
+    [[ "${execution_steps}" == *"RED"* ]] || fail "${task_id}: missing RED-first instruction"
+    [[ "${execution_steps}" == *"GREEN"* ]] || fail "${task_id}: missing GREEN instruction"
+    [[ "${execution_steps}" == *"RED"*"GREEN"* ]] ||
+      fail "${task_id}: RED must precede GREEN"
+  fi
+  grep -Fqx "${expected_target_command}" "${file}" ||
+    fail "${task_id}: missing target verification command"
+  grep -Fqx 'scripts/verify-wave1-implementation' "${file}" ||
+    fail "${task_id}: missing unified verification command"
+  grep -Fqx 'git diff --check' "${file}" ||
+    fail "${task_id}: missing diff verification command"
+  grep -Fqx 'git status --short' "${file}" ||
+    fail "${task_id}: missing worktree verification command"
+  [[ "$(grep -c '^git commit -m "' "${file}" || true)" -eq 1 ]] ||
+    fail "${task_id}: missing independent local commit"
+  canonical_card_path="docs/task-cards/wave-1-implementation/${filename}"
+  grep -Fqx "  ${canonical_card_path} |" "${file}" ||
+    fail "${task_id}: staging must derive from the exact WriteSet"
+  [[ "$(grep -c '^[[:space:]]*git add ' "${file}" || true)" -eq 1 ]] ||
+    fail "${task_id}: staging must derive from the exact WriteSet"
+  grep -Fqx '  git add --pathspec-from-file=-' "${file}" ||
+    fail "${task_id}: staging must derive from the exact WriteSet"
+  grep -Fqx 'git diff --cached --name-only' "${file}" ||
+    fail "${task_id}: missing staged WriteSet verification"
+  grep -Fq '暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。' "${file}" ||
+    fail "${task_id}: missing staged WriteSet verification"
+  if [[ "${task_id}" == "W1-I13" ]]; then
+    grep -Fq '`deep_reviewer`' "${file}" || fail "${task_id}: missing fixed-commit review route"
+    grep -Fq '`ultra_gatekeeper`' "${file}" || fail "${task_id}: missing fixed-commit review route"
+  else
+    [[ "$(grep -c 'deep_reviewer' "${file}" || true)" -ge 2 ]] ||
+      fail "${task_id}: missing fixed-commit review route"
+  fi
+
   production_limit="$(field_value "${file}" "ProductionFileLimit")"
   production_exception="$(field_value "${file}" "ProductionWriteSetException")"
   [[ "${production_limit}" =~ ^[0-9]+$ ]] || fail "ProductionFileLimit must be numeric for ${task_id}"
-  if [[ "${production_limit}" -gt 8 && "${production_exception}" == "NONE" ]]; then
-    fail "ProductionFileLimit exceeds 8 without atomic exception"
-  fi
+  [[ "${production_limit}" -eq 8 ]] || fail "ProductionFileLimit must remain 8 for ${task_id}"
+  [[ "${production_exception}" == "NONE" ]] ||
+    fail "ProductionWriteSetException must remain NONE for ${task_id}"
 
   production_count=0
   while IFS= read -r write_path; do
@@ -340,6 +618,9 @@ case "${task_set_status}" in
     [[ "${ready_count}" -eq 1 ]] || fail "task card set must have exactly one READY card"
     [[ "${active_task_card}" == "${ready_card}" ]] ||
       fail "ActiveTaskCard must match the unique READY card"
+    if [[ "${ready_card}" == "W1-I00" && "${card_statuses[1]}" != "BLOCKED_BY_USER_AUTHORIZATION" ]]; then
+      fail "W1-I01 must remain blocked by user authorization while I00 is READY"
+    fi
     ;;
   BLOCKED_BY_USER_AUTHORIZATION)
     [[ "${ready_count}" -eq 0 ]] || fail "blocked authorization state cannot have a READY card"

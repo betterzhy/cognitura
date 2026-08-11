@@ -10,6 +10,8 @@ DependsOn = W1-I04
 PrimaryBoundary = DOCX_TABLE_PARSER
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = TABLE_ROWS_CELLS_MERGES_AND_TEXT_EVIDENCE_PRESERVED
+NegativeVerification = CELL_ORDER_MERGE_AND_TEXT_FIDELITY_DRIFT_REJECTED
 BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
@@ -68,10 +70,12 @@ git status --short
 ## 7. 提交与审查
 
 ```bash
-git add server/src/main/java/io/cognitura/source/docx/table \
-  server/src/test/java/io/cognitura/source/docx/table \
-  server/src/test/resources/docx/table
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "feat: preserve DOCX table fidelity"
 ```
 
-固定提交由新的 `deep_reviewer` 审查；零发现 GO 前不得释放 I06。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。固定提交由新的
+`deep_reviewer` 审查；零发现 GO 前不得释放 I06。

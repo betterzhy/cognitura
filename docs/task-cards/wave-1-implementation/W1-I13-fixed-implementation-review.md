@@ -10,6 +10,8 @@ DependsOn = W1-I00,W1-I01,W1-I02,W1-I03,W1-I04,W1-I05,W1-I06,W1-I07,W1-I08,W1-I0
 PrimaryBoundary = WAVE1_IMPLEMENTATION_GATE
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = FIXED_CANDIDATE_TWO_STAGE_ZERO_FINDING_REVIEW
+NegativeVerification = NONZERO_FINDING_SHA_DRIFT_AND_SCOPE_EXPANSION_REJECTED
 BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
@@ -66,13 +68,12 @@ I13 修复，必须回 Owner 卡形成新候选。
 ## 7. 提交与审查
 
 ```bash
-git add docs/engineering/cognitura-wave-1-implementation-acceptance.md \
-  docs/engineering/cognitura-wave-1-implementation-plan.md \
-  docs/task-cards/wave-1-implementation/README.md \
-  docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md \
-  AGENTS.md README.md docs/engineering/cognitura-design-index.md \
-  docs/design/wave-1/README.md
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "docs: record Wave 1 implementation review"
 ```
 
-不 amend、不 push；本卡完成不等于正式数据库写入、部署或发布授权。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。不 amend、
+不 push；本卡完成不等于正式数据库写入、部署或发布授权。

@@ -10,6 +10,8 @@ DependsOn = W1-I00
 PrimaryBoundary = SOURCE_DOMAIN
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = IDEMPOTENT_SAME_WORKSPACE_SAME_DIGEST
+NegativeVerification = DIGEST_IDENTITY_LIFECYCLE_AND_WORKSPACE_CONFLICTS
 BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
@@ -68,9 +70,12 @@ Workspace 边界 fail closed；生产文件不超过 8，且无 Persistence、Pa
 ## 7. 提交与审查
 
 ```bash
-git add server/src/main/java/io/cognitura/source/domain \
-  server/src/test/java/io/cognitura/source/domain
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I01-source-ingestion-domain.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "feat: add source ingestion domain"
 ```
 
-固定提交交给新的 `deep_reviewer`；零发现 GO 前不得释放后继。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。固定提交交给新的
+`deep_reviewer`；零发现 GO 前不得释放后继。

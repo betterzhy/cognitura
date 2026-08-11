@@ -10,6 +10,8 @@ DependsOn = W1-I07
 PrimaryBoundary = SOURCE_REFERENCE
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = IMMUTABLE_REFERENCE_ALIAS_AND_REPARSE_LINEAGE_PRESERVED
+NegativeVerification = ALIAS_RETARGET_CROSS_REVISION_AND_AMBIGUITY_REJECTED
 BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
@@ -68,9 +70,12 @@ git status --short
 ## 7. 提交与审查
 
 ```bash
-git add server/src/main/java/io/cognitura/source/reference \
-  server/src/test/java/io/cognitura/source/reference
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "feat: preserve source reference lineage"
 ```
 
-固定提交由新的 `deep_reviewer` 审查；零发现 GO 前不得释放依赖卡。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。固定提交由新的
+`deep_reviewer` 审查；零发现 GO 前不得释放依赖卡。

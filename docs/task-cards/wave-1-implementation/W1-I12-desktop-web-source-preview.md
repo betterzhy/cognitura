@@ -10,6 +10,8 @@ DependsOn = W1-I10,W1-I11
 PrimaryBoundary = WEB_DOCUMENT_INGESTION
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = DESKTOP_UPLOAD_STATUS_PREVIEW_AND_PARTIAL_ACCEPTANCE_FLOW
+NegativeVerification = SECOND_FACT_MOBILE_EQUIVALENCE_AND_CROSS_MODULE_WRITE_REJECTED
 BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
@@ -70,8 +72,12 @@ git status --short
 ## 7. 提交与审查
 
 ```bash
-git add web/src/modules/document-ingestion
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "feat: add desktop source preview"
 ```
 
-固定提交由新的 `deep_reviewer` 审查；零发现 GO 前不得释放 I13。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。固定提交由新的
+`deep_reviewer` 审查；零发现 GO 前不得释放 I13。

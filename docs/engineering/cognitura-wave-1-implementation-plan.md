@@ -81,7 +81,7 @@ Wave1ImplementationTaskCardValidation
 ## 5. I00 完成条件
 
 - 14 卡闭集、依赖、状态和写集边界通过 Bash 3.2 验证。
-- 8 个 mutation 负例和合法业务授权阻断终态通过。
+- 18 个 mutation 负例和合法业务授权阻断终态通过。
 - Wave 0、Wave 1 design 与统一入口全部 PASS。
 - 固定 I00 候选取得新的 `deep_reviewer` 零发现 GO。
 - 关闭后 `ActiveTaskCard = NONE`、I01 保持 `BLOCKED_BY_USER_AUTHORIZATION`。

@@ -10,6 +10,8 @@ DependsOn = NONE
 PrimaryBoundary = TASK_CARD_GOVERNANCE
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = VALID_BOOTSTRAP_AND_AUTHORIZATION_TERMINAL
+NegativeVerification = CLOSED_SET_STATUS_WRITESET_AND_GATE_MUTATIONS
 BusinessImplementationAuthorization = NOT_REQUIRED_GOVERNANCE_ONLY
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
@@ -52,7 +54,7 @@ ForbiddenWriteSet = FORMAL_DATABASE_AND_SOURCE_INPUTS
 ## 4. 执行步骤
 
 1. 先写会因验证器缺失而失败的正例合同。
-2. 实现只接受闭集参数的最小验证器，再逐项添加 8 个 mutation 负例。
+2. 实现只接受闭集参数的最小验证器，再逐项添加 18 个 mutation 负例。
 3. 建立只组合既有设计 Gate 和卡集 Gate 的统一入口。
 4. 固定候选并由新的 `deep_reviewer` 作零发现审查。
 5. 审查 GO 后关闭 I00；I01 保持用户业务授权阻断。
@@ -72,18 +74,19 @@ git status --short
 
 ## 6. Gate 与完成定义
 
-14 张卡闭集、依赖、单一 READY、授权和大小合同全部 fail closed；8 个负例与一个
+14 张卡闭集、依赖、单一 READY、授权和大小合同全部 fail closed；18 个负例与一个
 合法授权阻断终态通过；固定候选取得 `deep_reviewer = GO / P0=0 / P1=0 / P2=0`。
 完成时不得释放 I01。
 
 ## 7. 提交与审查
 
 ```bash
-git add scripts/verify-wave1-implementation-cards \
-  tests/task-cards/verify-wave1-implementation-cards.sh \
-  scripts/verify-wave1-implementation \
-  docs/engineering/cognitura-wave-1-implementation-plan.md
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I00-implementation-governance.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "build: establish Wave 1 implementation governance"
 ```
 
-提交后由新的 `deep_reviewer` 只读审查固定 SHA；禁止 amend 和远程推送。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。提交后由新的
+`deep_reviewer` 只读审查固定 SHA；禁止 amend 和远程推送。

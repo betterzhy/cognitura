@@ -10,6 +10,8 @@ DependsOn = W1-I08,W1-I09
 PrimaryBoundary = SOURCE_HTTP_QUERY
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = EXACT_REVISION_KEYSET_PREVIEW_AND_TYPED_PAYLOAD
+NegativeVerification = CURSOR_REVISION_CROSS_WORKSPACE_AND_SECOND_FACT_REJECTED
 BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
@@ -68,9 +70,12 @@ exact revision、keyset 顺序、cursor 绑定、typed payload、partial 标识�
 ## 7. 提交与审查
 
 ```bash
-git add server/src/main/java/io/cognitura/source/api/query \
-  server/src/test/java/io/cognitura/source/api/query
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I10-source-preview-query-api.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "feat: query exact source previews"
 ```
 
-固定提交由新的 `deep_reviewer` 审查；零发现 GO 前不得释放 I11/I12。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。固定提交由新的
+`deep_reviewer` 审查；零发现 GO 前不得释放 I11/I12。

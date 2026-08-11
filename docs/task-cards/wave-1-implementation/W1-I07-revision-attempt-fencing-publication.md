@@ -10,6 +10,8 @@ DependsOn = W1-I02,W1-I04,W1-I05,W1-I06
 PrimaryBoundary = SOURCE_APPLICATION
 ProductionFileLimit = 8
 ProductionWriteSetException = NONE
+PositiveVerification = FENCED_SINGLE_TRANSACTION_BLOCK_SET_PUBLICATION
+NegativeVerification = STALE_LEASE_LATE_RESULT_AND_PARTIAL_WRITE_REJECTED
 BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = REQUIRED_DEPENDENCY_I02_ONLY
 RemotePush = NOT_AUTHORIZED
@@ -70,9 +72,12 @@ git status --short
 ## 7. 提交与审查
 
 ```bash
-git add server/src/main/java/io/cognitura/source/application/processing \
-  server/src/test/java/io/cognitura/source/application/processing
+sed -n 's/^WriteSet = //p' \
+  docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md |
+  git add --pathspec-from-file=-
+git diff --cached --name-only
 git commit -m "feat: fence processing publication"
 ```
 
-固定提交由新的 `deep_reviewer` 审查；零发现 GO 前不得释放引用或 API 卡。
+暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。固定提交由新的
+`deep_reviewer` 审查；零发现 GO 前不得释放引用或 API 卡。

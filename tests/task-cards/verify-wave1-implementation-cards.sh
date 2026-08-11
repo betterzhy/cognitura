@@ -87,7 +87,7 @@ printf '%s\n' \
   "${i00_business_write_dir}/W1-I00-implementation-governance.md"
 expect_failure \
   "${i00_business_write_dir}" \
-  "W1-I00 governance card contains forbidden runtime write"
+  "WriteSet mismatch for W1-I00"
 
 i01_without_approval_dir="${test_tmp_root}/i01-without-approval"
 cp -R "${cards_dir}" "${i01_without_approval_dir}"
@@ -132,9 +132,13 @@ expect_failure \
 oversized_card_dir="${test_tmp_root}/oversized-card"
 cp -R "${cards_dir}" "${oversized_card_dir}"
 set_field "${oversized_card_dir}/W1-I03-docx-security-gate.md" "ProductionFileLimit" "9"
+set_field \
+  "${oversized_card_dir}/W1-I03-docx-security-gate.md" \
+  "ProductionWriteSetException" \
+  "BOGUS"
 expect_failure \
   "${oversized_card_dir}" \
-  "ProductionFileLimit exceeds 8 without atomic exception"
+  "ProductionFileLimit must remain 8 for W1-I03"
 
 duplicate_boundary_dir="${test_tmp_root}/duplicate-boundary"
 cp -R "${cards_dir}" "${duplicate_boundary_dir}"
@@ -161,6 +165,96 @@ set_field \
 expect_failure \
   "${i13_wrong_route_dir}" \
   "W1-I13 must use DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER"
+
+i01_write_set_drift_dir="${test_tmp_root}/i01-write-set-drift"
+cp -R "${cards_dir}" "${i01_write_set_drift_dir}"
+sed -i.bak \
+  's#SourceDocument.java#InventedDomainFact.java#' \
+  "${i01_write_set_drift_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_write_set_drift_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure \
+  "${i01_write_set_drift_dir}" \
+  "WriteSet mismatch for W1-I01"
+
+i01_forbidden_set_drift_dir="${test_tmp_root}/i01-forbidden-set-drift"
+cp -R "${cards_dir}" "${i01_forbidden_set_drift_dir}"
+sed -i.bak \
+  '/^ForbiddenWriteSet = web\/\*\*,raw\/\*\*,\.idea\/\*\*$/d' \
+  "${i01_forbidden_set_drift_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_forbidden_set_drift_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure \
+  "${i01_forbidden_set_drift_dir}" \
+  "ForbiddenWriteSet mismatch for W1-I01"
+
+i01_missing_red_dir="${test_tmp_root}/i01-missing-red"
+cp -R "${cards_dir}" "${i01_missing_red_dir}"
+sed -i.bak 's/^1\. RED：/1. FAIL：/' \
+  "${i01_missing_red_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_missing_red_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure "${i01_missing_red_dir}" "W1-I01: missing RED-first instruction"
+
+i01_missing_green_dir="${test_tmp_root}/i01-missing-green"
+cp -R "${cards_dir}" "${i01_missing_green_dir}"
+sed -i.bak 's/^2\. GREEN：/2. IMPLEMENT：/' \
+  "${i01_missing_green_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_missing_green_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure "${i01_missing_green_dir}" "W1-I01: missing GREEN instruction"
+
+i01_missing_target_gate_dir="${test_tmp_root}/i01-missing-target-gate"
+cp -R "${cards_dir}" "${i01_missing_target_gate_dir}"
+sed -i.bak \
+  "/^\.\/mvnw -f server\/pom\.xml -Dtest='io\.cognitura\.source\.domain\.\*Test' test$/d" \
+  "${i01_missing_target_gate_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_missing_target_gate_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure \
+  "${i01_missing_target_gate_dir}" \
+  "W1-I01: missing target verification command"
+
+i01_missing_commit_dir="${test_tmp_root}/i01-missing-commit"
+cp -R "${cards_dir}" "${i01_missing_commit_dir}"
+sed -i.bak '/^git commit -m "feat: add source ingestion domain"$/d' \
+  "${i01_missing_commit_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_missing_commit_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure "${i01_missing_commit_dir}" "W1-I01: missing independent local commit"
+
+i01_missing_fixed_review_dir="${test_tmp_root}/i01-missing-fixed-review"
+cp -R "${cards_dir}" "${i01_missing_fixed_review_dir}"
+sed -i.bak '/^`deep_reviewer`/d' \
+  "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure "${i01_missing_fixed_review_dir}" "W1-I01: missing fixed-commit review route"
+
+i01_missing_positive_verification_dir="${test_tmp_root}/i01-missing-positive-verification"
+cp -R "${cards_dir}" "${i01_missing_positive_verification_dir}"
+sed -i.bak '/^PositiveVerification = /d' \
+  "${i01_missing_positive_verification_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_missing_positive_verification_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure \
+  "${i01_missing_positive_verification_dir}" \
+  "PositiveVerification must occur exactly once"
+
+i01_broad_stage_dir="${test_tmp_root}/i01-broad-stage"
+cp -R "${cards_dir}" "${i01_broad_stage_dir}"
+sed -i.bak \
+  's#^  git add --pathspec-from-file=-$#  git add server/src/main/java/io/cognitura/source/domain#' \
+  "${i01_broad_stage_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_broad_stage_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure "${i01_broad_stage_dir}" "W1-I01: staging must derive from the exact WriteSet"
+
+i01_authorization_block_drift_dir="${test_tmp_root}/i01-authorization-block-drift"
+cp -R "${cards_dir}" "${i01_authorization_block_drift_dir}"
+set_field \
+  "${i01_authorization_block_drift_dir}/W1-I01-source-ingestion-domain.md" \
+  "Status" \
+  "BLOCKED_BY_DEPENDENCY"
+set_table_status \
+  "${i01_authorization_block_drift_dir}/README.md" \
+  "W1-I01" \
+  "BLOCKED_BY_USER_AUTHORIZATION" \
+  "BLOCKED_BY_DEPENDENCY"
+expect_failure \
+  "${i01_authorization_block_drift_dir}" \
+  "W1-I01 must remain blocked by user authorization while I00 is READY"
 
 blocked_authorization_dir="${test_tmp_root}/blocked-authorization-terminal"
 cp -R "${cards_dir}" "${blocked_authorization_dir}"
