@@ -65,6 +65,43 @@ make_fixture() {
   cp "${evidence_plan}" "${fixture_root}/evidence-plan.md"
 }
 
+make_project_fixture() {
+  local fixture_root="$1"
+  make_fixture "${fixture_root}"
+  mkdir -p \
+    "${fixture_root}/project/scripts" \
+    "${fixture_root}/project/docs/engineering" \
+    "${fixture_root}/project/docs/task-cards"
+  cp "${verifier}" "${fixture_root}/project/scripts/verify-high-fidelity-visual"
+  cp "${repo_root}/AGENTS.md" "${fixture_root}/project/AGENTS.md"
+  cp "${repo_root}/README.md" "${fixture_root}/project/README.md"
+  cp "${repo_root}/docs/engineering/cognitura-design-index.md" \
+    "${fixture_root}/project/docs/engineering/cognitura-design-index.md"
+  cp "${repo_root}/docs/task-cards/README.md" \
+    "${fixture_root}/project/docs/task-cards/README.md"
+}
+
+expect_project_failure() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local output
+
+  if output="$(
+    "${fixture_root}/project/scripts/verify-high-fidelity-visual" \
+      --cards-dir "${fixture_root}/cards" \
+      --visual-design "${fixture_root}/visual-design.md" \
+      --prototype-dir "${fixture_root}/prototype" \
+      --evidence-dir "${fixture_root}/evidence" \
+      --plan "${fixture_root}/master-plan.md" \
+      --acceptance "${fixture_root}/acceptance.md" \
+      --evidence-plan "${fixture_root}/evidence-plan.md" 2>&1
+  )"; then
+    fail "invalid project fixture unexpectedly passed: ${fixture_root}"
+  fi
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "expected error '${expected_message}', got: ${output}"
+}
+
 chrome_bin="${CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 [[ -x "${chrome_bin}" ]] || fail "Chrome headless is required for DOM mutation screenshot recapture"
 
@@ -333,6 +370,34 @@ for expected_line in \
   "RemotePush = NOT_AUTHORIZED"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
+done
+
+project_implementation_pass="${test_tmp_root}/project-implementation-pass"
+make_project_fixture "${project_implementation_pass}"
+sed -i.bak 's/^ImplementationValidation = NOT_RUN$/ImplementationValidation = PASS/' \
+  "${project_implementation_pass}/project/AGENTS.md"
+rm "${project_implementation_pass}/project/AGENTS.md.bak"
+expect_project_failure "${project_implementation_pass}" \
+  'AGENTS.md: ImplementationValidation must be NOT_RUN, got PASS'
+
+for review_mutation in \
+  'stage1-model|ReviewStage1Model = gpt-5.6-sol/high|ReviewStage1Model = ultra|ReviewStage1Model must be gpt-5.6-sol/high, got ultra' \
+  'stage2-model|ReviewStage2Model = gpt-5.6-sol/high|ReviewStage2Model = ultra|ReviewStage2Model must be gpt-5.6-sol/high, got ultra' \
+  'stage1-severity|ReviewStage1P0P1P2 = 0/0/0|ReviewStage1P0P1P2 = 1/0/0|ReviewStage1P0P1P2 must be 0/0/0, got 1/0/0' \
+  'stage2-severity|ReviewStage2P0P1P2 = 0/0/0|ReviewStage2P0P1P2 = 1/0/0|ReviewStage2P0P1P2 must be 0/0/0, got 1/0/0' \
+  'ultra-used|UltraReviewUsed = NO|UltraReviewUsed = YES|UltraReviewUsed must be NO, got YES'; do
+  mutation_name="${review_mutation%%|*}"
+  remaining_mutation="${review_mutation#*|}"
+  original_review_field="${remaining_mutation%%|*}"
+  remaining_mutation="${remaining_mutation#*|}"
+  mutated_review_field="${remaining_mutation%%|*}"
+  expected_review_failure="${remaining_mutation#*|}"
+  review_fixture="${test_tmp_root}/review-${mutation_name}"
+  make_fixture "${review_fixture}"
+  sed -i.bak "s#${original_review_field}#${mutated_review_field}#" \
+    "${review_fixture}/cards/HV-D05-fixed-visual-usability-review.md"
+  rm "${review_fixture}/cards/HV-D05-fixed-visual-usability-review.md.bak"
+  expect_failure "${review_fixture}" "${expected_review_failure}"
 done
 
 cross_projection_module_identity_mismatch="${test_tmp_root}/cross-projection-module-identity-mismatch"
@@ -1503,4 +1568,5 @@ printf 'HV-D05Stage1OwnerRepair1NegativeFixtureCount = 3\n'
 printf 'HV-D05Stage1OwnerRepair2NegativeFixtureCount = 2\n'
 printf 'HV-D05Stage2OwnerRepair1NegativeFixtureCount = 5\n'
 printf 'HV-D05Stage2OwnerRepair2NegativeFixtureCount = 2\n'
-printf 'NegativeFixtureCount = 153\n'
+printf 'HV-D05ClosureFixRound1NegativeFixtureCount = 6\n'
+printf 'NegativeFixtureCount = 159\n'

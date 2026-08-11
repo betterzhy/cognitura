@@ -160,8 +160,8 @@ HV-D05 第二阶段补充了真实浏览器 History 生命周期：恢复动作�
 processing、semantic anchor 与焦点；它不使用 `localStorage`、`sessionStorage`、
 Cookie、网络或数据库。修订、部分失败与冲突草稿中的关键按钮还必须改变真实 DOM
 和 History 状态。20 个正式异常 ID 逐一运行非生产恢复 harness，验证可见反馈、准确
-恢复动作及焦点落点。所有结果仅作为高保真可用性观察，正式 `RFAcceptance`、
-`ExceptionAcceptance`、整体可用性和实现仍为 `NOT_RUN`。
+恢复动作及焦点落点。上述结果已使整体高保真可用性观察为 `PASS`；正式
+`RFAcceptance`、`ExceptionAcceptance` 与实现验证仍为 `NOT_RUN`。
 
 ## HV-D04 跨层、小屏与静态导出证据
 

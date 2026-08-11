@@ -539,10 +539,14 @@ if [[ "${task_card_set_status}" == "COMPLETE" ]]; then
   require_field_value "${acceptance}" HVExecutionArtifactCapture COMPLETE_HV_D05
   require_line_once "${cards_dir}/HV-D05-fixed-visual-usability-review.md" \
     'ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7'
-  require_line_once "${cards_dir}/HV-D05-fixed-visual-usability-review.md" \
-    'ReviewStage1Verdict = GO'
-  require_line_once "${cards_dir}/HV-D05-fixed-visual-usability-review.md" \
-    'ReviewStage2Verdict = GO'
+  require_field_value "${cards_dir}/HV-D05-fixed-visual-usability-review.md" ReviewStage1Model gpt-5.6-sol/high
+  require_field_value "${cards_dir}/HV-D05-fixed-visual-usability-review.md" ReviewStage1Verdict GO
+  require_field_value "${cards_dir}/HV-D05-fixed-visual-usability-review.md" ReviewStage1P0P1P2 0/0/0
+  require_field_value "${cards_dir}/HV-D05-fixed-visual-usability-review.md" ReviewStage2Model gpt-5.6-sol/high
+  require_field_value "${cards_dir}/HV-D05-fixed-visual-usability-review.md" ReviewStage2Verdict GO
+  require_field_value "${cards_dir}/HV-D05-fixed-visual-usability-review.md" ReviewStage2P0P1P2 0/0/0
+  require_field_value "${cards_dir}/HV-D05-fixed-visual-usability-review.md" UltraReviewUsed NO
+  require_field_value "${cards_dir}/HV-D05-fixed-visual-usability-review.md" ImplementationValidation NOT_RUN
   for review_ledger in "${evidence_plan}" "${acceptance}"; do
     require_line_once "${review_ledger}" \
       'HV-D05ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7'
@@ -611,16 +615,19 @@ for projection_contract in \
   "${design_index}|HighFidelityVisualValidation|PASS" \
   "${design_index}|HighFidelityUsabilityValidation|PASS" \
   "${design_index}|HighFidelityStateAcceptance|PASS" \
+  "${design_index}|ImplementationValidation|NOT_RUN" \
   "${design_index}|BusinessImplementation|NOT_AUTHORIZED" \
   "${script_root}/AGENTS.md|HighFidelityVisualDesign|PASS" \
   "${script_root}/AGENTS.md|HighFidelityVisualValidation|PASS" \
   "${script_root}/AGENTS.md|HighFidelityUsabilityValidation|PASS" \
   "${script_root}/AGENTS.md|HighFidelityStateAcceptance|PASS" \
+  "${script_root}/AGENTS.md|ImplementationValidation|NOT_RUN" \
   "${script_root}/AGENTS.md|BusinessImplementation|NOT_AUTHORIZED" \
   "${script_root}/README.md|HighFidelityVisualDesign|PASS" \
   "${script_root}/README.md|HighFidelityVisualValidation|PASS" \
   "${script_root}/README.md|HighFidelityUsabilityValidation|PASS" \
   "${script_root}/README.md|HighFidelityStateAcceptance|PASS" \
+  "${script_root}/README.md|ImplementationValidation|NOT_RUN" \
   "${script_root}/README.md|BusinessImplementation|NOT_AUTHORIZED"; do
   projection_file="${projection_contract%%|*}"
   remaining_projection="${projection_contract#*|}"
