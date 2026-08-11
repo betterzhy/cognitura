@@ -1,0 +1,39 @@
+.module-default-reading {
+  box-sizing: border-box;
+  width: min(100%, var(--document-width, 74ch));
+  margin-inline: auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  color: var(--color-ink, #20252b);
+  background: var(--color-paper, #fff);
+  font-family: var(--font-reading, ui-serif, Georgia, serif);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.module-default-reading > [data-reading-section],
+.module-default-reading > [data-primary-visual-projection] {
+  margin-block-start: var(--space-section, 2rem);
+}
+
+.module-default-reading [data-reading-section="source-entry"] {
+  min-width: 44px;
+  min-height: 44px;
+  margin-block-start: var(--space-section, 2rem);
+  font: inherit;
+}
+
+.module-default-reading [data-reading-section="source-entry"]:focus-visible {
+  outline: var(--focus-ring, 3px solid currentColor);
+  outline-offset: 3px;
+}
+
+@media (max-width: 48rem) {
+  .module-default-reading {
+    width: 100%;
+    padding-inline: 1rem;
+  }
+
+  .module-default-reading [data-primary-visual-projection] {
+    overflow-x: auto;
+  }
+}
