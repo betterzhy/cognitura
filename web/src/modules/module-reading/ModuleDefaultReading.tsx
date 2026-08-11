@@ -26,7 +26,10 @@ function projectedEntityRef(
   ) {
     return module.artifactId;
   }
-  const coreQuestionMatch = /^\/coreQuestions\/(\d+)$/.exec(contentPath);
+  const arrayIndex = "(0|[1-9]\\d*)";
+  const coreQuestionMatch = new RegExp(`^/coreQuestions/${arrayIndex}$`).exec(
+    contentPath,
+  );
   if (coreQuestionMatch !== null) {
     return module.coreQuestions[Number(coreQuestionMatch[1])] === undefined
       ? undefined
@@ -38,23 +41,23 @@ function projectedEntityRef(
     (index: number) => unknown,
   ][] = [
     [
-      /^\/primaryCognitiveSpine\/steps\/(\d+)\/statement$/,
+      new RegExp(`^/primaryCognitiveSpine/steps/${arrayIndex}/statement$`),
       (index) => module.primaryCognitiveSpine?.steps[index]?.stepId,
     ],
     [
-      /^\/facets\/(\d+)\/(?:title|summary)$/,
+      new RegExp(`^/facets/${arrayIndex}/(?:title|summary)$`),
       (index) => module.facets[index]?.facetId,
     ],
     [
-      /^\/knowledgeElements\/(\d+)\/(?:title|content)$/,
+      new RegExp(`^/knowledgeElements/${arrayIndex}/(?:title|content)$`),
       (index) => module.knowledgeElements[index]?.artifactId,
     ],
     [
-      /^\/keyTakeaways\/(\d+)\/statement$/,
+      new RegExp(`^/keyTakeaways/${arrayIndex}/statement$`),
       (index) => module.keyTakeaways[index]?.statementId,
     ],
     [
-      /^\/criticalBoundaries\/(\d+)\/statement$/,
+      new RegExp(`^/criticalBoundaries/${arrayIndex}/statement$`),
       (index) => module.criticalBoundaries[index]?.boundaryId,
     ],
   ];

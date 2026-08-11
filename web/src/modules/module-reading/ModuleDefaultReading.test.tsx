@@ -282,4 +282,21 @@ describe("ModuleDefaultReading", () => {
       "RENDERER_RELATION_SOURCE_CHANGED",
     );
   });
+
+  it("rejects content paths that formal JSON Pointer resolution cannot index", () => {
+    const nodes = rendererInput.nodes.map((node, index) =>
+      index === 0
+        ? { ...node, contentPath: "/knowledgeElements/00/title" }
+        : node,
+    );
+
+    expect(() =>
+      render(
+        <ModuleDefaultReading
+          module={module}
+          rendererInput={{ ...rendererInput, nodes }}
+        />,
+      ),
+    ).toThrow("RENDERER_RELATION_ENDPOINT_CHANGED");
+  });
 });
