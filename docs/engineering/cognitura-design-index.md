@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 RepositoryName = cognitura
-CurrentStage = HIGH_FIDELITY_VISUAL_AND_USABILITY_COMPLETE
+CurrentStage = WAVE1_IMPLEMENTATION_GOVERNANCE_READY
 DesignAlignmentStatus = COMPLETE
 DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
 CurrentDesignBaseline = Cognitura-Overall-Design-1.2
@@ -33,7 +33,12 @@ Wave1ImplementationSlicingDesign =
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationTaskCardPlan =
   docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md
-Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
+Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
+Wave1ImplementationTaskCards =
+  docs/task-cards/wave-1-implementation/README.md
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveTaskCard = W1-I00
+ActiveTaskCardStatus = READY
 ModuleDefaultReadingImplementationTaskCards =
   docs/task-cards/module-default-reading-implementation/README.md
 ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md

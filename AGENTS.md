@@ -13,22 +13,22 @@ PrimaryPurpose = PERSONAL_COGNITIVE_STRUCTURE_BUILDING
 ## 2. 当前阶段与允许范围
 
 ```text
-CurrentStage = HIGH_FIDELITY_VISUAL_AND_USABILITY_COMPLETE
+CurrentStage = WAVE1_IMPLEMENTATION_GOVERNANCE_READY
 DesignAlignmentStatus = COMPLETE
 DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
 
 Wave0ExecutionEntry = GO_WITH_GATES
 Wave0ExecutionStatus = COMPLETE
-ActiveTaskCard = NONE
-ActiveTaskCardStatus = NONE
+ActiveTaskCard = W1-I00
+ActiveTaskCardStatus = READY
 W0G3ReviewStatus = PASS
 W0G4ReviewStatus = PASS
 W0G5Status = PASS
 W0G6ReviewStatus = PASS
 Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
-Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
-Wave1ImplementationTaskCardSet = NOT_CREATED
+Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
 ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 ModuleDefaultReadingImplementationTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingImplementationTaskCardCount = 9
@@ -57,8 +57,8 @@ ActiveImplementationTaskCard = NONE
 HighFidelityVisualTaskCardSet = COMPLETE
 HighFidelityVisualProjectedEntry = NONE
 ActiveDesignTaskCard = NONE
-W1-I00Creation = FORBIDDEN
-W1-I00Release = FORBIDDEN
+W1-I00Creation = COMPLETE
+W1-I00Release = READY
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
@@ -68,15 +68,16 @@ DirectFullImplementationStart = NO
 Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、Golden Case
 回归资产、测试和 CI 基线以及页面/Renderer 契约。Wave 1 准入 GO 只允许按后续
 任务卡受控推进，不授权直接开始完整业务实现。Wave 1 详细设计和 14 张中细粒度
-实现切片书面规格均已获用户批准；当前等待选择任务卡 bootstrap 计划的执行方式。
-计划执行只允许创建卡集并完成治理卡 I00，不授权 W1-I01 业务代码。
+实现切片书面规格均已获用户批准；14 张实现卡已经 bootstrap，当前唯一 READY 为
+非业务治理卡 I00。I00 完成前不授权 W1-I01 业务代码。
 
 本分支另有经用户授权的独立 `HIGH_FIDELITY_DESIGN` 集合；`HF-D01` 至 `HF-D04`
 现已全部关闭。HF-D04 已对准备提交
 `463fd4829e7c4bb8da071253e8ae9b15cee2a0cf` 完成两个独立
 `gpt-5.6-sol/high` 零发现审查并把专项晋级 `FORMAL_SPECIALTY_BASELINE`。该晋级只
-关闭合同设计阶段，不制作视觉页面、原型或截图，不能创建或释放 `W1-I00`，也不
-改变 `BusinessImplementation = NOT_AUTHORIZED`、正式数据库写入和远程推送边界。
+关闭合同设计阶段，不制作视觉页面、原型或截图；该历史晋级本身未授权创建或释放
+`W1-I00`。当前 I00 的创建和释放来自后续用户授权的 bootstrap，仍不改变
+`BusinessImplementation = NOT_AUTHORIZED`、正式数据库写入和远程推送边界。
 `HF-D01` 仅关闭 Reading First 页面与呈现合同，`HF-D02` 仅关闭正交状态、持久化
 与恢复边界，`HF-D03` 仅关闭八类证据、20 项 RF-AC、20 异常、30 RM 和跨域场景
 的输入合同，`HF-D04` 仅关闭固定合同候选审查。`HV-D00` 已建立 docs-only
@@ -86,8 +87,8 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 已以修订影响、正式保存后部分失败和冲突草稿三张证据关闭其四项视觉 Owner；`HV-D04`
 已建立四层、跨域、小屏和静态导出证据；`HV-D05` 已对固定候选
 `62da1bc08a932bbfc76769a2add984dcec4160b7` 完成两个独立
-`gpt-5.6-sol/high` 零发现审查并关闭整体视觉与可用性阶段。实现仍未执行，且不授权
-创建或释放 `W1-I00`、业务实现、正式数据库写入或远程推送。
+`gpt-5.6-sol/high` 零发现审查并关闭整体视觉与可用性阶段。其视觉晋级未授权业务
+实现、正式数据库写入或远程推送；当前后续授权只释放非业务治理卡 I00。
 开发入口仅由 `docs/engineering/cognitura-development-entry-prompt.md` 提供下一会话的
 书面任务卡规划提示。该提示现已用于建立独立的 `MDR-I00..MDR-I08` 书面卡集；
 卡片文本和自动串行治理规格现已获用户批准；唯一可变运行态由

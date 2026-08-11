@@ -19,9 +19,10 @@ W1-DG5 FixedDesignReview = PASS
 Wave1DesignStatus = USER_APPROVED
 ImplementationSlicingStatus = USER_APPROVED
 ImplementationSlicingApprovalDate = 2026-07-30
-ImplementationTaskCardPlanStatus = READY_AWAITING_EXECUTION_CHOICE
+ImplementationTaskCardPlanStatus = EXECUTION_IN_PROGRESS_I00_ONLY
 BusinessImplementation = NOT_AUTHORIZED
-Wave1ImplementationTaskCardSet = NOT_CREATED
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I00
 DirectFullImplementationStart = NO
 RemotePush = NOT_PERFORMED
 ```

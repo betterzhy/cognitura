@@ -12,8 +12,9 @@ SpecificationStatus = USER_APPROVED
 UserWrittenReviewApprovalDate = 2026-07-30
 ImplementationPlan =
   docs/superpowers/plans/2026-07-30-wave1-implementation-task-card-bootstrap.md
-ImplementationPlanStatus = READY_AWAITING_EXECUTION_CHOICE
-Wave1ImplementationTaskCardSet = NOT_CREATED
+ImplementationPlanStatus = EXECUTION_IN_PROGRESS_I00_ONLY
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I00
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
@@ -317,7 +318,8 @@ SingleFactOwnerOrRiskSurface = REQUIRED
 ProductionFileLimit = 8
 OnlyI00InitiallyReady = REQUIRED
 BusinessImplementation = NOT_AUTHORIZED
-Wave1ImplementationTaskCardSet = NOT_CREATED
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I00
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
@@ -333,5 +335,5 @@ git diff --check
 git status --short
 ```
 
-用户已审阅并批准本书面规格。下一步只能按已落盘的 `writing-plans` 计划选择执行
-方式，bootstrap 任务卡并完成治理卡 I00；仍不得直接创建业务代码。
+用户已审阅并批准本书面规格，任务卡已按落盘计划 bootstrap；当前只允许完成治理卡
+I00，仍不得直接创建业务代码。
