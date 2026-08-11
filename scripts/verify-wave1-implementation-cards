@@ -214,7 +214,7 @@ FORMAL_DATABASE_AND_SOURCE_INPUTS'
       expected_positive_verification='VALID_BOOTSTRAP_AND_AUTHORIZATION_TERMINAL'
       expected_negative_verification='CLOSED_SET_STATUS_WRITESET_AND_GATE_MUTATIONS'
       expected_commit_message='build: establish Wave 1 implementation governance'
-      expected_card_digest='b90d1910773c683ee1347d9efaa5cad59576e6f918d50ade5e8518820f3bd94a'
+      expected_card_digest='5ee27bac74a80037382588f08ba0d809d645e90b9f6c4b03f99b3190b8b1395f'
       ;;
     W1-I01)
       expected_gate="W1-IG1 SourceIntakeDomain"
@@ -768,10 +768,15 @@ for card_index in "${!expected_files[@]}"; do
   fi
 
   if [[ "${task_id}" == "W1-I01" ]]; then
-    if [[ "${card_statuses[0]}" == "DONE" && "${i01_authorization}" == "USER_AUTHORIZED" ]]; then
+    if [[ "${card_statuses[0]}" != "DONE" ]]; then
+      [[ "${i01_authorization}" == "REQUIRED_BEFORE_READY" ]] ||
+        fail "W1-I01 cannot be authorized before W1-I00 is DONE"
+      [[ "${status}" == "BLOCKED_BY_USER_AUTHORIZATION" ]] ||
+        fail "W1-I01 must remain blocked by user authorization"
+    elif [[ "${i01_authorization}" == "USER_AUTHORIZED" ]]; then
       case "${status}" in
-        QUEUED|READY|DONE) ;;
-        *) fail "W1-I01 must be QUEUED, READY, or DONE after authorization" ;;
+        READY|DONE) ;;
+        *) fail "W1-I01 must be READY or DONE after authorization" ;;
       esac
     else
       [[ "${status}" == "BLOCKED_BY_USER_AUTHORIZATION" ]] ||

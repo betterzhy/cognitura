@@ -515,6 +515,78 @@ expect_failure \
   "${i01_projection_conflict_dir}" \
   "README.md: BusinessImplementation projection mismatch"
 
+i01_early_authorization_dir="${test_tmp_root}/i01-early-authorization"
+cp -R "${cards_dir}" "${i01_early_authorization_dir}"
+set_field \
+  "${i01_early_authorization_dir}/W1-I01-source-ingestion-domain.md" \
+  "BusinessImplementationAuthorization" \
+  "USER_AUTHORIZED"
+set_field \
+  "${i01_early_authorization_dir}/README.md" \
+  "BusinessImplementation" \
+  "USER_AUTHORIZED"
+expect_failure \
+  "${i01_early_authorization_dir}" \
+  "W1-I01 cannot be authorized before W1-I00 is DONE"
+
+i01_unreachable_queued_dir="${test_tmp_root}/i01-unreachable-queued"
+cp -R "${cards_dir}" "${i01_unreachable_queued_dir}"
+set_field "${i01_unreachable_queued_dir}/W1-I00-implementation-governance.md" "Status" "DONE"
+set_field "${i01_unreachable_queued_dir}/W1-I01-source-ingestion-domain.md" "Status" "QUEUED"
+set_field \
+  "${i01_unreachable_queued_dir}/W1-I01-source-ingestion-domain.md" \
+  "BusinessImplementationAuthorization" \
+  "USER_AUTHORIZED"
+set_field "${i01_unreachable_queued_dir}/README.md" "ActiveTaskCard" "NONE"
+set_field "${i01_unreachable_queued_dir}/README.md" "BusinessImplementation" "USER_AUTHORIZED"
+set_table_status "${i01_unreachable_queued_dir}/README.md" "W1-I00" "READY" "DONE"
+set_table_status \
+  "${i01_unreachable_queued_dir}/README.md" \
+  "W1-I01" \
+  "BLOCKED_BY_USER_AUTHORIZATION" \
+  "QUEUED"
+expect_failure \
+  "${i01_unreachable_queued_dir}" \
+  "W1-I01 must be READY or DONE after authorization"
+
+complete_dir="${test_tmp_root}/complete"
+cp -R "${cards_dir}" "${complete_dir}"
+for complete_card in "${complete_dir}"/W1-I*.md; do
+  complete_task_id="$(sed -n 's/^TaskCardID = //p' "${complete_card}")"
+  complete_old_status="$(sed -n 's/^Status = //p' "${complete_card}")"
+  set_field "${complete_card}" "Status" "DONE"
+  set_table_status \
+    "${complete_dir}/README.md" \
+    "${complete_task_id}" \
+    "${complete_old_status}" \
+    "DONE"
+  if [[ "${complete_task_id}" != "W1-I00" ]]; then
+    set_field "${complete_card}" "BusinessImplementationAuthorization" "USER_AUTHORIZED"
+  fi
+done
+set_field "${complete_dir}/W1-I02-source-persistence.md" "FormalDatabaseGate" "PASS"
+set_field "${complete_dir}/README.md" "TaskCardSetStatus" "COMPLETE"
+set_field "${complete_dir}/README.md" "ActiveTaskCard" "NONE"
+set_field "${complete_dir}/README.md" "BusinessImplementation" "USER_AUTHORIZED"
+complete_output="$("${verifier}" --cards-dir "${complete_dir}")" ||
+  fail "valid complete state was rejected"
+assert_contains "${complete_output}" "TaskCardSetStatus = COMPLETE"
+
+incomplete_complete_dir="${test_tmp_root}/incomplete-complete"
+cp -R "${complete_dir}" "${incomplete_complete_dir}"
+set_field \
+  "${incomplete_complete_dir}/W1-I13-fixed-implementation-review.md" \
+  "Status" \
+  "QUEUED"
+set_table_status \
+  "${incomplete_complete_dir}/README.md" \
+  "W1-I13" \
+  "DONE" \
+  "QUEUED"
+expect_failure \
+  "${incomplete_complete_dir}" \
+  "complete state requires all cards DONE"
+
 i01_authorization_block_drift_dir="${test_tmp_root}/i01-authorization-block-drift"
 cp -R "${cards_dir}" "${i01_authorization_block_drift_dir}"
 set_field \
@@ -547,4 +619,5 @@ printf '%s\n' \
   "PositiveCases = 1" \
   "NegativeCases = ${negative_cases}" \
   "AuthorizedI01Cases = 1" \
+  "CompleteTerminalCases = 1" \
   "BlockedAuthorizationTerminalCases = 1"
