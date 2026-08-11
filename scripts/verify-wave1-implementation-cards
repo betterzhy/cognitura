@@ -90,8 +90,11 @@ expected_files=(
   fail "README.md: TaskCardIDs mismatch"
 [[ "$(field_value "${index_file}" "TaskCardCount")" == "14" ]] ||
   fail "README.md: TaskCardCount must be 14"
-[[ "$(one_field_value "${index_file}" "BusinessImplementation" "README.md")" == "NOT_AUTHORIZED" ]] ||
-  fail "README.md: BusinessImplementation must remain NOT_AUTHORIZED during I00"
+business_implementation="$(one_field_value "${index_file}" "BusinessImplementation" "README.md")"
+case "${business_implementation}" in
+  NOT_AUTHORIZED|USER_AUTHORIZED) ;;
+  *) fail "README.md: unsupported BusinessImplementation value" ;;
+esac
 [[ "$(one_field_value "${index_file}" "FormalDatabaseWrite" "README.md")" == "NOT_AUTHORIZED" ]] ||
   fail "README.md: FormalDatabaseWrite must remain NOT_AUTHORIZED"
 [[ "$(one_field_value "${index_file}" "RemotePush" "README.md")" == "NOT_AUTHORIZED" ]] ||
@@ -211,7 +214,7 @@ FORMAL_DATABASE_AND_SOURCE_INPUTS'
       expected_positive_verification='VALID_BOOTSTRAP_AND_AUTHORIZATION_TERMINAL'
       expected_negative_verification='CLOSED_SET_STATUS_WRITESET_AND_GATE_MUTATIONS'
       expected_commit_message='build: establish Wave 1 implementation governance'
-      expected_card_digest='11fc31cdec69e10cb1b25faedf50e8fd1403e3aa7de5a438d0c0b1ccad159e73'
+      expected_card_digest='b90d1910773c683ee1347d9efaa5cad59576e6f918d50ade5e8518820f3bd94a'
       ;;
     W1-I01)
       expected_gate="W1-IG1 SourceIntakeDomain"
@@ -735,22 +738,71 @@ done
 [[ "${ready_count}" -eq 1 || "${ready_count}" -eq 0 ]] ||
   fail "task card set must have exactly one READY card"
 
+dependencies_are_done() {
+  local dependency_list="$1"
+  local dependency_id
+  local saved_ifs
+  [[ "${dependency_list}" != "NONE" ]] || return 0
+  saved_ifs="${IFS}"
+  IFS=','
+  for dependency_id in ${dependency_list}; do
+    if [[ "$(status_for_id "${dependency_id}")" != "DONE" ]]; then
+      IFS="${saved_ifs}"
+      return 1
+    fi
+  done
+  IFS="${saved_ifs}"
+  return 0
+}
+
+i01_authorization="$(field_value "${cards_dir}/${expected_files[1]}" "BusinessImplementationAuthorization")"
 for card_index in "${!expected_files[@]}"; do
   task_id="$(printf 'W1-I%02d' "${card_index}")"
   status="${card_statuses[${card_index}]}"
-  if [[ "${status}" == "READY" || "${status}" == "DONE" ]]; then
-    dependency="$(field_value "${cards_dir}/${expected_files[${card_index}]}" "DependsOn")"
-    if [[ "${dependency}" != "NONE" ]]; then
-      old_ifs="${IFS}"
-      IFS=','
-      for dependency_id in ${dependency}; do
-        [[ "$(status_for_id "${dependency_id}")" == "DONE" ]] ||
-          fail "dependency ${dependency_id} must be DONE before ${task_id} is ${status}"
-      done
-      IFS="${old_ifs}"
+  if [[ "${task_id}" == "W1-I00" ]]; then
+    case "${status}" in
+      READY|DONE) ;;
+      *) fail "W1-I00 must be READY or DONE" ;;
+    esac
+    continue
+  fi
+
+  if [[ "${task_id}" == "W1-I01" ]]; then
+    if [[ "${card_statuses[0]}" == "DONE" && "${i01_authorization}" == "USER_AUTHORIZED" ]]; then
+      case "${status}" in
+        QUEUED|READY|DONE) ;;
+        *) fail "W1-I01 must be QUEUED, READY, or DONE after authorization" ;;
+      esac
+    else
+      [[ "${status}" == "BLOCKED_BY_USER_AUTHORIZATION" ]] ||
+        fail "W1-I01 must remain blocked by user authorization"
     fi
+    continue
+  fi
+
+  card_authorization="$(field_value "${cards_dir}/${expected_files[${card_index}]}" "BusinessImplementationAuthorization")"
+  if [[ "${card_authorization}" == "USER_AUTHORIZED" && "${i01_authorization}" != "USER_AUTHORIZED" ]]; then
+    fail "${task_id} cannot be authorized before W1-I01 authorization"
+  fi
+  dependency="$(field_value "${cards_dir}/${expected_files[${card_index}]}" "DependsOn")"
+  if dependencies_are_done "${dependency}"; then
+    case "${status}" in
+      QUEUED|READY|DONE) ;;
+      *) fail "${task_id} must be QUEUED, READY, or DONE after dependencies are satisfied" ;;
+    esac
+  else
+    [[ "${status}" == "BLOCKED_BY_DEPENDENCY" ]] ||
+      fail "${task_id} must remain BLOCKED_BY_DEPENDENCY until dependencies are DONE"
   fi
 done
+
+if [[ "${i01_authorization}" == "USER_AUTHORIZED" ]]; then
+  expected_business_implementation="USER_AUTHORIZED"
+else
+  expected_business_implementation="NOT_AUTHORIZED"
+fi
+[[ "${business_implementation}" == "${expected_business_implementation}" ]] ||
+  fail "README.md: BusinessImplementation projection mismatch"
 
 case "${task_set_status}" in
   READY_FOR_EXECUTION)

@@ -410,6 +410,111 @@ expect_failure \
   "${i02_bogus_blocked_database_gate_dir}" \
   "FormalDatabaseGate mismatch for W1-I02"
 
+i02_premature_queued_dir="${test_tmp_root}/i02-premature-queued"
+cp -R "${cards_dir}" "${i02_premature_queued_dir}"
+set_field "${i02_premature_queued_dir}/W1-I02-source-persistence.md" "Status" "QUEUED"
+set_table_status \
+  "${i02_premature_queued_dir}/README.md" \
+  "W1-I02" \
+  "BLOCKED_BY_DEPENDENCY" \
+  "QUEUED"
+expect_failure \
+  "${i02_premature_queued_dir}" \
+  "W1-I02 must remain BLOCKED_BY_DEPENDENCY until dependencies are DONE"
+
+terminal_i02_premature_queued_dir="${test_tmp_root}/terminal-i02-premature-queued"
+cp -R "${cards_dir}" "${terminal_i02_premature_queued_dir}"
+set_field \
+  "${terminal_i02_premature_queued_dir}/W1-I00-implementation-governance.md" \
+  "Status" \
+  "DONE"
+set_field "${terminal_i02_premature_queued_dir}/README.md" "ActiveTaskCard" "NONE"
+set_field \
+  "${terminal_i02_premature_queued_dir}/README.md" \
+  "TaskCardSetStatus" \
+  "BLOCKED_BY_USER_AUTHORIZATION"
+set_table_status \
+  "${terminal_i02_premature_queued_dir}/README.md" \
+  "W1-I00" \
+  "READY" \
+  "DONE"
+set_field \
+  "${terminal_i02_premature_queued_dir}/W1-I02-source-persistence.md" \
+  "Status" \
+  "QUEUED"
+set_table_status \
+  "${terminal_i02_premature_queued_dir}/README.md" \
+  "W1-I02" \
+  "BLOCKED_BY_DEPENDENCY" \
+  "QUEUED"
+expect_failure \
+  "${terminal_i02_premature_queued_dir}" \
+  "W1-I02 must remain BLOCKED_BY_DEPENDENCY until dependencies are DONE"
+
+i03_stale_dependency_block_dir="${test_tmp_root}/i03-stale-dependency-block"
+cp -R "${cards_dir}" "${i03_stale_dependency_block_dir}"
+set_field "${i03_stale_dependency_block_dir}/W1-I00-implementation-governance.md" "Status" "DONE"
+set_field "${i03_stale_dependency_block_dir}/W1-I01-source-ingestion-domain.md" "Status" "DONE"
+set_field \
+  "${i03_stale_dependency_block_dir}/W1-I01-source-ingestion-domain.md" \
+  "BusinessImplementationAuthorization" \
+  "USER_AUTHORIZED"
+set_field "${i03_stale_dependency_block_dir}/W1-I02-source-persistence.md" "Status" "READY"
+set_field \
+  "${i03_stale_dependency_block_dir}/W1-I02-source-persistence.md" \
+  "BusinessImplementationAuthorization" \
+  "USER_AUTHORIZED"
+set_field \
+  "${i03_stale_dependency_block_dir}/W1-I02-source-persistence.md" \
+  "FormalDatabaseGate" \
+  "PASS"
+set_field "${i03_stale_dependency_block_dir}/README.md" "ActiveTaskCard" "W1-I02"
+set_field "${i03_stale_dependency_block_dir}/README.md" "BusinessImplementation" "USER_AUTHORIZED"
+set_table_status "${i03_stale_dependency_block_dir}/README.md" "W1-I00" "READY" "DONE"
+set_table_status \
+  "${i03_stale_dependency_block_dir}/README.md" \
+  "W1-I01" \
+  "BLOCKED_BY_USER_AUTHORIZATION" \
+  "DONE"
+set_table_status \
+  "${i03_stale_dependency_block_dir}/README.md" \
+  "W1-I02" \
+  "BLOCKED_BY_DEPENDENCY" \
+  "READY"
+expect_failure \
+  "${i03_stale_dependency_block_dir}" \
+  "W1-I03 must be QUEUED, READY, or DONE after dependencies are satisfied"
+
+authorized_i01_dir="${test_tmp_root}/authorized-i01"
+cp -R "${cards_dir}" "${authorized_i01_dir}"
+set_field "${authorized_i01_dir}/W1-I00-implementation-governance.md" "Status" "DONE"
+set_field "${authorized_i01_dir}/W1-I01-source-ingestion-domain.md" "Status" "READY"
+set_field \
+  "${authorized_i01_dir}/W1-I01-source-ingestion-domain.md" \
+  "BusinessImplementationAuthorization" \
+  "USER_AUTHORIZED"
+set_field "${authorized_i01_dir}/README.md" "ActiveTaskCard" "W1-I01"
+set_field "${authorized_i01_dir}/README.md" "BusinessImplementation" "USER_AUTHORIZED"
+set_table_status "${authorized_i01_dir}/README.md" "W1-I00" "READY" "DONE"
+set_table_status \
+  "${authorized_i01_dir}/README.md" \
+  "W1-I01" \
+  "BLOCKED_BY_USER_AUTHORIZATION" \
+  "READY"
+authorized_i01_output="$("${verifier}" --cards-dir "${authorized_i01_dir}")" ||
+  fail "valid authorized I01 state was rejected"
+assert_contains "${authorized_i01_output}" "ActiveTaskCard = W1-I01"
+
+i01_projection_conflict_dir="${test_tmp_root}/i01-projection-conflict"
+cp -R "${authorized_i01_dir}" "${i01_projection_conflict_dir}"
+set_field \
+  "${i01_projection_conflict_dir}/README.md" \
+  "BusinessImplementation" \
+  "NOT_AUTHORIZED"
+expect_failure \
+  "${i01_projection_conflict_dir}" \
+  "README.md: BusinessImplementation projection mismatch"
+
 i01_authorization_block_drift_dir="${test_tmp_root}/i01-authorization-block-drift"
 cp -R "${cards_dir}" "${i01_authorization_block_drift_dir}"
 set_field \
@@ -423,7 +528,7 @@ set_table_status \
   "BLOCKED_BY_DEPENDENCY"
 expect_failure \
   "${i01_authorization_block_drift_dir}" \
-  "W1-I01 must remain blocked by user authorization while I00 is READY"
+  "W1-I01 must remain blocked by user authorization"
 
 blocked_authorization_dir="${test_tmp_root}/blocked-authorization-terminal"
 cp -R "${cards_dir}" "${blocked_authorization_dir}"
@@ -441,4 +546,5 @@ printf '%s\n' \
   "Wave1ImplementationTaskCardContractTests = PASS" \
   "PositiveCases = 1" \
   "NegativeCases = ${negative_cases}" \
+  "AuthorizedI01Cases = 1" \
   "BlockedAuthorizationTerminalCases = 1"
