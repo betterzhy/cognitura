@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: scripts/verify-wave1-implementation-cards --cards-dir PATH\n' >&2
+  exit 2
+}
+
+fail() {
+  printf 'Wave1ImplementationTaskCardValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+field_value() {
+  local file="$1"
+  local key="$2"
+  sed -n "s/^${key} = //p" "${file}"
+}
+
+cards_dir=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --cards-dir)
+      [[ "$#" -ge 2 ]] || usage
+      cards_dir="$2"
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+
+[[ -n "${cards_dir}" ]] || usage
+[[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
+index_file="${cards_dir}/README.md"
+[[ -f "${index_file}" ]] || fail "task card index is missing: README.md"
+
+expected_ids="W1-I00,W1-I01,W1-I02,W1-I03,W1-I04,W1-I05,W1-I06,W1-I07,W1-I08,W1-I09,W1-I10,W1-I11,W1-I12,W1-I13"
+expected_files=(
+  W1-I00-implementation-governance.md
+  W1-I01-source-ingestion-domain.md
+  W1-I02-source-persistence.md
+  W1-I03-docx-security-gate.md
+  W1-I04-text-list-section-parser.md
+  W1-I05-table-fidelity.md
+  W1-I06-image-anchor-relationship-projection.md
+  W1-I07-revision-attempt-fencing-publication.md
+  W1-I08-stable-reference-reparse-lineage.md
+  W1-I09-upload-processing-command-api.md
+  W1-I10-source-preview-query-api.md
+  W1-I11-partial-acceptance-command-api.md
+  W1-I12-desktop-web-source-preview.md
+  W1-I13-fixed-implementation-review.md
+)
+
+[[ "$(field_value "${index_file}" "CanonicalProjectName")" == "Cognitura" ]] ||
+  fail "README.md: CanonicalProjectName must be Cognitura"
+[[ "$(field_value "${index_file}" "TaskCardSet")" == "WAVE1_IMPLEMENTATION" ]] ||
+  fail "README.md: TaskCardSet must be WAVE1_IMPLEMENTATION"
+[[ "$(field_value "${index_file}" "TaskCardIDs")" == "${expected_ids}" ]] ||
+  fail "README.md: TaskCardIDs mismatch"
+[[ "$(field_value "${index_file}" "TaskCardCount")" == "14" ]] ||
+  fail "README.md: TaskCardCount must be 14"
+
+for filename in "${expected_files[@]}"; do
+  [[ -f "${cards_dir}/${filename}" ]] || fail "missing task card: ${filename}"
+done
+
+shopt -s nullglob
+actual_cards=("${cards_dir}"/W1-I*.md)
+shopt -u nullglob
+[[ "${#actual_cards[@]}" -eq 14 ]] ||
+  fail "actual task card count ${#actual_cards[@]} does not match 14"
+
+task_set_status="$(field_value "${index_file}" "TaskCardSetStatus")"
+active_task_card="$(field_value "${index_file}" "ActiveTaskCard")"
+
+printf '%s\n' \
+  "Wave1ImplementationTaskCardValidation = PASS" \
+  "TaskCardCount = 14" \
+  "TaskCardSetStatus = ${task_set_status}" \
+  "ActiveTaskCard = ${active_task_card}"
