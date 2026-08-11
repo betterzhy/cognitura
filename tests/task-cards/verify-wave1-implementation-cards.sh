@@ -43,6 +43,73 @@ set_table_status() {
   rm "${index_file}.bak"
 }
 
+make_ready_i00_fixture() {
+  local source_dir="$1"
+  local destination_dir="$2"
+  local card_file
+  local task_id
+  local old_status
+  local expected_status
+  local expected_authorization
+  local expected_database_gate
+
+  cp -R "${source_dir}" "${destination_dir}"
+
+  for card_file in "${destination_dir}"/W1-I*.md; do
+    task_id="$(sed -n 's/^TaskCardID = //p' "${card_file}")"
+    old_status="$(sed -n 's/^Status = //p' "${card_file}")"
+
+    case "${task_id}" in
+      W1-I00)
+        expected_status="READY"
+        expected_authorization="NOT_REQUIRED_GOVERNANCE_ONLY"
+        ;;
+      W1-I01)
+        expected_status="BLOCKED_BY_USER_AUTHORIZATION"
+        expected_authorization="REQUIRED_BEFORE_READY"
+        ;;
+      *)
+        expected_status="BLOCKED_BY_DEPENDENCY"
+        expected_authorization="REQUIRED_BEFORE_READY"
+        ;;
+    esac
+
+    case "${task_id}" in
+      W1-I02)
+        expected_database_gate="REQUIRED_BEFORE_READY"
+        ;;
+      W1-I07)
+        expected_database_gate="REQUIRED_DEPENDENCY_I02_ONLY"
+        ;;
+      *)
+        expected_database_gate="NOT_APPLICABLE"
+        ;;
+    esac
+
+    set_field "${card_file}" "Status" "${expected_status}"
+    set_field \
+      "${card_file}" \
+      "BusinessImplementationAuthorization" \
+      "${expected_authorization}"
+    set_field "${card_file}" "FormalDatabaseGate" "${expected_database_gate}"
+    set_table_status \
+      "${destination_dir}/README.md" \
+      "${task_id}" \
+      "${old_status}" \
+      "${expected_status}"
+  done
+
+  set_field "${destination_dir}/README.md" "ActiveTaskCard" "W1-I00"
+  set_field \
+    "${destination_dir}/README.md" \
+    "TaskCardSetStatus" \
+    "READY_FOR_EXECUTION"
+  set_field \
+    "${destination_dir}/README.md" \
+    "BusinessImplementation" \
+    "NOT_AUTHORIZED"
+}
+
 expect_failure() {
   local fixture_dir="$1"
   local expected_message="$2"
@@ -67,16 +134,12 @@ assert_contains "${validation_output}" "Wave1ImplementationTaskCardValidation = 
 assert_contains "${validation_output}" "TaskCardCount = 14"
 
 ready_i00_dir="${test_tmp_root}/ready-i00"
-cp -R "${cards_dir}" "${ready_i00_dir}"
-live_i00_status="$(sed -n 's/^Status = //p' "${ready_i00_dir}/W1-I00-implementation-governance.md")"
-set_field "${ready_i00_dir}/W1-I00-implementation-governance.md" "Status" "READY"
-set_field "${ready_i00_dir}/README.md" "ActiveTaskCard" "W1-I00"
-set_field "${ready_i00_dir}/README.md" "TaskCardSetStatus" "READY_FOR_EXECUTION"
-set_table_status "${ready_i00_dir}/README.md" "W1-I00" "${live_i00_status}" "READY"
+make_ready_i00_fixture "${cards_dir}" "${ready_i00_dir}"
 ready_i00_output="$("${verifier}" --cards-dir "${ready_i00_dir}")" ||
   fail "valid I00 READY bootstrap state was rejected"
 assert_contains "${ready_i00_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
 assert_contains "${ready_i00_output}" "ActiveTaskCard = W1-I00"
+bootstrap_normalization_cases=1
 
 cards_dir="${ready_i00_dir}"
 
@@ -584,6 +647,28 @@ complete_output="$("${verifier}" --cards-dir "${complete_dir}")" ||
   fail "valid complete state was rejected"
 assert_contains "${complete_output}" "TaskCardSetStatus = COMPLETE"
 
+ready_from_authorized_dir="${test_tmp_root}/ready-from-authorized"
+make_ready_i00_fixture "${authorized_i01_dir}" "${ready_from_authorized_dir}"
+ready_from_authorized_output="$(
+  "${verifier}" --cards-dir "${ready_from_authorized_dir}"
+)" || fail "I01-authorized state did not normalize to the I00 READY bootstrap state"
+assert_contains \
+  "${ready_from_authorized_output}" \
+  "TaskCardSetStatus = READY_FOR_EXECUTION"
+assert_contains "${ready_from_authorized_output}" "ActiveTaskCard = W1-I00"
+bootstrap_normalization_cases=$((bootstrap_normalization_cases + 1))
+
+ready_from_complete_dir="${test_tmp_root}/ready-from-complete"
+make_ready_i00_fixture "${complete_dir}" "${ready_from_complete_dir}"
+ready_from_complete_output="$(
+  "${verifier}" --cards-dir "${ready_from_complete_dir}"
+)" || fail "complete state did not normalize to the I00 READY bootstrap state"
+assert_contains \
+  "${ready_from_complete_output}" \
+  "TaskCardSetStatus = READY_FOR_EXECUTION"
+assert_contains "${ready_from_complete_output}" "ActiveTaskCard = W1-I00"
+bootstrap_normalization_cases=$((bootstrap_normalization_cases + 1))
+
 incomplete_complete_dir="${test_tmp_root}/incomplete-complete"
 cp -R "${complete_dir}" "${incomplete_complete_dir}"
 set_field \
@@ -631,6 +716,7 @@ printf '%s\n' \
   "PositiveCases = 2" \
   "CanonicalStateCases = 1" \
   "NegativeCases = ${negative_cases}" \
+  "BootstrapNormalizationCases = ${bootstrap_normalization_cases}" \
   "AuthorizedI01Cases = 1" \
   "CompleteTerminalCases = 1" \
   "BlockedAuthorizationTerminalCases = 1"
