@@ -3,7 +3,7 @@
 ```text
 TaskCardID = MDR-I05
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_USER_APPROVAL
+Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
 Gate = MDR-IG5 KeyRelationProjection
 Risk = HIGH
 DependsOn = MDR-I04

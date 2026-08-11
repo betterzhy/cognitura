@@ -37,10 +37,12 @@ canonical_output="$("${verifier}" --cards-dir "${cards_dir}")" ||
 for expected_line in \
   "ModuleDefaultReadingTaskCardValidation = PASS" \
   "TaskCardCount = 9" \
-  "TaskCardSetStatus = PLANNED_AWAITING_USER_APPROVAL" \
+  "TaskCardSetStatus = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION" \
   "ActiveImplementationTaskCard = NONE" \
   "ReleasedTaskCard = NONE" \
   "DocumentationGap = DOC-GAP-MDR-001" \
+  "WrittenTaskCardReview = USER_APPROVED" \
+  "ApprovedBlockedCardCount = 9" \
   "ReadyTaskCardCount = 0"; do
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing: ${expected_line}"
@@ -48,10 +50,13 @@ done
 
 second_status_dir="${test_tmp_root}/second-status"
 cp -R "${cards_dir}" "${second_status_dir}"
-sed -i.bak 's/^Status = BLOCKED_BY_USER_APPROVAL$/Status = READY/' \
+sed -i.bak \
+  's/^Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION$/Status = READY/' \
   "${second_status_dir}/MDR-I00-web-test-foundation.md"
 rm "${second_status_dir}/MDR-I00-web-test-foundation.md.bak"
-expect_failure "${second_status_dir}" "all cards must remain BLOCKED_BY_USER_APPROVAL before written approval"
+expect_failure \
+  "${second_status_dir}" \
+  "all cards must remain blocked until separate business implementation authorization"
 
 active_card_dir="${test_tmp_root}/active-card"
 cp -R "${cards_dir}" "${active_card_dir}"
@@ -73,6 +78,26 @@ cp -R "${cards_dir}" "${missing_gap_dir}"
 sed -i.bak '/^DocumentationGap = DOC-GAP-MDR-001$/d' "${missing_gap_dir}/README.md"
 rm "${missing_gap_dir}/README.md.bak"
 expect_failure "${missing_gap_dir}" "missing required field: DocumentationGap"
+
+stale_set_approval_dir="${test_tmp_root}/stale-set-approval"
+cp -R "${cards_dir}" "${stale_set_approval_dir}"
+sed -i.bak \
+  's/^TaskCardSetStatus = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION$/TaskCardSetStatus = PLANNED_AWAITING_USER_APPROVAL/' \
+  "${stale_set_approval_dir}/README.md"
+rm "${stale_set_approval_dir}/README.md.bak"
+expect_failure \
+  "${stale_set_approval_dir}" \
+  "TaskCardSetStatus must record user approval without granting implementation"
+
+stale_written_review_dir="${test_tmp_root}/stale-written-review"
+cp -R "${cards_dir}" "${stale_written_review_dir}"
+sed -i.bak \
+  's/^WrittenTaskCardReview = USER_APPROVED$/WrittenTaskCardReview = AWAITING_USER_APPROVAL/' \
+  "${stale_written_review_dir}/README.md"
+rm "${stale_written_review_dir}/README.md.bak"
+expect_failure \
+  "${stale_written_review_dir}" \
+  "WrittenTaskCardReview must record USER_APPROVED"
 
 missing_toolchain_owner_dir="${test_tmp_root}/missing-toolchain-owner"
 cp -R "${cards_dir}" "${missing_toolchain_owner_dir}"
@@ -247,5 +272,5 @@ expect_failure \
 
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardContractTests = PASS" \
-  "NegativeCases = 24" \
-  "PreApprovalTerminalCases = 1"
+  "NegativeCases = 26" \
+  "ApprovedUnauthorizedTerminalCases = 1"

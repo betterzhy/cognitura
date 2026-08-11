@@ -5,11 +5,11 @@ CanonicalProjectName = Cognitura
 TaskCardSet = MODULE_DEFAULT_READING_IMPLEMENTATION
 TaskCardIDs = MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MDR-I08
 TaskCardCount = 9
-TaskCardSetStatus = PLANNED_AWAITING_USER_APPROVAL
+TaskCardSetStatus = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION
 ActiveImplementationTaskCard = NONE
 ReleasedTaskCard = NONE
 DocumentationGap = DOC-GAP-MDR-001
-WrittenTaskCardReview = AWAITING_USER_APPROVAL
+WrittenTaskCardReview = USER_APPROVED
 DesignAlignmentStatus = COMPLETE
 DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
 BusinessImplementation = NOT_AUTHORIZED
@@ -19,8 +19,9 @@ RemotePush = NOT_AUTHORIZED
 
 本集合只规划首个 `ModuleDefaultReadingState` 的小型前端投影切片。它不替代已批准
 但尚未执行的 Wave 1 source work，也不占用其 `W1-I00..W1-I13` 编号。所有卡均为
-`BLOCKED_BY_USER_APPROVAL`，没有 `READY` 卡；用户批准卡片文本前不得释放，批准
-卡片文本本身也不自动构成业务实现授权。
+`BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION`，没有 `READY` 卡。卡片文本已经
+获得用户批准；该批准本身不构成业务实现授权，用户另行明确授权并指定唯一卡前不得
+释放。
 
 ## 1. 方案裁决
 
@@ -39,15 +40,15 @@ HTTP、后端或持久化，不声明完整页面、RF-AC-02 或 `Implementation
 
 | ID | 任务卡 | 状态 | 依赖 | Gate | 生产写集上限 |
 |---|---|---|---|---|---|
-| `MDR-I00` | [Web 测试基座](MDR-I00-web-test-foundation.md) | `BLOCKED_BY_USER_APPROVAL` | `NONE` | `MDR-IG0` | `2` |
-| `MDR-I01` | [Canonical 叙事投影](MDR-I01-canonical-narrative-projection.md) | `BLOCKED_BY_USER_APPROVAL` | `MDR-I00` | `MDR-IG1` | `2` |
-| `MDR-I02` | [问题、结论与主认知脊柱](MDR-I02-question-conclusion-spine.md) | `BLOCKED_BY_USER_APPROVAL` | `MDR-I01` | `MDR-IG2` | `1` |
-| `MDR-I03` | [Element 与 Boundary 连续阅读](MDR-I03-element-boundary-reading.md) | `BLOCKED_BY_USER_APPROVAL` | `MDR-I02` | `MDR-IG3` | `3` |
-| `MDR-I04` | [STAGE_CHAIN 主投影](MDR-I04-stage-chain-renderer-projection.md) | `BLOCKED_BY_USER_APPROVAL` | `MDR-I03` | `MDR-IG4` | `2` |
-| `MDR-I05` | [关键 Relation 内联投影](MDR-I05-key-relation-projection.md) | `BLOCKED_BY_USER_APPROVAL` | `MDR-I04` | `MDR-IG5` | `2` |
-| `MDR-I06` | [轻量来源入口](MDR-I06-source-entry-projection.md) | `BLOCKED_BY_USER_APPROVAL` | `MDR-I05` | `MDR-IG6` | `1` |
-| `MDR-I07` | [Reading First 组件组合](MDR-I07-reading-first-composition.md) | `BLOCKED_BY_USER_APPROVAL` | `MDR-I06` | `MDR-IG7` | `3` |
-| `MDR-I08` | [固定切片候选复核](MDR-I08-fixed-slice-review.md) | `BLOCKED_BY_USER_APPROVAL` | `MDR-I00..MDR-I07` | `MDR-IG8` | `0` |
+| `MDR-I00` | [Web 测试基座](MDR-I00-web-test-foundation.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `NONE` | `MDR-IG0` | `2` |
+| `MDR-I01` | [Canonical 叙事投影](MDR-I01-canonical-narrative-projection.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I00` | `MDR-IG1` | `2` |
+| `MDR-I02` | [问题、结论与主认知脊柱](MDR-I02-question-conclusion-spine.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I01` | `MDR-IG2` | `1` |
+| `MDR-I03` | [Element 与 Boundary 连续阅读](MDR-I03-element-boundary-reading.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I02` | `MDR-IG3` | `3` |
+| `MDR-I04` | [STAGE_CHAIN 主投影](MDR-I04-stage-chain-renderer-projection.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I03` | `MDR-IG4` | `2` |
+| `MDR-I05` | [关键 Relation 内联投影](MDR-I05-key-relation-projection.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I04` | `MDR-IG5` | `2` |
+| `MDR-I06` | [轻量来源入口](MDR-I06-source-entry-projection.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I05` | `MDR-IG6` | `1` |
+| `MDR-I07` | [Reading First 组件组合](MDR-I07-reading-first-composition.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I06` | `MDR-IG7` | `3` |
+| `MDR-I08` | [固定切片候选复核](MDR-I08-fixed-slice-review.md) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` | `MDR-I00..MDR-I07` | `MDR-IG8` | `0` |
 
 依赖严格线性：
 

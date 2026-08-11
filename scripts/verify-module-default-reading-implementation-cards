@@ -77,16 +77,17 @@ expected_ids="MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MD
   fail "README.md: TaskCardIDs must be ${expected_ids}"
 [[ "$(index_field_value "TaskCardCount")" == "9" ]] ||
   fail "README.md: TaskCardCount must be 9"
-[[ "$(index_field_value "TaskCardSetStatus")" == "PLANNED_AWAITING_USER_APPROVAL" ]] ||
-  fail "README.md: TaskCardSetStatus must be PLANNED_AWAITING_USER_APPROVAL"
+[[ "$(index_field_value "TaskCardSetStatus")" == \
+  "USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION" ]] ||
+  fail "TaskCardSetStatus must record user approval without granting implementation"
 [[ "$(index_field_value "ActiveImplementationTaskCard")" == "NONE" ]] ||
   fail "ActiveImplementationTaskCard must be NONE before written approval"
 [[ "$(index_field_value "ReleasedTaskCard")" == "NONE" ]] ||
   fail "ReleasedTaskCard must be NONE before written approval"
 [[ "$(index_field_value "DocumentationGap")" == "DOC-GAP-MDR-001" ]] ||
   fail "README.md: DocumentationGap must be DOC-GAP-MDR-001"
-[[ "$(index_field_value "WrittenTaskCardReview")" == "AWAITING_USER_APPROVAL" ]] ||
-  fail "README.md: WrittenTaskCardReview must be AWAITING_USER_APPROVAL"
+[[ "$(index_field_value "WrittenTaskCardReview")" == "USER_APPROVED" ]] ||
+  fail "WrittenTaskCardReview must record USER_APPROVED"
 [[ "$(index_field_value "DesignAlignmentStatus")" == "COMPLETE" ]] ||
   fail "README.md: DesignAlignmentStatus must remain COMPLETE"
 [[ "$(index_field_value "DevelopmentPlanningEntry")" == "READY_FOR_USER_AUTHORIZATION" ]] ||
@@ -162,6 +163,7 @@ commit_write_paths() {
 }
 
 ready_count=0
+approved_blocked_count=0
 seen_ids=""
 
 for expected_id in "${declared_ids[@]}"; do
@@ -204,8 +206,11 @@ for expected_id in "${declared_ids[@]}"; do
   if [[ "${status}" == "READY" ]]; then
     ready_count=$((ready_count + 1))
   fi
-  [[ "${status}" == "BLOCKED_BY_USER_APPROVAL" ]] ||
-    fail "all cards must remain BLOCKED_BY_USER_APPROVAL before written approval"
+  if [[ "${status}" == "BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION" ]]; then
+    approved_blocked_count=$((approved_blocked_count + 1))
+  fi
+  [[ "${status}" == "BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION" ]] ||
+    fail "all cards must remain blocked until separate business implementation authorization"
 
   [[ "$(field_value "${file}" "SchemaChange")" == "FORBIDDEN" ]] ||
     fail "${filename}: SchemaChange must be FORBIDDEN"
@@ -320,7 +325,9 @@ for expected_id in "${declared_ids[@]}"; do
 done
 
 [[ "${ready_count}" -eq 0 ]] ||
-  fail "all cards must remain BLOCKED_BY_USER_APPROVAL before written approval"
+  fail "no card may become READY without separate business implementation authorization"
+[[ "${approved_blocked_count}" -eq 9 ]] ||
+  fail "all nine user-approved cards must remain blocked by implementation authorization"
 
 i05="${cards_dir}/MDR-I05-key-relation-projection.md"
 [[ "$(grep -c '^RelationDisplay = ' "${i05}" || true)" -eq 1 ]] &&
@@ -344,10 +351,12 @@ i07="${cards_dir}/MDR-I07-reading-first-composition.md"
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardValidation = PASS" \
   "TaskCardCount = 9" \
-  "TaskCardSetStatus = PLANNED_AWAITING_USER_APPROVAL" \
+  "TaskCardSetStatus = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION" \
   "ActiveImplementationTaskCard = NONE" \
   "ReleasedTaskCard = NONE" \
   "DocumentationGap = DOC-GAP-MDR-001" \
+  "WrittenTaskCardReview = USER_APPROVED" \
+  "ApprovedBlockedCardCount = 9" \
   "ReadyTaskCardCount = 0" \
   "BusinessImplementation = NOT_AUTHORIZED" \
   "FormalDatabaseWrite = NOT_AUTHORIZED" \

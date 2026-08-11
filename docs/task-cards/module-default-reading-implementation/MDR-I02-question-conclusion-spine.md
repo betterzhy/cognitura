@@ -3,7 +3,7 @@
 ```text
 TaskCardID = MDR-I02
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_USER_APPROVAL
+Status = BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION
 Gate = MDR-IG2 QuestionConclusionSpine
 Risk = MEDIUM
 DependsOn = MDR-I01

@@ -34,9 +34,9 @@ Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_CREATION_PLAN_READY
 Wave1ImplementationTaskCardSet = NOT_CREATED
-ModuleDefaultReadingImplementationTaskCardSet = PLANNED_AWAITING_USER_APPROVAL
+ModuleDefaultReadingImplementationTaskCardSet = USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION
 ModuleDefaultReadingImplementationTaskCardCount = 9
-ModuleDefaultReadingImplementationEntry = USER_APPROVAL_REQUIRED
+ModuleDefaultReadingImplementationEntry = BUSINESS_IMPLEMENTATION_AUTHORIZATION_REQUIRED
 ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 HighFidelityDesignTaskCardSet = COMPLETE
 HighFidelityDesignStatus = COMPLETE
@@ -168,8 +168,8 @@ fixture 治理与 1440×1100 基础截图，`HV-D01` 已完成机制型 Module �
 本轮不创建或释放 `W1-I00`，也不授权
 业务实现、正式数据库写入或远程推送。
 [`cognitura-development-entry-prompt.md`](docs/engineering/cognitura-development-entry-prompt.md)
-已用于建立首个 Module 默认阅读书面实现任务卡规划；当前只能审阅并批准该卡集。
-在用户批准卡片文本且另行明确授权业务实现前，必须停止在规划门，不得直接进入代码。
+已用于建立首个 Module 默认阅读书面实现任务卡规划，卡片文本现已获用户批准。
+在用户另行明确授权业务实现并指定唯一卡前，必须停止在实现授权门，不得直接进入代码。
 
 ## 当前准入
 
@@ -202,8 +202,9 @@ Wave 1 书面详细设计和 14 张中细粒度实现切片规格均已获用户
 bootstrap 计划已准备完成；其执行仍不授权 W1-I01 业务实现。
 
 首个 `ModuleDefaultReadingState` 已另行规划为 `MDR-I00..MDR-I08` 九张小卡，避免
-覆盖上述 Wave 1 source work。该集合当前仅为书面候选，九卡全部
-`BLOCKED_BY_USER_APPROVAL`，`ActiveImplementationTaskCard = NONE`。它只规划可复用
-前端投影切片，不接路由、HTTP、后端、持久化或 Schema；卡片文本获批也不自动构成
-业务实现授权。`DOC-GAP-MDR-001` 明确阻断完整默认阅读验收中的 Conditions/Results
+覆盖上述 Wave 1 source work。该集合的书面文本已获用户批准，九卡全部
+`BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION`，
+`ActiveImplementationTaskCard = NONE`。它只规划可复用前端投影切片，不接路由、
+HTTP、后端、持久化或 Schema；卡片文本获批不自动构成业务实现授权。
+`DOC-GAP-MDR-001` 明确阻断完整默认阅读验收中的 Conditions/Results
 Canonical 映射，但不阻断当前受限投影切片；若需要字段变更，必须另建 Schema 卡。
