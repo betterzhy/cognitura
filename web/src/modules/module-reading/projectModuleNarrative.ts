@@ -1,5 +1,6 @@
 import type {
   CognitiveModule,
+  ModuleClosureProjection,
   ModuleNarrativeProjection,
 } from "./model";
 
@@ -22,5 +23,14 @@ export function projectModuleNarrative(
     coreQuestions: module.coreQuestions,
     coreConclusion: module.thesis,
     spineSteps: module.primaryCognitiveSpine.steps,
+  };
+}
+
+export function projectModuleClosure(
+  module: Pick<CognitiveModule, "knowledgeElements" | "criticalBoundaries">,
+): ModuleClosureProjection {
+  return {
+    knowledgeElements: module.knowledgeElements,
+    criticalBoundaries: module.criticalBoundaries,
   };
 }

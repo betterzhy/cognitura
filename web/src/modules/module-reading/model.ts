@@ -9,6 +9,16 @@ export type KnowledgeRole =
   | "APPLICATION"
   | "EXTENSION";
 
+export type KnowledgeElementType =
+  | "CONCEPT"
+  | "RULE"
+  | "MECHANISM"
+  | "STEP"
+  | "DISTINCTION"
+  | "BOUNDARY"
+  | "EXAMPLE"
+  | "PRACTICE";
+
 export interface PrimaryCognitiveSpineStep {
   readonly stepId: string;
   readonly order: number;
@@ -25,6 +35,25 @@ export interface PrimaryCognitiveSpine {
   readonly steps: readonly PrimaryCognitiveSpineStep[];
 }
 
+export interface KnowledgeElement {
+  readonly schemaVersion: SchemaVersion;
+  readonly artifactId: string;
+  readonly revisionId: string;
+  readonly publicationState: PublicationState;
+  readonly moduleRef: string;
+  readonly elementType: KnowledgeElementType;
+  readonly title: string;
+  readonly content: string;
+  readonly sourceRefs: readonly string[];
+  readonly relations: readonly string[];
+}
+
+export interface CriticalBoundary {
+  readonly boundaryId: string;
+  readonly statement: string;
+  readonly sourceRefs: readonly string[];
+}
+
 type CanonicalObject = Readonly<Record<string, unknown>>;
 
 export interface CognitiveModule {
@@ -39,9 +68,9 @@ export interface CognitiveModule {
   readonly coreQuestions: readonly string[];
   readonly primaryCognitiveSpine: PrimaryCognitiveSpine | null;
   readonly facets: readonly CanonicalObject[];
-  readonly knowledgeElements: readonly CanonicalObject[];
+  readonly knowledgeElements: readonly KnowledgeElement[];
   readonly keyTakeaways: readonly CanonicalObject[];
-  readonly criticalBoundaries: readonly CanonicalObject[];
+  readonly criticalBoundaries: readonly CriticalBoundary[];
   readonly relations: readonly CanonicalObject[];
   readonly sourceRefs: readonly string[];
   readonly gaps: readonly CanonicalObject[];
@@ -54,4 +83,9 @@ export interface ModuleNarrativeProjection {
   readonly coreQuestions: readonly string[];
   readonly coreConclusion: string;
   readonly spineSteps: readonly PrimaryCognitiveSpineStep[];
+}
+
+export interface ModuleClosureProjection {
+  readonly knowledgeElements: readonly KnowledgeElement[];
+  readonly criticalBoundaries: readonly CriticalBoundary[];
 }
