@@ -75,6 +75,25 @@ state_value() {
   one_field_value "${state_file}" "$1" "execution-state.md"
 }
 
+text_field_value() {
+  local content="$1"
+  local field="$2"
+  printf '%s\n' "${content}" | sed -n "s/^${field} = //p"
+}
+
+one_text_field_value() {
+  local content="$1"
+  local field="$2"
+  local label="$3"
+  local values
+  local count
+  values="$(text_field_value "${content}" "${field}")"
+  count="$(printf '%s\n' "${content}" | grep -c "^${field} = " || true)"
+  [[ "${count}" -gt 0 ]] || fail "${label}: missing required field: ${field}"
+  [[ "${count}" -eq 1 ]] || fail "${label}: expected one ${field} field, found ${count}"
+  printf '%s\n' "${values}"
+}
+
 require_projection() {
   local file="$1"
   local field="$2"
@@ -240,6 +259,8 @@ shopt -u nullglob
   fail "actual task card count ${#actual_files[@]} does not match 9"
 
 seen_ids=""
+expected_write_sets=()
+card_index=0
 for expected_id in "${declared_ids[@]}"; do
   shopt -s nullglob
   matches=("${cards_dir}/${expected_id}-"*.md)
@@ -360,6 +381,8 @@ for expected_id in "${declared_ids[@]}"; do
 
   actual_write_set="$(sed -n 's/^WriteSet = //p' "${file}")"
   [[ "${actual_write_set}" == "${expected_write_set}" ]] || fail "WriteSet mismatch for ${task_id}"
+  expected_write_sets[${card_index}]="${expected_write_set}"
+  card_index=$((card_index + 1))
   expected_commit_paths="$(printf '%s\n' "${expected_write_set}" | LC_ALL=C sort)"
   actual_commit_paths="$(commit_write_paths "${file}" | LC_ALL=C sort)"
   [[ "${actual_commit_paths}" == "${expected_commit_paths}" ]] || fail "commit WriteSet mismatch for ${task_id}"
@@ -524,6 +547,26 @@ case "${task_set_status}" in
     require_governance_pass
     [[ "${active}" == "NONE" && "${released}" == "NONE" ]] || fail "blocked or stopped state cannot retain an active card"
     [[ "${business_implementation}" == "AUTHORIZED_FOR_MDR_I00_I08" ]] || fail "blocked or stopped state must preserve bounded authorization"
+    [[ "${completed_count}" -lt 9 ]] || fail "blocked or stopped state must retain the exact recoverable MDR card"
+    expected_recovery="${declared_ids[${completed_count}]}"
+    [[ "${next_card}" == "${expected_recovery}" ]] || fail "blocked or stopped state must retain the exact recoverable MDR card"
+    expected_stop_kind=""
+    case "${task_set_status}" in
+      STOPPED_BY_USER) expected_stop_kind="STOP" ;;
+      BLOCKED_BY_DOCUMENTATION_GAP) expected_stop_kind="BLOCK_DOCUMENTATION_GAP" ;;
+      BLOCKED_BY_AUTHORITY_EXPANSION) expected_stop_kind="BLOCK_AUTHORITY_EXPANSION" ;;
+    esac
+    [[ "${transition_kind}" == "${expected_stop_kind}" ]] || fail "stopped state transition metadata mismatch"
+    [[ "${transition_sequence}" -eq $((completed_count + 1)) ]] || fail "stopped state transition metadata mismatch"
+    is_sha "${transition_base_state}" || fail "stopped state transition metadata mismatch"
+    if [[ "${completed_count}" -eq 0 ]]; then
+      [[ "${current_sha}" == "NONE" && "${current_gate}" == "NOT_RUN" && "${current_route}" == "NONE" && "${current_verdict}" == "NOT_RUN" ]] ||
+        fail "stopped state before the first completion cannot invent a review receipt"
+    else
+      is_sha "${current_sha}" || fail "stopped state must preserve the last candidate receipt"
+      [[ "${current_gate}" == "PASS" && "${current_route}" == "deep_reviewer" && "${current_verdict}" == "GO_P0_0_P1_0_P2_0" ]] ||
+        fail "stopped state must preserve the last zero-finding review receipt"
+    fi
     ;;
   FINAL_NO_GO)
     require_governance_pass
@@ -549,18 +592,116 @@ esac
 if [[ -n "${transition_base}" ]]; then
   resolved_base="$(git -C "${repo_root}" rev-parse "${transition_base}^{commit}" 2>/dev/null)" || fail "cannot resolve transition base"
   resolved_head="$(git -C "${repo_root}" rev-parse "${transition_head}^{commit}" 2>/dev/null)" || fail "cannot resolve transition head"
+  resolved_head_parent="$(git -C "${repo_root}" rev-parse "${resolved_head}^" 2>/dev/null)" || fail "cannot resolve transition HEAD parent"
+  [[ "${resolved_head_parent}" == "${resolved_base}" ]] || fail "transition HEAD must be the direct child of BASE"
   transition_paths="$(git -C "${repo_root}" diff --name-only "${resolved_base}" "${resolved_head}")"
   [[ "${transition_paths}" == "docs/task-cards/module-default-reading-implementation/execution-state.md" ]] ||
     fail "state transition fixed diff must contain only execution-state.md"
+  state_repo_path="docs/task-cards/module-default-reading-implementation/execution-state.md"
+  base_state_content="$(git -C "${repo_root}" show "${resolved_base}:${state_repo_path}" 2>/dev/null)" ||
+    fail "transition BASE does not contain execution-state.md"
+  head_state_content="$(git -C "${repo_root}" show "${resolved_head}:${state_repo_path}" 2>/dev/null)" ||
+    fail "transition HEAD does not contain execution-state.md"
+  worktree_state_content="$(<"${state_file}")"
+  [[ "${worktree_state_content}" == "${head_state_content}" ]] ||
+    fail "validated execution-state.md must match the fixed transition HEAD tree"
   [[ "${transition_base_state}" == "${resolved_base}" ]] || fail "TransitionBaseSHA must equal the fixed transition base"
+
+  base_status="$(one_text_field_value "${base_state_content}" "TaskCardSetStatus" "transition BASE execution-state.md")"
+  base_completed="$(one_text_field_value "${base_state_content}" "CompletedTaskCards" "transition BASE execution-state.md")"
+  base_active="$(one_text_field_value "${base_state_content}" "ActiveImplementationTaskCard" "transition BASE execution-state.md")"
+  base_released="$(one_text_field_value "${base_state_content}" "ReleasedTaskCard" "transition BASE execution-state.md")"
+  base_next="$(one_text_field_value "${base_state_content}" "NextImplementationTaskCard" "transition BASE execution-state.md")"
+  base_sequence="$(one_text_field_value "${base_state_content}" "TransitionSequence" "transition BASE execution-state.md")"
+
+  require_unchanged_state_field() {
+    local field="$1"
+    local base_value
+    local head_value
+    base_value="$(one_text_field_value "${base_state_content}" "${field}" "transition BASE execution-state.md")"
+    head_value="$(one_text_field_value "${head_state_content}" "${field}" "transition HEAD execution-state.md")"
+    [[ "${base_value}" == "${head_value}" ]] || fail "state transition must preserve ${field}"
+  }
+
+  verify_business_candidate_write_set() {
+    local candidate_card="$1"
+    local candidate_index="$2"
+    local candidate_parent
+    local candidate_paths
+    local candidate_path
+    local allowed_path
+    local allowed="false"
+    candidate_parent="$(git -C "${repo_root}" rev-parse "${resolved_base}^" 2>/dev/null)" ||
+      fail "business candidate must be a non-root commit"
+    candidate_paths="$(git -C "${repo_root}" diff --name-only "${candidate_parent}" "${resolved_base}")"
+    [[ -n "${candidate_paths}" ]] || fail "business candidate commit must contain at least one current-card path"
+    while IFS= read -r candidate_path; do
+      allowed="false"
+      while IFS= read -r allowed_path; do
+        if [[ "${candidate_path}" == "${allowed_path}" ]]; then
+          allowed="true"
+          break
+        fi
+      done <<< "${expected_write_sets[${candidate_index}]}"
+      [[ "${allowed}" == "true" ]] ||
+        fail "business candidate path is outside ${candidate_card} WriteSet: ${candidate_path}"
+    done <<< "${candidate_paths}"
+  }
+
+  for immutable_field in \
+    GovernanceBootstrapStatus \
+    GovernanceReviewedCandidateSHA \
+    GovernanceReviewRoute \
+    GovernanceReviewVerdict \
+    SetAuthorizationStatus \
+    SetAuthorizationScope \
+    HumanCheckpointRequirement \
+    FormalDatabaseWrite \
+    RemotePush; do
+    if [[ "${transition_kind}" != "ACTIVATE_SET" ]]; then
+      require_unchanged_state_field "${immutable_field}"
+    fi
+  done
+
   case "${transition_kind}" in
     ACTIVATE_SET)
       [[ "${governance_sha}" == "${resolved_base}" ]] || fail "activation review receipt must bind transition base"
+      [[ "${base_status}" == "USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW" ]] || fail "activation must start from the pending governance state"
+      [[ "${base_completed}" == "NONE" && "${base_active}" == "NONE" && "${base_released}" == "NONE" && "${base_next}" == "MDR-I00" && "${base_sequence}" == "0" ]] ||
+        fail "activation BASE state mismatch"
       ;;
-    ADVANCE|FINAL_NO_GO|COMPLETE)
+    ADVANCE)
       [[ "${current_sha}" == "${resolved_base}" ]] || fail "business review receipt must bind transition base"
+      [[ "${base_status}" == "IN_PROGRESS" ]] || fail "advance must start from IN_PROGRESS"
+      expected_base_completed="${allowed_prefixes[$((completed_count - 1))]}"
+      completed_card="${declared_ids[$((completed_count - 1))]}"
+      [[ "${completed_count}" -gt 0 && "${base_completed}" == "${expected_base_completed}" ]] ||
+        fail "advance must complete exactly the previously active card"
+      [[ "${base_active}" == "${completed_card}" && "${base_released}" == "${completed_card}" && "${base_next}" == "${completed_card}" ]] ||
+        fail "advance must complete exactly the previously active card"
+      [[ "${base_sequence}" -eq "${completed_count}" && "${transition_sequence}" -eq $((base_sequence + 1)) ]] ||
+        fail "advance must increase the transition sequence by exactly one"
+      verify_business_candidate_write_set "${completed_card}" "$((completed_count - 1))"
       ;;
-    *) fail "fixed transition verification requires ACTIVATE_SET, ADVANCE, FINAL_NO_GO, or COMPLETE" ;;
+    FINAL_NO_GO|COMPLETE)
+      [[ "${current_sha}" == "${resolved_base}" ]] || fail "business review receipt must bind transition base"
+      [[ "${base_status}" == "IN_PROGRESS" && "${base_completed}" == "${allowed_prefixes[8]}" ]] ||
+        fail "MDR-I08 terminal transition must start after MDR-I00..MDR-I07"
+      [[ "${base_active}" == "MDR-I08" && "${base_released}" == "MDR-I08" && "${base_next}" == "MDR-I08" && "${base_sequence}" == "9" ]] ||
+        fail "MDR-I08 terminal transition BASE state mismatch"
+      verify_business_candidate_write_set "MDR-I08" "8"
+      ;;
+    STOP|BLOCK_DOCUMENTATION_GAP|BLOCK_AUTHORITY_EXPANSION)
+      [[ "${base_status}" == "IN_PROGRESS" ]] || fail "stop or block transition must start from IN_PROGRESS"
+      [[ "${base_completed}" == "${completed}" && "${base_sequence}" == "${transition_sequence}" ]] ||
+        fail "stop or block transition cannot change the completed prefix or sequence"
+      [[ "${base_active}" == "${next_card}" && "${base_released}" == "${next_card}" && "${base_next}" == "${next_card}" ]] ||
+        fail "stop or block transition must preserve the exact recovery card"
+      for receipt_field in CurrentCandidateSHA CurrentGateStatus CurrentReviewRoute CurrentReviewVerdict BusinessImplementation; do
+        require_unchanged_state_field "${receipt_field}"
+      done
+      ;;
+    *) fail "fixed transition verification requires ACTIVATE_SET, ADVANCE, STOP, BLOCK_DOCUMENTATION_GAP, BLOCK_AUTHORITY_EXPANSION, FINAL_NO_GO, or COMPLETE" ;;
   esac
 fi
 

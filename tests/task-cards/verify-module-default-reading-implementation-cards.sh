@@ -85,6 +85,19 @@ make_i00_advance_state() {
   set_state_field "${state_file}" "TransitionBaseSHA" "${candidate_sha}"
 }
 
+make_stopped_state() {
+  local fixture_dir="$1"
+  local transition_base_sha="${2:-dddddddddddddddddddddddddddddddddddddddd}"
+  local state_file="${fixture_dir}/execution-state.md"
+
+  make_activation_state "${fixture_dir}"
+  set_state_field "${state_file}" "TaskCardSetStatus" "STOPPED_BY_USER"
+  set_state_field "${state_file}" "ActiveImplementationTaskCard" "NONE"
+  set_state_field "${state_file}" "ReleasedTaskCard" "NONE"
+  set_state_field "${state_file}" "TransitionKind" "STOP"
+  set_state_field "${state_file}" "TransitionBaseSHA" "${transition_base_sha}"
+}
+
 make_repo_fixture() {
   local fixture_root="$1"
   mkdir -p \
@@ -498,6 +511,50 @@ expect_failure \
   "${stopped_active_dir}" \
   "blocked or stopped state cannot retain an active card"
 
+valid_stopped_dir="${test_tmp_root}/valid-stopped"
+cp -R "${cards_dir}" "${valid_stopped_dir}"
+make_stopped_state "${valid_stopped_dir}"
+"${verifier}" --cards-dir "${valid_stopped_dir}" >/dev/null ||
+  fail "valid stopped recovery state was rejected"
+
+valid_documentation_gap_dir="${test_tmp_root}/valid-documentation-gap"
+cp -R "${valid_stopped_dir}" "${valid_documentation_gap_dir}"
+set_state_field "${valid_documentation_gap_dir}/execution-state.md" "TaskCardSetStatus" "BLOCKED_BY_DOCUMENTATION_GAP"
+set_state_field "${valid_documentation_gap_dir}/execution-state.md" "TransitionKind" "BLOCK_DOCUMENTATION_GAP"
+"${verifier}" --cards-dir "${valid_documentation_gap_dir}" >/dev/null ||
+  fail "valid documentation-gap recovery state was rejected"
+
+valid_authority_block_dir="${test_tmp_root}/valid-authority-block"
+cp -R "${valid_stopped_dir}" "${valid_authority_block_dir}"
+set_state_field "${valid_authority_block_dir}/execution-state.md" "TaskCardSetStatus" "BLOCKED_BY_AUTHORITY_EXPANSION"
+set_state_field "${valid_authority_block_dir}/execution-state.md" "TransitionKind" "BLOCK_AUTHORITY_EXPANSION"
+"${verifier}" --cards-dir "${valid_authority_block_dir}" >/dev/null ||
+  fail "valid authority-expansion recovery state was rejected"
+
+stopped_downstream_next_dir="${test_tmp_root}/stopped-downstream-next"
+cp -R "${valid_stopped_dir}" "${stopped_downstream_next_dir}"
+set_state_field \
+  "${stopped_downstream_next_dir}/execution-state.md" \
+  "CompletedTaskCards" \
+  "MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MDR-I08"
+set_state_field \
+  "${stopped_downstream_next_dir}/execution-state.md" \
+  "NextImplementationTaskCard" \
+  "W1-I00"
+expect_failure \
+  "${stopped_downstream_next_dir}" \
+  "blocked or stopped state must retain the exact recoverable MDR card"
+
+stopped_metadata_drift_dir="${test_tmp_root}/stopped-metadata-drift"
+cp -R "${valid_stopped_dir}" "${stopped_metadata_drift_dir}"
+set_state_field \
+  "${stopped_metadata_drift_dir}/execution-state.md" \
+  "TransitionKind" \
+  "ADVANCE"
+expect_failure \
+  "${stopped_metadata_drift_dir}" \
+  "stopped state transition metadata mismatch"
+
 gap_active_dir="${test_tmp_root}/gap-active"
 cp -R "${activation_dir}" "${gap_active_dir}"
 set_state_field \
@@ -592,6 +649,107 @@ advance_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --transition-head "${advance_sha}" >/dev/null ||
   fail "valid fixed advance transition was rejected"
 
+printf '%s\n' 'UncommittedDriftProbe = PRESENT' >> "${transition_cards_dir}/execution-state.md"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${business_candidate_sha}" \
+    --transition-head "${advance_sha}" 2>&1
+)" && fail "worktree ledger drift from fixed transition HEAD unexpectedly passed"
+[[ "${transition_output}" == *"validated execution-state.md must match the fixed transition HEAD tree"* ]] ||
+  fail "fixed transition HEAD binding returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+git -C "${transition_repo_root}" show \
+  "${advance_sha}:docs/task-cards/module-default-reading-implementation/execution-state.md" > \
+  "${transition_cards_dir}/execution-state.md"
+
+git -C "${transition_repo_root}" switch -qc candidate-writeset-leak "${activation_sha}"
+mkdir -p "${transition_repo_root}/schemas"
+printf '%s\n' '{"forbidden":true}' > "${transition_repo_root}/schemas/forbidden.json"
+git -C "${transition_repo_root}" add schemas/forbidden.json
+git -C "${transition_repo_root}" commit -qm "test: leak forbidden path into MDR-I00 candidate"
+leaked_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+make_i00_advance_state "${transition_cards_dir}"
+set_state_field "${transition_cards_dir}/execution-state.md" "GovernanceReviewedCandidateSHA" "${bootstrap_sha}"
+set_state_field "${transition_cards_dir}/execution-state.md" "CurrentCandidateSHA" "${leaked_candidate_sha}"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionBaseSHA" "${leaked_candidate_sha}"
+git -C "${transition_repo_root}" add docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: advance leaked MDR-I00 candidate"
+leaked_candidate_transition_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${leaked_candidate_sha}" \
+    --transition-head "${leaked_candidate_transition_sha}" 2>&1
+)" && fail "forbidden path in business candidate unexpectedly passed"
+[[ "${transition_output}" == *"business candidate path is outside MDR-I00 WriteSet: schemas/forbidden.json"* ]] ||
+  fail "business candidate WriteSet leak returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -qc skipped-prefix-transition "${activation_sha}"
+mkdir -p "${transition_repo_root}/web"
+printf '%s\n' '{"private":true,"name":"skip-probe"}' > "${transition_repo_root}/web/package.json"
+git -C "${transition_repo_root}" add web/package.json
+git -C "${transition_repo_root}" commit -qm "test: fix one MDR-I00 candidate before illegal skip"
+skip_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+make_i00_advance_state "${transition_cards_dir}"
+set_state_field "${transition_cards_dir}/execution-state.md" "GovernanceReviewedCandidateSHA" "${bootstrap_sha}"
+set_state_field "${transition_cards_dir}/execution-state.md" "CompletedTaskCards" "MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07"
+set_state_field "${transition_cards_dir}/execution-state.md" "ActiveImplementationTaskCard" "MDR-I08"
+set_state_field "${transition_cards_dir}/execution-state.md" "ReleasedTaskCard" "MDR-I08"
+set_state_field "${transition_cards_dir}/execution-state.md" "NextImplementationTaskCard" "MDR-I08"
+set_state_field "${transition_cards_dir}/execution-state.md" "CurrentCandidateSHA" "${skip_candidate_sha}"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionSequence" "9"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionBaseSHA" "${skip_candidate_sha}"
+git -C "${transition_repo_root}" add docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: illegally skip MDR prefix"
+skip_transition_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${skip_candidate_sha}" \
+    --transition-head "${skip_transition_sha}" 2>&1
+)" && fail "multi-card completed-prefix jump unexpectedly passed"
+[[ "${transition_output}" == *"advance must complete exactly the previously active card"* ]] ||
+  fail "multi-card completed-prefix jump returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -qc indirect-transition "${business_candidate_sha}"
+printf '\n' >> "${transition_cards_dir}/execution-state.md"
+git -C "${transition_repo_root}" add docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: insert an intermediate ledger commit"
+make_i00_advance_state "${transition_cards_dir}"
+set_state_field "${transition_cards_dir}/execution-state.md" "GovernanceReviewedCandidateSHA" "${bootstrap_sha}"
+set_state_field "${transition_cards_dir}/execution-state.md" "CurrentCandidateSHA" "${business_candidate_sha}"
+set_state_field "${transition_cards_dir}/execution-state.md" "TransitionBaseSHA" "${business_candidate_sha}"
+git -C "${transition_repo_root}" add docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: hide intermediate ledger commit"
+indirect_transition_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+transition_output="$(
+  "${transition_verifier}" \
+    --cards-dir "${transition_cards_dir}" \
+    --transition-base "${business_candidate_sha}" \
+    --transition-head "${indirect_transition_sha}" 2>&1
+)" && fail "non-direct state transition unexpectedly passed"
+[[ "${transition_output}" == *"transition HEAD must be the direct child of BASE"* ]] ||
+  fail "non-direct state transition returned the wrong failure: ${transition_output}"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -qc stopped-transition "${activation_sha}"
+make_stopped_state "${transition_cards_dir}" "${activation_sha}"
+set_state_field \
+  "${transition_cards_dir}/execution-state.md" \
+  "GovernanceReviewedCandidateSHA" \
+  "${bootstrap_sha}"
+git -C "${transition_repo_root}" add docs/task-cards/module-default-reading-implementation/execution-state.md
+git -C "${transition_repo_root}" commit -qm "docs: stop active MDR set"
+stopped_transition_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${transition_verifier}" \
+  --cards-dir "${transition_cards_dir}" \
+  --transition-base "${activation_sha}" \
+  --transition-head "${stopped_transition_sha}" >/dev/null ||
+  fail "valid fixed STOP transition was rejected"
+
 git -C "${transition_repo_root}" switch -qc invalid-business-transition "${business_candidate_sha}"
 make_i00_advance_state "${transition_cards_dir}"
 set_state_field \
@@ -657,6 +815,7 @@ printf '%s\n' \
   "ModuleDefaultReadingTaskCardContractTests = PASS" \
   "NegativeCases = ${negative_cases}" \
   "PendingGovernanceTerminalCases = 1" \
+  "ValidRecoveryStateCases = 3" \
   "ValidActivationCases = 1" \
   "ValidAdvanceCases = 1" \
-  "ValidFixedTransitionCases = 2"
+  "ValidFixedTransitionCases = 3"
