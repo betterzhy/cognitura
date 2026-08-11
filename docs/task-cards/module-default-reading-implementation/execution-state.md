@@ -12,9 +12,9 @@ GovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 SetAuthorizationStatus = USER_AUTHORIZED
 SetAuthorizationScope = MDR-I00..MDR-I08_AUTOMATIC_SERIAL
 HumanCheckpointRequirement = NONE_WITHIN_AUTHORIZED_SET
-TaskCardSetStatus = IN_PROGRESS
-ActiveImplementationTaskCard = MDR-I08
-ReleasedTaskCard = MDR-I08
+TaskCardSetStatus = BLOCKED_BY_DOCUMENTATION_GAP
+ActiveImplementationTaskCard = NONE
+ReleasedTaskCard = NONE
 CompletedTaskCards = MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07
 CurrentCandidateSHA = 3422b68d3d45269bfd3270cd49f2b7d2fea8925e
 CurrentGateStatus = PASS
@@ -22,16 +22,18 @@ CurrentReviewRoute = deep_reviewer
 CurrentReviewVerdict = GO_P0_0_P1_0_P2_0
 NextImplementationTaskCard = MDR-I08
 TransitionSequence = 9
-TransitionKind = ADVANCE
-TransitionBaseSHA = 3422b68d3d45269bfd3270cd49f2b7d2fea8925e
+TransitionKind = BLOCK_DOCUMENTATION_GAP
+TransitionBaseSHA = 335a50a3b69768812b24b5a3236a829c7d52b0ba
 BusinessImplementation = AUTHORIZED_FOR_MDR_I00_I08
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
 
 `MDR-I07` 固定候选 `3422b68d3d45269bfd3270cd49f2b7d2fea8925e`
-已取得 `deep_reviewer = GO / P0=0 / P1=0 / P2=0`。当前完成前缀严格扩展到
-`MDR-I07`，`TransitionSequence = 9`，只激活并释放唯一后继 `MDR-I08`。
+已取得 `deep_reviewer = GO / P0=0 / P1=0 / P2=0`，完成前缀严格保持到
+`MDR-I07`。`MDR-I08` 首次 ultra 门禁确认累计范围合同未登记三条 I07 文档缺口治理
+路径，因此当前以 `DOC-GAP-MDR-002` 阻断；`TransitionSequence = 9` 不变，恢复卡仍为
+`MDR-I08`，不得把该次 NO-GO 写成 I08 完成收据。
 
 本文件是 `MDR-I00..MDR-I08` 唯一可变运行态权威。AGENTS、中央索引、卡集索引和
 逐卡正文只能引用本文件，不得复制 Active、READY、DONE、授权或审查收据事实。
