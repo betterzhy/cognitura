@@ -101,12 +101,19 @@ export type RendererType =
   | "LAYERED_STRUCTURE"
   | "STRUCTURED_PANEL";
 
-export type RelationType =
-  | "DEPENDS_ON"
-  | "EXPLAINS"
-  | "CONTRASTS_WITH"
-  | "APPLIES_TO"
-  | "IMPACTS";
+export const relationTypes = [
+  "DEPENDS_ON",
+  "EXPLAINS",
+  "CONTRASTS_WITH",
+  "APPLIES_TO",
+  "IMPACTS",
+] as const;
+
+export type RelationType = (typeof relationTypes)[number];
+
+export function isRelationType(value: unknown): value is RelationType {
+  return relationTypes.includes(value as RelationType);
+}
 
 export interface RendererNode {
   readonly nodeId: string;
