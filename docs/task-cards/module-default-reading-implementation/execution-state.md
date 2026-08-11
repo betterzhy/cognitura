@@ -12,29 +12,29 @@ GovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 SetAuthorizationStatus = USER_AUTHORIZED
 SetAuthorizationScope = MDR-I00..MDR-I08_AUTOMATIC_SERIAL
 HumanCheckpointRequirement = NONE_WITHIN_AUTHORIZED_SET
-TaskCardSetStatus = IN_PROGRESS
-ActiveImplementationTaskCard = MDR-I08
-ReleasedTaskCard = MDR-I08
-CompletedTaskCards = MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07
-CurrentCandidateSHA = 3422b68d3d45269bfd3270cd49f2b7d2fea8925e
+TaskCardSetStatus = COMPLETE
+ActiveImplementationTaskCard = NONE
+ReleasedTaskCard = NONE
+CompletedTaskCards = MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MDR-I08
+CurrentCandidateSHA = e2007f5308fc8982a8fc3dac89dfabff9f58e844
 CurrentGateStatus = PASS
-CurrentReviewRoute = deep_reviewer
+CurrentReviewRoute = ultra_gatekeeper
 CurrentReviewVerdict = GO_P0_0_P1_0_P2_0
-NextImplementationTaskCard = MDR-I08
-TransitionSequence = 9
-TransitionKind = RESUME_DOCUMENTATION_GAP
-TransitionBaseSHA = fda60e5c0321201e4890e0d7a8c3e5349118bc9f
-BusinessImplementation = AUTHORIZED_FOR_MDR_I00_I08
+NextImplementationTaskCard = NONE
+TransitionSequence = 10
+TransitionKind = COMPLETE
+TransitionBaseSHA = e2007f5308fc8982a8fc3dac89dfabff9f58e844
+BusinessImplementation = COMPLETE_FOR_MDR_I00_I08
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
 
-`MDR-I07` 固定候选 `3422b68d3d45269bfd3270cd49f2b7d2fea8925e`
-已取得 `deep_reviewer = GO / P0=0 / P1=0 / P2=0`，完成前缀严格保持到
-`MDR-I07`。首次 I08 ultra 门禁发现的 `DOC-GAP-MDR-002` 已由治理修复固定提交
-`fda60e5c0321201e4890e0d7a8c3e5349118bc9f` 关闭，并取得
-`deep_reviewer = GO / P0=0 / P1=0 / P2=0`；`TransitionSequence = 9` 不变，当前只恢复
-唯一活动且已释放卡 `MDR-I08`，不把首次 NO-GO 记作完成收据。
+完整切片候选 `ef89ce7475db105b56188e421d8bf1651251b376` 已取得
+`ultra_gatekeeper = GO / P0=0 / P1=0 / P2=0`；其 32 路径范围和 Gate 记录在正式验收
+记录中。I08 验收收据提交 `e2007f5308fc8982a8fc3dac89dfabff9f58e844`
+随后也取得独立 `ultra_gatekeeper = GO / P0=0 / P1=0 / P2=0`。当前严格完成
+`MDR-I00..MDR-I08`，Active、Released 和 Next 均为 `NONE`；不释放任何后续 Schema、
+数据库、页面、ACL、App/route 或 Wave 1 source 卡。
 
 本文件是 `MDR-I00..MDR-I08` 唯一可变运行态权威。AGENTS、中央索引、卡集索引和
 逐卡正文只能引用本文件，不得复制 Active、READY、DONE、授权或审查收据事实。
