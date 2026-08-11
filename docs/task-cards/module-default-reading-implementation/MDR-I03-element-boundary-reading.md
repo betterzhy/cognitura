@@ -41,7 +41,7 @@ ForbiddenSemanticLabel = Conditions,Results
 RED：
 
 ```tsx
-render(<ModuleClosure elements={projection.knowledgeElements}
+const { container } = render(<ModuleClosure elements={projection.knowledgeElements}
   boundaries={projection.criticalBoundaries} />);
 const elements = screen.getByRole("list", { name: "Knowledge elements" });
 const boundaries = screen.getByRole("list", { name: "Critical boundaries" });
@@ -53,12 +53,15 @@ expect(within(boundaries).getAllByRole("listitem").map((item) => item.textConten
   .toEqual(projection.criticalBoundaries.map((item) => item.statement));
 expect(within(boundaries).getAllByRole("listitem").map((item) => item.dataset.boundaryId))
   .toEqual(projection.criticalBoundaries.map((item) => item.boundaryId));
+expect(Array.from(container.querySelectorAll("[data-reading-section]"),
+  (section) => section.getAttribute("data-reading-section")))
+  .toEqual(["boundaries", "elements"]);
 expect(screen.queryByRole("heading", { name: /Conditions|Results/ })).toBeNull();
 ```
 
 先观察缺少字段/组件的 RED。GREEN 扩展纯投影以传递原始 Element 与 Boundary，再用
-两个唯一的 `data-reading-section` 连续渲染全部输入；不得卡片墙化、摘要化或生成新
-语义标签。
+两个唯一的 `data-reading-section` 按正式 `CriticalBoundaries → KnowledgeElements`
+顺序连续渲染全部输入；不得卡片墙化、摘要化或生成新语义标签。
 
 ## 5. 验证命令
 

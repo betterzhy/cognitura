@@ -15,6 +15,7 @@ FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
 RelationDisplay = CANONICAL_TYPE_TOKEN
+RendererInputAssertion = SAME_INPUT_IDENTITY_TYPE_ENDPOINTS
 ```
 
 ## 1. 目标
@@ -41,28 +42,45 @@ RelationSelection = RENDERER_INPUT_AUTHORITATIVE
 RED：
 
 ```tsx
-render(<KeyRelations input={rendererInputWithTwoRelations} />);
+const input = rendererInputWithTwoRelations;
+render(<KeyRelations input={input} />);
 const relationList = screen.getByRole("list", { name: "Key relations" });
 const relationItems = within(relationList).getAllByRole("listitem");
-const nodeById = new Map(rendererInput.nodes.map((node) => [node.nodeId, node]));
-expect(relationItems).toHaveLength(rendererInput.relations.length);
-expect(relationItems.map((item) => item.dataset.relationId))
-  .toEqual(rendererInput.relations.map((relation) => relation.relationId));
+const nodeById = new Map(input.nodes.map((node) => [node.nodeId, node]));
+expect(relationItems).toHaveLength(input.relations.length);
+expect(relationItems.map((item) => [
+  item.dataset.relationId,
+  item.dataset.relationType,
+  item.dataset.sourceNodeRef,
+  item.dataset.targetNodeRef,
+])).toEqual(input.relations.map((relation) => [
+  relation.relationId,
+  relation.type,
+  relation.sourceNodeRef,
+  relation.targetNodeRef,
+]));
 expect(relationItems.map((item) =>
   Array.from(item.querySelectorAll("[data-relation-part]"), (part) => part.textContent)))
-  .toEqual(rendererInput.relations.map((relation) => [
+  .toEqual(input.relations.map((relation) => [
     nodeById.get(relation.sourceNodeRef)?.label,
     relation.type,
     nodeById.get(relation.targetNodeRef)?.label,
   ]));
+expect(() => render(<KeyRelations input={rendererInputWithMissingEndpoint} />))
+  .toThrow("RENDERER_RELATION_ENDPOINT_MISSING");
+expect(() => render(<KeyRelations input={rendererInputWithUnknownRelationType} />))
+  .toThrow("RENDERER_RELATION_TYPE_UNSUPPORTED");
+expect(() => render(<KeyRelations input={rendererInputWithZeroRelations} />))
+  .toThrow("MODULE_DEFAULT_READING_RELATION_REQUIRED");
 expect(() => render(<KeyRelations input={rendererInputWithFourRelations} />))
   .toThrow("MODULE_DEFAULT_READING_RELATION_BUDGET_EXCEEDED");
 ```
 
 GREEN 只能用 renderer node label 解析端点，并逐字投影正式 `RelationType` token；当前
 没有获授权的本地化谓词映射，不得把 docs-only prototype 文本或自定义显示词带入生产。
-每项保留 `relationId`、source/target node ref 与 type 的机器属性。缺失端点、未知 type、
-0 条或超过 3 条均 fail closed，不把技术对象 ID 当成可见端点文本。
+每项从同一个 `input` 保留 `relationId`、source/target node ref 与 type 的机器属性。
+缺失端点、未知 type、0 条或超过 3 条均分别 fail closed，不把技术对象 ID 当成可见
+端点文本。
 
 ## 5. 验证命令
 

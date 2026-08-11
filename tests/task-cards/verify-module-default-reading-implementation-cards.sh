@@ -226,7 +226,26 @@ expect_failure \
   "${composition_assertion_drift_dir}" \
   "MDR-I07 must assert exact scoped identity, count, content, and order"
 
+renderer_input_assertion_drift_dir="${test_tmp_root}/renderer-input-assertion-drift"
+cp -R "${cards_dir}" "${renderer_input_assertion_drift_dir}"
+sed -i.bak '/^RendererInputAssertion = SAME_INPUT_IDENTITY_TYPE_ENDPOINTS$/d' \
+  "${renderer_input_assertion_drift_dir}/MDR-I05-key-relation-projection.md"
+rm "${renderer_input_assertion_drift_dir}/MDR-I05-key-relation-projection.md.bak"
+expect_failure \
+  "${renderer_input_assertion_drift_dir}" \
+  "MDR-I05 must assert identity, type, and endpoints from the same RendererInput"
+
+composition_order_drift_dir="${test_tmp_root}/composition-order-drift"
+cp -R "${cards_dir}" "${composition_order_drift_dir}"
+sed -i.bak \
+  '/^CompositionOrder = CORE_THESIS_SPINE_RENDERER_BOUNDARIES_ELEMENTS_RELATIONS_SOURCES$/d' \
+  "${composition_order_drift_dir}/MDR-I07-reading-first-composition.md"
+rm "${composition_order_drift_dir}/MDR-I07-reading-first-composition.md.bak"
+expect_failure \
+  "${composition_order_drift_dir}" \
+  "MDR-I07 must retain the formal ModuleReading projection order"
+
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardContractTests = PASS" \
-  "NegativeCases = 22" \
+  "NegativeCases = 24" \
   "PreApprovalTerminalCases = 1"
