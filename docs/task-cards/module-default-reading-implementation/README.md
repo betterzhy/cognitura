@@ -16,6 +16,7 @@ DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
 BusinessImplementation = SEE_EXECUTION_STATE
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
+ImplementationAcceptance = docs/engineering/cognitura-module-default-reading-implementation-acceptance.md
 ```
 
 本集合只规划首个 `ModuleDefaultReadingState` 的小型前端投影切片。它不替代已批准
@@ -111,6 +112,10 @@ bash tests/task-cards/verify-module-default-reading-implementation-cards.sh
 scripts/verify-module-default-reading-implementation-cards \
   --cards-dir docs/task-cards/module-default-reading-implementation
 ```
+
+有限切片的固定候选范围、RED/GREEN 与 ultra 收据只记录在
+[实现验收记录](../../engineering/cognitura-module-default-reading-implementation-acceptance.md)；
+本索引不复制可变运行态或审查收据。
 
 ## 5. 运行态权威
 

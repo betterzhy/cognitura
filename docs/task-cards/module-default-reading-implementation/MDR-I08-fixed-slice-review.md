@@ -15,6 +15,7 @@ SchemaChange = FORBIDDEN
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = ultra_gatekeeper
+AcceptanceRecord = docs/engineering/cognitura-module-default-reading-implementation-acceptance.md
 CumulativeScopeAssertion = EXACT_CARD_WRITESET_UNION_PLUS_REVIEWED_GOVERNANCE_PATHS
 CumulativeGovernancePath = docs/task-cards/module-default-reading-implementation/execution-state.md
 CumulativeGovernancePath = docs/task-cards/module-default-reading-implementation/MDR-I07-reading-first-composition.md
