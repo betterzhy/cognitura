@@ -200,6 +200,21 @@ sed -i.bak 's/^2\. GREEN：/2. IMPLEMENT：/' \
 rm "${i01_missing_green_dir}/W1-I01-source-ingestion-domain.md.bak"
 expect_failure "${i01_missing_green_dir}" "W1-I01: missing GREEN instruction"
 
+i00_missing_red_green_dir="${test_tmp_root}/i00-missing-red-green"
+cp -R "${cards_dir}" "${i00_missing_red_green_dir}"
+sed -i.bak \
+  '/^1\. RED：先写会因验证器缺失而失败的正例合同。$/d; /^2\. GREEN：实现只接受闭集参数的最小验证器/d' \
+  "${i00_missing_red_green_dir}/W1-I00-implementation-governance.md"
+rm "${i00_missing_red_green_dir}/W1-I00-implementation-governance.md.bak"
+expect_failure "${i00_missing_red_green_dir}" "W1-I00: missing RED-first instruction"
+
+i01_red_green_decoy_dir="${test_tmp_root}/i01-red-green-decoy"
+cp -R "${cards_dir}" "${i01_red_green_decoy_dir}"
+sed -i.bak 's/^1\. RED：/1. REDACTED：/; s/^2\. GREEN：/2. EVERGREEN：/' \
+  "${i01_red_green_decoy_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_red_green_decoy_dir}/W1-I01-source-ingestion-domain.md.bak"
+expect_failure "${i01_red_green_decoy_dir}" "W1-I01: missing RED-first instruction"
+
 i01_missing_target_gate_dir="${test_tmp_root}/i01-missing-target-gate"
 cp -R "${cards_dir}" "${i01_missing_target_gate_dir}"
 sed -i.bak \
@@ -209,6 +224,19 @@ rm "${i01_missing_target_gate_dir}/W1-I01-source-ingestion-domain.md.bak"
 expect_failure \
   "${i01_missing_target_gate_dir}" \
   "W1-I01: missing target verification command"
+
+i01_target_gate_decoy_dir="${test_tmp_root}/i01-target-gate-decoy"
+cp -R "${cards_dir}" "${i01_target_gate_decoy_dir}"
+sed -i.bak \
+  "/^\.\/mvnw -f server\/pom\.xml -Dtest='io\.cognitura\.source\.domain\.\*Test' test$/d" \
+  "${i01_target_gate_decoy_dir}/W1-I01-source-ingestion-domain.md"
+rm "${i01_target_gate_decoy_dir}/W1-I01-source-ingestion-domain.md.bak"
+printf '%s\n' \
+  "./mvnw -f server/pom.xml -Dtest='io.cognitura.source.domain.*Test' test" >> \
+  "${i01_target_gate_decoy_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure \
+  "${i01_target_gate_decoy_dir}" \
+  "W1-I01: missing target verification command in section 5"
 
 i01_missing_commit_dir="${test_tmp_root}/i01-missing-commit"
 cp -R "${cards_dir}" "${i01_missing_commit_dir}"
@@ -222,6 +250,8 @@ cp -R "${cards_dir}" "${i01_missing_fixed_review_dir}"
 sed -i.bak '/^`deep_reviewer`/d' \
   "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md"
 rm "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md.bak"
+printf '%s\n' 'deep_reviewer decoy' >> \
+  "${i01_missing_fixed_review_dir}/W1-I01-source-ingestion-domain.md"
 expect_failure "${i01_missing_fixed_review_dir}" "W1-I01: missing fixed-commit review route"
 
 i01_missing_positive_verification_dir="${test_tmp_root}/i01-missing-positive-verification"
@@ -240,6 +270,30 @@ sed -i.bak \
   "${i01_broad_stage_dir}/W1-I01-source-ingestion-domain.md"
 rm "${i01_broad_stage_dir}/W1-I01-source-ingestion-domain.md.bak"
 expect_failure "${i01_broad_stage_dir}" "W1-I01: staging must derive from the exact WriteSet"
+
+i01_git_c_add_dir="${test_tmp_root}/i01-git-c-add"
+cp -R "${cards_dir}" "${i01_git_c_add_dir}"
+printf '%s\n' 'git -C . add server/src/main/java/io/cognitura/source/domain' >> \
+  "${i01_git_c_add_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_git_c_add_dir}" "W1-I01: unexpected Git invocation"
+
+i01_git_c_push_dir="${test_tmp_root}/i01-git-c-push"
+cp -R "${cards_dir}" "${i01_git_c_push_dir}"
+printf '%s\n' 'git -C . push' >> \
+  "${i01_git_c_push_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_git_c_push_dir}" "W1-I01: unexpected Git invocation"
+
+i01_git_c_commit_dir="${test_tmp_root}/i01-git-c-commit"
+cp -R "${cards_dir}" "${i01_git_c_commit_dir}"
+printf '%s\n' 'git -C . commit -m "second local commit"' >> \
+  "${i01_git_c_commit_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_git_c_commit_dir}" "W1-I01: unexpected Git invocation"
+
+i01_command_git_push_dir="${test_tmp_root}/i01-command-git-push"
+cp -R "${cards_dir}" "${i01_command_git_push_dir}"
+printf '%s\n' 'command git push' >> \
+  "${i01_command_git_push_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_command_git_push_dir}" "W1-I01: unexpected Git invocation"
 
 i01_authorization_block_drift_dir="${test_tmp_root}/i01-authorization-block-drift"
 cp -R "${cards_dir}" "${i01_authorization_block_drift_dir}"

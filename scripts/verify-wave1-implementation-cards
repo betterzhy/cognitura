@@ -510,40 +510,63 @@ docs/design/wave-1/README.md'
     fail "RemotePush must remain NOT_AUTHORIZED for ${task_id}"
 
   execution_steps="$(sed -n '/^## 4\. 执行步骤$/,/^## 5\. 验证命令$/p' "${file}")"
-  if [[ "${task_id}" != "W1-I00" ]]; then
-    [[ "${execution_steps}" == *"RED"* ]] || fail "${task_id}: missing RED-first instruction"
-    [[ "${execution_steps}" == *"GREEN"* ]] || fail "${task_id}: missing GREEN instruction"
-    [[ "${execution_steps}" == *"RED"*"GREEN"* ]] ||
-      fail "${task_id}: RED must precede GREEN"
-  fi
-  grep -Fqx "${expected_target_command}" "${file}" ||
-    fail "${task_id}: missing target verification command"
-  grep -Fqx 'scripts/verify-wave1-implementation' "${file}" ||
-    fail "${task_id}: missing unified verification command"
-  grep -Fqx 'git diff --check' "${file}" ||
-    fail "${task_id}: missing diff verification command"
-  grep -Fqx 'git status --short' "${file}" ||
-    fail "${task_id}: missing worktree verification command"
-  [[ "$(grep -c '^git commit -m "' "${file}" || true)" -eq 1 ]] ||
+  red_count="$(printf '%s\n' "${execution_steps}" | grep -cE '^[0-9]+\. RED：' || true)"
+  green_count="$(printf '%s\n' "${execution_steps}" | grep -cE '^[0-9]+\. GREEN：' || true)"
+  [[ "${red_count}" -eq 1 ]] || fail "${task_id}: missing RED-first instruction"
+  [[ "${green_count}" -eq 1 ]] || fail "${task_id}: missing GREEN instruction"
+  red_line="$(printf '%s\n' "${execution_steps}" | grep -nE '^[0-9]+\. RED：' | cut -d: -f1)"
+  green_line="$(printf '%s\n' "${execution_steps}" | grep -nE '^[0-9]+\. GREEN：' | cut -d: -f1)"
+  [[ "${red_line}" -lt "${green_line}" ]] || fail "${task_id}: RED must precede GREEN"
+
+  validation_section="$(sed -n '/^## 5\. 验证命令$/,/^## 6\. Gate 与完成定义$/p' "${file}")"
+  [[ "$(printf '%s\n' "${validation_section}" | grep -Fxc "${expected_target_command}" || true)" -eq 1 ]] ||
+    fail "${task_id}: missing target verification command in section 5"
+  [[ "$(printf '%s\n' "${validation_section}" | grep -Fxc 'scripts/verify-wave1-implementation' || true)" -eq 1 ]] ||
+    fail "${task_id}: missing unified verification command in section 5"
+  [[ "$(printf '%s\n' "${validation_section}" | grep -Fxc 'git diff --check' || true)" -eq 1 ]] ||
+    fail "${task_id}: missing diff verification command in section 5"
+  [[ "$(printf '%s\n' "${validation_section}" | grep -Fxc 'git status --short' || true)" -eq 1 ]] ||
+    fail "${task_id}: missing worktree verification command in section 5"
+
+  commit_section="$(sed -n '/^## 7\. 提交与审查$/,$p' "${file}")"
+  [[ "$(printf '%s\n' "${commit_section}" | grep -c '^git commit -m "' || true)" -eq 1 ]] ||
     fail "${task_id}: missing independent local commit"
   canonical_card_path="docs/task-cards/wave-1-implementation/${filename}"
-  grep -Fqx "  ${canonical_card_path} |" "${file}" ||
+  printf '%s\n' "${commit_section}" | grep -Fqx "  ${canonical_card_path} |" ||
     fail "${task_id}: staging must derive from the exact WriteSet"
-  [[ "$(grep -c '^[[:space:]]*git add ' "${file}" || true)" -eq 1 ]] ||
+  [[ "$(printf '%s\n' "${commit_section}" | grep -c '^[[:space:]]*git add ' || true)" -eq 1 ]] ||
     fail "${task_id}: staging must derive from the exact WriteSet"
-  grep -Fqx '  git add --pathspec-from-file=-' "${file}" ||
+  printf '%s\n' "${commit_section}" | grep -Fqx '  git add --pathspec-from-file=-' ||
     fail "${task_id}: staging must derive from the exact WriteSet"
-  grep -Fqx 'git diff --cached --name-only' "${file}" ||
+  printf '%s\n' "${commit_section}" | grep -Fqx 'git diff --cached --name-only' ||
     fail "${task_id}: missing staged WriteSet verification"
-  grep -Fq '暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。' "${file}" ||
+  printf '%s\n' "${commit_section}" |
+    grep -Fq '暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。' ||
     fail "${task_id}: missing staged WriteSet verification"
   if [[ "${task_id}" == "W1-I13" ]]; then
-    grep -Fq '`deep_reviewer`' "${file}" || fail "${task_id}: missing fixed-commit review route"
-    grep -Fq '`ultra_gatekeeper`' "${file}" || fail "${task_id}: missing fixed-commit review route"
+    [[ "$(printf '%s\n' "${commit_section}" | grep -c '`deep_reviewer`' || true)" -eq 1 ]] ||
+      fail "${task_id}: missing fixed-commit review route"
+    [[ "$(printf '%s\n' "${commit_section}" | grep -c '`ultra_gatekeeper`' || true)" -eq 1 ]] ||
+      fail "${task_id}: missing fixed-commit review route"
   else
-    [[ "$(grep -c 'deep_reviewer' "${file}" || true)" -ge 2 ]] ||
+    [[ "$(printf '%s\n' "${commit_section}" | grep -c '`deep_reviewer`' || true)" -eq 1 ]] ||
       fail "${task_id}: missing fixed-commit review route"
   fi
+
+  git_invocation_count=0
+  while IFS= read -r git_line; do
+    [[ -n "${git_line}" ]] || continue
+    normalized_git_line="${git_line#"${git_line%%[![:space:]]*}"}"
+    case "${normalized_git_line}" in
+      'git diff --check'|'git status --short'|'git add --pathspec-from-file=-'|'git diff --cached --name-only') ;;
+      *)
+        printf '%s\n' "${normalized_git_line}" | grep -Eq '^git commit -m "[^"]+"$' ||
+          fail "${task_id}: unexpected Git invocation"
+        ;;
+    esac
+    git_invocation_count=$((git_invocation_count + 1))
+  done < <(grep -E '^[[:space:]]*((command|env)[[:space:]]+)?([^[:space:]]*/)?git([[:space:]]|$)' "${file}" || true)
+  [[ "${git_invocation_count}" -eq 5 ]] || fail "${task_id}: unexpected Git invocation"
 
   production_limit="$(field_value "${file}" "ProductionFileLimit")"
   production_exception="$(field_value "${file}" "ProductionWriteSetException")"
@@ -579,9 +602,6 @@ docs/design/wave-1/README.md'
   done < <(sed -n 's/^WriteSet = //p' "${file}")
   [[ "${production_count}" -le "${production_limit}" ]] ||
     fail "actual production WriteSet exceeds ProductionFileLimit for ${task_id}"
-
-  grep -Eq 'git[[:space:]]+commit[[:space:]]+--amend|git[[:space:]]+push' "${file}" &&
-    fail "${task_id}: amend or remote push command is forbidden"
 
   table_row_pattern="^| \`${task_id}\` |"
   table_row="$(grep "${table_row_pattern}" "${index_file}" || true)"

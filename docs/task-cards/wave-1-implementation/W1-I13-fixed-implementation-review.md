@@ -47,7 +47,7 @@ ForbiddenWriteSet = server/**,web/**,schemas/**,raw/**,.idea/**
 1. RED：验收记录先固定真实候选并保持两阶段审查为 NOT_RUN。
 2. 新的 `deep_reviewer` 对固定 SHA 一般深审；任何 finding 返回最早事实 Owner 卡。
 3. 一般审查零发现后，由新的 `ultra_gatekeeper` 作最终 GO/NO-GO。
-4. 只有两阶段均零发现，才写 GREEN 验收和 COMPLETE 投影；本卡内不修代码。
+4. GREEN：只有两阶段均零发现，才写验收和 COMPLETE 投影；本卡内不修代码。
 
 ## 5. 验证命令
 
@@ -76,4 +76,5 @@ git commit -m "docs: record Wave 1 implementation review"
 ```
 
 暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。不 amend、
-不 push；本卡完成不等于正式数据库写入、部署或发布授权。
+不 push；固定提交依次交给新的 `deep_reviewer` 和新的 `ultra_gatekeeper`。本卡完成
+不等于正式数据库写入、部署或发布授权。
