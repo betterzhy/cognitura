@@ -15,6 +15,12 @@ SchemaChange = FORBIDDEN
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = ultra_gatekeeper
+CumulativeScopeAssertion = EXACT_CARD_WRITESET_UNION_PLUS_REVIEWED_GOVERNANCE_PATHS
+CumulativeGovernancePath = docs/task-cards/module-default-reading-implementation/execution-state.md
+CumulativeGovernancePath = docs/task-cards/module-default-reading-implementation/MDR-I07-reading-first-composition.md
+CumulativeGovernancePath = docs/task-cards/module-default-reading-implementation/MDR-I08-fixed-slice-review.md
+CumulativeGovernancePath = scripts/verify-module-default-reading-implementation-cards
+CumulativeGovernancePath = tests/task-cards/verify-module-default-reading-implementation-cards.sh
 ```
 
 ## 1. 目标
@@ -66,14 +72,20 @@ first_slice_commit="$(git log --reverse --format=%H -- \
   web/src/test/test-environment.test.tsx | head -1)"
 slice_base_sha="$(git rev-parse "${first_slice_commit}^")"
 fixed_candidate_sha="$(git rev-parse HEAD)"
-git diff --name-only "${slice_base_sha}..${fixed_candidate_sha}"
+scripts/verify-module-default-reading-implementation-cards \
+  --cards-dir docs/task-cards/module-default-reading-implementation \
+  --slice-base "${slice_base_sha}" \
+  --slice-head "${fixed_candidate_sha}"
 ```
 
 ## 6. Gate 与完成定义
 
-`ultra_gatekeeper = GO / P0=0 / P1=0 / P2=0`，候选写集恰等于前八卡并排除
-`.idea/`、`raw/**`、Schema、数据库、后端、路由和 App 集成。Gate 只关闭首个可复用
-前端投影切片，不关闭完整 Module 页面或总体 `ImplementationValidation`。
+`ultra_gatekeeper = GO / P0=0 / P1=0 / P2=0`。累计候选写集必须恰等于
+`MDR-I00..MDR-I07` 声明 WriteSet 的去重并集，加上本卡头部固定的五条、已经独立
+审查的治理路径；任何缺失或额外路径均 fail closed。治理修复保持独立提交，不扩张
+任一业务卡 WriteSet。累计 Gate 仍须排除 `.idea/`、`raw/**`、Schema、数据库、后端、
+路由和 App 集成，只关闭首个可复用前端投影切片，不关闭完整 Module 页面或总体
+`ImplementationValidation`。
 
 ## 7. 提交与独立固定提交审查
 

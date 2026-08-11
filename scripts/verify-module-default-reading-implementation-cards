@@ -5,7 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 usage() {
-  printf 'Usage: %s --cards-dir <path> [--transition-base <sha> --transition-head <sha>]\n' "$0" >&2
+  printf 'Usage: %s --cards-dir <path> [--transition-base <sha> --transition-head <sha>] [--slice-base <sha> --slice-head <sha>]\n' "$0" >&2
   exit 2
 }
 
@@ -17,6 +17,8 @@ fail() {
 cards_dir=""
 transition_base=""
 transition_head=""
+slice_base=""
+slice_head=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --cards-dir)
@@ -34,6 +36,16 @@ while [[ "$#" -gt 0 ]]; do
       transition_head="$2"
       shift 2
       ;;
+    --slice-base)
+      [[ "$#" -ge 2 ]] || usage
+      slice_base="$2"
+      shift 2
+      ;;
+    --slice-head)
+      [[ "$#" -ge 2 ]] || usage
+      slice_head="$2"
+      shift 2
+      ;;
     *)
       usage
       ;;
@@ -47,6 +59,10 @@ done
 if [[ -n "${transition_base}" || -n "${transition_head}" ]]; then
   [[ -n "${transition_base}" && -n "${transition_head}" ]] ||
     fail "transition-base and transition-head must be provided together"
+fi
+if [[ -n "${slice_base}" || -n "${slice_head}" ]]; then
+  [[ -n "${slice_base}" && -n "${slice_head}" ]] ||
+    fail "slice-base and slice-head must be provided together"
 fi
 
 field_value() {
@@ -419,6 +435,15 @@ i07="${cards_dir}/MDR-I07-reading-first-composition.md"
   [[ "$(field_value "${i07}" "CompositionSectionIdentities")" == "CORE_QUESTIONS_CORE_CONCLUSION_PRIMARY_SPINE_STAGE_CHAIN_BOUNDARIES_ELEMENTS_RELATIONS_SOURCE_ENTRY" ]] ||
   fail "MDR-I07 section identities must match the fixed predecessor component contracts"
 
+i08="${cards_dir}/MDR-I08-fixed-slice-review.md"
+[[ "$(grep -c '^CumulativeScopeAssertion = ' "${i08}" || true)" -eq 1 ]] &&
+  [[ "$(field_value "${i08}" "CumulativeScopeAssertion")" == "EXACT_CARD_WRITESET_UNION_PLUS_REVIEWED_GOVERNANCE_PATHS" ]] ||
+  fail "MDR-I08 cumulative scope assertion mismatch"
+expected_cumulative_governance_paths=$'docs/task-cards/module-default-reading-implementation/execution-state.md\ndocs/task-cards/module-default-reading-implementation/MDR-I07-reading-first-composition.md\ndocs/task-cards/module-default-reading-implementation/MDR-I08-fixed-slice-review.md\nscripts/verify-module-default-reading-implementation-cards\ntests/task-cards/verify-module-default-reading-implementation-cards.sh'
+actual_cumulative_governance_paths="$(sed -n 's/^CumulativeGovernancePath = //p' "${i08}")"
+[[ "${actual_cumulative_governance_paths}" == "${expected_cumulative_governance_paths}" ]] ||
+  fail "MDR-I08 cumulative governance path set mismatch"
+
 required_state_fields=(
   "CanonicalProjectName"
   "TaskCardSet"
@@ -603,6 +628,55 @@ case "${task_set_status}" in
   *) fail "unsupported TaskCardSetStatus: ${task_set_status}" ;;
 esac
 
+cumulative_slice_path_count="NOT_CHECKED"
+if [[ -n "${slice_base}" ]]; then
+  resolved_slice_base="$(git -C "${repo_root}" rev-parse "${slice_base}^{commit}" 2>/dev/null)" ||
+    fail "cannot resolve cumulative slice base"
+  resolved_slice_head="$(git -C "${repo_root}" rev-parse "${slice_head}^{commit}" 2>/dev/null)" ||
+    fail "cannot resolve cumulative slice HEAD"
+  [[ "${resolved_slice_base}" != "${resolved_slice_head}" ]] ||
+    fail "cumulative slice base and HEAD must differ"
+  git -C "${repo_root}" merge-base --is-ancestor "${resolved_slice_base}" "${resolved_slice_head}" ||
+    fail "cumulative slice base must be an ancestor of HEAD"
+
+  i08_repo_path="docs/task-cards/module-default-reading-implementation/MDR-I08-fixed-slice-review.md"
+  verifier_repo_path="scripts/verify-module-default-reading-implementation-cards"
+  fixed_i08_content="$(git -C "${repo_root}" show "${resolved_slice_head}:${i08_repo_path}" 2>/dev/null)" ||
+    fail "cumulative slice HEAD does not contain MDR-I08 card"
+  fixed_verifier_content="$(git -C "${repo_root}" show "${resolved_slice_head}:${verifier_repo_path}" 2>/dev/null)" ||
+    fail "cumulative slice HEAD does not contain the verifier"
+  [[ "$(<"${i08}")" == "${fixed_i08_content}" ]] ||
+    fail "validated MDR-I08 card must match the fixed slice HEAD tree"
+  [[ "$(<"${repo_root}/${verifier_repo_path}")" == "${fixed_verifier_content}" ]] ||
+    fail "validated cumulative verifier must match the fixed slice HEAD tree"
+
+  expected_cumulative_paths="$({
+    for cumulative_card_index in 0 1 2 3 4 5 6 7; do
+      printf '%s\n' "${expected_write_sets[${cumulative_card_index}]}"
+    done
+    printf '%s\n' "${expected_cumulative_governance_paths}"
+  } | sed '/^$/d' | LC_ALL=C sort -u)"
+  actual_cumulative_paths="$(
+    git -C "${repo_root}" diff --name-only "${resolved_slice_base}" "${resolved_slice_head}" |
+      sed '/^$/d' |
+      LC_ALL=C sort -u
+  )"
+
+  while IFS= read -r cumulative_path; do
+    [[ -n "${cumulative_path}" ]] || continue
+    printf '%s\n' "${expected_cumulative_paths}" | grep -Fqx -- "${cumulative_path}" ||
+      fail "unexpected cumulative slice path: ${cumulative_path}"
+  done <<< "${actual_cumulative_paths}"
+  while IFS= read -r cumulative_path; do
+    [[ -n "${cumulative_path}" ]] || continue
+    printf '%s\n' "${actual_cumulative_paths}" | grep -Fqx -- "${cumulative_path}" ||
+      fail "missing cumulative slice path: ${cumulative_path}"
+  done <<< "${expected_cumulative_paths}"
+  git -C "${repo_root}" diff --check "${resolved_slice_base}" "${resolved_slice_head}" >/dev/null ||
+    fail "cumulative slice diff-check failed"
+  cumulative_slice_path_count="$(printf '%s\n' "${actual_cumulative_paths}" | sed '/^$/d' | wc -l | tr -d ' ')"
+fi
+
 if [[ -n "${transition_base}" ]]; then
   resolved_base="$(git -C "${repo_root}" rev-parse "${transition_base}^{commit}" 2>/dev/null)" || fail "cannot resolve transition base"
   resolved_head="$(git -C "${repo_root}" rev-parse "${transition_head}^{commit}" 2>/dev/null)" || fail "cannot resolve transition head"
@@ -742,6 +816,7 @@ printf '%s\n' \
   "CompletedTaskCards = ${completed}" \
   "NextImplementationTaskCard = ${next_card}" \
   "ReadyTaskCardCount = ${ready_count}" \
+  "CumulativeSlicePathCount = ${cumulative_slice_path_count}" \
   "BusinessImplementation = ${business_implementation}" \
   "FormalDatabaseWrite = NOT_AUTHORIZED" \
   "RemotePush = NOT_AUTHORIZED"

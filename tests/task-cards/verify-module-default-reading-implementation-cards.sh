@@ -39,6 +39,27 @@ expect_failure() {
   expect_failure_with_verifier "${verifier}" "${fixture_dir}" "${expected_message}"
 }
 
+expect_slice_failure() {
+  local fixture_verifier="$1"
+  local fixture_dir="$2"
+  local slice_base="$3"
+  local slice_head="$4"
+  local expected_message="$5"
+  local output
+
+  if output="$(
+    "${fixture_verifier}" \
+      --cards-dir "${fixture_dir}" \
+      --slice-base "${slice_base}" \
+      --slice-head "${slice_head}" 2>&1
+  )"; then
+    fail "invalid cumulative slice unexpectedly passed: ${slice_base}..${slice_head}"
+  fi
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "expected cumulative-slice error '${expected_message}', got: ${output}"
+  negative_cases=$((negative_cases + 1))
+}
+
 set_state_field() {
   local state_file="$1"
   local field="$2"
@@ -461,6 +482,95 @@ rm "${composition_section_identity_drift_dir}/MDR-I07-reading-first-composition.
 expect_failure \
   "${composition_section_identity_drift_dir}" \
   "MDR-I07 section identities must match the fixed predecessor component contracts"
+
+cumulative_scope_assertion_drift_dir="${test_tmp_root}/cumulative-scope-assertion-drift"
+cp -R "${cards_dir}" "${cumulative_scope_assertion_drift_dir}"
+sed -i.bak '/^CumulativeScopeAssertion = EXACT_CARD_WRITESET_UNION_PLUS_REVIEWED_GOVERNANCE_PATHS$/d' \
+  "${cumulative_scope_assertion_drift_dir}/MDR-I08-fixed-slice-review.md"
+rm "${cumulative_scope_assertion_drift_dir}/MDR-I08-fixed-slice-review.md.bak"
+expect_failure \
+  "${cumulative_scope_assertion_drift_dir}" \
+  "MDR-I08 cumulative scope assertion mismatch"
+
+cumulative_governance_path_drift_dir="${test_tmp_root}/cumulative-governance-path-drift"
+cp -R "${cards_dir}" "${cumulative_governance_path_drift_dir}"
+sed -i.bak '/^CumulativeGovernancePath = scripts\/verify-module-default-reading-implementation-cards$/d' \
+  "${cumulative_governance_path_drift_dir}/MDR-I08-fixed-slice-review.md"
+rm "${cumulative_governance_path_drift_dir}/MDR-I08-fixed-slice-review.md.bak"
+expect_failure \
+  "${cumulative_governance_path_drift_dir}" \
+  "MDR-I08 cumulative governance path set mismatch"
+
+cumulative_slice_root="${test_tmp_root}/cumulative-slice-repo"
+make_repo_fixture "${cumulative_slice_root}"
+git -C "${cumulative_slice_root}" init -q
+git -C "${cumulative_slice_root}" config user.name "Cognitura Contract Test"
+git -C "${cumulative_slice_root}" config user.email "contract-test@cognitura.invalid"
+git -C "${cumulative_slice_root}" add .
+git -C "${cumulative_slice_root}" commit -qm "test: fix cumulative slice base"
+cumulative_slice_base="$(git -C "${cumulative_slice_root}" rev-parse HEAD)"
+cumulative_cards_dir="${cumulative_slice_root}/docs/task-cards/module-default-reading-implementation"
+cumulative_verifier="${cumulative_slice_root}/scripts/verify-module-default-reading-implementation-cards"
+
+for cumulative_card in "${cumulative_cards_dir}"/MDR-I0{0,1,2,3,4,5,6,7}-*.md; do
+  while IFS= read -r cumulative_path; do
+    mkdir -p "${cumulative_slice_root}/$(dirname "${cumulative_path}")"
+    printf '%s\n' "cumulative slice fixture: ${cumulative_path}" > \
+      "${cumulative_slice_root}/${cumulative_path}"
+  done < <(sed -n 's/^WriteSet = //p' "${cumulative_card}")
+done
+printf '%s\n' '# cumulative slice governance fixture' >> \
+  "${cumulative_cards_dir}/execution-state.md"
+printf '%s\n' '# cumulative slice governance fixture' >> \
+  "${cumulative_cards_dir}/MDR-I07-reading-first-composition.md"
+printf '%s\n' '# cumulative slice governance fixture' >> \
+  "${cumulative_cards_dir}/MDR-I08-fixed-slice-review.md"
+printf '%s\n' '# cumulative slice governance fixture' >> "${cumulative_verifier}"
+mkdir -p "${cumulative_slice_root}/tests/task-cards"
+printf '%s\n' '# cumulative slice governance fixture' > \
+  "${cumulative_slice_root}/tests/task-cards/verify-module-default-reading-implementation-cards.sh"
+git -C "${cumulative_slice_root}" add .
+git -C "${cumulative_slice_root}" commit -qm "test: fix valid cumulative slice"
+cumulative_slice_head="$(git -C "${cumulative_slice_root}" rev-parse HEAD)"
+"${cumulative_verifier}" \
+  --cards-dir "${cumulative_cards_dir}" \
+  --slice-base "${cumulative_slice_base}" \
+  --slice-head "${cumulative_slice_head}" >/dev/null ||
+  fail "valid cumulative slice was rejected"
+
+git -C "${cumulative_slice_root}" switch -qc cumulative-unexpected-path "${cumulative_slice_head}"
+mkdir -p "${cumulative_slice_root}/schemas"
+printf '%s\n' '{"forbidden":true}' > "${cumulative_slice_root}/schemas/forbidden.json"
+git -C "${cumulative_slice_root}" add schemas/forbidden.json
+git -C "${cumulative_slice_root}" commit -qm "test: add unexpected cumulative slice path"
+cumulative_unexpected_head="$(git -C "${cumulative_slice_root}" rev-parse HEAD)"
+expect_slice_failure \
+  "${cumulative_verifier}" \
+  "${cumulative_cards_dir}" \
+  "${cumulative_slice_base}" \
+  "${cumulative_unexpected_head}" \
+  "unexpected cumulative slice path: schemas/forbidden.json"
+
+git -C "${cumulative_slice_root}" switch -qc cumulative-missing-path "${cumulative_slice_head}"
+git -C "${cumulative_slice_root}" rm -q web/src/modules/module-reading/SourceEntry.tsx
+git -C "${cumulative_slice_root}" commit -qm "test: remove required cumulative slice path"
+cumulative_missing_head="$(git -C "${cumulative_slice_root}" rev-parse HEAD)"
+expect_slice_failure \
+  "${cumulative_verifier}" \
+  "${cumulative_cards_dir}" \
+  "${cumulative_slice_base}" \
+  "${cumulative_missing_head}" \
+  "missing cumulative slice path: web/src/modules/module-reading/SourceEntry.tsx"
+
+git -C "${cumulative_slice_root}" switch -q cumulative-missing-path
+printf '%s\n' '# uncommitted cumulative scope drift' >> \
+  "${cumulative_cards_dir}/MDR-I08-fixed-slice-review.md"
+expect_slice_failure \
+  "${cumulative_verifier}" \
+  "${cumulative_cards_dir}" \
+  "${cumulative_slice_base}" \
+  "${cumulative_missing_head}" \
+  "validated MDR-I08 card must match the fixed slice HEAD tree"
 
 missing_state_dir="${test_tmp_root}/missing-execution-state"
 cp -R "${cards_dir}" "${missing_state_dir}"
