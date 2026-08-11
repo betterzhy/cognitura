@@ -61,6 +61,8 @@ required_index_fields=(
   "BusinessImplementation"
   "FormalDatabaseWrite"
   "RemotePush"
+  "TaskCardRelease"
+  "TaskCardExecution"
 )
 
 for field in "${required_index_fields[@]}"; do
@@ -81,9 +83,9 @@ expected_ids="MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MD
   "USER_APPROVED_AWAITING_IMPLEMENTATION_AUTHORIZATION" ]] ||
   fail "TaskCardSetStatus must record user approval without granting implementation"
 [[ "$(index_field_value "ActiveImplementationTaskCard")" == "NONE" ]] ||
-  fail "ActiveImplementationTaskCard must be NONE before written approval"
+  fail "ActiveImplementationTaskCard must be NONE before separate business implementation authorization"
 [[ "$(index_field_value "ReleasedTaskCard")" == "NONE" ]] ||
-  fail "ReleasedTaskCard must be NONE before written approval"
+  fail "ReleasedTaskCard must be NONE before separate business implementation authorization"
 [[ "$(index_field_value "DocumentationGap")" == "DOC-GAP-MDR-001" ]] ||
   fail "README.md: DocumentationGap must be DOC-GAP-MDR-001"
 [[ "$(index_field_value "WrittenTaskCardReview")" == "USER_APPROVED" ]] ||
@@ -98,6 +100,10 @@ expected_ids="MDR-I00,MDR-I01,MDR-I02,MDR-I03,MDR-I04,MDR-I05,MDR-I06,MDR-I07,MD
   fail "README.md: FormalDatabaseWrite must remain NOT_AUTHORIZED"
 [[ "$(index_field_value "RemotePush")" == "NOT_AUTHORIZED" ]] ||
   fail "README.md: RemotePush must remain NOT_AUTHORIZED"
+[[ "$(index_field_value "TaskCardRelease")" == "FORBIDDEN" ]] ||
+  fail "TaskCardRelease must remain FORBIDDEN without separate implementation authorization"
+[[ "$(index_field_value "TaskCardExecution")" == "FORBIDDEN" ]] ||
+  fail "TaskCardExecution must remain FORBIDDEN without separate implementation authorization"
 
 IFS=',' read -r -a declared_ids <<< "${expected_ids}"
 
@@ -211,6 +217,14 @@ for expected_id in "${declared_ids[@]}"; do
   fi
   [[ "${status}" == "BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION" ]] ||
     fail "all cards must remain blocked until separate business implementation authorization"
+
+  table_row_pattern="^| \`${task_id}\` |"
+  table_row_count="$(grep -c "${table_row_pattern}" "${cards_dir}/README.md" || true)"
+  [[ "${table_row_count}" -eq 1 ]] ||
+    fail "README.md: expected one task-card table row for ${task_id}"
+  table_row="$(grep "${table_row_pattern}" "${cards_dir}/README.md")"
+  [[ "${table_row}" == *'| `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` |'* ]] ||
+    fail "README.md task-card table status mismatch for ${task_id}"
 
   [[ "$(field_value "${file}" "SchemaChange")" == "FORBIDDEN" ]] ||
     fail "${filename}: SchemaChange must be FORBIDDEN"

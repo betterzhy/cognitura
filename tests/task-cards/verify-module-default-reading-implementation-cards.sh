@@ -64,14 +64,18 @@ sed -i.bak \
   's/^ActiveImplementationTaskCard = NONE$/ActiveImplementationTaskCard = MDR-I00/' \
   "${active_card_dir}/README.md"
 rm "${active_card_dir}/README.md.bak"
-expect_failure "${active_card_dir}" "ActiveImplementationTaskCard must be NONE before written approval"
+expect_failure \
+  "${active_card_dir}" \
+  "ActiveImplementationTaskCard must be NONE before separate business implementation authorization"
 
 released_card_dir="${test_tmp_root}/released-card"
 cp -R "${cards_dir}" "${released_card_dir}"
 sed -i.bak 's/^ReleasedTaskCard = NONE$/ReleasedTaskCard = MDR-I00/' \
   "${released_card_dir}/README.md"
 rm "${released_card_dir}/README.md.bak"
-expect_failure "${released_card_dir}" "ReleasedTaskCard must be NONE before written approval"
+expect_failure \
+  "${released_card_dir}" \
+  "ReleasedTaskCard must be NONE before separate business implementation authorization"
 
 missing_gap_dir="${test_tmp_root}/missing-gap"
 cp -R "${cards_dir}" "${missing_gap_dir}"
@@ -98,6 +102,34 @@ rm "${stale_written_review_dir}/README.md.bak"
 expect_failure \
   "${stale_written_review_dir}" \
   "WrittenTaskCardReview must record USER_APPROVED"
+
+release_gate_drift_dir="${test_tmp_root}/release-gate-drift"
+cp -R "${cards_dir}" "${release_gate_drift_dir}"
+sed -i.bak 's/^TaskCardRelease = FORBIDDEN$/TaskCardRelease = ALLOWED/' \
+  "${release_gate_drift_dir}/README.md"
+rm "${release_gate_drift_dir}/README.md.bak"
+expect_failure \
+  "${release_gate_drift_dir}" \
+  "TaskCardRelease must remain FORBIDDEN without separate implementation authorization"
+
+execution_gate_drift_dir="${test_tmp_root}/execution-gate-drift"
+cp -R "${cards_dir}" "${execution_gate_drift_dir}"
+sed -i.bak 's/^TaskCardExecution = FORBIDDEN$/TaskCardExecution = ALLOWED/' \
+  "${execution_gate_drift_dir}/README.md"
+rm "${execution_gate_drift_dir}/README.md.bak"
+expect_failure \
+  "${execution_gate_drift_dir}" \
+  "TaskCardExecution must remain FORBIDDEN without separate implementation authorization"
+
+index_table_status_drift_dir="${test_tmp_root}/index-table-status-drift"
+cp -R "${cards_dir}" "${index_table_status_drift_dir}"
+sed -i.bak \
+  's/| `MDR-I00` | \([^|]*\) | `BLOCKED_BY_BUSINESS_IMPLEMENTATION_AUTHORIZATION` |/| `MDR-I00` | \1 | `BLOCKED_BY_USER_APPROVAL` |/' \
+  "${index_table_status_drift_dir}/README.md"
+rm "${index_table_status_drift_dir}/README.md.bak"
+expect_failure \
+  "${index_table_status_drift_dir}" \
+  "README.md task-card table status mismatch for MDR-I00"
 
 missing_toolchain_owner_dir="${test_tmp_root}/missing-toolchain-owner"
 cp -R "${cards_dir}" "${missing_toolchain_owner_dir}"
@@ -272,5 +304,5 @@ expect_failure \
 
 printf '%s\n' \
   "ModuleDefaultReadingTaskCardContractTests = PASS" \
-  "NegativeCases = 26" \
+  "NegativeCases = 29" \
   "ApprovedUnauthorizedTerminalCases = 1"
