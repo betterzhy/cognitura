@@ -2,7 +2,11 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import cognitiveModuleFixture from "../../../../tests/contracts/schema/fixtures/valid/cognitive-module.json";
-import type { CognitiveModule, RendererInput } from "./model";
+import type {
+  CognitiveModule,
+  RendererInput,
+  RendererRelation,
+} from "./model";
 import { ModuleDefaultReading } from "./ModuleDefaultReading";
 
 const module = cognitiveModuleFixture as unknown as CognitiveModule;
@@ -240,5 +244,42 @@ describe("ModuleDefaultReading", () => {
       relation.dataset[datasetKey] = value;
       expect(() => assertExactComposition(mutated)).toThrow();
     });
+  });
+
+  it("fails closed when Renderer relation semantics drift from the formal module", () => {
+    const renderWithRelationMutation = (
+      mutation: Partial<RendererRelation>,
+    ) =>
+      render(
+        <ModuleDefaultReading
+          module={module}
+          rendererInput={{
+            ...rendererInput,
+            relations: [{ ...rendererInput.relations[0], ...mutation }],
+          }}
+        />,
+      );
+
+    expect(() =>
+      renderWithRelationMutation({
+        artifactRelationRef: "relation.not-in-module",
+      }),
+    ).toThrow("RENDERER_RELATION_OUT_OF_SCOPE");
+    expect(() => renderWithRelationMutation({ type: "IMPACTS" })).toThrow(
+      "RENDERER_RELATION_TYPE_CHANGED",
+    );
+    expect(() =>
+      renderWithRelationMutation({
+        sourceNodeRef: "renderer-node.version",
+      }),
+    ).toThrow("RENDERER_RELATION_ENDPOINT_CHANGED");
+    expect(() =>
+      renderWithRelationMutation({
+        targetNodeRef: "renderer-node.visibility",
+      }),
+    ).toThrow("RENDERER_RELATION_ENDPOINT_CHANGED");
+    expect(() => renderWithRelationMutation({ sourceRefs: [] })).toThrow(
+      "RENDERER_RELATION_SOURCE_CHANGED",
+    );
   });
 });

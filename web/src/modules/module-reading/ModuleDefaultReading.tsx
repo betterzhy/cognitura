@@ -15,12 +15,116 @@ export interface ModuleDefaultReadingProps {
   readonly rendererInput: RendererInput;
 }
 
+function projectedEntityRef(
+  module: CognitiveModule,
+  contentPath: string,
+): string | undefined {
+  if (
+    contentPath === "/title" ||
+    contentPath === "/thesis" ||
+    contentPath === "/role"
+  ) {
+    return module.artifactId;
+  }
+  const coreQuestionMatch = /^\/coreQuestions\/(\d+)$/.exec(contentPath);
+  if (coreQuestionMatch !== null) {
+    return module.coreQuestions[Number(coreQuestionMatch[1])] === undefined
+      ? undefined
+      : module.artifactId;
+  }
+
+  const indexedEntityPatterns: readonly [
+    RegExp,
+    (index: number) => unknown,
+  ][] = [
+    [
+      /^\/primaryCognitiveSpine\/steps\/(\d+)\/statement$/,
+      (index) => module.primaryCognitiveSpine?.steps[index]?.stepId,
+    ],
+    [
+      /^\/facets\/(\d+)\/(?:title|summary)$/,
+      (index) => module.facets[index]?.facetId,
+    ],
+    [
+      /^\/knowledgeElements\/(\d+)\/(?:title|content)$/,
+      (index) => module.knowledgeElements[index]?.artifactId,
+    ],
+    [
+      /^\/keyTakeaways\/(\d+)\/statement$/,
+      (index) => module.keyTakeaways[index]?.statementId,
+    ],
+    [
+      /^\/criticalBoundaries\/(\d+)\/statement$/,
+      (index) => module.criticalBoundaries[index]?.boundaryId,
+    ],
+  ];
+
+  for (const [pattern, entityAt] of indexedEntityPatterns) {
+    const match = pattern.exec(contentPath);
+    if (match !== null) {
+      const entityRef = entityAt(Number(match[1]));
+      return typeof entityRef === "string" ? entityRef : undefined;
+    }
+  }
+
+  return undefined;
+}
+
+function hasSameRefs(left: readonly string[], right: readonly string[]) {
+  return (
+    left.length === right.length &&
+    left.every((sourceRef) => right.includes(sourceRef))
+  );
+}
+
+function validateFormalRelations(
+  module: CognitiveModule,
+  rendererInput: RendererInput,
+) {
+  const nodeById = new Map(
+    rendererInput.nodes.map((node) => [node.nodeId, node]),
+  );
+  const formalRelationById = new Map(
+    module.relations.map((relation) => [relation.relationId, relation]),
+  );
+
+  rendererInput.relations.forEach((relation) => {
+    const formalRelation = formalRelationById.get(
+      relation.artifactRelationRef,
+    );
+    if (formalRelation === undefined) {
+      throw new Error("RENDERER_RELATION_OUT_OF_SCOPE");
+    }
+    if (relation.type !== formalRelation.type) {
+      throw new Error("RENDERER_RELATION_TYPE_CHANGED");
+    }
+
+    const sourceNode = nodeById.get(relation.sourceNodeRef);
+    const targetNode = nodeById.get(relation.targetNodeRef);
+    if (
+      sourceNode === undefined ||
+      targetNode === undefined ||
+      relation.sourceNodeRef === relation.targetNodeRef ||
+      projectedEntityRef(module, sourceNode.contentPath) !==
+        formalRelation.sourceRef ||
+      projectedEntityRef(module, targetNode.contentPath) !==
+        formalRelation.targetRef
+    ) {
+      throw new Error("RENDERER_RELATION_ENDPOINT_CHANGED");
+    }
+    if (!hasSameRefs(relation.sourceRefs, formalRelation.sourceRefs)) {
+      throw new Error("RENDERER_RELATION_SOURCE_CHANGED");
+    }
+  });
+}
+
 export function ModuleDefaultReading({
   module,
   rendererInput,
 }: ModuleDefaultReadingProps) {
   const narrative = projectModuleNarrative(module);
   const closure = projectModuleClosure(module);
+  validateFormalRelations(module, rendererInput);
 
   return (
     <main aria-label={module.title} className="module-default-reading">
