@@ -4,10 +4,10 @@
 CanonicalProjectName = Cognitura
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
-Wave1ImplementationTaskCardSet = BLOCKED_BY_USER_AUTHORIZATION
-ActiveImplementationGovernanceTaskCard = NONE
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I01
 ActiveDesignTaskCard = NONE
-BusinessImplementation = NOT_AUTHORIZED
+BusinessImplementation = USER_AUTHORIZED
 ```
 
 本目录保存 Wave 1 来源接入的字段级和运行时工程契约。所有文件均从属于
@@ -33,5 +33,5 @@ BusinessImplementation = NOT_AUTHORIZED
 - Wave 1 不使用 LLM。
 - 每份契约通过对应 sol/high Gate 后才成为后续设计切片的正式输入。
 - 修复候选已通过两个独立 `gpt-5.6-sol/high` 阶段，完整设计与实现切片书面
-  规格均已获用户批准；14 张实现卡已 bootstrap，非业务治理卡 I00 已关闭，当前
-  等待 I01 的独立业务实现授权。
+  规格均已获用户批准；14 张实现卡已 bootstrap，非业务治理卡 I00 已关闭，用户
+  已授权持续执行现有卡集，I01 为唯一 `READY` 卡。

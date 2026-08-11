@@ -2,13 +2,13 @@
 
 ```text
 DecisionDate = 2026-07-30
-CurrentStage = WAVE1_IMPLEMENTATION_AWAITING_BUSINESS_AUTHORIZATION
+CurrentStage = WAVE1_IMPLEMENTATION_IN_PROGRESS
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
 ActiveDesignTaskCard = NONE
-Wave1ImplementationTaskCardSet = BLOCKED_BY_USER_AUTHORIZATION
-ActiveImplementationGovernanceTaskCard = NONE
-BusinessImplementation = NOT_AUTHORIZED
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I01
+BusinessImplementation = USER_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 DeploymentAndRelease = NOT_AUTHORIZED
 ```
@@ -56,5 +56,5 @@ W1-D00 至 W1-D04 均使用 `gpt-5.6-sol/high` 设计 Gate；W1-D05 使用两个
 修复固定候选 `17dabff23b029e1a6fc7f47155f552ed3f16d775` 已重新通过两个
 独立 `gpt-5.6-sol/high` 阶段并获得用户完整设计批准，实现切片书面规格也已获
 批准。14 张实现卡已经 bootstrap，非业务治理卡 I00 已完成零发现固定候选深审并关闭；
-当前没有 READY 卡，完整证据记录在
+用户已授权持续执行现有卡集，I01 为唯一 `READY` 卡，完整证据记录在
 [`cognitura-wave-1-design-acceptance.md`](cognitura-wave-1-design-acceptance.md)。

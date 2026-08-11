@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I01
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_USER_AUTHORIZATION
+Status = READY
 Gate = W1-IG1 SourceIntakeDomain
 Risk = HIGH
 DependsOn = W1-I00
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = IDEMPOTENT_SAME_WORKSPACE_SAME_DIGEST
 NegativeVerification = DIGEST_IDENTITY_LIFECYCLE_AND_WORKSPACE_CONFLICTS
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer

@@ -19,10 +19,10 @@ W1-DG5 FixedDesignReview = PASS
 Wave1DesignStatus = USER_APPROVED
 ImplementationSlicingStatus = USER_APPROVED
 ImplementationSlicingApprovalDate = 2026-07-30
-ImplementationTaskCardPlanStatus = I00_COMPLETE_AWAITING_I01_AUTHORIZATION
-BusinessImplementation = NOT_AUTHORIZED
-Wave1ImplementationTaskCardSet = BLOCKED_BY_USER_AUTHORIZATION
-ActiveImplementationGovernanceTaskCard = NONE
+ImplementationTaskCardPlanStatus = I01_AUTHORIZED_READY
+BusinessImplementation = USER_AUTHORIZED
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I01
 ImplementationGovernanceReviewedCandidate = 0211679431de535dd4d89a08257b54d8f4e0da82
 ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 DirectFullImplementationStart = NO
@@ -163,5 +163,5 @@ UltraModel = NOT_USED
 采用 14 张中细粒度任务卡方向，并已批准
 [`Wave 1 实现切片设计`](../superpowers/specs/2026-07-30-wave1-implementation-slicing-design.md)。
 任务卡 bootstrap 计划已完成；治理卡 I00 已对固定候选
-`0211679431de535dd4d89a08257b54d8f4e0da82` 取得零发现深审并关闭。I01 仍受独立
-业务授权阻断；正式数据库、Parser/Object Storage Provider、部署和远程推送均未授权。
+`0211679431de535dd4d89a08257b54d8f4e0da82` 取得零发现深审并关闭。用户已授权持续执行
+现有卡集，I01 为唯一 `READY` 卡；正式数据库、Parser/Object Storage Provider、部署和远程推送均未授权。

@@ -14,9 +14,9 @@ KnowledgeLandscape
 ## 当前阶段
 
 ```text
-CurrentStage = WAVE1_IMPLEMENTATION_AWAITING_BUSINESS_AUTHORIZATION
+CurrentStage = WAVE1_IMPLEMENTATION_IN_PROGRESS
 DesignAlignmentStatus = COMPLETE
-DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
+DevelopmentPlanningEntry = AUTHORIZED_FOR_TASK_CARD_EXECUTION
 
 Wave0ExecutionStatus = COMPLETE
 ActiveTaskCard = NONE
@@ -33,7 +33,7 @@ W0G6CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
 Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
-Wave1ImplementationTaskCardSet = BLOCKED_BY_USER_AUTHORIZATION
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
 ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 ModuleDefaultReadingImplementationTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingImplementationTaskCardCount = 9
@@ -58,13 +58,13 @@ HighFidelityVisualValidation = PASS
 HighFidelityUsabilityValidation = PASS
 HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
-ActiveImplementationTaskCard = NONE
+ActiveImplementationTaskCard = W1-I01
 HighFidelityVisualTaskCardSet = COMPLETE
 HighFidelityVisualProjectedEntry = NONE
 ActiveDesignTaskCard = NONE
 W1-I00Creation = COMPLETE
 W1-I00Release = CLOSED
-BusinessImplementation = NOT_AUTHORIZED
+BusinessImplementation = USER_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 DirectFullImplementationStart = NO
@@ -86,7 +86,8 @@ Wave 1 详细设计复审修复候选
 `gpt-5.6-sol/high` 阶段，均为 `P0=0/P1=0/P2=0`，因此 `W1-DG5 = PASS`。
 用户已批准完整书面设计和 14 张中细粒度实现切片书面规格；实现任务卡集已经
 bootstrap；非业务治理卡 I00 已完成固定候选零发现深审并关闭。I00 未创建解析器、
-页面、数据库对象、LLM 调用或其他业务实现；当前没有 READY 卡，I01 仍需另行授权。
+页面、数据库对象、LLM 调用或其他业务实现；用户已授权持续执行现有卡集，
+`W1-I01` 是唯一 `READY` 卡。
 
 Wave 1 implementation 的当前执行投影见
 [工程实现计划](docs/engineering/cognitura-wave-1-implementation-plan.md)，统一验证入口为：
@@ -212,7 +213,8 @@ task-card、Schema、Golden Case、UI、server、web 七阶段并通过，固定
 `W0-G6 FixedCommitReview = PASS`、`Wave1FeatureDevelopmentEntry = GO`。
 该 GO 仅开放后续受控任务卡，不授权直接实现 Wave 1。
 Wave 1 书面详细设计和 14 张中细粒度实现切片规格均已获用户批准，14 张实现卡已
-bootstrap，非业务治理卡 I00 已关闭；当前没有 READY 卡，仍不授权 W1-I01 业务实现。
+bootstrap，非业务治理卡 I00 已关闭；本次用户授权已释放 `W1-I01` 为唯一
+`READY` 业务卡。
 
 首个 `ModuleDefaultReadingState` 已另行规划为 `MDR-I00..MDR-I08` 九张小卡，避免
 覆盖上述 Wave 1 source work。该集合的书面文本和自动串行治理规格已获用户批准；
