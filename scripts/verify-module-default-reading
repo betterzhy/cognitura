@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+
+if [[ "${1:-}" == "--repo-root" ]]; then
+  [[ "$#" -eq 2 ]] || {
+    printf 'Usage: %s [--repo-root <path>]\n' "$0" >&2
+    exit 2
+  }
+  repo_root="$(cd "$2" && pwd -P)"
+elif [[ "$#" -ne 0 ]]; then
+  printf 'Usage: %s [--repo-root <path>]\n' "$0" >&2
+  exit 2
+fi
+
+[[ "$(node --version 2>/dev/null || true)" == "v24.18.0" ]] || {
+  printf 'ModuleDefaultReadingVerification = FAIL\nexpected Node v24.18.0\n' >&2
+  exit 1
+}
+[[ "$(pnpm --version 2>/dev/null || true)" == "11.17.0" ]] || {
+  printf 'ModuleDefaultReadingVerification = FAIL\nexpected pnpm 11.17.0\n' >&2
+  exit 1
+}
+
+pnpm --dir "${repo_root}/web" test
+pnpm --dir "${repo_root}/web" build
+
+printf '%s\n' \
+  "ModuleDefaultReadingVerification = PASS" \
+  "ComponentTests = PASS" \
+  "WebBuild = PASS"

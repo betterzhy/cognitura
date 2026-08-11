@@ -6,6 +6,9 @@ CanonicalProjectName = Cognitura
 Scope = W0-07_TEST_AND_CI
 CIProvider = GITHUB_ACTIONS
 CanonicalVerificationEntry = scripts/verify-wave0
+ModuleDefaultReadingVerificationEntry = scripts/verify-module-default-reading
+WebComponentTestLayer = VITEST_REACT_TESTING_LIBRARY_JSDOM
+WebComponentTestCIStage = INDEPENDENT_BEFORE_WAVE0
 Workflow = .github/workflows/wave0.yml
 ProductionCredentialAccess = FORBIDDEN
 ProductionDatabaseWrite = FORBIDDEN
@@ -87,7 +90,19 @@ CI 和本地总入口必须满足：
 `tests/ci/verify-ci-contract.sh` 对以上静态边界做正例验证，并通过临时正式来源副本
 制造哈希漂移，确认失败会传播到统一入口。临时夹具不得修改 Repository 原件。
 
-## 6. Gate 证据
+## 6. Module 默认阅读组件测试层级
+
+`ModuleDefaultReading` 使用 Vitest、React Testing Library、jest-dom、user-event 与
+jsdom 组成 Web component test 层级。测试只从正式输入或测试内最小 fixture 投影
+可访问 DOM，不访问生产凭据、不连接任何数据库，也不读取 `raw/**`。统一入口
+`scripts/verify-module-default-reading` 先运行该切片全部组件测试，再运行 Web 生产
+构建；任一步非零退出必须直接向本地调用方和 CI 传播。
+
+GitHub Actions 在完整 Wave 0 Gate 前用独立 step 调用该入口。Workflow 不复制
+Vitest 或 Vite 子命令，`tests/ci/verify-ci-contract.sh` 同时验证 step 唯一存在、未
+设置 `continue-on-error`，并用临时失败 package 证明统一入口保留非零退出码。
+
+## 7. Gate 证据
 
 W0-G5 只有在以下证据同时存在时才可改为 `PASS`：
 

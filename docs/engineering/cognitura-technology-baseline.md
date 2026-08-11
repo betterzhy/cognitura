@@ -47,6 +47,11 @@ Wave1FeatureDevelopmentEntry = NO_GO
 | React 构建插件 | `@vitejs/plugin-react` | `6.0.4` |
 | React 类型 | `@types/react` | `19.2.17` |
 | React DOM 类型 | `@types/react-dom` | `19.2.3` |
+| 组件测试运行器 | Vitest | `4.1.10` |
+| React 组件测试 | Testing Library React | `16.3.2` |
+| DOM 语义断言 | Testing Library jest-dom | `7.0.1` |
+| 用户交互驱动 | Testing Library user-event | `14.6.3` |
+| 浏览器 DOM 环境 | jsdom | `30.0.1` |
 
 Node 版本由根 `.node-version` 锁定，pnpm 版本同时由 `web/package.json` 的
 `packageManager` 与 `engines` 锁定。所有直接依赖使用精确版本，不使用
@@ -217,6 +222,10 @@ corepack pnpm --dir web install --frozen-lockfile
 corepack pnpm --dir web build
 scripts/verify-build-baseline
 ```
+
+Module 默认阅读组件测试由 `scripts/verify-module-default-reading` 统一执行。上述五项
+测试工具均为 Web 开发期直接依赖，必须保持精确版本并由同一 lockfile 固定；不得在
+子模块创建第二套测试版本或绕开 jsdom setup。
 
 依赖已进入本地缓存后，还必须可用下列命令复验：
 

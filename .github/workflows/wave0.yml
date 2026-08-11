@@ -63,5 +63,8 @@ jobs:
             web/pnpm-lock.yaml
             tests/contracts/schema/pnpm-lock.yaml
 
+      - name: Verify ModuleDefaultReading slice
+        run: scripts/verify-module-default-reading
+
       - name: Verify the complete Wave 0 baseline
         run: scripts/verify-wave0

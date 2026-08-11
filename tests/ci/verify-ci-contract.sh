@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 workflow="${repo_root}/.github/workflows/wave0.yml"
 unified_verifier="${repo_root}/scripts/verify-wave0"
+module_reading_verifier="${repo_root}/scripts/verify-module-default-reading"
 strategy="${repo_root}/docs/engineering/cognitura-test-strategy.md"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-ci-contract.XXXXXX")"
 
@@ -49,6 +50,8 @@ require_workflow_line() {
 
 [[ -x "${unified_verifier}" ]] ||
   fail "unified Wave 0 verifier is missing or not executable"
+[[ -x "${module_reading_verifier}" ]] ||
+  fail "ModuleDefaultReading verifier is missing or not executable"
 [[ -f "${workflow}" ]] || fail "CI workflow is missing"
 [[ -f "${strategy}" ]] || fail "test strategy is missing"
 
@@ -64,6 +67,7 @@ require_workflow_line ".mvn/wrapper/maven-wrapper.properties"
 require_workflow_line "web/pnpm-lock.yaml"
 require_workflow_line "tests/contracts/schema/pnpm-lock.yaml"
 require_workflow_line "run: scripts/verify-wave0"
+require_workflow_line "run: scripts/verify-module-default-reading"
 
 if grep -Eq 'uses: [^[:space:]]+@(main|master|v?[0-9]+([.][0-9]+){0,2})([[:space:]]|$)' \
   "${workflow}"; then
@@ -94,6 +98,12 @@ fi
 unified_run_count="$(grep -Fc 'run: scripts/verify-wave0' "${workflow}")"
 [[ "${unified_run_count}" == "1" ]] ||
   fail "workflow must invoke the unified verifier exactly once"
+module_reading_run_count="$(grep -Fc 'run: scripts/verify-module-default-reading' "${workflow}")"
+[[ "${module_reading_run_count}" == "1" ]] ||
+  fail "workflow must invoke the ModuleDefaultReading verifier exactly once"
+if grep -Eq 'continue-on-error:[[:space:]]*true' "${workflow}"; then
+  fail "workflow must propagate verification failures"
+fi
 
 for duplicate_command in \
   "verify-source-manifest" \
@@ -113,7 +123,9 @@ for strategy_contract in \
   "ProductionCredentialAccess = FORBIDDEN" \
   "ProductionDatabaseWrite = FORBIDDEN" \
   "RedisLegacyLinkAccess = FORBIDDEN" \
-  "CanonicalVerificationEntry = scripts/verify-wave0"; do
+  "CanonicalVerificationEntry = scripts/verify-wave0" \
+  "ModuleDefaultReadingVerificationEntry = scripts/verify-module-default-reading" \
+  "WebComponentTestCIStage = INDEPENDENT_BEFORE_WAVE0"; do
   grep -Fq "${strategy_contract}" "${strategy}" ||
     fail "test strategy is missing required decision: ${strategy_contract}"
 done
@@ -155,8 +167,28 @@ after_hashes="$(snapshot_formal_inputs)"
 [[ "${after_hashes}" == "${before_hashes}" ]] ||
   fail "formal inputs changed during CI contract validation"
 
+module_failure_fixture="${test_tmp_root}/module-reading-failure"
+mkdir -p "${module_failure_fixture}/web"
+printf '%s\n' \
+  '{' \
+  '  "name": "@cognitura/module-reading-failure-fixture",' \
+  '  "private": true,' \
+  '  "scripts": {' \
+  '    "test": "node -e \\"process.exit(7)\\"",' \
+  '    "build": "node -e \\"process.exit(0)\\""' \
+  '  }' \
+  '}' > "${module_failure_fixture}/web/package.json"
+if module_failure_output="$(
+  "${module_reading_verifier}" --repo-root "${module_failure_fixture}" 2>&1
+)"; then
+  fail "ModuleDefaultReading verifier swallowed a component-test failure"
+fi
+[[ "${module_failure_output}" != *"ModuleDefaultReadingVerification = PASS"* ]] ||
+  fail "failed ModuleDefaultReading verification reported PASS"
+
 printf '%s\n' \
   "CiContractTests = PASS" \
   "WorkflowSafetyContract = PASS" \
+  "ModuleReadingFailurePropagation = PASS" \
   "SourceFailurePropagation = PASS" \
   "FormalInputsUnchanged = PASS"
