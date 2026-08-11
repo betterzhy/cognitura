@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I03
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W1-IG3 DocxSecurity
 Risk = HIGH
 DependsOn = W1-I01
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = SAFE_SYNTHETIC_DOCX_PACKAGE_ACCEPTED
 NegativeVerification = ZIP_XML_LIMIT_AND_EXTERNAL_RELATIONSHIP_REJECTION
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer

@@ -41,7 +41,7 @@ Wave1ImplementationPlan =
 Wave1ImplementationVerification =
   scripts/verify-wave1-implementation
 Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I01
+ActiveTaskCard = W1-I03
 ActiveTaskCardStatus = READY
 ModuleDefaultReadingImplementationTaskCards =
   docs/task-cards/module-default-reading-implementation/README.md
@@ -82,7 +82,7 @@ ImplementationValidation = NOT_RUN
 DevelopmentEntryPrompt =
   docs/engineering/cognitura-development-entry-prompt.md
 ActiveDesignTaskCard = NONE
-ActiveImplementationTaskCard = W1-I01
+ActiveImplementationTaskCard = W1-I03
 BusinessImplementation = USER_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
@@ -200,7 +200,8 @@ W1-D00 治理说明、W1-D01 至 W1-D04 四份来源设计契约和验收记录�
 修复固定候选 `17dabff23b029e1a6fc7f47155f552ed3f16d775` 已通过两个独立
 `gpt-5.6-sol/high` 阶段，`W1-DG5 = PASS`，且完整设计与 14 张中细粒度实现
 切片书面规格均已获用户批准。任务卡 bootstrap 计划已完成；用户已授权持续执行
-现有卡集，`W1-I01` 已作为唯一 `READY` 卡释放。
+现有卡集。`W1-I01` 已完成固定候选零发现深审并关闭，I02 等待独立数据库 Gate，
+`W1-I03` 已作为唯一 `READY` 卡释放。
 
 `ModuleDefaultReadingState` 的首个实现切片另建 `MDR-I00..MDR-I08` 书面卡集，
 不复用或改写上述 source 卡编号与写集。该集合当前为
@@ -239,7 +240,8 @@ HF-D02 已关闭正交状态与恢复边界，HF-D03 已关闭证据输入合同
 固定候选双阶段审查并将专项晋级正式基线；视觉、可用性与实现均未验收，当前没有
 活动设计卡；
 该高保真专项本身未创建或释放 `W1-I00`；后续 bootstrap 已独立完成并关闭 I00。
-当前业务授权只按既定卡集释放 `W1-I01`；正式数据库写入和远程推送仍未授权。
+当前业务授权只按既定卡集串行推进至 `W1-I03`；I02 独立数据库 Gate、正式数据库
+写入和远程推送仍未授权。
 
 ## 9. 高保真视觉基础登记
 

@@ -58,7 +58,7 @@ HighFidelityVisualValidation = PASS
 HighFidelityUsabilityValidation = PASS
 HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
-ActiveImplementationTaskCard = W1-I01
+ActiveImplementationTaskCard = W1-I03
 HighFidelityVisualTaskCardSet = COMPLETE
 HighFidelityVisualProjectedEntry = NONE
 ActiveDesignTaskCard = NONE
@@ -86,8 +86,9 @@ Wave 1 详细设计复审修复候选
 `gpt-5.6-sol/high` 阶段，均为 `P0=0/P1=0/P2=0`，因此 `W1-DG5 = PASS`。
 用户已批准完整书面设计和 14 张中细粒度实现切片书面规格；实现任务卡集已经
 bootstrap；非业务治理卡 I00 已完成固定候选零发现深审并关闭。I00 未创建解析器、
-页面、数据库对象、LLM 调用或其他业务实现；用户已授权持续执行现有卡集，
-`W1-I01` 是唯一 `READY` 卡。
+页面、数据库对象、LLM 调用或其他业务实现；用户已授权持续执行现有卡集。
+`W1-I01` 已对固定候选 `6796079de8c919055ddc6538234254b50630a491`
+完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I03` 是唯一 `READY` 卡。
 
 Wave 1 implementation 的当前执行投影见
 [工程实现计划](docs/engineering/cognitura-wave-1-implementation-plan.md)，统一验证入口为：
@@ -213,8 +214,8 @@ task-card、Schema、Golden Case、UI、server、web 七阶段并通过，固定
 `W0-G6 FixedCommitReview = PASS`、`Wave1FeatureDevelopmentEntry = GO`。
 该 GO 仅开放后续受控任务卡，不授权直接实现 Wave 1。
 Wave 1 书面详细设计和 14 张中细粒度实现切片规格均已获用户批准，14 张实现卡已
-bootstrap，非业务治理卡 I00 已关闭；本次用户授权已释放 `W1-I01` 为唯一
-`READY` 业务卡。
+bootstrap，非业务治理卡 I00 已关闭；I01 已完成固定候选零发现深审并关闭，I02
+保持 `QUEUED` 等待独立数据库 Gate，`W1-I03` 已释放为唯一 `READY` 业务卡。
 
 首个 `ModuleDefaultReadingState` 已另行规划为 `MDR-I00..MDR-I08` 九张小卡，避免
 覆盖上述 Wave 1 source work。该集合的书面文本和自动串行治理规格已获用户批准；

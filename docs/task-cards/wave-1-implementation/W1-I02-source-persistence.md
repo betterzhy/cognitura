@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I02
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_DEPENDENCY
+Status = QUEUED
 Gate = W1-IG2 SourcePersistence
 Risk = HIGH
 DependsOn = W1-I01
