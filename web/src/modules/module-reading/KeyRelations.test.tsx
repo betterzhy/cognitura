@@ -1,65 +1,132 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { RendererInput, RendererRelation } from "./model";
+import type {
+  CognitiveModule,
+  CognitiveRelation,
+  RendererInput,
+  RendererRelation,
+} from "./model";
 import { KeyRelations } from "./KeyRelations";
 
-const relation = (
-  relationId: string,
-  type: RendererRelation["type"],
-  sourceNodeRef: string,
-  targetNodeRef: string,
+const sourceRef = "evidence.mvcc";
+const moduleRef = "module.mvcc-relations";
+
+const canonicalRelations: readonly CognitiveRelation[] = [
+  {
+    relationId: "relation.visibility.depends-version",
+    type: "DEPENDS_ON",
+    sourceRef: "element.visibility",
+    targetRef: "element.version",
+    origin: "SOURCE_EXPLICIT",
+    riskLevel: "LOW",
+    sourceRefs: [sourceRef],
+    gapRefs: [],
+  },
+  {
+    relationId: "relation.visibility.explains-version",
+    type: "EXPLAINS",
+    sourceRef: "element.visibility",
+    targetRef: "element.version",
+    origin: "SOURCE_EXPLICIT",
+    riskLevel: "LOW",
+    sourceRefs: [sourceRef],
+    gapRefs: [],
+  },
+];
+
+const canonicalModule: CognitiveModule = {
+  schemaVersion: "2.0.0",
+  artifactId: moduleRef,
+  revisionId: "rev.module.mvcc-relations.1",
+  publicationState: "PUBLISHED",
+  primaryParent: "theme.storage",
+  title: "MVCC relation fixture",
+  thesis: "Visibility judgment depends on and explains record versions.",
+  role: "CORE",
+  coreQuestions: ["How are visibility and record versions related?"],
+  primaryCognitiveSpine: null,
+  facets: [],
+  knowledgeElements: [
+    {
+      schemaVersion: "2.0.0",
+      artifactId: "element.visibility",
+      revisionId: "rev.element.visibility.1",
+      publicationState: "PUBLISHED",
+      moduleRef,
+      elementType: "MECHANISM",
+      title: "Visibility judgment",
+      content: "Select the newest visible version.",
+      sourceRefs: [sourceRef],
+      relations: canonicalRelations.map((item) => item.relationId),
+    },
+    {
+      schemaVersion: "2.0.0",
+      artifactId: "element.version",
+      revisionId: "rev.element.version.1",
+      publicationState: "PUBLISHED",
+      moduleRef,
+      elementType: "CONCEPT",
+      title: "Record version",
+      content: "A historical record state.",
+      sourceRefs: [sourceRef],
+      relations: canonicalRelations.map((item) => item.relationId),
+    },
+  ],
+  keyTakeaways: [],
+  criticalBoundaries: [],
+  relations: canonicalRelations,
+  sourceRefs: [sourceRef],
+  gaps: [],
+  qualityAssessment: null,
+};
+
+const nodeIdByArtifactRef = new Map([
+  ["element.visibility", "renderer-node.visibility"],
+  ["element.version", "renderer-node.version"],
+]);
+
+const projectRelation = (
+  relation: CognitiveRelation,
+  index: number,
 ): RendererRelation => ({
-  relationId,
-  type,
-  sourceNodeRef,
-  targetNodeRef,
-  artifactRelationRef: `artifact-${relationId}`,
-  sourceRefs: ["evidence.mvcc"],
+  relationId: `renderer-relation.${index + 1}`,
+  type: relation.type,
+  sourceNodeRef: nodeIdByArtifactRef.get(relation.sourceRef)!,
+  targetNodeRef: nodeIdByArtifactRef.get(relation.targetRef)!,
+  artifactRelationRef: relation.relationId,
+  sourceRefs: relation.sourceRefs,
 });
 
 const rendererInputWithTwoRelations: RendererInput = {
   schemaVersion: "2.0.0",
-  moduleRef: "module.mvcc",
+  moduleRef,
   rendererType: "STAGE_CHAIN",
   title: "MVCC visibility stages",
   summary: "Canonical stages for choosing a visible record version.",
   nodes: [
     {
-      nodeId: "renderer-node.version",
-      artifactRef: "module.mvcc",
-      contentPath: "/knowledgeElements/1",
-      label: "Record version",
-      summary: "A historical record state.",
-      groupRef: null,
-      sourceRefs: ["evidence.mvcc"],
-    },
-    {
       nodeId: "renderer-node.visibility",
-      artifactRef: "module.mvcc",
-      contentPath: "/knowledgeElements/0",
+      artifactRef: moduleRef,
+      contentPath: "/knowledgeElements/0/title",
       label: "Visibility judgment",
       summary: "Select the newest visible version.",
       groupRef: null,
-      sourceRefs: ["evidence.mvcc"],
+      sourceRefs: [sourceRef],
+    },
+    {
+      nodeId: "renderer-node.version",
+      artifactRef: moduleRef,
+      contentPath: "/knowledgeElements/1/title",
+      label: "Record version",
+      summary: "A historical record state.",
+      groupRef: null,
+      sourceRefs: [sourceRef],
     },
   ],
   groups: [],
-  relations: [
-    relation(
-      "renderer-relation.visibility-depends-version",
-      "DEPENDS_ON",
-      "renderer-node.visibility",
-      "renderer-node.version",
-    ),
-    relation(
-      "renderer-relation.version-impacts-visibility",
-      "IMPACTS",
-      "renderer-node.version",
-      "renderer-node.visibility",
-    ),
-  ],
-  sourceRefs: ["evidence.mvcc"],
+  relations: canonicalModule.relations.map(projectRelation),
+  sourceRefs: [sourceRef],
   incompleteState: { status: "COMPLETE", gapRefs: [] },
   interactionHints: ["SHOW_SOURCE"],
 };
@@ -71,6 +138,22 @@ describe("KeyRelations", () => {
     const relationList = screen.getByRole("list", { name: "Key relations" });
     const relationItems = within(relationList).getAllByRole("listitem");
     const nodeById = new Map(input.nodes.map((node) => [node.nodeId, node]));
+
+    expect(input.moduleRef).toBe(canonicalModule.artifactId);
+    input.relations.forEach((item) => {
+      const canonical = canonicalModule.relations.find(
+        (relation) => relation.relationId === item.artifactRelationRef,
+      );
+      expect(canonical).toBeDefined();
+      expect(item.type).toBe(canonical?.type);
+      expect(item.sourceNodeRef).toBe(
+        nodeIdByArtifactRef.get(canonical!.sourceRef),
+      );
+      expect(item.targetNodeRef).toBe(
+        nodeIdByArtifactRef.get(canonical!.targetRef),
+      );
+      expect(item.sourceRefs).toBe(canonical?.sourceRefs);
+    });
 
     expect(relationItems).toHaveLength(input.relations.length);
     expect(
@@ -112,12 +195,10 @@ describe("KeyRelations", () => {
     const input: RendererInput = {
       ...rendererInputWithTwoRelations,
       relations: [
-        relation(
-          "renderer-relation.missing-target",
-          "DEPENDS_ON",
-          "renderer-node.visibility",
-          "renderer-node.missing",
-        ),
+        {
+          ...rendererInputWithTwoRelations.relations[0],
+          targetNodeRef: "renderer-node.missing",
+        },
       ],
     };
 
@@ -156,14 +237,10 @@ describe("KeyRelations", () => {
   it("rejects more than three authoritative RendererInput relations", () => {
     const input: RendererInput = {
       ...rendererInputWithTwoRelations,
-      relations: Array.from({ length: 4 }, (_, index) =>
-        relation(
-          `renderer-relation.budget-${index + 1}`,
-          "EXPLAINS",
-          "renderer-node.visibility",
-          "renderer-node.version",
-        ),
-      ),
+      relations: Array.from({ length: 4 }, (_, index) => ({
+        ...rendererInputWithTwoRelations.relations[index % 2],
+        relationId: `renderer-relation.budget-${index + 1}`,
+      })),
     };
 
     expect(() => render(<KeyRelations input={input} />)).toThrow(

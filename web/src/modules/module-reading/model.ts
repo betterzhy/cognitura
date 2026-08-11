@@ -54,6 +54,17 @@ export interface CriticalBoundary {
   readonly sourceRefs: readonly string[];
 }
 
+export interface CognitiveRelation {
+  readonly relationId: string;
+  readonly type: RelationType;
+  readonly sourceRef: string;
+  readonly targetRef: string;
+  readonly origin: "SOURCE_EXPLICIT" | "SOURCE_SYNTHESIZED";
+  readonly riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  readonly sourceRefs: readonly string[];
+  readonly gapRefs: readonly string[];
+}
+
 type CanonicalObject = Readonly<Record<string, unknown>>;
 
 export interface CognitiveModule {
@@ -71,7 +82,7 @@ export interface CognitiveModule {
   readonly knowledgeElements: readonly KnowledgeElement[];
   readonly keyTakeaways: readonly CanonicalObject[];
   readonly criticalBoundaries: readonly CriticalBoundary[];
-  readonly relations: readonly CanonicalObject[];
+  readonly relations: readonly CognitiveRelation[];
   readonly sourceRefs: readonly string[];
   readonly gaps: readonly CanonicalObject[];
   readonly qualityAssessment: CanonicalObject | null;
