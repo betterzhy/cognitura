@@ -336,6 +336,32 @@ printf '%s\n' 'GIT_DIR=.git git push' >> \
   "${i01_assignment_git_push_dir}/W1-I01-source-ingestion-domain.md"
 expect_failure "${i01_assignment_git_push_dir}" "W1-I01: unexpected Git invocation"
 
+i01_conflicting_review_gate_dir="${test_tmp_root}/i01-conflicting-review-gate"
+cp -R "${cards_dir}" "${i01_conflicting_review_gate_dir}"
+printf '%s\n' 'FixedCommitReviewGate = SKIP_REVIEW' >> \
+  "${i01_conflicting_review_gate_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure \
+  "${i01_conflicting_review_gate_dir}" \
+  "W1-I01: FixedCommitReviewGate must occur exactly once"
+
+i01_split_git_token_dir="${test_tmp_root}/i01-split-git-token"
+cp -R "${cards_dir}" "${i01_split_git_token_dir}"
+printf '%s\n' 'g""it push' >> \
+  "${i01_split_git_token_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_split_git_token_dir}" "W1-I01: card body contract digest mismatch"
+
+i01_variable_git_dir="${test_tmp_root}/i01-variable-git"
+cp -R "${cards_dir}" "${i01_variable_git_dir}"
+printf '%s\n' 'GIT_COMMAND=git' '"$GIT_COMMAND" push' >> \
+  "${i01_variable_git_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_variable_git_dir}" "W1-I01: card body contract digest mismatch"
+
+i01_tilde_bash_dir="${test_tmp_root}/i01-tilde-bash"
+cp -R "${cards_dir}" "${i01_tilde_bash_dir}"
+printf '%s\n' '~~~bash' 'g""it push' '~~~' >> \
+  "${i01_tilde_bash_dir}/W1-I01-source-ingestion-domain.md"
+expect_failure "${i01_tilde_bash_dir}" "W1-I01: card body contract digest mismatch"
+
 i01_authorization_block_drift_dir="${test_tmp_root}/i01-authorization-block-drift"
 cp -R "${cards_dir}" "${i01_authorization_block_drift_dir}"
 set_field \

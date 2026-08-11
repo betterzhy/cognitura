@@ -28,6 +28,25 @@ one_field_value() {
   field_value "${file}" "${key}"
 }
 
+sha256_stream() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  else
+    fail "SHA-256 tool is unavailable"
+  fi
+}
+
+normalized_card_digest() {
+  local file="$1"
+  sed -E \
+    -e 's/^Status = .*/Status = __MUTABLE__/' \
+    -e 's/^BusinessImplementationAuthorization = .*/BusinessImplementationAuthorization = __MUTABLE__/' \
+    -e 's/^FormalDatabaseGate = .*/FormalDatabaseGate = __MUTABLE__/' \
+    "${file}" | sha256_stream
+}
+
 cards_dir=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -164,6 +183,7 @@ for filename in "${expected_files[@]}"; do
   expected_positive_verification=""
   expected_negative_verification=""
   expected_commit_message=""
+  expected_card_digest=""
   case "${task_id}" in
     W1-I00)
       expected_gate="W1-IG0 ImplementationGovernance"
@@ -191,6 +211,7 @@ FORMAL_DATABASE_AND_SOURCE_INPUTS'
       expected_positive_verification='VALID_BOOTSTRAP_AND_AUTHORIZATION_TERMINAL'
       expected_negative_verification='CLOSED_SET_STATUS_WRITESET_AND_GATE_MUTATIONS'
       expected_commit_message='build: establish Wave 1 implementation governance'
+      expected_card_digest='ae8e1aa09b6491d4d0dcaf76d01808e173056947c2d91631c725edc46ab52122'
       ;;
     W1-I01)
       expected_gate="W1-IG1 SourceIntakeDomain"
@@ -214,6 +235,7 @@ web/**,raw/**,.idea/**'
       expected_positive_verification='IDEMPOTENT_SAME_WORKSPACE_SAME_DIGEST'
       expected_negative_verification='DIGEST_IDENTITY_LIFECYCLE_AND_WORKSPACE_CONFLICTS'
       expected_commit_message='feat: add source ingestion domain'
+      expected_card_digest='0e71ff6a8ce24d5a523260757717609aae79b48975a25dfa6ae2c4481fb5dc84'
       ;;
     W1-I02)
       expected_gate="W1-IG2 SourcePersistence"
@@ -236,6 +258,7 @@ FORMAL_DATABASE_CONNECTION_OR_WRITE'
       expected_positive_verification='ISOLATED_DATABASE_UNIQUE_AND_ROUND_TRIP'
       expected_negative_verification='CONSTRAINT_MAPPING_AND_FORMAL_DATABASE_ACCESS_REJECTION'
       expected_commit_message='feat: persist source intake records'
+      expected_card_digest='10baa72295a9eed95d3a040d7cfc0e8bc5361536c1e5458d78e41248279dab4b'
       ;;
     W1-I03)
       expected_gate="W1-IG3 DocxSecurity"
@@ -260,6 +283,7 @@ web/**,raw/**,.idea/**'
       expected_positive_verification='SAFE_SYNTHETIC_DOCX_PACKAGE_ACCEPTED'
       expected_negative_verification='ZIP_XML_LIMIT_AND_EXTERNAL_RELATIONSHIP_REJECTION'
       expected_commit_message='feat: enforce DOCX package security'
+      expected_card_digest='e65cebb4847ff7bd7d2757114b4dab41c436ec0d95e1c8d5df8bd3c0df255dd1'
       ;;
     W1-I04)
       expected_gate="W1-IG4 TextListSectionParser"
@@ -283,6 +307,7 @@ web/**,raw/**,.idea/**'
       expected_positive_verification='HEADING_PARAGRAPH_LIST_ORDER_AND_SECTION_PATH_PRESERVED'
       expected_negative_verification='UNSUPPORTED_BLOCK_ORDER_AND_HIERARCHY_DRIFT_REJECTED'
       expected_commit_message='feat: parse DOCX text lists and sections'
+      expected_card_digest='d9c8bbf1d94b03f105f07a5bf7c1343a7cd8c0ed498d5093cc33b270265c943f'
       ;;
     W1-I05)
       expected_gate="W1-IG5 TableFidelity"
@@ -306,6 +331,7 @@ web/**,raw/**,.idea/**'
       expected_positive_verification='TABLE_ROWS_CELLS_MERGES_AND_TEXT_EVIDENCE_PRESERVED'
       expected_negative_verification='CELL_ORDER_MERGE_AND_TEXT_FIDELITY_DRIFT_REJECTED'
       expected_commit_message='feat: preserve DOCX table fidelity'
+      expected_card_digest='de5d405a3af882b14e0fad137908d4d21c29e561fc22f016e72711df2622eda0'
       ;;
     W1-I06)
       expected_gate="W1-IG6 ImageRelationshipProjection"
@@ -329,6 +355,7 @@ EXTERNAL_RELATIONSHIP_TARGET_ACCESS'
       expected_positive_verification='IMAGE_ANCHOR_MEDIA_REF_AND_LITERAL_RELATIONSHIP_PRESERVED'
       expected_negative_verification='MISSING_MEDIA_HASH_AND_EXTERNAL_TARGET_ACCESS_REJECTED'
       expected_commit_message='feat: project DOCX image relationships'
+      expected_card_digest='12b145e28e6d83aaed8ba6dc4e7b790ca3f8f1567772c657fdcdb371c6683f6b'
       ;;
     W1-I07)
       expected_gate="W1-IG7 ProcessingPublication"
@@ -352,6 +379,7 @@ FORMAL_DATABASE_CONNECTION_OR_WRITE'
       expected_positive_verification='FENCED_SINGLE_TRANSACTION_BLOCK_SET_PUBLICATION'
       expected_negative_verification='STALE_LEASE_LATE_RESULT_AND_PARTIAL_WRITE_REJECTED'
       expected_commit_message='feat: fence processing publication'
+      expected_card_digest='e2604c5932aee946cf689cb1bc15d3242c15012c21c836363077ec69134d8644'
       ;;
     W1-I08)
       expected_gate="W1-IG8 StableReferenceReparse"
@@ -375,6 +403,7 @@ ALIAS_RETARGET_OR_CROSS_REVISION_SILENT_REPLACEMENT'
       expected_positive_verification='IMMUTABLE_REFERENCE_ALIAS_AND_REPARSE_LINEAGE_PRESERVED'
       expected_negative_verification='ALIAS_RETARGET_CROSS_REVISION_AND_AMBIGUITY_REJECTED'
       expected_commit_message='feat: preserve source reference lineage'
+      expected_card_digest='0e48f53b80ea16ad11cbd703a7ee11b049304957f7d06a80dafc2fff1808dd6b'
       ;;
     W1-I09)
       expected_gate="W1-IG9 UploadProcessingCommandApi"
@@ -398,6 +427,7 @@ web/**,raw/**,.idea/**'
       expected_positive_verification='AUTHORIZED_UPLOAD_AND_PROCESSING_COMMAND_ACCEPTED'
       expected_negative_verification='WORKSPACE_ENUMERATION_INTERNAL_LEAK_AND_INVALID_COMMAND_REJECTED'
       expected_commit_message='feat: add source processing commands'
+      expected_card_digest='44c830c2bc33e9e142683be68256a7b516fab0d4223edb18efc4b25926c8e8e8'
       ;;
     W1-I10)
       expected_gate="W1-IG10 SourcePreviewQueryApi"
@@ -421,6 +451,7 @@ RENDERER_SUMMARY_OR_SECOND_SOURCE_FACTS'
       expected_positive_verification='EXACT_REVISION_KEYSET_PREVIEW_AND_TYPED_PAYLOAD'
       expected_negative_verification='CURSOR_REVISION_CROSS_WORKSPACE_AND_SECOND_FACT_REJECTED'
       expected_commit_message='feat: query exact source previews'
+      expected_card_digest='a88f1ac7cfa5a4a5749acccc02572361628bbba6f517e416b125558ea13d49b7'
       ;;
     W1-I11)
       expected_gate="W1-IG11 PartialAcceptanceCommandApi"
@@ -443,6 +474,7 @@ web/**,raw/**,.idea/**'
       expected_positive_verification='EXACT_REVISION_DIGEST_ACTOR_AND_IDEMPOTENCY_CONFIRMATION'
       expected_negative_verification='DIGEST_ACTOR_KEY_AND_REPEAT_CONFLICT_REJECTED'
       expected_commit_message='feat: confirm partial source acceptance'
+      expected_card_digest='2d423ab09b54730305e2d160b97830cc9d4bb8fb35f7459f18336d9ddc000d69'
       ;;
     W1-I12)
       expected_gate="W1-IG12 DesktopWebSourcePreview"
@@ -468,6 +500,7 @@ SUMMARY_RENDERER_OR_SOURCE_FACT_REWRITE'
       expected_positive_verification='DESKTOP_UPLOAD_STATUS_PREVIEW_AND_PARTIAL_ACCEPTANCE_FLOW'
       expected_negative_verification='SECOND_FACT_MOBILE_EQUIVALENCE_AND_CROSS_MODULE_WRITE_REJECTED'
       expected_commit_message='feat: add desktop source preview'
+      expected_card_digest='ce5d8c8933ee226e9a020d6569dc806fa3f0df093e28fb49f0ef50a488f0216b'
       ;;
     W1-I13)
       expected_gate="W1-IG13 FixedImplementationReview"
@@ -488,6 +521,7 @@ docs/design/wave-1/README.md'
       expected_positive_verification='FIXED_CANDIDATE_TWO_STAGE_ZERO_FINDING_REVIEW'
       expected_negative_verification='NONZERO_FINDING_SHA_DRIFT_AND_SCOPE_EXPANSION_REJECTED'
       expected_commit_message='docs: record Wave 1 implementation review'
+      expected_card_digest='10b8dea3d10df63c9e94aad78400a1507d0a28ec88654d3149a7ae3807256a0f'
       ;;
   esac
 
@@ -609,6 +643,8 @@ git status --short'
   fi
   [[ "$(printf '%s\n' "${commit_section}" | grep -Fxc "${expected_fixed_review_gate}" || true)" -eq 1 ]] ||
     fail "${task_id}: missing fixed-commit review route"
+  [[ "$(grep -c '^FixedCommitReviewGate = ' "${file}" || true)" -eq 1 ]] ||
+    fail "${task_id}: FixedCommitReviewGate must occur exactly once"
   [[ "$(grep -Ec '(^|[[:space:]/])git([[:space:]]|$)' "${file}" || true)" -eq 5 ]] ||
     fail "${task_id}: unexpected Git invocation"
 
@@ -646,6 +682,8 @@ git status --short'
   done < <(sed -n 's/^WriteSet = //p' "${file}")
   [[ "${production_count}" -le "${production_limit}" ]] ||
     fail "actual production WriteSet exceeds ProductionFileLimit for ${task_id}"
+  [[ "$(normalized_card_digest "${file}")" == "${expected_card_digest}" ]] ||
+    fail "${task_id}: card body contract digest mismatch"
 
   table_row_pattern="^| \`${task_id}\` |"
   table_row="$(grep "${table_row_pattern}" "${index_file}" || true)"
