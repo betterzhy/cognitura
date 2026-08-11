@@ -89,3 +89,71 @@ export interface ModuleClosureProjection {
   readonly knowledgeElements: readonly KnowledgeElement[];
   readonly criticalBoundaries: readonly CriticalBoundary[];
 }
+
+export type RendererType =
+  | "HIERARCHY"
+  | "MATRIX"
+  | "STAGE_CHAIN"
+  | "DECISION_PATH"
+  | "STATE_TRANSITION"
+  | "COMPARISON"
+  | "CAUSAL_CHAIN"
+  | "LAYERED_STRUCTURE"
+  | "STRUCTURED_PANEL";
+
+export type RelationType =
+  | "DEPENDS_ON"
+  | "EXPLAINS"
+  | "CONTRASTS_WITH"
+  | "APPLIES_TO"
+  | "IMPACTS";
+
+export interface RendererNode {
+  readonly nodeId: string;
+  readonly artifactRef: string;
+  readonly contentPath: string;
+  readonly label: string;
+  readonly summary: string;
+  readonly groupRef: string | null;
+  readonly sourceRefs: readonly string[];
+}
+
+export interface RendererGroup {
+  readonly groupId: string;
+  readonly title: string;
+  readonly nodeRefs: readonly string[];
+  readonly collapsed: boolean;
+}
+
+export interface RendererRelation {
+  readonly relationId: string;
+  readonly type: RelationType;
+  readonly sourceNodeRef: string;
+  readonly targetNodeRef: string;
+  readonly artifactRelationRef: string;
+  readonly sourceRefs: readonly string[];
+}
+
+export interface RendererIncompleteState {
+  readonly status: "COMPLETE" | "PARTIAL" | "BLOCKED_BY_SOURCE_GAP";
+  readonly gapRefs: readonly string[];
+}
+
+export type RendererInteractionHint =
+  | "EXPAND_DETAILS"
+  | "SHOW_SOURCE"
+  | "FOLD_GROUP";
+
+export interface RendererInput {
+  readonly schemaVersion: SchemaVersion;
+  readonly moduleRef: string;
+  readonly rendererType: RendererType;
+  readonly title: string;
+  readonly summary: string;
+  readonly nodes: readonly RendererNode[];
+  readonly groups: readonly RendererGroup[];
+  readonly relations: readonly RendererRelation[];
+  readonly sourceRefs: readonly string[];
+  readonly incompleteState: RendererIncompleteState;
+  readonly interactionHints: readonly RendererInteractionHint[];
+}
