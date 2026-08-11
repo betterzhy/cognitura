@@ -211,7 +211,7 @@ FORMAL_DATABASE_AND_SOURCE_INPUTS'
       expected_positive_verification='VALID_BOOTSTRAP_AND_AUTHORIZATION_TERMINAL'
       expected_negative_verification='CLOSED_SET_STATUS_WRITESET_AND_GATE_MUTATIONS'
       expected_commit_message='build: establish Wave 1 implementation governance'
-      expected_card_digest='ae8e1aa09b6491d4d0dcaf76d01808e173056947c2d91631c725edc46ab52122'
+      expected_card_digest='11fc31cdec69e10cb1b25faedf50e8fd1403e3aa7de5a438d0c0b1ccad159e73'
       ;;
     W1-I01)
       expected_gate="W1-IG1 SourceIntakeDomain"
@@ -557,6 +557,43 @@ docs/design/wave-1/README.md'
     fail "ReviewRoute mismatch for ${task_id}"
   [[ "$(field_value "${file}" "RemotePush")" == "NOT_AUTHORIZED" ]] ||
     fail "RemotePush must remain NOT_AUTHORIZED for ${task_id}"
+
+  business_authorization="$(field_value "${file}" "BusinessImplementationAuthorization")"
+  if [[ "${task_id}" == "W1-I00" ]]; then
+    [[ "${business_authorization}" == "NOT_REQUIRED_GOVERNANCE_ONLY" ]] ||
+      fail "BusinessImplementationAuthorization mismatch for ${task_id}"
+  else
+    case "${business_authorization}" in
+      REQUIRED_BEFORE_READY|USER_AUTHORIZED) ;;
+      *) fail "BusinessImplementationAuthorization mismatch for ${task_id}" ;;
+    esac
+    if [[ "${status}" == "READY" || "${status}" == "DONE" ]]; then
+      [[ "${business_authorization}" == "USER_AUTHORIZED" ]] ||
+        fail "${task_id} requires explicit business implementation authorization"
+    fi
+  fi
+
+  formal_database_gate="$(field_value "${file}" "FormalDatabaseGate")"
+  case "${task_id}" in
+    W1-I02)
+      case "${formal_database_gate}" in
+        REQUIRED_BEFORE_READY|PASS) ;;
+        *) fail "FormalDatabaseGate mismatch for ${task_id}" ;;
+      esac
+      if [[ "${status}" == "READY" || "${status}" == "DONE" ]]; then
+        [[ "${formal_database_gate}" == "PASS" ]] ||
+          fail "W1-I02 requires DatabaseGate PASS before READY"
+      fi
+      ;;
+    W1-I07)
+      [[ "${formal_database_gate}" == "REQUIRED_DEPENDENCY_I02_ONLY" ]] ||
+        fail "FormalDatabaseGate mismatch for ${task_id}"
+      ;;
+    *)
+      [[ "${formal_database_gate}" == "NOT_APPLICABLE" ]] ||
+        fail "FormalDatabaseGate mismatch for ${task_id}"
+      ;;
+  esac
 
   execution_steps="$(sed -n '/^## 4\. 执行步骤$/,/^## 5\. 验证命令$/p' "${file}")"
   red_count="$(printf '%s\n' "${execution_steps}" | grep -cE '^[0-9]+\. RED：' || true)"

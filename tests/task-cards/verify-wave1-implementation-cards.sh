@@ -73,6 +73,14 @@ negative_cases=0
 second_ready_dir="${test_tmp_root}/second-ready"
 cp -R "${cards_dir}" "${second_ready_dir}"
 set_field "${second_ready_dir}/W1-I02-source-persistence.md" "Status" "READY"
+set_field \
+  "${second_ready_dir}/W1-I02-source-persistence.md" \
+  "BusinessImplementationAuthorization" \
+  "USER_AUTHORIZED"
+set_field \
+  "${second_ready_dir}/W1-I02-source-persistence.md" \
+  "FormalDatabaseGate" \
+  "PASS"
 set_table_status \
   "${second_ready_dir}/README.md" \
   "W1-I02" \
@@ -361,6 +369,46 @@ cp -R "${cards_dir}" "${i01_tilde_bash_dir}"
 printf '%s\n' '~~~bash' 'g""it push' '~~~' >> \
   "${i01_tilde_bash_dir}/W1-I01-source-ingestion-domain.md"
 expect_failure "${i01_tilde_bash_dir}" "W1-I01: card body contract digest mismatch"
+
+i00_bogus_authorization_dir="${test_tmp_root}/i00-bogus-authorization"
+cp -R "${cards_dir}" "${i00_bogus_authorization_dir}"
+set_field \
+  "${i00_bogus_authorization_dir}/W1-I00-implementation-governance.md" \
+  "BusinessImplementationAuthorization" \
+  "BOGUS_AUTHORIZATION"
+expect_failure \
+  "${i00_bogus_authorization_dir}" \
+  "BusinessImplementationAuthorization mismatch for W1-I00"
+
+i00_bogus_database_gate_dir="${test_tmp_root}/i00-bogus-database-gate"
+cp -R "${cards_dir}" "${i00_bogus_database_gate_dir}"
+set_field \
+  "${i00_bogus_database_gate_dir}/W1-I00-implementation-governance.md" \
+  "FormalDatabaseGate" \
+  "BOGUS_DATABASE_GATE"
+expect_failure \
+  "${i00_bogus_database_gate_dir}" \
+  "FormalDatabaseGate mismatch for W1-I00"
+
+i01_bogus_blocked_authorization_dir="${test_tmp_root}/i01-bogus-blocked-authorization"
+cp -R "${cards_dir}" "${i01_bogus_blocked_authorization_dir}"
+set_field \
+  "${i01_bogus_blocked_authorization_dir}/W1-I01-source-ingestion-domain.md" \
+  "BusinessImplementationAuthorization" \
+  "BOGUS_AUTHORIZATION"
+expect_failure \
+  "${i01_bogus_blocked_authorization_dir}" \
+  "BusinessImplementationAuthorization mismatch for W1-I01"
+
+i02_bogus_blocked_database_gate_dir="${test_tmp_root}/i02-bogus-blocked-database-gate"
+cp -R "${cards_dir}" "${i02_bogus_blocked_database_gate_dir}"
+set_field \
+  "${i02_bogus_blocked_database_gate_dir}/W1-I02-source-persistence.md" \
+  "FormalDatabaseGate" \
+  "BOGUS_DATABASE_GATE"
+expect_failure \
+  "${i02_bogus_blocked_database_gate_dir}" \
+  "FormalDatabaseGate mismatch for W1-I02"
 
 i01_authorization_block_drift_dir="${test_tmp_root}/i01-authorization-block-drift"
 cp -R "${cards_dir}" "${i01_authorization_block_drift_dir}"
