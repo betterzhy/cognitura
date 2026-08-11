@@ -85,7 +85,9 @@ CI 和本地总入口必须满足：
 - Redis 原件中的遗留 `file:///` 目标只按归档结构验证，不跟随、不读取；
 - 不配置正式数据库、生产对象存储、发布 token 或云厂商凭据；
 - Renderer、Schema 与 Golden Case 校验只读取正式资产和临时夹具；
-- Workflow 不维护第二套验证命令，唯一执行命令为 `scripts/verify-wave0`。
+- Workflow 不复制 Wave 0 的内部阶段命令；`scripts/verify-wave0` 仍是 Wave 0 唯一
+  聚合入口。获准的独立 `scripts/verify-module-default-reading` 是切片 Gate，不是
+  Wave 0 内部命令的第二份实现。
 
 `tests/ci/verify-ci-contract.sh` 对以上静态边界做正例验证，并通过临时正式来源副本
 制造哈希漂移，确认失败会传播到统一入口。临时夹具不得修改 Repository 原件。
