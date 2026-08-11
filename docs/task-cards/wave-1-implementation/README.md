@@ -5,21 +5,23 @@ CanonicalProjectName = Cognitura
 TaskCardSet = WAVE1_IMPLEMENTATION
 TaskCardIDs = W1-I00,W1-I01,W1-I02,W1-I03,W1-I04,W1-I05,W1-I06,W1-I07,W1-I08,W1-I09,W1-I10,W1-I11,W1-I12,W1-I13
 TaskCardCount = 14
-ActiveTaskCard = W1-I00
-TaskCardSetStatus = READY_FOR_EXECUTION
+ActiveTaskCard = NONE
+TaskCardSetStatus = BLOCKED_BY_USER_AUTHORIZATION
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
+ImplementationGovernanceReviewedCandidate = 0211679431de535dd4d89a08257b54d8f4e0da82
+ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 ```
 
-本集合落实已批准的 Wave 1 来源接入实现切片规格。bootstrap 只创建书面卡集并释放
-治理卡 I00；I00 完成前不写业务代码，I00 完成后仍须用户另行明确授权 I01。
+本集合落实已批准的 Wave 1 来源接入实现切片规格。bootstrap 已创建书面卡集并完成
+治理卡 I00；当前没有 READY 卡，仍须用户另行明确授权 I01。
 
 ## 1. 任务卡清单
 
 | ID | 任务卡 | 状态 | 依赖 | Gate | 风险 |
 |---|---|---|---|---|---|
-| `W1-I00` | [实现治理](W1-I00-implementation-governance.md) | `READY` | `NONE` | `W1-IG0` | `HIGH` |
+| `W1-I00` | [实现治理](W1-I00-implementation-governance.md) | `DONE` | `NONE` | `W1-IG0` | `HIGH` |
 | `W1-I01` | [来源领域内核](W1-I01-source-ingestion-domain.md) | `BLOCKED_BY_USER_AUTHORIZATION` | `W1-I00` | `W1-IG1` | `HIGH` |
 | `W1-I02` | [来源持久化](W1-I02-source-persistence.md) | `BLOCKED_BY_DEPENDENCY` | `W1-I01` | `W1-IG2` | `HIGH` |
 | `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `BLOCKED_BY_DEPENDENCY` | `W1-I01` | `W1-IG3` | `HIGH` |

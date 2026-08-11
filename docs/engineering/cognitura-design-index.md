@@ -3,7 +3,7 @@
 ```text
 CanonicalProjectName = Cognitura
 RepositoryName = cognitura
-CurrentStage = WAVE1_IMPLEMENTATION_GOVERNANCE_READY
+CurrentStage = WAVE1_IMPLEMENTATION_AWAITING_BUSINESS_AUTHORIZATION
 DesignAlignmentStatus = COMPLETE
 DevelopmentPlanningEntry = READY_FOR_USER_AUTHORIZATION
 CurrentDesignBaseline = Cognitura-Overall-Design-1.2
@@ -40,9 +40,9 @@ Wave1ImplementationPlan =
   docs/engineering/cognitura-wave-1-implementation-plan.md
 Wave1ImplementationVerification =
   scripts/verify-wave1-implementation
-Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I00
-ActiveTaskCardStatus = READY
+Wave1ImplementationTaskCardSet = BLOCKED_BY_USER_AUTHORIZATION
+ActiveTaskCard = NONE
+ActiveTaskCardStatus = NONE
 ModuleDefaultReadingImplementationTaskCards =
   docs/task-cards/module-default-reading-implementation/README.md
 ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
@@ -238,7 +238,8 @@ W1-D00 治理说明、W1-D01 至 W1-D04 四份来源设计契约和验收记录�
 HF-D02 已关闭正交状态与恢复边界，HF-D03 已关闭证据输入合同，HF-D04 已完成
 固定候选双阶段审查并将专项晋级正式基线；视觉、可用性与实现均未验收，当前没有
 活动设计卡；
-本分支不创建或释放 `W1-I00`，业务实现、正式数据库写入和远程推送均未授权。
+该高保真专项本身未创建或释放 `W1-I00`；后续 bootstrap 已独立完成并关闭 I00，
+业务实现、正式数据库写入和远程推送仍未授权。
 
 ## 9. 高保真视觉基础登记
 

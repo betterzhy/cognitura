@@ -6,21 +6,23 @@ PlanKind = EXECUTION_PROJECTION
 FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
-TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I00
+TaskCardSetStatus = BLOCKED_BY_USER_AUTHORIZATION
+ActiveTaskCard = NONE
 BusinessImplementation = NOT_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
+ImplementationGovernanceReviewedCandidate = 0211679431de535dd4d89a08257b54d8f4e0da82
+ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 ```
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
-Schema 基线。当前只执行非业务治理卡 I00；I00 完成后必须停在 I01 用户授权 Gate。
+Schema 基线。非业务治理卡 I00 已关闭；当前停在 I01 用户授权 Gate，没有 READY 卡。
 
 ## 1. 实现卡
 
 | 卡片 | Owner / 风险面 | 依赖 | 当前状态 |
 |---|---|---|---|
-| `W1-I00` | Task-card governance | `NONE` | `READY` |
+| `W1-I00` | Task-card governance | `NONE` | `DONE` |
 | `W1-I01` | Source domain | `I00` | `BLOCKED_BY_USER_AUTHORIZATION` |
 | `W1-I02` | Source persistence | `I01` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I03` | DOCX security | `I01` | `BLOCKED_BY_DEPENDENCY` |
@@ -85,3 +87,17 @@ Wave1ImplementationTaskCardValidation
 - Wave 0、Wave 1 design 与统一入口全部 PASS。
 - 固定 I00 候选取得新的 `deep_reviewer` 零发现 GO。
 - 关闭后 `ActiveTaskCard = NONE`、I01 保持 `BLOCKED_BY_USER_AUTHORIZATION`。
+
+## 6. I00 关闭收据
+
+```text
+W1-I00 = DONE
+ReviewedCandidate = 0211679431de535dd4d89a08257b54d8f4e0da82
+GeneralReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+ActiveTaskCard = NONE
+NextTaskCard = W1-I01
+NextTaskCardStatus = BLOCKED_BY_USER_AUTHORIZATION
+```

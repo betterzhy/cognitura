@@ -9,15 +9,15 @@ ActiveTaskCard = NONE
 TaskCardSetStatus = COMPLETE
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
-Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
-ActiveImplementationGovernanceTaskCard = W1-I00
+Wave1ImplementationTaskCardSet = BLOCKED_BY_USER_AUTHORIZATION
+ActiveImplementationGovernanceTaskCard = NONE
 BusinessImplementation = NOT_AUTHORIZED
 ```
 
 本集合只完成 Wave 1 书面详细设计、设计验证和固定候选复核。复审修复候选已
 通过两个独立 `gpt-5.6-sol/high` 阶段，六张设计卡均已完成且完整设计已获用户
-批准，实现切片书面规格也已获用户批准。14 张实现卡已 bootstrap，当前只执行
-非业务治理卡 I00，不授权 W1-I01 业务代码。
+批准，实现切片书面规格也已获用户批准。14 张实现卡已 bootstrap，非业务治理卡
+I00 已关闭；当前没有 READY 卡，不授权 W1-I01 业务代码。
 
 ## 1. 任务卡清单
 
