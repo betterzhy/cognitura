@@ -18,6 +18,16 @@ field_value() {
   sed -n "s/^${key} = //p" "${file}"
 }
 
+one_field_value() {
+  local file="$1"
+  local key="$2"
+  local label="$3"
+  local count
+  count="$(grep -c "^${key} = " "${file}" || true)"
+  [[ "${count}" -eq 1 ]] || fail "${label}: ${key} must occur exactly once"
+  field_value "${file}" "${key}"
+}
+
 cards_dir=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -61,6 +71,12 @@ expected_files=(
   fail "README.md: TaskCardIDs mismatch"
 [[ "$(field_value "${index_file}" "TaskCardCount")" == "14" ]] ||
   fail "README.md: TaskCardCount must be 14"
+[[ "$(one_field_value "${index_file}" "BusinessImplementation" "README.md")" == "NOT_AUTHORIZED" ]] ||
+  fail "README.md: BusinessImplementation must remain NOT_AUTHORIZED during I00"
+[[ "$(one_field_value "${index_file}" "FormalDatabaseWrite" "README.md")" == "NOT_AUTHORIZED" ]] ||
+  fail "README.md: FormalDatabaseWrite must remain NOT_AUTHORIZED"
+[[ "$(one_field_value "${index_file}" "RemotePush" "README.md")" == "NOT_AUTHORIZED" ]] ||
+  fail "README.md: RemotePush must remain NOT_AUTHORIZED"
 
 for filename in "${expected_files[@]}"; do
   [[ -f "${cards_dir}/${filename}" ]] || fail "missing task card: ${filename}"
@@ -74,6 +90,284 @@ shopt -u nullglob
 
 task_set_status="$(field_value "${index_file}" "TaskCardSetStatus")"
 active_task_card="$(field_value "${index_file}" "ActiveTaskCard")"
+required_fields=(
+  TaskCardID
+  CardKind
+  Status
+  Gate
+  Risk
+  DependsOn
+  PrimaryBoundary
+  ProductionFileLimit
+  ProductionWriteSetException
+  BusinessImplementationAuthorization
+  FormalDatabaseGate
+  RemotePush
+  ReviewRoute
+)
+required_sections=(
+  "## 1. 目标"
+  "## 2. 前置条件与输入"
+  "## 3. 写集"
+  "## 4. 执行步骤"
+  "## 5. 验证命令"
+  "## 6. Gate 与完成定义"
+  "## 7. 提交与审查"
+)
+card_statuses=()
+ready_count=0
+ready_card="NONE"
+
+status_for_id() {
+  local requested_id="$1"
+  local requested_index="${requested_id#W1-I}"
+  requested_index="$((10#${requested_index}))"
+  printf '%s\n' "${card_statuses[${requested_index}]}"
+}
+
+card_index=0
+for filename in "${expected_files[@]}"; do
+  file="${cards_dir}/${filename}"
+  expected_id="$(printf 'W1-I%02d' "${card_index}")"
+  for field in "${required_fields[@]}"; do
+    one_field_value "${file}" "${field}" "${filename}" >/dev/null
+  done
+  for section in "${required_sections[@]}"; do
+    grep -Fqx "${section}" "${file}" || fail "${filename}: missing section ${section}"
+  done
+
+  task_id="$(field_value "${file}" "TaskCardID")"
+  [[ "${task_id}" == "${expected_id}" ]] || fail "TaskCardID mismatch for ${filename}"
+  status="$(field_value "${file}" "Status")"
+  case "${status}" in
+    READY|DONE|BLOCKED_BY_DEPENDENCY|BLOCKED_BY_USER_AUTHORIZATION|QUEUED) ;;
+    *) fail "unsupported Status for ${task_id}: ${status}" ;;
+  esac
+  card_statuses[${card_index}]="${status}"
+  if [[ "${status}" == "READY" ]]; then
+    ready_count=$((ready_count + 1))
+    ready_card="${task_id}"
+  fi
+
+  expected_gate=""
+  expected_risk="HIGH"
+  expected_dependency=""
+  expected_boundary=""
+  expected_kind="IMPLEMENTATION"
+  expected_route="deep_reviewer"
+  allowed_runtime_root=""
+  case "${task_id}" in
+    W1-I00)
+      expected_gate="W1-IG0 ImplementationGovernance"
+      expected_dependency="NONE"
+      expected_boundary="TASK_CARD_GOVERNANCE"
+      expected_kind="GOVERNANCE"
+      ;;
+    W1-I01)
+      expected_gate="W1-IG1 SourceIntakeDomain"
+      expected_dependency="W1-I00"
+      expected_boundary="SOURCE_DOMAIN"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/domain/"
+      ;;
+    W1-I02)
+      expected_gate="W1-IG2 SourcePersistence"
+      expected_dependency="W1-I01"
+      expected_boundary="SOURCE_PERSISTENCE"
+      allowed_runtime_root="SOURCE_PERSISTENCE"
+      ;;
+    W1-I03)
+      expected_gate="W1-IG3 DocxSecurity"
+      expected_dependency="W1-I01"
+      expected_boundary="DOCX_SECURITY"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/docx/security/"
+      ;;
+    W1-I04)
+      expected_gate="W1-IG4 TextListSectionParser"
+      expected_dependency="W1-I03"
+      expected_boundary="DOCX_PARSER"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/docx/text/"
+      ;;
+    W1-I05)
+      expected_gate="W1-IG5 TableFidelity"
+      expected_dependency="W1-I04"
+      expected_boundary="DOCX_TABLE_PARSER"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/docx/table/"
+      ;;
+    W1-I06)
+      expected_gate="W1-IG6 ImageRelationshipProjection"
+      expected_dependency="W1-I04,W1-I05"
+      expected_boundary="DOCX_IMAGE_PARSER"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/docx/image/"
+      ;;
+    W1-I07)
+      expected_gate="W1-IG7 ProcessingPublication"
+      expected_dependency="W1-I02,W1-I04,W1-I05,W1-I06"
+      expected_boundary="SOURCE_APPLICATION"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/application/processing/"
+      ;;
+    W1-I08)
+      expected_gate="W1-IG8 StableReferenceReparse"
+      expected_dependency="W1-I07"
+      expected_boundary="SOURCE_REFERENCE"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/reference/"
+      ;;
+    W1-I09)
+      expected_gate="W1-IG9 UploadProcessingCommandApi"
+      expected_dependency="W1-I07"
+      expected_boundary="SOURCE_HTTP_COMMAND"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/api/command/"
+      ;;
+    W1-I10)
+      expected_gate="W1-IG10 SourcePreviewQueryApi"
+      expected_dependency="W1-I08,W1-I09"
+      expected_boundary="SOURCE_HTTP_QUERY"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/api/query/"
+      ;;
+    W1-I11)
+      expected_gate="W1-IG11 PartialAcceptanceCommandApi"
+      expected_dependency="W1-I10"
+      expected_boundary="SOURCE_HTTP_COMMAND"
+      allowed_runtime_root="server/src/main/java/io/cognitura/source/api/acceptance/"
+      ;;
+    W1-I12)
+      expected_gate="W1-IG12 DesktopWebSourcePreview"
+      expected_dependency="W1-I10,W1-I11"
+      expected_boundary="WEB_DOCUMENT_INGESTION"
+      expected_risk="MEDIUM"
+      allowed_runtime_root="web/src/modules/document-ingestion/"
+      ;;
+    W1-I13)
+      expected_gate="W1-IG13 FixedImplementationReview"
+      expected_dependency="W1-I00,W1-I01,W1-I02,W1-I03,W1-I04,W1-I05,W1-I06,W1-I07,W1-I08,W1-I09,W1-I10,W1-I11,W1-I12"
+      expected_boundary="WAVE1_IMPLEMENTATION_GATE"
+      expected_kind="FIXED_CANDIDATE_REVIEW"
+      expected_route="DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER"
+      ;;
+  esac
+
+  [[ "$(field_value "${file}" "CardKind")" == "${expected_kind}" ]] ||
+    fail "CardKind mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "Gate")" == "${expected_gate}" ]] ||
+    fail "Gate mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "Risk")" == "${expected_risk}" ]] ||
+    fail "Risk mismatch for ${task_id}"
+  actual_dependency="$(field_value "${file}" "DependsOn")"
+  if [[ "${task_id}" == "W1-I13" && "${actual_dependency}" != "${expected_dependency}" ]]; then
+    fail "W1-I13 must depend on W1-I00 through W1-I12"
+  fi
+  [[ "${actual_dependency}" == "${expected_dependency}" ]] ||
+    fail "dependency mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "PrimaryBoundary")" == "${expected_boundary}" ]] ||
+    fail "PrimaryBoundary mismatch for ${task_id}"
+  if [[ "${task_id}" == "W1-I13" && "$(field_value "${file}" "ReviewRoute")" != "${expected_route}" ]]; then
+    fail "W1-I13 must use DEEP_REVIEWER_THEN_ULTRA_GATEKEEPER"
+  fi
+  [[ "$(field_value "${file}" "ReviewRoute")" == "${expected_route}" ]] ||
+    fail "ReviewRoute mismatch for ${task_id}"
+  [[ "$(field_value "${file}" "RemotePush")" == "NOT_AUTHORIZED" ]] ||
+    fail "RemotePush must remain NOT_AUTHORIZED for ${task_id}"
+
+  production_limit="$(field_value "${file}" "ProductionFileLimit")"
+  production_exception="$(field_value "${file}" "ProductionWriteSetException")"
+  [[ "${production_limit}" =~ ^[0-9]+$ ]] || fail "ProductionFileLimit must be numeric for ${task_id}"
+  if [[ "${production_limit}" -gt 8 && "${production_exception}" == "NONE" ]]; then
+    fail "ProductionFileLimit exceeds 8 without atomic exception"
+  fi
+
+  production_count=0
+  while IFS= read -r write_path; do
+    case "${write_path}" in
+      *.test.ts|*.test.tsx|*.test.js|*.test.jsx) ;;
+      server/src/main/*|web/src/*)
+        production_count=$((production_count + 1))
+        case "${task_id}" in
+          W1-I00) fail "W1-I00 governance card contains forbidden runtime write" ;;
+          W1-I02)
+            case "${write_path}" in
+              server/src/main/java/io/cognitura/source/persistence/*|server/src/main/resources/db/migration/*) ;;
+              *) fail "WriteSet is outside ${task_id} PrimaryBoundary: ${write_path}" ;;
+            esac
+            ;;
+          W1-I13) fail "WriteSet is outside ${task_id} PrimaryBoundary: ${write_path}" ;;
+          *)
+            case "${write_path}" in
+              "${allowed_runtime_root}"*) ;;
+              *) fail "WriteSet is outside ${task_id} PrimaryBoundary: ${write_path}" ;;
+            esac
+            ;;
+        esac
+        ;;
+    esac
+  done < <(sed -n 's/^WriteSet = //p' "${file}")
+  [[ "${production_count}" -le "${production_limit}" ]] ||
+    fail "actual production WriteSet exceeds ProductionFileLimit for ${task_id}"
+
+  grep -Eq 'git[[:space:]]+commit[[:space:]]+--amend|git[[:space:]]+push' "${file}" &&
+    fail "${task_id}: amend or remote push command is forbidden"
+
+  table_row_pattern="^| \`${task_id}\` |"
+  table_row="$(grep "${table_row_pattern}" "${index_file}" || true)"
+  [[ "$(printf '%s\n' "${table_row}" | grep -c . || true)" -eq 1 ]] ||
+    fail "README.md: expected one table row for ${task_id}"
+  [[ "${table_row}" == *"| \`${status}\` |"* ]] ||
+    fail "README.md: status mismatch for ${task_id}"
+
+  card_index=$((card_index + 1))
+done
+
+[[ "${ready_count}" -eq 1 || "${ready_count}" -eq 0 ]] ||
+  fail "task card set must have exactly one READY card"
+
+for card_index in "${!expected_files[@]}"; do
+  task_id="$(printf 'W1-I%02d' "${card_index}")"
+  status="${card_statuses[${card_index}]}"
+  if [[ "${status}" == "READY" || "${status}" == "DONE" ]]; then
+    dependency="$(field_value "${cards_dir}/${expected_files[${card_index}]}" "DependsOn")"
+    if [[ "${dependency}" != "NONE" ]]; then
+      old_ifs="${IFS}"
+      IFS=','
+      for dependency_id in ${dependency}; do
+        [[ "$(status_for_id "${dependency_id}")" == "DONE" ]] ||
+          fail "dependency ${dependency_id} must be DONE before ${task_id} is ${status}"
+      done
+      IFS="${old_ifs}"
+    fi
+  fi
+done
+
+case "${task_set_status}" in
+  READY_FOR_EXECUTION)
+    [[ "${ready_count}" -eq 1 ]] || fail "task card set must have exactly one READY card"
+    [[ "${active_task_card}" == "${ready_card}" ]] ||
+      fail "ActiveTaskCard must match the unique READY card"
+    ;;
+  BLOCKED_BY_USER_AUTHORIZATION)
+    [[ "${ready_count}" -eq 0 ]] || fail "blocked authorization state cannot have a READY card"
+    [[ "${active_task_card}" == "NONE" ]] || fail "blocked authorization state must have no active card"
+    [[ "${card_statuses[0]}" == "DONE" && "${card_statuses[1]}" == "BLOCKED_BY_USER_AUTHORIZATION" ]] ||
+      fail "blocked authorization state requires I00 DONE and I01 blocked"
+    ;;
+  COMPLETE)
+    [[ "${ready_count}" -eq 0 && "${active_task_card}" == "NONE" ]] ||
+      fail "complete state cannot have an active or READY card"
+    for status in "${card_statuses[@]}"; do
+      [[ "${status}" == "DONE" ]] || fail "complete state requires all cards DONE"
+    done
+    ;;
+  *) fail "unsupported TaskCardSetStatus: ${task_set_status}" ;;
+esac
+
+if [[ "${ready_count}" -eq 1 ]]; then
+  ready_index="${ready_card#W1-I}"
+  ready_index="$((10#${ready_index}))"
+  ready_file="${cards_dir}/${expected_files[${ready_index}]}"
+  if [[ "${ready_card}" == "W1-I01" && "$(field_value "${ready_file}" "BusinessImplementationAuthorization")" != "USER_AUTHORIZED" ]]; then
+    fail "W1-I01 requires explicit business implementation authorization"
+  fi
+  if [[ "${ready_card}" == "W1-I02" && "$(field_value "${ready_file}" "FormalDatabaseGate")" != "PASS" ]]; then
+    fail "W1-I02 requires DatabaseGate PASS before READY"
+  fi
+fi
 
 printf '%s\n' \
   "Wave1ImplementationTaskCardValidation = PASS" \
