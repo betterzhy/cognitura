@@ -171,6 +171,13 @@ for state_field in \
   [[ "${canonical_output}" == *"${expected_line}"* ]] ||
     fail "canonical output is missing current ledger value: ${expected_line}"
 done
+canonical_task_set_status="$(state_field_value "${cards_dir}/execution-state.md" "TaskCardSetStatus")"
+canonical_ready_count="0"
+if [[ "${canonical_task_set_status}" == "IN_PROGRESS" ]]; then
+  canonical_ready_count="1"
+fi
+[[ "${canonical_output}" == *"ReadyTaskCardCount = ${canonical_ready_count}"* ]] ||
+  fail "canonical output has the wrong derived ReadyTaskCardCount"
 
 pending_cards_dir="${test_tmp_root}/canonical-pending-governance"
 cp -R "${cards_dir}" "${pending_cards_dir}"
@@ -475,6 +482,8 @@ activation_output="$("${verifier}" --cards-dir "${activation_dir}")" ||
   fail "valid MDR-I00 activation state was rejected"
 [[ "${activation_output}" == *"ActiveImplementationTaskCard = MDR-I00"* ]] ||
   fail "valid activation output did not expose MDR-I00"
+[[ "${activation_output}" == *"ReadyTaskCardCount = 1"* ]] ||
+  fail "valid activation output did not expose exactly one ready card"
 
 missing_set_authorization_dir="${test_tmp_root}/missing-set-authorization"
 cp -R "${activation_dir}" "${missing_set_authorization_dir}"
