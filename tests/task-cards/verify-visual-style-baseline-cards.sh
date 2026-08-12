@@ -789,6 +789,58 @@ assert_contains "${forged_stop_output}" \
 negative_cases=$((negative_cases + 1))
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 
+printf '%s\n' 'forbidden intervening history' > \
+  "${transition_repo_root}/raw/round10-forbidden-intervening.txt"
+git -C "${transition_repo_root}" add raw/round10-forbidden-intervening.txt
+git -C "${transition_repo_root}" commit -qm \
+  "test: insert forbidden commit after VSB activation"
+intervening_forbidden_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "candidate after forbidden intervening commit"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create exact VSB-00 candidate after forbidden commit"
+intervening_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+[[ "$(git -C "${transition_repo_root}" rev-parse "${intervening_candidate_sha}^")" == \
+   "${intervening_forbidden_sha}" ]] ||
+  fail "intervening candidate fixture lost its forbidden direct parent"
+set_field "${transition_state}" "CompletedTaskCards" "VSB-00"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-01"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-01"
+set_field "${transition_state}" "CurrentCandidateSHA" \
+  "${intervening_candidate_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+set_field "${transition_state}" "CurrentReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB00CandidateSHA" \
+  "${intervening_candidate_sha}"
+set_field "${transition_state}" "VSB00GateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "VSB00ReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "VSB-02"
+set_field "${transition_state}" "TransitionSequence" "2"
+set_field "${transition_state}" "TransitionKind" "ADVANCE"
+set_field "${transition_state}" "TransitionBaseSHA" \
+  "${intervening_candidate_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: advance candidate with an unbound parent"
+intervening_receipt_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if intervening_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${intervening_candidate_sha}" \
+    --transition-head "${intervening_receipt_sha}" 2>&1
+)"; then
+  fail "ADVANCE candidate whose parent is not a VSB receipt unexpectedly passed"
+fi
+assert_contains "${intervening_output}" \
+  "candidate parent must be a replayable ledger-only VSB receipt"
+negative_cases=$((negative_cases + 1))
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+
 mkdir -p "${transition_repo_root}/docs/design/visual-style-baseline-fixtures"
 printf '%s\n' 'unauthorized candidate path' > \
   "${transition_repo_root}/docs/design/visual-style-baseline-fixtures/unauthorized.txt"
@@ -1113,6 +1165,92 @@ printf '%s\n' "${candidate_write_sets[3]}" | \
   git -C "${transition_repo_root}" add --pathspec-from-file=-
 git -C "${transition_repo_root}" commit -qm "test: create VSB-03 candidate"
 vsb03_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
+git -C "${transition_repo_root}" switch -q --detach "${after_vsb02_receipt}"
+printf '%s\n' 'forbidden VSB-03 intervening history' > \
+  "${transition_repo_root}/raw/round10-vsb03-forbidden-intervening.txt"
+git -C "${transition_repo_root}" add \
+  raw/round10-vsb03-forbidden-intervening.txt
+git -C "${transition_repo_root}" commit -qm \
+  "test: insert forbidden commit before VSB-03 candidate"
+intervening_vsb03_parent_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+write_exact_candidate_paths "${transition_repo_root}" 3 \
+  "VSB-03 candidate after forbidden intervening commit"
+printf '%s\n' "${candidate_write_sets[3]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create exact VSB-03 candidate after forbidden commit"
+intervening_vsb03_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+[[ "$(git -C "${transition_repo_root}" rev-parse \
+  "${intervening_vsb03_candidate_sha}^")" == \
+   "${intervening_vsb03_parent_sha}" ]] ||
+  fail "intervening VSB-03 fixture lost its forbidden direct parent"
+
+set_field "${transition_state}" "TaskCardSetStatus" "COMPLETE"
+set_field "${transition_state}" "ActiveTaskCard" "NONE"
+set_field "${transition_state}" "ReleasedTaskCard" "NONE"
+set_field "${transition_state}" "CompletedTaskCards" \
+  "VSB-00,VSB-01,VSB-02,VSB-03"
+set_field "${transition_state}" "CurrentCandidateSHA" \
+  "${intervening_vsb03_candidate_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" \
+  "deep_reviewer+ultra_gatekeeper"
+set_field "${transition_state}" "CurrentReviewVerdict" \
+  "FINAL_GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB03CandidateSHA" \
+  "${intervening_vsb03_candidate_sha}"
+set_field "${transition_state}" "VSB03GateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "VSB03DeepReviewVerdict" \
+  "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB03UltraReviewVerdict" \
+  "FINAL_GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "TransitionSequence" "5"
+set_field "${transition_state}" "TransitionKind" "COMPLETE"
+set_field "${transition_state}" "TransitionBaseSHA" \
+  "${intervening_vsb03_candidate_sha}"
+set_field "${transition_state}" "VisualImplementation" "COMPLETE"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: complete candidate with an unbound parent"
+intervening_complete_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if intervening_complete_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${intervening_vsb03_candidate_sha}" \
+    --transition-head "${intervening_complete_sha}" 2>&1
+)"; then
+  fail "COMPLETE candidate whose parent is not a VSB receipt unexpectedly passed"
+fi
+assert_contains "${intervening_complete_output}" \
+  "candidate parent must be a replayable ledger-only VSB receipt"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach \
+  "${intervening_vsb03_candidate_sha}"
+prepare_return_to_owner \
+  "${intervening_vsb03_candidate_sha}" VSB-02 VSB-00,VSB-01 VSB-03 5 \
+  deep_reviewer+ultra_gatekeeper VISUAL_ACCEPTANCE_FAIL
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: cross-card return candidate with an unbound parent"
+intervening_return_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if intervening_return_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${intervening_vsb03_candidate_sha}" \
+    --transition-head "${intervening_return_sha}" 2>&1
+)"; then
+  fail "cross-card RETURN candidate whose parent is not a VSB receipt unexpectedly passed"
+fi
+assert_contains "${intervening_return_output}" \
+  "candidate parent must be a replayable ledger-only VSB receipt"
+negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${receipt_shas[0]}"
 write_exact_candidate_paths "${transition_repo_root}" 1 \
