@@ -11,8 +11,10 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
@@ -69,6 +71,27 @@ class DocxSecurityGateTest {
     }
 
     @Test
+    void returnsOnlyTheValidatedSnapshotAfterTheSourcePathChanges() throws IOException {
+        LinkedHashMap<String, byte[]> originalEntries = requiredEntries();
+        Path packagePath = writeZip("mutable-source.docx", originalEntries);
+        SafeDocxPackage safePackage = new DocxSecurityGate().open(packagePath);
+        LinkedHashMap<String, byte[]> replacementEntries = requiredEntries();
+        String replacementDocument = DOCUMENT.replace("<w:t>safe</w:t>", "<w:t>evil</w:t>");
+        replacementEntries.put(
+                "word/document.xml", replacementDocument.getBytes(StandardCharsets.UTF_8));
+
+        Files.write(packagePath, zipBytes(replacementEntries));
+
+        try (safePackage) {
+            assertThat(new String(
+                            safePackage.readVerifiedEntry("word/document.xml"),
+                            StandardCharsets.UTF_8))
+                    .contains("<w:t>safe</w:t>")
+                    .doesNotContain("<w:t>evil</w:t>");
+        }
+    }
+
+    @Test
     void rejectsTraversalAbsoluteDriveAndBackslashEntryNames() throws IOException {
         for (String unsafeName : new String[] {
                 "../escape.xml", "/absolute.xml", "C:/drive.xml", "word\\escape.xml"
@@ -115,6 +138,17 @@ class DocxSecurityGateTest {
         assertLimitViolation(entryLimited, new DocxPackageLimits(4_096, 64, 134_217_728, 200));
         assertLimitViolation(totalLimited, new DocxPackageLimits(4_096, 300, 400, 200));
         assertLimitViolation(ratioLimited, DocxPackageLimits.defaults());
+    }
+
+    @Test
+    void stopsEnumeratingEntriesAtTheClosedCountLimit() {
+        CountingZipEntryEnumeration entries = new CountingZipEntryEnumeration(10_000);
+
+        assertThatThrownBy(() -> DocxSecurityGate.enumerateWithinEntryCount(entries, 5))
+                .isInstanceOf(DocxSecurityViolation.class)
+                .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
+                        .isEqualTo(DocxSecurityViolation.Rule.ZIP_LIMIT_EXCEEDED));
+        assertThat(entries.nextCount()).isLessThanOrEqualTo(6);
     }
 
     @Test
@@ -230,6 +264,28 @@ class DocxSecurityGateTest {
                     .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
                             .isEqualTo(DocxSecurityViolation.Rule.XML_EXTERNAL_ENTITY));
         }
+    }
+
+    @Test
+    void classifiesUtf16DoctypeAsXmlExternalEntityRejection() throws IOException {
+        String utf16Doctype = """
+                <?xml version="1.0" encoding="UTF-16"?>
+                <!DOCTYPE w:document [<!ENTITY leak SYSTEM "file:///definitely-not-read">]>
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                  <w:body><w:p><w:r><w:t>&leak;</w:t></w:r></w:p></w:body>
+                </w:document>
+                """;
+        Path packagePath = writeZip(
+                "utf16-doctype.docx",
+                entries(
+                        "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                        "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
+                        "word/document.xml", utf16Doctype.getBytes(StandardCharsets.UTF_16)));
+
+        assertThatThrownBy(() -> new DocxSecurityGate().open(packagePath))
+                .isInstanceOf(DocxSecurityViolation.class)
+                .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
+                        .isEqualTo(DocxSecurityViolation.Rule.XML_EXTERNAL_ENTITY));
     }
 
     @Test
@@ -543,6 +599,32 @@ class DocxSecurityGateTest {
             System.arraycopy(bytes, position, target, offset, count);
             position += count;
             return count;
+        }
+    }
+
+    private static final class CountingZipEntryEnumeration implements Enumeration<ZipEntry> {
+        private final int total;
+        private int nextCount;
+
+        private CountingZipEntryEnumeration(int total) {
+            this.total = total;
+        }
+
+        private int nextCount() {
+            return nextCount;
+        }
+
+        @Override
+        public boolean hasMoreElements() {
+            return nextCount < total;
+        }
+
+        @Override
+        public ZipEntry nextElement() {
+            if (!hasMoreElements()) {
+                throw new NoSuchElementException();
+            }
+            return new ZipEntry("synthetic-entry-" + nextCount++);
         }
     }
 }

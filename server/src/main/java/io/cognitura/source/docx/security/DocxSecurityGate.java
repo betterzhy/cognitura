@@ -5,10 +5,11 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -61,11 +62,13 @@ public final class DocxSecurityGate {
         try {
             zipFile = new ZipFile(packagePath.toFile());
             ValidationResult validation = validate(zipFile);
-            return new SafeDocxPackage(
-                    zipFile,
+            SafeDocxPackage safePackage = new SafeDocxPackage(
                     validation.partNames(),
                     validation.relationships(),
-                    limits);
+                    validation.verifiedEntryContents());
+            zipFile.close();
+            zipFile = null;
+            return safePackage;
         } catch (DocxSecurityViolation | SourceDomainException error) {
             closeAfterFailure(zipFile);
             throw error;
@@ -84,15 +87,11 @@ public final class DocxSecurityGate {
     private ValidationResult validate(ZipFile zipFile) throws IOException {
         Set<String> partNames = new LinkedHashSet<>();
         Map<String, Document> relationshipDocuments = new LinkedHashMap<>();
+        Map<String, byte[]> verifiedEntryContents = new LinkedHashMap<>();
         List<ZipEntry> verifiedEntries = new ArrayList<>();
         long declaredTotalBytes = 0;
-        int entryCount = 0;
-
-        for (ZipEntry entry : Collections.list(zipFile.entries())) {
-            entryCount++;
-            if (entryCount > limits.maximumEntryCount()) {
-                throw limitViolation();
-            }
+        for (ZipEntry entry : enumerateWithinEntryCount(
+                zipFile.entries(), limits.maximumEntryCount())) {
             String rawName = entry.getName();
             validateRawEntryName(rawName);
             if (!partNames.add(rawName)) {
@@ -134,6 +133,7 @@ public final class DocxSecurityGate {
             if (content.length != entry.getSize()) {
                 throw limitViolation();
             }
+            verifiedEntryContents.put(entry.getName(), content);
             if (isXmlPart(entry.getName())) {
                 Document document = parseSecureXml(content);
                 if (entry.getName().equals("[Content_Types].xml")) {
@@ -159,7 +159,23 @@ public final class DocxSecurityGate {
         if (!hasMainDocumentRelationship) {
             throw formatInvalid("package relationships do not identify the main document part");
         }
-        return new ValidationResult(partNames, relationships);
+        return new ValidationResult(partNames, relationships, verifiedEntryContents);
+    }
+
+    static List<ZipEntry> enumerateWithinEntryCount(
+            Enumeration<? extends ZipEntry> enumeration, int maximumEntryCount) {
+        Objects.requireNonNull(enumeration, "enumeration");
+        if (maximumEntryCount <= 0) {
+            throw new IllegalArgumentException("DOCX_ENTRY_COUNT_LIMIT_MUST_BE_POSITIVE");
+        }
+        List<ZipEntry> entries = new ArrayList<>(Math.min(maximumEntryCount, 4_096));
+        while (enumeration.hasMoreElements()) {
+            if (entries.size() >= maximumEntryCount) {
+                throw limitViolation();
+            }
+            entries.add(enumeration.nextElement());
+        }
+        return entries;
     }
 
     private byte[] readBounded(ZipFile zipFile, ZipEntry entry, long remainingTotalBytes)
@@ -195,8 +211,8 @@ public final class DocxSecurityGate {
     }
 
     private static Document parseSecureXml(byte[] content) {
-        String ascii = new String(content, StandardCharsets.ISO_8859_1).toUpperCase(Locale.ROOT);
-        if (ascii.contains("<!DOCTYPE") || ascii.contains("<!ENTITY")) {
+        String inspectionText = xmlInspectionText(content).toUpperCase(Locale.ROOT);
+        if (inspectionText.contains("<!DOCTYPE") || inspectionText.contains("<!ENTITY")) {
             throw new DocxSecurityViolation(
                     DocxSecurityViolation.Rule.XML_EXTERNAL_ENTITY,
                     "DOCX XML must not declare a DOCTYPE or entity");
@@ -237,6 +253,38 @@ public final class DocxSecurityGate {
         } catch (SAXException | IOException error) {
             throw formatInvalid("DOCX XML part is malformed");
         }
+    }
+
+    private static String xmlInspectionText(byte[] content) {
+        Charset charset = StandardCharsets.ISO_8859_1;
+        if (startsWith(content, 0x00, 0x00, 0xfe, 0xff)
+                || startsWith(content, 0x00, 0x00, 0x00, 0x3c)) {
+            charset = Charset.forName("UTF-32BE");
+        } else if (startsWith(content, 0xff, 0xfe, 0x00, 0x00)
+                || startsWith(content, 0x3c, 0x00, 0x00, 0x00)) {
+            charset = Charset.forName("UTF-32LE");
+        } else if (startsWith(content, 0xfe, 0xff)
+                || startsWith(content, 0x00, 0x3c, 0x00, 0x3f)) {
+            charset = StandardCharsets.UTF_16BE;
+        } else if (startsWith(content, 0xff, 0xfe)
+                || startsWith(content, 0x3c, 0x00, 0x3f, 0x00)) {
+            charset = StandardCharsets.UTF_16LE;
+        } else if (startsWith(content, 0x4c, 0x6f, 0xa7, 0x94)) {
+            charset = Charset.forName("Cp037");
+        }
+        return new String(content, charset);
+    }
+
+    private static boolean startsWith(byte[] content, int... prefix) {
+        if (content.length < prefix.length) {
+            return false;
+        }
+        for (int index = 0; index < prefix.length; index++) {
+            if ((content[index] & 0xff) != prefix[index]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     static void requireKnownEntrySizes(long declaredSize, long compressedSize) {
@@ -394,11 +442,13 @@ public final class DocxSecurityGate {
 
     private record ValidationResult(
             Set<String> partNames,
-            List<DocxRelationshipClassifier.RelationshipMetadata> relationships) {
+            List<DocxRelationshipClassifier.RelationshipMetadata> relationships,
+            Map<String, byte[]> verifiedEntryContents) {
 
         private ValidationResult {
             partNames = Set.copyOf(partNames);
             relationships = List.copyOf(relationships);
+            verifiedEntryContents = Map.copyOf(verifiedEntryContents);
         }
     }
 }

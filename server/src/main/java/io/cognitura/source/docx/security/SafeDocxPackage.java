@@ -1,32 +1,28 @@
 package io.cognitura.source.docx.security;
 
-import io.cognitura.source.domain.SourceDomainException;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
 public final class SafeDocxPackage implements AutoCloseable {
 
-    private final ZipFile zipFile;
     private final Set<String> partNames;
     private final List<DocxRelationshipClassifier.RelationshipMetadata> relationships;
-    private final DocxPackageLimits limits;
+    private Map<String, byte[]> verifiedEntryContents;
     private boolean closed;
 
     SafeDocxPackage(
-            ZipFile zipFile,
             Set<String> partNames,
             List<DocxRelationshipClassifier.RelationshipMetadata> relationships,
-            DocxPackageLimits limits) {
-        this.zipFile = Objects.requireNonNull(zipFile, "zipFile");
+            Map<String, byte[]> verifiedEntryContents) {
         this.partNames = Set.copyOf(partNames);
         this.relationships = List.copyOf(relationships);
-        this.limits = Objects.requireNonNull(limits, "limits");
+        this.verifiedEntryContents = Objects.requireNonNull(
+                verifiedEntryContents, "verifiedEntryContents");
+        if (!this.partNames.containsAll(this.verifiedEntryContents.keySet())) {
+            throw new IllegalArgumentException("VERIFIED_ENTRY_CONTENT_OUTSIDE_PART_NAMES");
+        }
     }
 
     public Set<String> partNames() {
@@ -44,17 +40,11 @@ public final class SafeDocxPackage implements AutoCloseable {
         if (!partNames.contains(partName)) {
             throw new IllegalArgumentException("DOCX_PART_IS_NOT_VERIFIED");
         }
-        ZipEntry entry = zipFile.getEntry(partName);
-        if (entry == null || entry.isDirectory()) {
+        byte[] content = verifiedEntryContents.get(partName);
+        if (content == null) {
             throw new IllegalArgumentException("DOCX_VERIFIED_FILE_PART_REQUIRED");
         }
-        try (InputStream input = zipFile.getInputStream(entry)) {
-            return readBounded(input, limits.maximumEntryBytes());
-        } catch (IOException error) {
-            throw new SourceDomainException(
-                    SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
-                    "verified DOCX part could not be read");
-        }
+        return content.clone();
     }
 
     public byte[] readRelationshipTarget(
@@ -78,35 +68,12 @@ public final class SafeDocxPackage implements AutoCloseable {
             return;
         }
         closed = true;
-        try {
-            zipFile.close();
-        } catch (IOException error) {
-            throw new SourceDomainException(
-                    SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
-                    "verified DOCX package could not be closed");
-        }
+        verifiedEntryContents = Map.of();
     }
 
     private void requireOpen() {
         if (closed) {
             throw new IllegalStateException("SAFE_DOCX_PACKAGE_CLOSED");
         }
-    }
-
-    private static byte[] readBounded(InputStream input, long maximumBytes) throws IOException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8_192];
-        long total = 0;
-        int count;
-        while ((count = input.read(buffer)) >= 0) {
-            total += count;
-            if (total > maximumBytes) {
-                throw new DocxSecurityViolation(
-                        DocxSecurityViolation.Rule.ZIP_LIMIT_EXCEEDED,
-                        "actual uncompressed DOCX part exceeds its verified limit");
-            }
-            output.write(buffer, 0, count);
-        }
-        return output.toByteArray();
     }
 }
