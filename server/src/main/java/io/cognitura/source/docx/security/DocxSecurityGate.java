@@ -9,8 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +24,7 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
@@ -31,9 +32,16 @@ import org.xml.sax.SAXParseException;
 public final class DocxSecurityGate {
 
     private static final Set<String> REQUIRED_PARTS = Set.of(
-            "word/document.xml",
-            "word/styles.xml",
-            "word/_rels/document.xml.rels");
+            "[Content_Types].xml",
+            "_rels/.rels",
+            "word/document.xml");
+    private static final String CONTENT_TYPES_NAMESPACE =
+            "http://schemas.openxmlformats.org/package/2006/content-types";
+    private static final String MAIN_DOCUMENT_CONTENT_TYPE =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
+    private static final String XINCLUDE_NAMESPACE = "http://www.w3.org/2001/XInclude";
+    private static final String XML_SCHEMA_INSTANCE_NAMESPACE =
+            "http://www.w3.org/2001/XMLSchema-instance";
 
     private final DocxPackageLimits limits;
     private final DocxRelationshipClassifier relationshipClassifier;
@@ -75,7 +83,7 @@ public final class DocxSecurityGate {
 
     private ValidationResult validate(ZipFile zipFile) throws IOException {
         Set<String> partNames = new LinkedHashSet<>();
-        Map<String, Document> relationshipDocuments = new HashMap<>();
+        Map<String, Document> relationshipDocuments = new LinkedHashMap<>();
         List<ZipEntry> verifiedEntries = new ArrayList<>();
         long declaredTotalBytes = 0;
         int entryCount = 0;
@@ -99,11 +107,7 @@ public final class DocxSecurityGate {
             rejectActiveContent(rawName);
             long declaredSize = entry.getSize();
             long compressedSize = entry.getCompressedSize();
-            if (declaredSize < 0 || compressedSize < 0) {
-                throw new DocxSecurityViolation(
-                        DocxSecurityViolation.Rule.UNKNOWN_ZIP_ENTRY_SIZE,
-                        "DOCX entry size metadata must be known before reading");
-            }
+            requireKnownEntrySizes(declaredSize, compressedSize);
             if (declaredSize > limits.maximumEntryBytes()) {
                 throw limitViolation();
             }
@@ -124,7 +128,8 @@ public final class DocxSecurityGate {
 
         long actualTotalBytes = 0;
         for (ZipEntry entry : verifiedEntries) {
-            byte[] content = readBounded(zipFile, entry);
+            byte[] content = readBounded(
+                    zipFile, entry, limits.maximumTotalBytes() - actualTotalBytes);
             actualTotalBytes = addWithinTotalLimit(actualTotalBytes, content.length);
             if (content.length != entry.getSize()) {
                 throw limitViolation();
@@ -132,7 +137,8 @@ public final class DocxSecurityGate {
             if (isXmlPart(entry.getName())) {
                 Document document = parseSecureXml(content);
                 if (entry.getName().equals("[Content_Types].xml")) {
-                    rejectMacroContentType(content);
+                    rejectActiveContentTypes(document);
+                    validateContentTypes(document);
                 }
                 if (entry.getName().endsWith(".rels")) {
                     relationshipDocuments.put(entry.getName(), document);
@@ -145,23 +151,46 @@ public final class DocxSecurityGate {
             relationships.addAll(relationshipClassifier.classify(
                     relationshipDocument.getKey(), relationshipDocument.getValue(), partNames));
         }
+        boolean hasMainDocumentRelationship = relationships.stream().anyMatch(relationship ->
+                relationship.sourcePart().isEmpty()
+                        && relationship.mode() == DocxRelationshipClassifier.Mode.INTERNAL
+                        && relationship.relationshipType().endsWith("/officeDocument")
+                        && relationship.internalTargetPart().orElseThrow().equals("word/document.xml"));
+        if (!hasMainDocumentRelationship) {
+            throw formatInvalid("package relationships do not identify the main document part");
+        }
         return new ValidationResult(partNames, relationships);
     }
 
-    private byte[] readBounded(ZipFile zipFile, ZipEntry entry) throws IOException {
+    private byte[] readBounded(ZipFile zipFile, ZipEntry entry, long remainingTotalBytes)
+            throws IOException {
         try (InputStream input = zipFile.getInputStream(entry)) {
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            byte[] buffer = new byte[8_192];
-            long total = 0;
-            int count;
-            while ((count = input.read(buffer)) >= 0) {
-                total += count;
-                if (total > limits.maximumEntryBytes()) {
-                    throw limitViolation();
-                }
-                output.write(buffer, 0, count);
+            return readWithinBudgets(input, limits.maximumEntryBytes(), remainingTotalBytes);
+        }
+    }
+
+    static byte[] readWithinBudgets(
+            InputStream input, long maximumEntryBytes, long remainingTotalBytes)
+            throws IOException {
+        Objects.requireNonNull(input, "input");
+        if (maximumEntryBytes < 0 || remainingTotalBytes < 0) {
+            throw new IllegalArgumentException("DOCX_STREAM_BUDGET_MUST_NOT_BE_NEGATIVE");
+        }
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8_192];
+        long total = 0;
+        while (true) {
+            long allowed = Math.min(maximumEntryBytes, remainingTotalBytes);
+            int requested = (int) Math.min(buffer.length, Math.max(1L, allowed - total + 1));
+            int count = input.read(buffer, 0, requested);
+            if (count < 0) {
+                return output.toByteArray();
             }
-            return output.toByteArray();
+            total += count;
+            if (total > maximumEntryBytes || total > remainingTotalBytes) {
+                throw limitViolation();
+            }
+            output.write(buffer, 0, count);
         }
     }
 
@@ -173,7 +202,7 @@ public final class DocxSecurityGate {
                     "DOCX XML must not declare a DOCTYPE or entity");
         }
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newDefaultInstance();
             factory.setNamespaceAware(true);
             factory.setXIncludeAware(false);
             factory.setExpandEntityReferences(false);
@@ -200,11 +229,40 @@ public final class DocxSecurityGate {
                     throw error;
                 }
             });
-            return builder.parse(new ByteArrayInputStream(content));
+            Document document = builder.parse(new ByteArrayInputStream(content));
+            rejectExternalXmlReferences(document);
+            return document;
         } catch (ParserConfigurationException error) {
             throw new IllegalStateException("SECURE_XML_PARSER_CONFIGURATION_UNAVAILABLE", error);
         } catch (SAXException | IOException error) {
             throw formatInvalid("DOCX XML part is malformed");
+        }
+    }
+
+    static void requireKnownEntrySizes(long declaredSize, long compressedSize) {
+        if (declaredSize < 0 || compressedSize < 0) {
+            throw new DocxSecurityViolation(
+                    DocxSecurityViolation.Rule.UNKNOWN_ZIP_ENTRY_SIZE,
+                    "DOCX entry size metadata must be known before reading");
+        }
+    }
+
+    private static void rejectExternalXmlReferences(Document document) {
+        var elements = document.getElementsByTagName("*");
+        for (int index = 0; index < elements.getLength(); index++) {
+            Element element = (Element) elements.item(index);
+            if (XINCLUDE_NAMESPACE.equals(element.getNamespaceURI())) {
+                throw new DocxSecurityViolation(
+                        DocxSecurityViolation.Rule.XML_EXTERNAL_ENTITY,
+                        "DOCX XML must not contain XInclude instructions");
+            }
+            if (element.hasAttributeNS(XML_SCHEMA_INSTANCE_NAMESPACE, "schemaLocation")
+                    || element.hasAttributeNS(
+                            XML_SCHEMA_INSTANCE_NAMESPACE, "noNamespaceSchemaLocation")) {
+                throw new DocxSecurityViolation(
+                        DocxSecurityViolation.Rule.XML_EXTERNAL_ENTITY,
+                        "DOCX XML must not contain external schema hints");
+            }
         }
     }
 
@@ -252,13 +310,45 @@ public final class DocxSecurityGate {
         }
     }
 
-    private static void rejectMacroContentType(byte[] content) {
-        String text = new String(content, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
-        if (text.contains("macroenabled") || text.contains("vbaproject")) {
-            throw new DocxSecurityViolation(
-                    DocxSecurityViolation.Rule.MACRO_REQUIRING_EXECUTION,
-                    "DOCX XML declares macro-enabled content");
+    private static void rejectActiveContentTypes(Document document) {
+        var elements = document.getElementsByTagName("*");
+        for (int index = 0; index < elements.getLength(); index++) {
+            if (!(elements.item(index) instanceof org.w3c.dom.Element element)
+                    || !element.hasAttribute("ContentType")) {
+                continue;
+            }
+            String contentType = element.getAttribute("ContentType").toLowerCase(Locale.ROOT);
+            if (contentType.contains("macroenabled") || contentType.contains("vbaproject")) {
+                throw new DocxSecurityViolation(
+                        DocxSecurityViolation.Rule.MACRO_REQUIRING_EXECUTION,
+                        "DOCX content types declare macro-enabled content");
+            }
+            if (contentType.contains("activex")
+                    || contentType.contains("oleobject")
+                    || contentType.contains("ms-office.active")) {
+                throw new DocxSecurityViolation(
+                        DocxSecurityViolation.Rule.EXECUTABLE_EMBEDDED_OBJECT,
+                        "DOCX content types declare active or embedded content");
+            }
         }
+    }
+
+    private static void validateContentTypes(Document document) {
+        Element root = document.getDocumentElement();
+        if (root == null
+                || !"Types".equals(root.getLocalName())
+                || !CONTENT_TYPES_NAMESPACE.equals(root.getNamespaceURI())) {
+            throw formatInvalid("content types part root element is invalid");
+        }
+        var overrides = root.getElementsByTagNameNS(CONTENT_TYPES_NAMESPACE, "Override");
+        for (int index = 0; index < overrides.getLength(); index++) {
+            Element override = (Element) overrides.item(index);
+            if ("/word/document.xml".equals(override.getAttribute("PartName"))
+                    && MAIN_DOCUMENT_CONTENT_TYPE.equals(override.getAttribute("ContentType"))) {
+                return;
+            }
+        }
+        throw formatInvalid("content types part does not declare the main document part");
     }
 
     private static boolean isXmlPart(String name) {

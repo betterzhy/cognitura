@@ -23,6 +23,8 @@ class DocxSecurityGateTest {
     private static final String DOCUMENT = resource("minimal-document.xml");
     private static final String STYLES = resource("minimal-styles.xml");
     private static final String EMPTY_RELATIONSHIPS = resource("empty-document.xml.rels");
+    private static final String CONTENT_TYPES = resource("minimal-content-types.xml");
+    private static final String ROOT_RELATIONSHIPS = resource("root-office-document.xml.rels");
 
     @TempDir
     Path temporaryDirectory;
@@ -33,6 +35,8 @@ class DocxSecurityGateTest {
         String relationships = relationships(
                 relationship("rId1", imageType(), "media/image.png", null));
         Path packagePath = writeZip("safe.docx", entries(
+                "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
                 "word/document.xml", DOCUMENT.getBytes(StandardCharsets.UTF_8),
                 "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
                 "word/_rels/document.xml.rels", relationships.getBytes(StandardCharsets.UTF_8),
@@ -41,13 +45,18 @@ class DocxSecurityGateTest {
         SafeDocxPackage safePackage = new DocxSecurityGate().open(packagePath);
 
         assertThat(safePackage.partNames()).containsExactlyInAnyOrder(
+                "[Content_Types].xml",
+                "_rels/.rels",
                 "word/document.xml",
                 "word/styles.xml",
                 "word/_rels/document.xml.rels",
                 "word/media/image.png");
         assertThat(new String(safePackage.readVerifiedEntry("word/document.xml"), StandardCharsets.UTF_8))
                 .contains("<w:t>safe</w:t>");
-        var internal = safePackage.relationships().getFirst();
+        var internal = safePackage.relationships().stream()
+                .filter(relationship -> relationship.relationshipId().equals("rId1"))
+                .findFirst()
+                .orElseThrow();
         assertThat(internal.mode()).isEqualTo(DocxRelationshipClassifier.Mode.INTERNAL);
         assertThat(internal.internalTargetPart()).contains("word/media/image.png");
         assertThat(safePackage.readRelationshipTarget(internal)).containsExactly(image);
@@ -102,10 +111,33 @@ class DocxSecurityGateTest {
         Path ratioLimited = writeZip(
                 "ratio.docx", withRequiredEntry("word/large.bin", compressible));
 
-        assertLimitViolation(countLimited, new DocxPackageLimits(3, 16_777_216, 134_217_728, 200));
+        assertLimitViolation(countLimited, new DocxPackageLimits(5, 16_777_216, 134_217_728, 200));
         assertLimitViolation(entryLimited, new DocxPackageLimits(4_096, 64, 134_217_728, 200));
         assertLimitViolation(totalLimited, new DocxPackageLimits(4_096, 300, 400, 200));
         assertLimitViolation(ratioLimited, DocxPackageLimits.defaults());
+    }
+
+    @Test
+    void stopsStreamingAsSoonAsTheRemainingPackageBudgetIsExceeded() {
+        CountingInputStream input = new CountingInputStream(new byte[1_024]);
+
+        assertThatThrownBy(() -> DocxSecurityGate.readWithinBudgets(input, 1_024, 10))
+                .isInstanceOf(DocxSecurityViolation.class)
+                .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
+                        .isEqualTo(DocxSecurityViolation.Rule.ZIP_LIMIT_EXCEEDED));
+        assertThat(input.bytesRead()).isLessThanOrEqualTo(11);
+    }
+
+    @Test
+    void rejectsUnknownZipEntrySizeMetadataBeforeReadingContent() {
+        assertThatThrownBy(() -> DocxSecurityGate.requireKnownEntrySizes(-1, 1))
+                .isInstanceOf(DocxSecurityViolation.class)
+                .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
+                        .isEqualTo(DocxSecurityViolation.Rule.UNKNOWN_ZIP_ENTRY_SIZE));
+        assertThatThrownBy(() -> DocxSecurityGate.requireKnownEntrySizes(1, -1))
+                .isInstanceOf(DocxSecurityViolation.class)
+                .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
+                        .isEqualTo(DocxSecurityViolation.Rule.UNKNOWN_ZIP_ENTRY_SIZE));
     }
 
     @Test
@@ -120,6 +152,8 @@ class DocxSecurityGateTest {
         Path xxePackage = writeZip(
                 "xxe.docx",
                 entries(
+                        "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                        "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
                         "word/document.xml", xxe.getBytes(StandardCharsets.UTF_8),
                         "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
                         "word/_rels/document.xml.rels", EMPTY_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8)));
@@ -146,12 +180,85 @@ class DocxSecurityGateTest {
                 "macro-content-type.docx",
                 withRequiredEntry(
                         "[Content_Types].xml",
-                        "<Types><Override ContentType=\"application/vnd.ms-word.document.macroEnabled.main+xml\"/></Types>"
+                        "<Types><Override ContentType=\"application/vnd.ms-word.document.macro&#69;nabled.main+xml\"/></Types>"
                                 .getBytes(StandardCharsets.UTF_8)));
         assertThatThrownBy(() -> new DocxSecurityGate().open(macroContentType))
                 .isInstanceOf(DocxSecurityViolation.class)
                 .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
                         .isEqualTo(DocxSecurityViolation.Rule.MACRO_REQUIRING_EXECUTION));
+    }
+
+    @Test
+    void rejectsExternalDtdXIncludeAndExternalSchemaHints() throws IOException {
+        String externalDtd = """
+                <?xml version="1.0"?>
+                <!DOCTYPE w:document SYSTEM "file:///definitely-not-read.dtd">
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                  <w:body/>
+                </w:document>
+                """;
+        String xInclude = """
+                <?xml version="1.0"?>
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                            xmlns:xi="http://www.w3.org/2001/XInclude">
+                  <w:body><xi:include href="file:///definitely-not-read.xml" parse="xml"/></w:body>
+                </w:document>
+                """;
+        String externalSchema = """
+                <?xml version="1.0"?>
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                            xsi:schemaLocation="urn:test https://w1-i03-canary.invalid/schema.xsd">
+                  <w:body/>
+                </w:document>
+                """;
+        Map<String, String> maliciousXml = Map.of(
+                "external-dtd", externalDtd,
+                "xinclude", xInclude,
+                "external-schema", externalSchema);
+
+        for (Map.Entry<String, String> fixture : maliciousXml.entrySet()) {
+            Path packagePath = writeZip(
+                    fixture.getKey() + ".docx",
+                    entries(
+                            "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                            "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
+                            "word/document.xml", fixture.getValue().getBytes(StandardCharsets.UTF_8)));
+
+            assertThatThrownBy(() -> new DocxSecurityGate().open(packagePath))
+                    .isInstanceOf(DocxSecurityViolation.class)
+                    .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
+                            .isEqualTo(DocxSecurityViolation.Rule.XML_EXTERNAL_ENTITY));
+        }
+    }
+
+    @Test
+    void rejectsActiveRelationshipTypesBehindOrdinaryPackagePaths() throws IOException {
+        Map<String, DocxSecurityViolation.Rule> activeTypes = Map.of(
+                "oleObject", DocxSecurityViolation.Rule.EXECUTABLE_EMBEDDED_OBJECT,
+                "control", DocxSecurityViolation.Rule.EXECUTABLE_EMBEDDED_OBJECT,
+                "vbaProject", DocxSecurityViolation.Rule.MACRO_REQUIRING_EXECUTION);
+        for (Map.Entry<String, DocxSecurityViolation.Rule> activeType : activeTypes.entrySet()) {
+            String relationships = relationships(relationship(
+                    "rActive",
+                    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/"
+                            + activeType.getKey(),
+                    "media/payload.bin",
+                    null));
+            LinkedHashMap<String, byte[]> packageEntries = entries(
+                    "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                    "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
+                    "word/document.xml", DOCUMENT.getBytes(StandardCharsets.UTF_8),
+                    "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
+                    "word/_rels/document.xml.rels", relationships.getBytes(StandardCharsets.UTF_8),
+                    "word/media/payload.bin", new byte[] {1, 2, 3});
+            Path packagePath = writeZip(activeType.getKey() + ".docx", packageEntries);
+
+            assertThatThrownBy(() -> new DocxSecurityGate().open(packagePath))
+                    .isInstanceOf(DocxSecurityViolation.class)
+                    .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
+                            .isEqualTo(activeType.getValue()));
+        }
     }
 
     @Test
@@ -162,6 +269,8 @@ class DocxSecurityGateTest {
         Path packagePath = writeZip(
                 "security-education.docx",
                 entries(
+                        "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                        "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
                         "word/document.xml", educationalText.getBytes(StandardCharsets.UTF_8),
                         "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
                         "word/_rels/document.xml.rels", EMPTY_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8)));
@@ -175,17 +284,21 @@ class DocxSecurityGateTest {
     void classifiesMissingPartsMalformedXmlAndUnknownRelationshipModeAsFormatInvalid()
             throws IOException {
         LinkedHashMap<String, byte[]> missingEntries = requiredEntries();
-        missingEntries.remove("word/styles.xml");
+        missingEntries.remove("[Content_Types].xml");
         Path missing = writeZip("missing.docx", missingEntries);
         Path malformed = writeZip(
                 "malformed.docx",
                 entries(
+                        "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                        "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
                         "word/document.xml", "<broken>".getBytes(StandardCharsets.UTF_8),
                         "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
                         "word/_rels/document.xml.rels", EMPTY_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8)));
         Path unknownMode = writeZip(
                 "unknown-mode.docx",
                 entries(
+                        "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                        "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
                         "word/document.xml", DOCUMENT.getBytes(StandardCharsets.UTF_8),
                         "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
                         "word/_rels/document.xml.rels",
@@ -198,10 +311,31 @@ class DocxSecurityGateTest {
     }
 
     @Test
+    void requiresPackageMetadataButAllowsOptionalStylesAndDocumentRelationships()
+            throws IOException {
+        LinkedHashMap<String, byte[]> minimalEntries = entries(
+                "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
+                "word/document.xml", DOCUMENT.getBytes(StandardCharsets.UTF_8));
+        Path minimal = writeZip("minimal-package.docx", minimalEntries);
+        LinkedHashMap<String, byte[]> missingRootEntries = new LinkedHashMap<>(minimalEntries);
+        missingRootEntries.remove("_rels/.rels");
+        Path missingRoot = writeZip("missing-root-rels.docx", missingRootEntries);
+
+        try (SafeDocxPackage safePackage = new DocxSecurityGate().open(minimal)) {
+            assertThat(safePackage.partNames()).containsExactlyInAnyOrder(
+                    "[Content_Types].xml", "_rels/.rels", "word/document.xml");
+        }
+        assertFormatInvalid(missingRoot);
+    }
+
+    @Test
     void rejectsUnknownRelationshipXmlStructureAsFormatInvalid() throws IOException {
         Path unknownStructure = writeZip(
                 "unknown-relationship-structure.docx",
                 entries(
+                        "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                        "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
                         "word/document.xml", DOCUMENT.getBytes(StandardCharsets.UTF_8),
                         "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
                         "word/_rels/document.xml.rels",
@@ -219,6 +353,8 @@ class DocxSecurityGateTest {
         Path malformed = writeZip(
                 "quiet-malformed.docx",
                 entries(
+                        "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                        "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
                         "word/document.xml", "<broken>".getBytes(StandardCharsets.UTF_8),
                         "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
                         "word/_rels/document.xml.rels", EMPTY_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8)));
@@ -253,6 +389,8 @@ class DocxSecurityGateTest {
 
     private LinkedHashMap<String, byte[]> requiredEntries() {
         return entries(
+                "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
                 "word/document.xml", DOCUMENT.getBytes(StandardCharsets.UTF_8),
                 "word/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8),
                 "word/_rels/document.xml.rels", EMPTY_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8));
@@ -338,6 +476,35 @@ class DocxSecurityGateTest {
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException error) {
             throw new IllegalStateException("FAILED_TO_READ_TEST_RESOURCE:" + name, error);
+        }
+    }
+
+    private static final class CountingInputStream extends InputStream {
+        private final byte[] bytes;
+        private int position;
+
+        private CountingInputStream(byte[] bytes) {
+            this.bytes = bytes.clone();
+        }
+
+        int bytesRead() {
+            return position;
+        }
+
+        @Override
+        public int read() {
+            return position < bytes.length ? bytes[position++] & 0xff : -1;
+        }
+
+        @Override
+        public int read(byte[] target, int offset, int length) {
+            if (position >= bytes.length) {
+                return -1;
+            }
+            int count = Math.min(length, bytes.length - position);
+            System.arraycopy(bytes, position, target, offset, count);
+            position += count;
+            return count;
         }
     }
 }

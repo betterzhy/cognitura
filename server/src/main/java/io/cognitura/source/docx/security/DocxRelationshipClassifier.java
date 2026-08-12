@@ -82,6 +82,7 @@ public final class DocxRelationshipClassifier {
             String id = requiredAttribute(relationship, "Id");
             String type = requiredAttribute(relationship, "Type");
             String target = requiredAttribute(relationship, "Target");
+            rejectActiveRelationshipType(type);
             if (!relationshipIds.add(id)) {
                 throw formatInvalid("relationship identifiers must be unique within a part");
             }
@@ -173,6 +174,23 @@ public final class DocxRelationshipClassifier {
             throw formatInvalid("relationship attribute is missing");
         }
         return value;
+    }
+
+    private static void rejectActiveRelationshipType(String type) {
+        String canonicalType = type.toLowerCase(java.util.Locale.ROOT);
+        if (canonicalType.endsWith("/vbaproject")) {
+            throw new DocxSecurityViolation(
+                    DocxSecurityViolation.Rule.MACRO_REQUIRING_EXECUTION,
+                    "DOCX relationship declares macro content");
+        }
+        if (canonicalType.endsWith("/oleobject")
+                || canonicalType.endsWith("/control")
+                || canonicalType.endsWith("/package")
+                || canonicalType.endsWith("/attachedtemplate")) {
+            throw new DocxSecurityViolation(
+                    DocxSecurityViolation.Rule.EXECUTABLE_EMBEDDED_OBJECT,
+                    "DOCX relationship declares active or embedded content");
+        }
     }
 
     private static SourceDomainException formatInvalid(String detail) {
