@@ -862,8 +862,119 @@ expect_both_static_verifiers_fail() {
   assert_contains "${vsb_output}" "Wave 1 static suspension validation failed"
 }
 
+expect_wave_static_verifier_fail() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local wave_output
+  if wave_output="$(
+    "${verifier}" \
+      --repo-root "${fixture_root}" \
+      --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1
+  )"; then
+    fail "Wave 1 static validator accepted a drifted suspended narrative projection"
+  fi
+  assert_contains "${wave_output}" "${expected_message}"
+}
+
+replace_exact_block() {
+  local file="$1"
+  local old_text="$2"
+  local new_text="$3"
+  local label="$4"
+  local content prefix suffix rewritten
+  content="$(cat "${file}"; printf '\034')"
+  [[ "${content}" == *"${old_text}"* ]] ||
+    fail "${label}: source block is missing"
+  prefix="${content%%"${old_text}"*}"
+  suffix="${content#*"${old_text}"}"
+  [[ "${suffix}" != *"${old_text}"* ]] ||
+    fail "${label}: source block is duplicated"
+  rewritten="${prefix}${new_text}${suffix}"
+  printf '%s' "${rewritten%$'\034'}" > "${file}"
+}
+
+sync_current_acceptance_projection() {
+  local fixture_root="$1"
+  cp \
+    "${repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md"
+}
+
+suspension_narrative_paths=(
+  AGENTS.md
+  AGENTS.md
+  README.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+)
+suspension_narratives=(
+  $'`W1-I02` 等待独立数据库 Gate；`W1-I03` 已冻结在\n`4e63936c631ab34807e714b90d30415a959bc13d`，当前没有 Wave 1 READY 卡。'
+  $'I00；I01 已关闭，I02 保持等待独立数据库 Gate；I03 在 Visual Style Baseline\n执行期间冻结为 `SUSPENDED_BY_USER`。'
+  $'完成零发现深审并关闭；I02 等待独立数据库 Gate。`W1-I03` 已冻结在\n`4e63936c631ab34807e714b90d30415a959bc13d`，当前没有 Wave 1 READY 卡；'
+  $'保持 `QUEUED` 等待独立数据库 Gate；`W1-I03` 在 Visual Style Baseline 期间为\n`SUSPENDED_BY_USER`，冻结候选 production WriteSet 不得变更。'
+  $'  I01 已关闭，I02 等待独立数据库 Gate；I03 在 Visual Style Baseline 期间冻结为\n  `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡。'
+  $'`W1-I03` 在独立 Visual Style Baseline 执行期间冻结为 `SUSPENDED_BY_USER`，当前\n没有 Wave 1 READY 卡；冻结 production WriteSet 不得变更。'
+  $'当前业务授权保持有效，但 `W1-I03` 在 Visual Style Baseline 期间暂停；I02 独立\n数据库 Gate、正式数据库写入和远程推送仍未授权。'
+  $'固定候选深审并关闭；I02 等待独立数据库 Gate，I03 在 Visual Style Baseline 期间\n冻结为 `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡；完整证据记录在'
+  $'数据库 Gate；I03 在 Visual Style Baseline 期间冻结为 `SUSPENDED_BY_USER`，当前没有\nWave 1 READY 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 在 Visual Style Baseline 执行期间冻结为 `SUSPENDED_BY_USER`；当前没有 READY 卡。'
+  $'I00 和 I01 已关闭；I02 等待独立数据库 Gate。W1-I03 在 Visual Style Baseline\n期间冻结为 `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡。'
+  $'完成零发现深审并关闭；I02 等待独立数据库 Gate。独立 Visual Style Baseline 执行\n期间，I03 冻结在 `4e63936c631ab34807e714b90d30415a959bc13d`，不得修改其\nproduction WriteSet。'
+)
+ready_narratives=(
+  '`W1-I02` 等待独立数据库 Gate，`W1-I03` 为唯一 `READY` 业务卡。'
+  'I00；I01 已关闭，当前已原子释放 I03，I02 保持等待独立数据库 Gate。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I03` 是唯一 `READY` 卡。'
+  '保持 `QUEUED` 等待独立数据库 Gate，`W1-I03` 已释放为唯一 `READY` 业务卡。'
+  '  I01 已关闭，I02 等待独立数据库 Gate，I03 为唯一 `READY` 卡。'
+  '`W1-I03` 已作为唯一 `READY` 卡释放。'
+  $'当前业务授权只按既定卡集串行推进至 `W1-I03`；I02 独立数据库 Gate、正式数据库\n写入和远程推送仍未授权。'
+  '固定候选深审并关闭；I02 等待独立数据库 Gate，I03 为唯一 `READY` 卡，完整证据记录在'
+  '数据库 Gate，I03 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 为唯一 `READY` 卡。'
+  'I00 和 I01 已关闭；I02 等待独立数据库 Gate，W1-I03 为唯一 `READY` 业务卡。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，I03 已原子释放为唯一 `READY` 卡。'
+)
+
+static_narrative_base_root="${test_tmp_root}/static-narrative-base"
+git clone --shared --no-checkout -q "${repo_root}" "${static_narrative_base_root}"
+git -C "${static_narrative_base_root}" checkout -q
+sync_current_acceptance_projection "${static_narrative_base_root}"
+git -C "${static_narrative_base_root}" add \
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+git -C "${static_narrative_base_root}" commit -qm \
+  "test: establish exact suspension narrative projection"
+
+for narrative_index in "${!suspension_narratives[@]}"; do
+  narrative_path="${suspension_narrative_paths[${narrative_index}]}"
+  git -C "${static_narrative_base_root}" switch -q --detach HEAD
+  replace_exact_block \
+    "${static_narrative_base_root}/${narrative_path}" \
+    "${suspension_narratives[${narrative_index}]}" \
+    "${ready_narratives[${narrative_index}]}" \
+    "drift ${narrative_path} suspension narrative"
+  if [[ "${narrative_index}" -eq 8 ]]; then
+    expect_both_static_verifiers_fail \
+      "${static_narrative_base_root}" \
+      "current suspension narrative projection mismatch"
+  else
+    expect_wave_static_verifier_fail \
+      "${static_narrative_base_root}" \
+      "current suspension narrative projection mismatch"
+  fi
+  git -C "${static_narrative_base_root}" restore "${narrative_path}"
+done
+
 static_plan_contradictory_row_root="${test_tmp_root}/static-plan-contradictory-row"
 git clone --shared -q "${repo_root}" "${static_plan_contradictory_row_root}"
+sync_current_acceptance_projection "${static_plan_contradictory_row_root}"
 printf '%s\n' \
   '| `W1-I03` | DOCX security | `I01` | `READY` |' >> \
   "${static_plan_contradictory_row_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
@@ -877,6 +988,7 @@ expect_both_static_verifiers_fail \
 
 static_plan_unexpected_rows_root="${test_tmp_root}/static-plan-unexpected-rows"
 git clone --shared -q "${repo_root}" "${static_plan_unexpected_rows_root}"
+sync_current_acceptance_projection "${static_plan_unexpected_rows_root}"
 printf '%s\n' \
   '| `W1-I03` | DOCX security | `I01` | `QUEUED` |' \
   '| `W1-I03` | altered projection text | `I01` | `NOT_A_REAL_STATE` |' >> \
@@ -891,6 +1003,7 @@ expect_both_static_verifiers_fail \
 
 static_plan_row_drift_root="${test_tmp_root}/static-plan-row-drift"
 git clone --shared -q "${repo_root}" "${static_plan_row_drift_root}"
+sync_current_acceptance_projection "${static_plan_row_drift_root}"
 set_table_status \
   "${static_plan_row_drift_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
   "W1-I03" \
@@ -906,6 +1019,7 @@ expect_both_static_verifiers_fail \
 
 static_agents_active_drift_root="${test_tmp_root}/static-agents-active-drift"
 git clone --shared -q "${repo_root}" "${static_agents_active_drift_root}"
+sync_current_acceptance_projection "${static_agents_active_drift_root}"
 set_field "${static_agents_active_drift_root}/AGENTS.md" \
   "ActiveTaskCard" "W1-I03"
 set_field "${static_agents_active_drift_root}/AGENTS.md" \
@@ -919,6 +1033,7 @@ expect_both_static_verifiers_fail \
 
 static_database_auth_drift_root="${test_tmp_root}/static-database-auth-drift"
 git clone --shared -q "${repo_root}" "${static_database_auth_drift_root}"
+sync_current_acceptance_projection "${static_database_auth_drift_root}"
 set_field "${static_database_auth_drift_root}/AGENTS.md" \
   "FormalDatabaseWrite" "AUTHORIZED"
 git -C "${static_database_auth_drift_root}" add AGENTS.md
@@ -1065,6 +1180,7 @@ assert_contains "${production_output}" "frozen W1-I03 production paths changed"
 
 make_restore_projection() {
   local fixture_root="$1"
+  local narrative_index narrative_path
   set_field "${fixture_root}/AGENTS.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
   set_field "${fixture_root}/AGENTS.md" "ActiveImplementationTaskCard" "W1-I03"
   set_field "${fixture_root}/README.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
@@ -1105,6 +1221,14 @@ make_restore_projection() {
     "W1-I03" \
     "SUSPENDED_BY_USER" \
     "READY"
+  for narrative_index in "${!suspension_narratives[@]}"; do
+    narrative_path="${suspension_narrative_paths[${narrative_index}]}"
+    replace_exact_block \
+      "${fixture_root}/${narrative_path}" \
+      "${suspension_narratives[${narrative_index}]}" \
+      "${ready_narratives[${narrative_index}]}" \
+      "restore ${narrative_path} READY narrative"
+  done
 }
 
 git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
@@ -1121,6 +1245,75 @@ restore_output="$(
 )" || fail "valid stopped-state W1-I03 restore was rejected"
 assert_contains "${restore_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
 assert_contains "${restore_output}" "ActiveTaskCard = W1-I03"
+
+for narrative_index in "${!suspension_narratives[@]}"; do
+  narrative_path="${suspension_narrative_paths[${narrative_index}]}"
+  git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+  make_restore_projection "${transition_repo_root}"
+  replace_exact_block \
+    "${transition_repo_root}/${narrative_path}" \
+    "${ready_narratives[${narrative_index}]}" \
+    "${suspension_narratives[${narrative_index}]}" \
+    "leave ${narrative_path} narrative suspended during restore"
+  git -C "${transition_repo_root}" add "${transition_paths[@]}"
+  git -C "${transition_repo_root}" commit -qm \
+    "test: leave one narrative suspended during restore"
+  incomplete_narrative_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+  if incomplete_narrative_output="$(
+    "${verifier}" \
+      --repo-root "${transition_repo_root}" \
+      --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+      --transition-base "${allowed_visual_sha}" \
+      --transition-head "${incomplete_narrative_restore_sha}" 2>&1
+  )"; then
+    fail "restore leaving one suspended narrative unexpectedly passed: ${narrative_path}"
+  fi
+  assert_contains "${incomplete_narrative_output}" \
+    "restore transition HEAD must contain exact READY narrative projection"
+done
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+replace_exact_block \
+  "${transition_repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+  "${ready_narratives[8]}" \
+  '数据库 Gate，I03 和 I04 为 `READY` 卡。正式数据库、Parser/Object Storage Provider、' \
+  "write an incorrect READY narrative during restore"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: write incorrect READY narrative during restore"
+wrong_narrative_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if wrong_narrative_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${wrong_narrative_restore_sha}" 2>&1
+)"; then
+  fail "restore with an incorrect READY narrative unexpectedly passed"
+fi
+assert_contains "${wrong_narrative_output}" \
+  "restore transition HEAD must contain exact READY narrative projection"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+printf '%s\n' 'Unauthorized extra restore narrative.' >> \
+  "${transition_repo_root}/README.md"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: add extra narrative during restore"
+extra_narrative_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if extra_narrative_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${extra_narrative_restore_sha}" 2>&1
+)"; then
+  fail "restore with an extra narrative change unexpectedly passed"
+fi
+assert_contains "${extra_narrative_output}" \
+  "restore transition must preserve exact bytes and file mode"
 
 git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
 make_restore_projection "${transition_repo_root}"
@@ -1379,6 +1572,8 @@ fi
 assert_contains "${nonancestor_output}" "SuspendedCandidateSHA must be an ancestor of HEAD"
 
 git_transition_cases=10
+narrative_suspension_cases=12
+narrative_restore_cases=15
 
 printf '%s\n' \
   "Wave1ImplementationTaskCardContractTests = PASS" \
@@ -1390,4 +1585,6 @@ printf '%s\n' \
   "CompleteTerminalCases = 1" \
   "BlockedAuthorizationTerminalCases = 1" \
   "SuspensionMutationCases = ${suspension_mutation_cases}" \
-  "GitTransitionCases = ${git_transition_cases}"
+  "GitTransitionCases = ${git_transition_cases}" \
+  "NarrativeSuspensionCases = ${narrative_suspension_cases}" \
+  "NarrativeRestoreCases = ${narrative_restore_cases}"

@@ -43,6 +43,60 @@ set_table_status() {
   rm "${file}.bak"
 }
 
+replace_exact_block() {
+  local file="$1"
+  local old_text="$2"
+  local new_text="$3"
+  local label="$4"
+  local content prefix suffix rewritten
+  content="$(cat "${file}"; printf '\034')"
+  [[ "${content}" == *"${old_text}"* ]] || fail "${label}: source block is missing"
+  prefix="${content%%"${old_text}"*}"
+  suffix="${content#*"${old_text}"}"
+  [[ "${suffix}" != *"${old_text}"* ]] || fail "${label}: source block is duplicated"
+  rewritten="${prefix}${new_text}${suffix}"
+  printf '%s' "${rewritten%$'\034'}" > "${file}"
+}
+
+suspension_narrative_paths=(
+  AGENTS.md AGENTS.md README.md README.md docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+)
+suspension_narratives=(
+  $'`W1-I02` 等待独立数据库 Gate；`W1-I03` 已冻结在\n`4e63936c631ab34807e714b90d30415a959bc13d`，当前没有 Wave 1 READY 卡。'
+  $'I00；I01 已关闭，I02 保持等待独立数据库 Gate；I03 在 Visual Style Baseline\n执行期间冻结为 `SUSPENDED_BY_USER`。'
+  $'完成零发现深审并关闭；I02 等待独立数据库 Gate。`W1-I03` 已冻结在\n`4e63936c631ab34807e714b90d30415a959bc13d`，当前没有 Wave 1 READY 卡；'
+  $'保持 `QUEUED` 等待独立数据库 Gate；`W1-I03` 在 Visual Style Baseline 期间为\n`SUSPENDED_BY_USER`，冻结候选 production WriteSet 不得变更。'
+  $'  I01 已关闭，I02 等待独立数据库 Gate；I03 在 Visual Style Baseline 期间冻结为\n  `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡。'
+  $'`W1-I03` 在独立 Visual Style Baseline 执行期间冻结为 `SUSPENDED_BY_USER`，当前\n没有 Wave 1 READY 卡；冻结 production WriteSet 不得变更。'
+  $'当前业务授权保持有效，但 `W1-I03` 在 Visual Style Baseline 期间暂停；I02 独立\n数据库 Gate、正式数据库写入和远程推送仍未授权。'
+  $'固定候选深审并关闭；I02 等待独立数据库 Gate，I03 在 Visual Style Baseline 期间\n冻结为 `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡；完整证据记录在'
+  $'数据库 Gate；I03 在 Visual Style Baseline 期间冻结为 `SUSPENDED_BY_USER`，当前没有\nWave 1 READY 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 在 Visual Style Baseline 执行期间冻结为 `SUSPENDED_BY_USER`；当前没有 READY 卡。'
+  $'I00 和 I01 已关闭；I02 等待独立数据库 Gate。W1-I03 在 Visual Style Baseline\n期间冻结为 `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡。'
+  $'完成零发现深审并关闭；I02 等待独立数据库 Gate。独立 Visual Style Baseline 执行\n期间，I03 冻结在 `4e63936c631ab34807e714b90d30415a959bc13d`，不得修改其\nproduction WriteSet。'
+)
+ready_narratives=(
+  '`W1-I02` 等待独立数据库 Gate，`W1-I03` 为唯一 `READY` 业务卡。'
+  'I00；I01 已关闭，当前已原子释放 I03，I02 保持等待独立数据库 Gate。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I03` 是唯一 `READY` 卡。'
+  '保持 `QUEUED` 等待独立数据库 Gate，`W1-I03` 已释放为唯一 `READY` 业务卡。'
+  '  I01 已关闭，I02 等待独立数据库 Gate，I03 为唯一 `READY` 卡。'
+  '`W1-I03` 已作为唯一 `READY` 卡释放。'
+  $'当前业务授权只按既定卡集串行推进至 `W1-I03`；I02 独立数据库 Gate、正式数据库\n写入和远程推送仍未授权。'
+  '固定候选深审并关闭；I02 等待独立数据库 Gate，I03 为唯一 `READY` 卡，完整证据记录在'
+  '数据库 Gate，I03 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 为唯一 `READY` 卡。'
+  'I00 和 I01 已关闭；I02 等待独立数据库 Gate，W1-I03 为唯一 `READY` 业务卡。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，I03 已原子释放为唯一 `READY` 卡。'
+)
+
 expect_failure() {
   local fixture_dir="$1"
   local expected_message="$2"
@@ -224,6 +278,9 @@ negative_cases=$((negative_cases + 1))
 # execution-state.md.
 transition_repo_root="${test_tmp_root}/transition-repo"
 git clone --shared -q "${repo_root}" "${transition_repo_root}"
+cp \
+  "${repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+  "${transition_repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md"
 mkdir -p "${transition_repo_root}/docs/task-cards/visual-style-baseline"
 cp -R "${cards_dir}/." \
   "${transition_repo_root}/docs/task-cards/visual-style-baseline/"
@@ -231,6 +288,7 @@ mkdir -p "${transition_repo_root}/docs/task-cards/wave-1-implementation"
 cp -R "${repo_root}/docs/task-cards/wave-1-implementation/." \
   "${transition_repo_root}/docs/task-cards/wave-1-implementation/"
 git -C "${transition_repo_root}" add \
+  docs/engineering/cognitura-wave-1-design-acceptance.md \
   docs/task-cards/visual-style-baseline \
   docs/task-cards/wave-1-implementation
 git -C "${transition_repo_root}" commit --allow-empty -qm \
@@ -319,6 +377,7 @@ write_exact_candidate_paths() {
 
 make_wave1_restore_projection() {
   local fixture_root="$1"
+  local narrative_index narrative_path
   set_field "${fixture_root}/AGENTS.md" \
     "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
   set_field "${fixture_root}/AGENTS.md" \
@@ -386,6 +445,14 @@ make_wave1_restore_projection() {
   set_field \
     "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md" \
     "Status" "READY"
+  for narrative_index in "${!suspension_narratives[@]}"; do
+    narrative_path="${suspension_narrative_paths[${narrative_index}]}"
+    replace_exact_block \
+      "${fixture_root}/${narrative_path}" \
+      "${suspension_narratives[${narrative_index}]}" \
+      "${ready_narratives[${narrative_index}]}" \
+      "restore ${narrative_path} READY narrative"
+  done
 }
 
 printf '%s\n' 'fixed governance review input' > \
@@ -416,6 +483,89 @@ activation_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --transition-base "${governance_candidate_sha}" \
   --transition-head "${activation_sha}" >/dev/null ||
   fail "valid VSB activation transition was rejected"
+
+git -C "${transition_repo_root}" switch -q --detach "${governance_candidate_sha}"
+set_field "${transition_state}" "NextTaskCard" "VSB-03"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: forge malformed bootstrap transition base"
+forged_activation_base_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "GovernanceBootstrapStatus" "PASS"
+set_field "${transition_state}" "GovernanceReviewedCandidateSHA" \
+  "${forged_activation_base_sha}"
+set_field "${transition_state}" "GovernanceReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "TaskCardSetStatus" "IN_PROGRESS"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-00"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-00"
+set_field "${transition_state}" "NextTaskCard" "VSB-01"
+set_field "${transition_state}" "TransitionSequence" "1"
+set_field "${transition_state}" "TransitionKind" "ACTIVATE_SET"
+set_field "${transition_state}" "TransitionBaseSHA" "${forged_activation_base_sha}"
+set_field "${transition_state}" "VisualImplementation" "USER_AUTHORIZED"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: activate from malformed bootstrap base"
+forged_activation_head_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if forged_activation_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${forged_activation_base_sha}" \
+    --transition-head "${forged_activation_head_sha}" 2>&1
+)"; then
+  fail "ACTIVATE_SET from a forged malformed BASE unexpectedly passed"
+fi
+assert_contains "${forged_activation_output}" \
+  "transition BASE failed full VSB state validation"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+set_field "${transition_state}" "NextTaskCard" "VSB-03"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: forge malformed VSB-00 active state"
+forged_advance_preparent_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "forged ADVANCE base candidate"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create candidate over malformed ADVANCE state"
+forged_advance_base_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "CompletedTaskCards" "VSB-00"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-01"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-01"
+set_field "${transition_state}" "CurrentCandidateSHA" "${forged_advance_base_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+set_field "${transition_state}" "CurrentReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB00CandidateSHA" "${forged_advance_base_sha}"
+set_field "${transition_state}" "VSB00GateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "VSB00ReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "VSB-02"
+set_field "${transition_state}" "TransitionSequence" "2"
+set_field "${transition_state}" "TransitionKind" "ADVANCE"
+set_field "${transition_state}" "TransitionBaseSHA" "${forged_advance_base_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: advance from malformed VSB-00 base"
+forged_advance_head_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if forged_advance_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${forged_advance_base_sha}" \
+    --transition-head "${forged_advance_head_sha}" 2>&1
+)"; then
+  fail "ADVANCE from a forged malformed BASE unexpectedly passed"
+fi
+assert_contains "${forged_advance_output}" \
+  "transition BASE failed full VSB state validation"
+negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 
@@ -695,6 +845,55 @@ for i in 0 1 2; do
 done
 
 after_vsb02_receipt="${receipt_shas[2]}"
+
+git -C "${transition_repo_root}" switch -q --detach "${after_vsb02_receipt}"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-02"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: forge malformed COMPLETE candidate state"
+forged_complete_preparent_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+write_exact_candidate_paths "${transition_repo_root}" 3 \
+  "forged COMPLETE base candidate"
+printf '%s\n' "${candidate_write_sets[3]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create candidate over malformed COMPLETE state"
+forged_complete_base_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "TaskCardSetStatus" "COMPLETE"
+set_field "${transition_state}" "ActiveTaskCard" "NONE"
+set_field "${transition_state}" "ReleasedTaskCard" "NONE"
+set_field "${transition_state}" "CompletedTaskCards" "VSB-00,VSB-01,VSB-02,VSB-03"
+set_field "${transition_state}" "CurrentCandidateSHA" "${forged_complete_base_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer+ultra_gatekeeper"
+set_field "${transition_state}" "CurrentReviewVerdict" "FINAL_GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB03CandidateSHA" "${forged_complete_base_sha}"
+set_field "${transition_state}" "VSB03GateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "VSB03DeepReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB03UltraReviewVerdict" "FINAL_GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "TransitionSequence" "5"
+set_field "${transition_state}" "TransitionKind" "COMPLETE"
+set_field "${transition_state}" "TransitionBaseSHA" "${forged_complete_base_sha}"
+set_field "${transition_state}" "VisualImplementation" "COMPLETE"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: complete from malformed VSB-03 base"
+forged_complete_head_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if forged_complete_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${forged_complete_base_sha}" \
+    --transition-head "${forged_complete_head_sha}" 2>&1
+)"; then
+  fail "COMPLETE from a forged malformed BASE unexpectedly passed"
+fi
+assert_contains "${forged_complete_output}" \
+  "transition BASE failed full VSB state validation"
+negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${receipt_shas[0]}"
 write_exact_candidate_paths "${transition_repo_root}" 1 \
@@ -988,6 +1187,47 @@ printf '%s\n' "${candidate_write_sets[1]}" | \
   git -C "${transition_repo_root}" add --pathspec-from-file=-
 git -C "${transition_repo_root}" commit -qm "test: create VSB-01 finding candidate"
 return_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "NextTaskCard" "VSB-03"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: forge malformed RETURN_TO_OWNER candidate state"
+forged_return_preparent_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+write_exact_candidate_paths "${transition_repo_root}" 1 \
+  "forged RETURN_TO_OWNER base candidate"
+printf '%s\n' "${candidate_write_sets[1]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create candidate over malformed RETURN_TO_OWNER state"
+forged_return_base_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "CurrentCandidateSHA" "${forged_return_base_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "FAIL"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+set_field "${transition_state}" "CurrentReviewVerdict" "FINDING_P0_0_P1_1_P2_0"
+set_field "${transition_state}" "NextTaskCard" "VSB-02"
+set_field "${transition_state}" "TransitionSequence" "3"
+set_field "${transition_state}" "TransitionKind" "RETURN_TO_OWNER"
+set_field "${transition_state}" "TransitionBaseSHA" "${forged_return_base_sha}"
+printf '%s\n' 'Owner = VSB-01' >> "${transition_state}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: return from malformed VSB-01 base"
+forged_return_head_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if forged_return_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${forged_return_base_sha}" \
+    --transition-head "${forged_return_head_sha}" 2>&1
+)"; then
+  fail "RETURN_TO_OWNER from a forged malformed BASE unexpectedly passed"
+fi
+assert_contains "${forged_return_output}" \
+  "transition BASE failed full VSB state validation"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${return_candidate_sha}"
 set_field "${transition_state}" "CurrentCandidateSHA" "${return_candidate_sha}"
 set_field "${transition_state}" "CurrentGateStatus" "FAIL"
 set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
@@ -1034,9 +1274,11 @@ assert_contains "${zero_finding_output}" \
 negative_cases=$((negative_cases + 1))
 
 transition_cases=11
+fixed_base_transition_cases=6
 
 printf '%s\n' \
   "VisualStyleBaselineTaskCardContractTests = PASS" \
   "PositiveCases = 1" \
   "NegativeCases = ${negative_cases}" \
-  "TransitionCases = ${transition_cases}"
+  "TransitionCases = ${transition_cases}" \
+  "FixedBaseTransitionCases = ${fixed_base_transition_cases}"

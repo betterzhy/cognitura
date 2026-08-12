@@ -149,7 +149,8 @@ validate_fixed_vsb_tree() {
     rm -rf -- "${fixed_checkout}"
     fail "could not create isolated transition BASE checkout"
   fi
-  if ! git -C "${fixed_checkout}" checkout -q --detach "${commit}"; then
+  if ! git -C "${fixed_checkout}" -c advice.detachedHead=false \
+    checkout -q --detach "${commit}"; then
     rm -rf -- "${fixed_checkout}"
     fail "could not check out transition BASE"
   fi
@@ -698,6 +699,7 @@ if [[ -n "${transition_base}" ]]; then
   [[ "${base_sequence}" =~ ^[0-9]+$ && "${head_sequence}" -eq $((base_sequence + 1)) ]] ||
     fail "TransitionSequence must increment by exactly one"
   head_kind="$(state_value_from_text "${head_text}" TransitionKind)"
+  validate_fixed_vsb_tree "${resolved_base}"
   immutable_transition_fields=(
     CanonicalProjectName TaskCardSet ExecutionStateVersion ExecutionStateAuthority
     ApprovedSpecSHA GovernanceReviewRoute SetAuthorizationStatus SetAuthorizationScope
@@ -822,7 +824,6 @@ if [[ -n "${transition_base}" ]]; then
       done
       ;;
     STOP_BY_USER)
-      validate_fixed_vsb_tree "${resolved_base}"
       [[ "$(state_value_from_text "${head_text}" UserStopAuthorization)" == EXPLICIT_USER_INSTRUCTION ]] ||
         fail "STOP_BY_USER requires explicit user instruction"
       base_status="$(state_value_from_text "${base_text}" TaskCardSetStatus)"
@@ -861,7 +862,6 @@ if [[ -n "${transition_base}" ]]; then
       done
       ;;
     FINAL_NO_GO)
-      validate_fixed_vsb_tree "${resolved_base}"
       [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
         fail "FINAL_NO_GO must start from IN_PROGRESS"
       final_owner="$(state_value_from_text "${base_text}" ActiveTaskCard)"

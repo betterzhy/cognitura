@@ -111,6 +111,119 @@ require_exact_git_tree_table_row() {
     "${content}" "${task_id}" "${expected_line}" "${failure_message}"
 }
 
+suspension_narrative_paths=(
+  AGENTS.md
+  AGENTS.md
+  README.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+)
+suspension_narratives=(
+  $'`W1-I02` 等待独立数据库 Gate；`W1-I03` 已冻结在\n`4e63936c631ab34807e714b90d30415a959bc13d`，当前没有 Wave 1 READY 卡。'
+  $'I00；I01 已关闭，I02 保持等待独立数据库 Gate；I03 在 Visual Style Baseline\n执行期间冻结为 `SUSPENDED_BY_USER`。'
+  $'完成零发现深审并关闭；I02 等待独立数据库 Gate。`W1-I03` 已冻结在\n`4e63936c631ab34807e714b90d30415a959bc13d`，当前没有 Wave 1 READY 卡；'
+  $'保持 `QUEUED` 等待独立数据库 Gate；`W1-I03` 在 Visual Style Baseline 期间为\n`SUSPENDED_BY_USER`，冻结候选 production WriteSet 不得变更。'
+  $'  I01 已关闭，I02 等待独立数据库 Gate；I03 在 Visual Style Baseline 期间冻结为\n  `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡。'
+  $'`W1-I03` 在独立 Visual Style Baseline 执行期间冻结为 `SUSPENDED_BY_USER`，当前\n没有 Wave 1 READY 卡；冻结 production WriteSet 不得变更。'
+  $'当前业务授权保持有效，但 `W1-I03` 在 Visual Style Baseline 期间暂停；I02 独立\n数据库 Gate、正式数据库写入和远程推送仍未授权。'
+  $'固定候选深审并关闭；I02 等待独立数据库 Gate，I03 在 Visual Style Baseline 期间\n冻结为 `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡；完整证据记录在'
+  $'数据库 Gate；I03 在 Visual Style Baseline 期间冻结为 `SUSPENDED_BY_USER`，当前没有\nWave 1 READY 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 在 Visual Style Baseline 执行期间冻结为 `SUSPENDED_BY_USER`；当前没有 READY 卡。'
+  $'I00 和 I01 已关闭；I02 等待独立数据库 Gate。W1-I03 在 Visual Style Baseline\n期间冻结为 `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡。'
+  $'完成零发现深审并关闭；I02 等待独立数据库 Gate。独立 Visual Style Baseline 执行\n期间，I03 冻结在 `4e63936c631ab34807e714b90d30415a959bc13d`，不得修改其\nproduction WriteSet。'
+)
+ready_narratives=(
+  '`W1-I02` 等待独立数据库 Gate，`W1-I03` 为唯一 `READY` 业务卡。'
+  'I00；I01 已关闭，当前已原子释放 I03，I02 保持等待独立数据库 Gate。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I03` 是唯一 `READY` 卡。'
+  '保持 `QUEUED` 等待独立数据库 Gate，`W1-I03` 已释放为唯一 `READY` 业务卡。'
+  '  I01 已关闭，I02 等待独立数据库 Gate，I03 为唯一 `READY` 卡。'
+  '`W1-I03` 已作为唯一 `READY` 卡释放。'
+  $'当前业务授权只按既定卡集串行推进至 `W1-I03`；I02 独立数据库 Gate、正式数据库\n写入和远程推送仍未授权。'
+  '固定候选深审并关闭；I02 等待独立数据库 Gate，I03 为唯一 `READY` 卡，完整证据记录在'
+  '数据库 Gate，I03 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 为唯一 `READY` 卡。'
+  'I00 和 I01 已关闭；I02 等待独立数据库 Gate，W1-I03 为唯一 `READY` 业务卡。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，I03 已原子释放为唯一 `READY` 卡。'
+)
+
+normalize_narrative_pair() {
+  local text="$1"
+  local suspended_text="$2"
+  local ready_text="$3"
+  local marker="$4"
+  local expected_state="$5"
+  local failure_context="$6"
+  local expected_text unexpected_text prefix suffix
+  case "${expected_state}" in
+    SUSPENDED)
+      expected_text="${suspended_text}"
+      unexpected_text="${ready_text}"
+      ;;
+    READY)
+      expected_text="${ready_text}"
+      unexpected_text="${suspended_text}"
+      ;;
+    *) fail "unsupported narrative projection state: ${expected_state}" ;;
+  esac
+  [[ "${text}" == *"${expected_text}"* ]] || fail "${failure_context}"
+  [[ "${text}" != *"${unexpected_text}"* ]] || fail "${failure_context}"
+  prefix="${text%%"${expected_text}"*}"
+  suffix="${text#*"${expected_text}"}"
+  [[ "${suffix}" != *"${expected_text}"* ]] || fail "${failure_context}"
+  printf '%s%s%s' "${prefix}" "${marker}" "${suffix}"
+}
+
+normalize_projection_narratives_text() {
+  local text="$1"
+  local path="$2"
+  local expected_state="$3"
+  local failure_context="$4"
+  local narrative_index matched=0
+  for narrative_index in "${!suspension_narratives[@]}"; do
+    [[ "${suspension_narrative_paths[${narrative_index}]}" == "${path}" ]] || continue
+    matched=1
+    text="$(normalize_narrative_pair \
+      "${text}" \
+      "${suspension_narratives[${narrative_index}]}" \
+      "${ready_narratives[${narrative_index}]}" \
+      "__W1_RESTORE_NARRATIVE_${narrative_index}__" \
+      "${expected_state}" \
+      "${failure_context}: ${path}")"
+  done
+  if [[ "${path}" != docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md ]]; then
+    [[ "${matched}" -eq 1 ]] || fail "missing exact narrative contract for ${path}"
+  fi
+  printf '%s' "${text}"
+}
+
+require_current_suspension_narratives() {
+  local path content
+  for path in \
+    AGENTS.md \
+    README.md \
+    docs/design/wave-1/README.md \
+    docs/engineering/cognitura-design-index.md \
+    docs/engineering/cognitura-wave-1-design-plan.md \
+    docs/engineering/cognitura-wave-1-design-acceptance.md \
+    docs/engineering/cognitura-wave-1-implementation-plan.md \
+    docs/task-cards/wave-1/README.md \
+    docs/task-cards/wave-1-implementation/README.md; do
+    [[ -f "${repo_root}/${path}" ]] || fail "projection file is missing: ${path}"
+    content="$(<"${repo_root}/${path}")"$'\034'
+    normalize_projection_narratives_text \
+      "${content}" "${path}" SUSPENDED \
+      "current suspension narrative projection mismatch" >/dev/null
+  done
+}
+
 sha256_stream() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 | awk '{print $1}'
@@ -1037,6 +1150,7 @@ case "${task_set_status}" in
       docs/task-cards/wave-1-implementation/README.md \
       W1-I03 \
       '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |'
+    require_current_suspension_narratives
     for projection_path in AGENTS.md README.md docs/engineering/cognitura-design-index.md; do
       require_all_projection_values "${projection_path}" BusinessImplementation USER_AUTHORIZED
       require_all_projection_values "${projection_path}" FormalDatabaseWrite NOT_AUTHORIZED
@@ -1122,37 +1236,47 @@ write_normalized_restore_file() {
   local commit="$1"
   local path="$2"
   local output_file="$3"
+  local expected_state="$4"
+  local content narrative_failure_context
   git -C "${repo_root}" cat-file -e "${commit}:${path}" 2>/dev/null ||
     fail "transition tree is missing ${path}"
+  if [[ "${expected_state}" == SUSPENDED ]]; then
+    narrative_failure_context="restore transition BASE must preserve exact suspended narrative projection"
+  else
+    narrative_failure_context="restore transition HEAD must contain exact READY narrative projection"
+  fi
+  content="$(git -C "${repo_root}" show "${commit}:${path}"; printf '\034')"
+  content="$(normalize_projection_narratives_text \
+    "${content}" "${path}" "${expected_state}" "${narrative_failure_context}")"
   case "${path}" in
     AGENTS.md|README.md)
-      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+      printf '%s' "${content%$'\034'}" | sed -E \
         -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
       ;;
     docs/design/wave-1/README.md|docs/engineering/cognitura-wave-1-design-plan.md|docs/task-cards/wave-1/README.md)
-      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+      printf '%s' "${content%$'\034'}" | sed -E \
         -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
       ;;
     docs/engineering/cognitura-design-index.md)
-      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+      printf '%s' "${content%$'\034'}" | sed -E \
         -e 's/^(Wave1ImplementationTaskCardSet|ActiveTaskCard|ActiveTaskCardStatus|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
       ;;
     docs/engineering/cognitura-wave-1-design-acceptance.md)
-      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+      printf '%s' "${content%$'\034'}" | sed -E \
         -e 's/^(ImplementationTaskCardPlanStatus|Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
       ;;
     docs/engineering/cognitura-wave-1-implementation-plan.md)
-      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+      printf '%s' "${content%$'\034'}" | sed -E \
         -e 's/^(TaskCardSetStatus|ActiveTaskCard|SuspendedTaskCard|SuspendedCandidateSHA|SuspendedCandidateMutation) = .*/\1 = __RESTORED__/' \
         -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g' > "${output_file}"
       ;;
     docs/task-cards/wave-1-implementation/README.md)
-      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+      printf '%s' "${content%$'\034'}" | sed -E \
         -e 's/^(TaskCardSetStatus|ActiveTaskCard|SuspendedTaskCard|SuspendedCandidateSHA|SuspendedCandidateMutation|ReadyTaskCardCount|SuspendedTaskCardCount) = .*/\1 = __RESTORED__/' \
         -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g' > "${output_file}"
       ;;
     docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md)
-      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+      printf '%s' "${content%$'\034'}" | sed -E \
         -e 's/^Status = .*/Status = __RESTORED__/' > "${output_file}"
       ;;
     *) fail "unsupported restore projection path: ${path}" ;;
@@ -1211,9 +1335,9 @@ if [[ -n "${transition_base}" ]]; then
     base_mode="$(git -C "${repo_root}" ls-tree "${resolved_base}" -- "${path}" | awk '{print $1}')"
     head_mode="$(git -C "${repo_root}" ls-tree "${resolved_head}" -- "${path}" | awk '{print $1}')"
     write_normalized_restore_file \
-      "${resolved_base}" "${path}" "${restore_compare_dir}/base-${restore_compare_index}"
+      "${resolved_base}" "${path}" "${restore_compare_dir}/base-${restore_compare_index}" SUSPENDED
     write_normalized_restore_file \
-      "${resolved_head}" "${path}" "${restore_compare_dir}/head-${restore_compare_index}"
+      "${resolved_head}" "${path}" "${restore_compare_dir}/head-${restore_compare_index}" READY
     if [[ "${base_mode}" != "${head_mode}" ]] || ! cmp -s \
       "${restore_compare_dir}/base-${restore_compare_index}" \
       "${restore_compare_dir}/head-${restore_compare_index}"; then
