@@ -24,6 +24,18 @@ assert_contains() {
     fail "validation output is missing: ${expected}"
 }
 
+assert_commit_parent_count() {
+  local fixture_root="$1"
+  local commit="$2"
+  local expected="$3"
+  local parent_line parent_count
+  parent_line="$(git -C "${fixture_root}" rev-list --parents -n 1 "${commit}")"
+  set -- ${parent_line}
+  parent_count=$(($# - 1))
+  [[ "${parent_count}" -eq "${expected}" ]] ||
+    fail "fixture ${commit} must have ${expected} parents, found ${parent_count}"
+}
+
 set_field() {
   local file="$1"
   local field="$2"
@@ -841,6 +853,112 @@ assert_contains "${intervening_output}" \
 negative_cases=$((negative_cases + 1))
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 
+printf '%s\n' 'merge-only unauthorized history' > \
+  "${transition_repo_root}/raw/round11-merge-candidate-side.txt"
+git -C "${transition_repo_root}" add raw/round11-merge-candidate-side.txt
+git -C "${transition_repo_root}" commit -qm \
+  "test: create unauthorized side parent for candidate merge"
+merge_candidate_side_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+git -C "${transition_repo_root}" merge -q --no-ff -s ours --no-commit \
+  "${merge_candidate_side_sha}"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "exact VSB-00 merge candidate"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create exact VSB-00 merge candidate"
+merge_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+assert_commit_parent_count "${transition_repo_root}" "${merge_candidate_sha}" 2
+set_field "${transition_state}" "CompletedTaskCards" "VSB-00"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-01"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-01"
+set_field "${transition_state}" "CurrentCandidateSHA" "${merge_candidate_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+set_field "${transition_state}" "CurrentReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB00CandidateSHA" "${merge_candidate_sha}"
+set_field "${transition_state}" "VSB00GateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "VSB00ReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "VSB-02"
+set_field "${transition_state}" "TransitionSequence" "2"
+set_field "${transition_state}" "TransitionKind" "ADVANCE"
+set_field "${transition_state}" "TransitionBaseSHA" "${merge_candidate_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: advance a merge business candidate"
+merge_candidate_receipt_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if merge_candidate_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${merge_candidate_sha}" \
+    --transition-head "${merge_candidate_receipt_sha}" 2>&1
+)"; then
+  fail "merge business candidate unexpectedly passed"
+fi
+assert_contains "${merge_candidate_output}" \
+  "business candidate must have exactly one parent"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "linear VSB-00 candidate for merge receipt"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create linear VSB-00 candidate for merge receipt"
+merge_advance_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+printf '%s\n' 'merge receipt side history' > \
+  "${transition_repo_root}/docs/task-cards/visual-style-baseline/round11-side.txt"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/round11-side.txt
+git -C "${transition_repo_root}" commit -qm \
+  "test: create side parent for ADVANCE receipt"
+merge_advance_side_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+git -C "${transition_repo_root}" switch -q --detach \
+  "${merge_advance_candidate_sha}"
+git -C "${transition_repo_root}" merge -q --no-ff -s ours --no-commit \
+  "${merge_advance_side_sha}"
+set_field "${transition_state}" "CompletedTaskCards" "VSB-00"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-01"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-01"
+set_field "${transition_state}" "CurrentCandidateSHA" \
+  "${merge_advance_candidate_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+set_field "${transition_state}" "CurrentReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB00CandidateSHA" \
+  "${merge_advance_candidate_sha}"
+set_field "${transition_state}" "VSB00GateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "VSB00ReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "VSB-02"
+set_field "${transition_state}" "TransitionSequence" "2"
+set_field "${transition_state}" "TransitionKind" "ADVANCE"
+set_field "${transition_state}" "TransitionBaseSHA" \
+  "${merge_advance_candidate_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: create merge ADVANCE receipt"
+merge_advance_receipt_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+assert_commit_parent_count "${transition_repo_root}" \
+  "${merge_advance_receipt_sha}" 2
+if merge_advance_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${merge_advance_candidate_sha}" \
+    --transition-head "${merge_advance_receipt_sha}" 2>&1
+)"; then
+  fail "merge ADVANCE receipt unexpectedly passed"
+fi
+assert_contains "${merge_advance_output}" \
+  "transition HEAD must have exactly one parent"
+negative_cases=$((negative_cases + 1))
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+
 mkdir -p "${transition_repo_root}/docs/design/visual-style-baseline-fixtures"
 printf '%s\n' 'unauthorized candidate path' > \
   "${transition_repo_root}/docs/design/visual-style-baseline-fixtures/unauthorized.txt"
@@ -1165,6 +1283,39 @@ printf '%s\n' "${candidate_write_sets[3]}" | \
   git -C "${transition_repo_root}" add --pathspec-from-file=-
 git -C "${transition_repo_root}" commit -qm "test: create VSB-03 candidate"
 vsb03_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
+printf '%s\n' 'merge RETURN receipt side history' > \
+  "${transition_repo_root}/docs/task-cards/visual-style-baseline/round11-return-side.txt"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/round11-return-side.txt
+git -C "${transition_repo_root}" commit -qm \
+  "test: create side parent for RETURN receipt"
+merge_return_side_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+git -C "${transition_repo_root}" merge -q --no-ff -s ours --no-commit \
+  "${merge_return_side_sha}"
+prepare_return_to_owner \
+  "${vsb03_candidate_sha}" VSB-02 VSB-00,VSB-01 VSB-03 5 \
+  deep_reviewer+ultra_gatekeeper VISUAL_ACCEPTANCE_FAIL
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: create merge RETURN receipt"
+merge_return_receipt_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+assert_commit_parent_count "${transition_repo_root}" \
+  "${merge_return_receipt_sha}" 2
+if merge_return_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${vsb03_candidate_sha}" \
+    --transition-head "${merge_return_receipt_sha}" 2>&1
+)"; then
+  fail "merge RETURN receipt unexpectedly passed"
+fi
+assert_contains "${merge_return_output}" \
+  "transition HEAD must have exactly one parent"
+negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${after_vsb02_receipt}"
 printf '%s\n' 'forbidden VSB-03 intervening history' > \
@@ -1503,6 +1654,52 @@ complete_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --cards-dir "${transition_cards}" >/dev/null ||
   fail "valid VSB COMPLETE terminal receipt was rejected statically"
 
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+printf '%s\n' 'merge COMPLETE receipt side history' > \
+  "${transition_repo_root}/docs/task-cards/visual-style-baseline/round11-complete-side.txt"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/round11-complete-side.txt
+git -C "${transition_repo_root}" commit -qm \
+  "test: create side parent for COMPLETE receipt"
+merge_complete_side_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+git -C "${transition_repo_root}" merge -q --no-ff -s ours --no-commit \
+  "${merge_complete_side_sha}"
+set_field "${transition_state}" "TaskCardSetStatus" "COMPLETE"
+set_field "${transition_state}" "ActiveTaskCard" "NONE"
+set_field "${transition_state}" "ReleasedTaskCard" "NONE"
+set_field "${transition_state}" "CompletedTaskCards" "VSB-00,VSB-01,VSB-02,VSB-03"
+set_field "${transition_state}" "CurrentCandidateSHA" "${vsb03_candidate_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer+ultra_gatekeeper"
+set_field "${transition_state}" "CurrentReviewVerdict" "FINAL_GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB03CandidateSHA" "${vsb03_candidate_sha}"
+set_field "${transition_state}" "VSB03GateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "VSB03DeepReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB03UltraReviewVerdict" "FINAL_GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "TransitionSequence" "5"
+set_field "${transition_state}" "TransitionKind" "COMPLETE"
+set_field "${transition_state}" "TransitionBaseSHA" "${vsb03_candidate_sha}"
+set_field "${transition_state}" "VisualImplementation" "COMPLETE"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: create merge COMPLETE receipt"
+merge_complete_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+assert_commit_parent_count "${transition_repo_root}" "${merge_complete_sha}" 2
+if merge_complete_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" 2>&1
+)"; then
+  fail "merge terminal COMPLETE receipt unexpectedly passed"
+fi
+assert_contains "${merge_complete_output}" \
+  "terminal VSB state HEAD must have exactly one parent"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${complete_sha}"
 make_wave1_restore_projection "${transition_repo_root}"
 git -C "${transition_repo_root}" add "${wave1_restore_paths[@]}"
 git -C "${transition_repo_root}" commit -qm \
@@ -1512,6 +1709,36 @@ complete_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --repo-root "${transition_repo_root}" \
   --cards-dir "${transition_cards}" >/dev/null ||
   fail "valid restored COMPLETE state was rejected statically"
+
+git -C "${transition_repo_root}" switch -q --detach "${complete_sha}"
+printf '%s\n' 'merge restore side history' > \
+  "${transition_repo_root}/docs/task-cards/visual-style-baseline/round11-restore-side.txt"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/round11-restore-side.txt
+git -C "${transition_repo_root}" commit -qm \
+  "test: create side parent for Wave restore"
+merge_restore_side_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+git -C "${transition_repo_root}" switch -q --detach "${complete_sha}"
+git -C "${transition_repo_root}" merge -q --no-ff -s ours --no-commit \
+  "${merge_restore_side_sha}"
+make_wave1_restore_projection "${transition_repo_root}"
+git -C "${transition_repo_root}" add "${wave1_restore_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: create merge Wave restore"
+merge_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+assert_commit_parent_count "${transition_repo_root}" "${merge_restore_sha}" 2
+if merge_restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" 2>&1
+)"; then
+  fail "merge Wave restore unexpectedly passed"
+fi
+assert_contains "${merge_restore_output}" \
+  "terminal VSB state HEAD must have exactly one parent"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${complete_restore_sha}"
 
 set_field "${transition_state}" "VSB03UltraReviewVerdict" "NOT_RUN"
 complete_failure_output="$(
@@ -1701,7 +1928,14 @@ assert_contains "${zero_finding_output}" \
   "finding verdict must contain at least one non-zero count"
 negative_cases=$((negative_cases + 1))
 
-transition_cases=22
+baseline_transition_cases=22
+round10_parent_binding_transition_cases=3
+round11_merge_transition_cases=3
+transition_cases=$((
+  baseline_transition_cases +
+  round10_parent_binding_transition_cases +
+  round11_merge_transition_cases
+))
 fixed_base_transition_cases=6
 binary_ledger_cases=1
 cross_card_return_positive_cases=2

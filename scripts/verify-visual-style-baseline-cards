@@ -66,6 +66,17 @@ is_commit_sha() {
     git -C "${repo_root}" rev-parse --verify "${sha}^{commit}" >/dev/null 2>&1
 }
 
+single_parent_of() {
+  local commit="$1"
+  local label="$2"
+  local parent_line
+  parent_line="$(git -C "${repo_root}" rev-list --parents -n 1 "${commit}" 2>/dev/null)" ||
+    fail "${label} must resolve to a commit"
+  set -- ${parent_line}
+  [[ "$#" -eq 2 ]] || fail "${label} must have exactly one parent"
+  printf '%s\n' "$2"
+}
+
 require_nul_free_file() {
   local input_file="$1"
   local failure_context="$2"
@@ -202,15 +213,13 @@ validate_terminal_receipt_provenance() {
   base_sha="$(field_value "${state_file}" TransitionBaseSHA)"
   is_commit_sha "${base_sha}" ||
     fail "terminal VSB state requires a resolvable TransitionBaseSHA"
-  head_parent="$(git -C "${repo_root}" rev-parse "${repository_head}^")" ||
-    fail "terminal VSB state HEAD must have a parent commit"
+  head_parent="$(single_parent_of "${repository_head}" "terminal VSB state HEAD")"
   if [[ "${head_parent}" == "${base_sha}" ]]; then
     terminal_sha="${repository_head}"
   else
     terminal_sha="${head_parent}"
   fi
-  terminal_parent="$(git -C "${repo_root}" rev-parse "${terminal_sha}^")" ||
-    fail "terminal VSB receipt must have a parent commit"
+  terminal_parent="$(single_parent_of "${terminal_sha}" "terminal VSB receipt")"
   [[ "${terminal_parent}" == "${base_sha}" ]] ||
     fail "terminal VSB state must be the exact direct-child receipt commit or its exact Wave 1 restore"
   ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
@@ -448,8 +457,8 @@ verify_candidate_write_set() {
   local owner_index="$2"
   local owner_id="${expected_ids[${owner_index}]}"
   local candidate_parent actual_paths expected_paths
-  candidate_parent="$(git -C "${repo_root}" rev-parse "${candidate_sha}^" 2>/dev/null)" ||
-    fail "${owner_id} candidate must have a parent commit"
+  candidate_parent="$(single_parent_of "${candidate_sha}" "business candidate")"
+  single_parent_of "${candidate_parent}" "candidate-parent ledger receipt" >/dev/null
   actual_paths="$(
     git -C "${repo_root}" diff --no-renames --name-only \
       "${candidate_parent}..${candidate_sha}" | LC_ALL=C sort
@@ -470,7 +479,7 @@ validate_parent_receipt_transition_pair() {
   local receipt_index base_active owner_index base_completed head_completed
   local expected_base_prefix expected_head_prefix expected_head_active expected_head_next
   local head_owner return_owner_index failed_owner_index expected_return_prefix expected_return_next
-  [[ "$(git -C "${repo_root}" rev-parse "${pair_head}^" 2>/dev/null)" == "${pair_base}" ]] ||
+  [[ "$(single_parent_of "${pair_head}" "candidate-parent ledger receipt")" == "${pair_base}" ]] ||
     fail "receipt HEAD must be the direct child of its BASE"
   ledger_path=docs/task-cards/visual-style-baseline/execution-state.md
   pair_paths="$(git -C "${repo_root}" diff --no-renames --name-only "${pair_base}..${pair_head}")"
@@ -693,10 +702,8 @@ verify_candidate_parent_receipt() {
   local candidate_sha="$1"
   local candidate_parent receipt_base receipt_paths
   local replay_output
-  candidate_parent="$(git -C "${repo_root}" rev-parse "${candidate_sha}^" 2>/dev/null)" ||
-    fail "candidate parent must be a replayable ledger-only VSB receipt"
-  receipt_base="$(git -C "${repo_root}" rev-parse "${candidate_parent}^" 2>/dev/null)" ||
-    fail "candidate parent must be a replayable ledger-only VSB receipt"
+  candidate_parent="$(single_parent_of "${candidate_sha}" "business candidate")"
+  receipt_base="$(single_parent_of "${candidate_parent}" "candidate-parent ledger receipt")"
   receipt_paths="$(
     git -C "${repo_root}" diff --no-renames --name-only \
       "${receipt_base}..${candidate_parent}"
@@ -971,7 +978,7 @@ if [[ -n "${transition_base}" ]]; then
     fail "transition BASE is not a commit"
   resolved_head="$(git -C "${repo_root}" rev-parse --verify "${transition_head}^{commit}" 2>/dev/null)" ||
     fail "transition HEAD is not a commit"
-  [[ "$(git -C "${repo_root}" rev-parse "${resolved_head}^")" == "${resolved_base}" ]] ||
+  [[ "$(single_parent_of "${resolved_head}" "transition HEAD")" == "${resolved_base}" ]] ||
     fail "transition HEAD must be the direct child of BASE"
   ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
   diff_paths="$(git -C "${repo_root}" diff --name-only "${resolved_base}..${resolved_head}")"
