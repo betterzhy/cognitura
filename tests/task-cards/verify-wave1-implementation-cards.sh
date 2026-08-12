@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-wave1-implementation-cards"
 cards_dir="${repo_root}/docs/task-cards/wave-1-implementation"
+canonical_cards_dir="${cards_dir}"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-wave1-implementation-cards.XXXXXX")"
 
 cleanup() {
@@ -30,6 +31,12 @@ set_field() {
   local value="$3"
   sed -i.bak "s#^${field} = .*\$#${field} = ${value}#" "${file}"
   rm "${file}.bak"
+}
+
+field_value() {
+  local file="$1"
+  local field="$2"
+  sed -n "s/^${field} = //p" "${file}"
 }
 
 set_table_status() {
@@ -108,6 +115,11 @@ make_ready_i00_fixture() {
     "${destination_dir}/README.md" \
     "BusinessImplementation" \
     "NOT_AUTHORIZED"
+  if grep -q '^SuspendedTaskCard = ' "${destination_dir}/README.md"; then
+    set_field "${destination_dir}/README.md" "SuspendedTaskCard" "NONE"
+    set_field "${destination_dir}/README.md" "SuspendedCandidateSHA" "NONE"
+    set_field "${destination_dir}/README.md" "SuspendedCandidateMutation" "NONE"
+  fi
 }
 
 expect_failure() {
@@ -711,6 +723,409 @@ blocked_output="$("${verifier}" --cards-dir "${blocked_authorization_dir}")" ||
 assert_contains "${blocked_output}" "TaskCardSetStatus = BLOCKED_BY_USER_AUTHORIZATION"
 assert_contains "${blocked_output}" "ActiveTaskCard = NONE"
 
+# The visual-style lane must atomically suspend exactly W1-I03 at its reviewed
+# candidate. This positive case is deliberately executed before the mutations
+# below so the pre-feature validator produces the required RED.
+suspended_dir="${test_tmp_root}/suspended"
+cp -R "${canonical_cards_dir}" "${suspended_dir}"
+set_field "${suspended_dir}/README.md" "TaskCardSetStatus" "SUSPENDED_BY_USER"
+set_field "${suspended_dir}/README.md" "ActiveTaskCard" "NONE"
+set_field "${suspended_dir}/README.md" "BusinessImplementation" "USER_AUTHORIZED"
+if grep -q '^SuspendedTaskCard = ' "${suspended_dir}/README.md"; then
+  set_field "${suspended_dir}/README.md" "SuspendedTaskCard" "W1-I03"
+  set_field "${suspended_dir}/README.md" "SuspendedCandidateSHA" \
+    "4e63936c631ab34807e714b90d30415a959bc13d"
+  set_field "${suspended_dir}/README.md" "SuspendedCandidateMutation" "FORBIDDEN"
+else
+  sed -i.bak \
+    '/^TaskCardSetStatus = SUSPENDED_BY_USER$/a\
+SuspendedTaskCard = W1-I03\
+SuspendedCandidateSHA = 4e63936c631ab34807e714b90d30415a959bc13d\
+SuspendedCandidateMutation = FORBIDDEN' \
+    "${suspended_dir}/README.md"
+  rm "${suspended_dir}/README.md.bak"
+fi
+set_field "${suspended_dir}/W1-I03-docx-security-gate.md" "Status" "SUSPENDED_BY_USER"
+set_table_status \
+  "${suspended_dir}/README.md" \
+  "W1-I03" \
+  "READY" \
+  "SUSPENDED_BY_USER"
+suspended_output="$(
+  "${verifier}" \
+    --repo-root "${repo_root}" \
+    --cards-dir "${suspended_dir}"
+)" || fail "valid W1-I03 suspension was rejected"
+assert_contains "${suspended_output}" "TaskCardSetStatus = SUSPENDED_BY_USER"
+assert_contains "${suspended_output}" "ActiveTaskCard = NONE"
+
+suspended_ready_dir="${test_tmp_root}/suspended-ready"
+cp -R "${suspended_dir}" "${suspended_ready_dir}"
+set_field "${suspended_ready_dir}/W1-I02-source-persistence.md" "Status" "READY"
+set_field "${suspended_ready_dir}/W1-I02-source-persistence.md" \
+  "BusinessImplementationAuthorization" "USER_AUTHORIZED"
+set_field "${suspended_ready_dir}/W1-I02-source-persistence.md" \
+  "FormalDatabaseGate" "PASS"
+set_table_status \
+  "${suspended_ready_dir}/README.md" \
+  "W1-I02" \
+  "QUEUED" \
+  "READY"
+expect_failure "${suspended_ready_dir}" "suspended state cannot have a READY card"
+
+suspended_active_dir="${test_tmp_root}/suspended-active"
+cp -R "${suspended_dir}" "${suspended_active_dir}"
+set_field "${suspended_active_dir}/README.md" "ActiveTaskCard" "W1-I03"
+expect_failure "${suspended_active_dir}" "suspended state must have no active card"
+
+wrong_suspended_card_dir="${test_tmp_root}/wrong-suspended-card"
+cp -R "${suspended_dir}" "${wrong_suspended_card_dir}"
+set_field "${wrong_suspended_card_dir}/README.md" "SuspendedTaskCard" "W1-I04"
+expect_failure "${wrong_suspended_card_dir}" "SuspendedTaskCard must be W1-I03"
+
+two_suspended_cards_dir="${test_tmp_root}/two-suspended-cards"
+cp -R "${suspended_dir}" "${two_suspended_cards_dir}"
+set_field "${two_suspended_cards_dir}/W1-I04-text-list-section-parser.md" "Status" "SUSPENDED_BY_USER"
+set_table_status \
+  "${two_suspended_cards_dir}/README.md" \
+  "W1-I04" \
+  "BLOCKED_BY_DEPENDENCY" \
+  "SUSPENDED_BY_USER"
+expect_failure "${two_suspended_cards_dir}" "SUSPENDED_BY_USER is allowed only for W1-I03"
+
+status_disagreement_dir="${test_tmp_root}/suspended-status-disagreement"
+cp -R "${suspended_dir}" "${status_disagreement_dir}"
+set_table_status \
+  "${status_disagreement_dir}/README.md" \
+  "W1-I03" \
+  "SUSPENDED_BY_USER" \
+  "READY"
+expect_failure "${status_disagreement_dir}" "README.md: status mismatch for W1-I03"
+
+for suspension_field in SuspendedTaskCard SuspendedCandidateSHA SuspendedCandidateMutation; do
+  missing_field_dir="${test_tmp_root}/missing-${suspension_field}"
+  cp -R "${suspended_dir}" "${missing_field_dir}"
+  sed -i.bak "/^${suspension_field} = /d" "${missing_field_dir}/README.md"
+  rm "${missing_field_dir}/README.md.bak"
+  expect_failure "${missing_field_dir}" "${suspension_field} must occur exactly once"
+
+  duplicate_field_dir="${test_tmp_root}/duplicate-${suspension_field}"
+  cp -R "${suspended_dir}" "${duplicate_field_dir}"
+  field_literal="$(field_value "${duplicate_field_dir}/README.md" "${suspension_field}")"
+  printf '%s = %s\n' "${suspension_field}" "${field_literal}" >> \
+    "${duplicate_field_dir}/README.md"
+  expect_failure "${duplicate_field_dir}" "${suspension_field} must occur exactly once"
+done
+
+for invalid_sha in short zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz 70eefba5912e6884e4e7e1d6477a65f4091d6590; do
+  invalid_sha_dir="${test_tmp_root}/invalid-suspended-sha-${invalid_sha}"
+  cp -R "${suspended_dir}" "${invalid_sha_dir}"
+  set_field "${invalid_sha_dir}/README.md" "SuspendedCandidateSHA" "${invalid_sha}"
+  expect_failure "${invalid_sha_dir}" "SuspendedCandidateSHA must equal the frozen W1-I03 candidate"
+done
+
+mutation_policy_dir="${test_tmp_root}/wrong-suspended-mutation-policy"
+cp -R "${suspended_dir}" "${mutation_policy_dir}"
+set_field "${mutation_policy_dir}/README.md" "SuspendedCandidateMutation" "ALLOWED"
+expect_failure "${mutation_policy_dir}" "SuspendedCandidateMutation must be FORBIDDEN"
+
+suspended_business_dir="${test_tmp_root}/suspended-business-drift"
+cp -R "${suspended_dir}" "${suspended_business_dir}"
+set_field "${suspended_business_dir}/README.md" "BusinessImplementation" "NOT_AUTHORIZED"
+expect_failure "${suspended_business_dir}" "README.md: BusinessImplementation projection mismatch"
+
+for released_id in W1-I02 W1-I04; do
+  if [[ "${released_id}" == "W1-I02" ]]; then
+    released_file="W1-I02-source-persistence.md"
+  else
+    released_file="W1-I04-text-list-section-parser.md"
+  fi
+  released_dir="${test_tmp_root}/suspended-released-${released_id}"
+  cp -R "${suspended_dir}" "${released_dir}"
+  old_status="$(field_value "${released_dir}/${released_file}" "Status")"
+  set_field "${released_dir}/${released_file}" "Status" "READY"
+  set_field "${released_dir}/${released_file}" \
+    "BusinessImplementationAuthorization" "USER_AUTHORIZED"
+  if [[ "${released_id}" == "W1-I02" ]]; then
+    set_field "${released_dir}/${released_file}" "FormalDatabaseGate" "PASS"
+  fi
+  set_table_status "${released_dir}/README.md" "${released_id}" "${old_status}" "READY"
+  if [[ "${released_id}" == "W1-I02" ]]; then
+    expect_failure "${released_dir}" "suspended state cannot have a READY card"
+  else
+    expect_failure "${released_dir}" "must remain BLOCKED_BY_DEPENDENCY until dependencies are DONE"
+  fi
+done
+
+suspension_mutation_cases=18
+
+# Real Git fixtures prove the fixed production tree remains frozen and the
+# eventual restore is an exact ten-path direct-child receipt.
+transition_repo_root="${test_tmp_root}/transition-repo"
+git clone --shared -q "${repo_root}" "${transition_repo_root}"
+transition_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md
+)
+for transition_path in "${transition_paths[@]}"; do
+  mkdir -p "${transition_repo_root}/$(dirname "${transition_path}")"
+  cp "${repo_root}/${transition_path}" "${transition_repo_root}/${transition_path}"
+done
+mkdir -p "${transition_repo_root}/docs/task-cards/visual-style-baseline"
+cp -R "${repo_root}/docs/task-cards/visual-style-baseline/." \
+  "${transition_repo_root}/docs/task-cards/visual-style-baseline/"
+transition_state="${transition_repo_root}/docs/task-cards/visual-style-baseline/execution-state.md"
+set_field "${transition_state}" "TaskCardSetStatus" "STOPPED_BY_USER"
+set_field "${transition_state}" "ActiveTaskCard" "NONE"
+set_field "${transition_state}" "ReleasedTaskCard" "NONE"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "CurrentGateStatus" "STOPPED_BY_USER"
+set_field "${transition_state}" "CurrentReviewRoute" "NONE"
+set_field "${transition_state}" "CurrentReviewVerdict" "NOT_APPLICABLE_USER_STOP"
+set_field "${transition_state}" "TransitionSequence" "1"
+set_field "${transition_state}" "TransitionKind" "STOP_BY_USER"
+set_field "${transition_state}" "VisualImplementation" "STOPPED_BY_USER"
+set_field "${transition_state}" "UserStopAuthorization" "EXPLICIT_USER_INSTRUCTION"
+git -C "${transition_repo_root}" add "${transition_paths[@]}" \
+  docs/task-cards/visual-style-baseline
+git -C "${transition_repo_root}" commit -qm "test: suspend W1-I03 for visual lane"
+suspension_git_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
+mkdir -p "${transition_repo_root}/docs/task-cards/visual-style-baseline"
+printf '%s\n' 'allowed visual governance change' > \
+  "${transition_repo_root}/docs/task-cards/visual-style-baseline/example.md"
+git -C "${transition_repo_root}" add docs/task-cards/visual-style-baseline/example.md
+git -C "${transition_repo_root}" commit -qm "docs: allowed VSB change"
+allowed_visual_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${verifier}" \
+  --repo-root "${transition_repo_root}" \
+  --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" >/dev/null ||
+  fail "allowed visual-lane commit invalidated the frozen W1-I03 candidate"
+
+for projection_path in \
+  docs/engineering/cognitura-wave-1-design-plan.md \
+  docs/task-cards/wave-1/README.md; do
+  set_field \
+    "${transition_repo_root}/${projection_path}" \
+    "ActiveImplementationGovernanceTaskCard" \
+    "W1-I03"
+  if projection_output="$(
+    "${verifier}" \
+      --repo-root "${transition_repo_root}" \
+      --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" 2>&1
+  )"; then
+    fail "suspended projection ${projection_path} unexpectedly kept W1-I03 active"
+  fi
+  assert_contains "${projection_output}" "ActiveImplementationGovernanceTaskCard projection mismatch"
+  git -C "${transition_repo_root}" restore "${projection_path}"
+done
+
+production_mutation_branch="production-mutation"
+git -C "${transition_repo_root}" switch -qc "${production_mutation_branch}"
+printf '\n// forbidden frozen mutation\n' >> \
+  "${transition_repo_root}/server/src/main/java/io/cognitura/source/docx/security/DocxSecurityGate.java"
+git -C "${transition_repo_root}" add \
+  server/src/main/java/io/cognitura/source/docx/security/DocxSecurityGate.java
+git -C "${transition_repo_root}" commit -qm "test: mutate frozen W1-I03 path"
+if production_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" 2>&1
+)"; then
+  fail "frozen W1-I03 production mutation unexpectedly passed"
+fi
+assert_contains "${production_output}" "frozen W1-I03 production paths changed"
+
+make_restore_projection() {
+  local fixture_root="$1"
+  set_field "${fixture_root}/AGENTS.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/AGENTS.md" "ActiveImplementationTaskCard" "W1-I03"
+  set_field "${fixture_root}/README.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/README.md" "ActiveImplementationTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/design/wave-1/README.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/design/wave-1/README.md" "ActiveImplementationGovernanceTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" "ActiveTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" "ActiveTaskCardStatus" "READY"
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" "ActiveImplementationTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" "ActiveImplementationGovernanceTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" "ImplementationTaskCardPlanStatus" "I01_COMPLETE_I03_READY"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" "ActiveImplementationGovernanceTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" "TaskCardSetStatus" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" "ActiveTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" "SuspendedTaskCard" "NONE"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" "SuspendedCandidateSHA" "NONE"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" "SuspendedCandidateMutation" "NONE"
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" "ActiveImplementationGovernanceTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" "TaskCardSetStatus" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" "ActiveTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" "SuspendedTaskCard" "NONE"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" "SuspendedCandidateSHA" "NONE"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" "SuspendedCandidateMutation" "NONE"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" "ReadyTaskCardCount" "1"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" "SuspendedTaskCardCount" "0"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md" "Status" "READY"
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "W1-I03" \
+    "SUSPENDED_BY_USER" \
+    "READY"
+}
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm "test: restore W1-I03"
+restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${restore_sha}"
+)" || fail "valid stopped-state W1-I03 restore was rejected"
+assert_contains "${restore_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
+assert_contains "${restore_output}" "ActiveTaskCard = W1-I03"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+set_field \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/README.md" \
+  "SuspendedTaskCard" \
+  "W1-I03"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm "test: retain suspended field during restore"
+residual_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if residual_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${residual_restore_sha}" 2>&1
+)"; then
+  fail "restore with a residual suspended field unexpectedly passed"
+fi
+assert_contains "${residual_output}" "clear suspended fields"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+set_field \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md" \
+  "Status" \
+  "QUEUED"
+set_table_status \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/README.md" \
+  "W1-I03" \
+  "READY" \
+  "QUEUED"
+set_field \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" \
+  "Status" \
+  "READY"
+set_field \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" \
+  "BusinessImplementationAuthorization" \
+  "USER_AUTHORIZED"
+set_field \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" \
+  "FormalDatabaseGate" \
+  "PASS"
+set_table_status \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/README.md" \
+  "W1-I02" \
+  "QUEUED" \
+  "READY"
+set_field \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/README.md" \
+  "ActiveTaskCard" \
+  "W1-I02"
+git -C "${transition_repo_root}" add "${transition_paths[@]}" \
+  docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md
+git -C "${transition_repo_root}" commit -qm "test: restore the wrong Wave 1 card"
+wrong_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if wrong_restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${wrong_restore_sha}" 2>&1
+)"; then
+  fail "restore releasing W1-I02 unexpectedly passed"
+fi
+assert_contains "${wrong_restore_output}" "exact ten projection paths"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+printf '\n// forbidden restore mutation\n' >> \
+  "${transition_repo_root}/server/src/main/java/io/cognitura/source/docx/security/DocxSecurityGate.java"
+git -C "${transition_repo_root}" add "${transition_paths[@]}" \
+  server/src/main/java/io/cognitura/source/docx/security/DocxSecurityGate.java
+git -C "${transition_repo_root}" commit -qm "test: mix production path into restore"
+production_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if production_restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${production_restore_sha}" 2>&1
+)"; then
+  fail "restore containing a production path unexpectedly passed"
+fi
+assert_contains "${production_restore_output}" "exact ten projection paths"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+set_field "${transition_state}" "UserStopAuthorization" "NONE"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm "test: remove stop authorization"
+unauthorized_stop_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+make_restore_projection "${transition_repo_root}"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm "test: restore after unauthorized stop"
+unauthorized_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if unauthorized_restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${unauthorized_stop_sha}" \
+    --transition-head "${unauthorized_restore_sha}" 2>&1
+)"; then
+  fail "restore after a stop without explicit authorization unexpectedly passed"
+fi
+assert_contains "${unauthorized_restore_output}" "explicit user-stop authorization"
+
+nonancestor_repo_root="${test_tmp_root}/nonancestor-repo"
+git clone --shared -q "${repo_root}" "${nonancestor_repo_root}"
+git -C "${nonancestor_repo_root}" switch -q --detach \
+  4e63936c631ab34807e714b90d30415a959bc13d^
+for transition_path in "${transition_paths[@]}"; do
+  mkdir -p "${nonancestor_repo_root}/$(dirname "${transition_path}")"
+  cp "${repo_root}/${transition_path}" "${nonancestor_repo_root}/${transition_path}"
+done
+git -C "${nonancestor_repo_root}" add "${transition_paths[@]}"
+git -C "${nonancestor_repo_root}" commit -qm "test: suspend from unrelated history"
+if nonancestor_output="$(
+  "${verifier}" \
+    --repo-root "${nonancestor_repo_root}" \
+    --cards-dir "${nonancestor_repo_root}/docs/task-cards/wave-1-implementation" 2>&1
+)"; then
+  fail "non-ancestor frozen W1-I03 candidate unexpectedly passed"
+fi
+assert_contains "${nonancestor_output}" "SuspendedCandidateSHA must be an ancestor of HEAD"
+
+git_transition_cases=10
+
 printf '%s\n' \
   "Wave1ImplementationTaskCardContractTests = PASS" \
   "PositiveCases = 2" \
@@ -719,4 +1134,6 @@ printf '%s\n' \
   "BootstrapNormalizationCases = ${bootstrap_normalization_cases}" \
   "AuthorizedI01Cases = 1" \
   "CompleteTerminalCases = 1" \
-  "BlockedAuthorizationTerminalCases = 1"
+  "BlockedAuthorizationTerminalCases = 1" \
+  "SuspensionMutationCases = ${suspension_mutation_cases}" \
+  "GitTransitionCases = ${git_transition_cases}"

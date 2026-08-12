@@ -1,0 +1,533 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+repo_root="${script_repo_root}"
+cards_dir=""
+transition_base=""
+transition_head=""
+
+usage() {
+  printf '%s\n' \
+    'Usage: scripts/verify-visual-style-baseline-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA]' >&2
+  exit 2
+}
+
+fail() {
+  printf 'VisualStyleBaselineTaskCardValidation = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+field_value() {
+  local file="$1"
+  local key="$2"
+  sed -n "s/^${key} = //p" "${file}"
+}
+
+one_field_value() {
+  local file="$1"
+  local key="$2"
+  local label="$3"
+  local count
+  count="$(grep -c "^${key} = " "${file}" || true)"
+  [[ "${count}" -eq 1 ]] || fail "${label}: ${key} must occur exactly once"
+  field_value "${file}" "${key}"
+}
+
+sha256_stream() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  else
+    fail "SHA-256 tool is unavailable"
+  fi
+}
+
+normalized_card_digest() {
+  sed -E 's/^Status = .*/Status = __MUTABLE__/' "$1" | sha256_stream
+}
+
+is_commit_sha() {
+  local sha="$1"
+  [[ "${sha}" =~ ^[0-9a-f]{40}$ ]] &&
+    git -C "${repo_root}" rev-parse --verify "${sha}^{commit}" >/dev/null 2>&1
+}
+
+state_value_from_text() {
+  local text="$1"
+  local key="$2"
+  local count
+  count="$(printf '%s\n' "${text}" | grep -c "^${key} = " || true)"
+  [[ "${count}" -eq 1 ]] || fail "transition ledger: ${key} must occur exactly once"
+  printf '%s\n' "${text}" | sed -n "s/^${key} = //p"
+}
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --repo-root)
+      [[ "$#" -ge 2 ]] || usage
+      repo_root="$2"
+      shift 2
+      ;;
+    --cards-dir)
+      [[ "$#" -ge 2 ]] || usage
+      cards_dir="$2"
+      shift 2
+      ;;
+    --transition-base)
+      [[ "$#" -ge 2 ]] || usage
+      transition_base="$2"
+      shift 2
+      ;;
+    --transition-head)
+      [[ "$#" -ge 2 ]] || usage
+      transition_head="$2"
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+
+[[ -n "${cards_dir}" ]] || usage
+[[ -d "${repo_root}" ]] || fail "repo root does not exist: ${repo_root}"
+repo_root="$(cd "${repo_root}" && pwd -P)"
+[[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
+cards_dir="$(cd "${cards_dir}" && pwd -P)"
+if [[ -n "${transition_base}" || -n "${transition_head}" ]]; then
+  [[ -n "${transition_base}" && -n "${transition_head}" ]] ||
+    fail "transition-base and transition-head must be supplied together"
+fi
+
+index_file="${cards_dir}/README.md"
+state_file="${cards_dir}/execution-state.md"
+[[ -f "${index_file}" ]] || fail "task card index is missing: README.md"
+[[ -f "${state_file}" ]] || fail "execution-state.md is missing"
+
+expected_files=(
+  VSB-00-governance-reference.md
+  VSB-01-semantic-tokens.md
+  VSB-02-module-default-reading-visual.md
+  VSB-03-fixed-visual-acceptance.md
+)
+expected_ids=(VSB-00 VSB-01 VSB-02 VSB-03)
+expected_dependencies=(GOVERNANCE_BOOTSTRAP VSB-00 VSB-01 VSB-02)
+expected_gates=(
+  'VSB-G0 GOVERNANCE_AND_REFERENCE'
+  'VSB-G1 SEMANTIC_TOKENS'
+  'VSB-G2 MODULE_DEFAULT_READING_VISUAL'
+  'VSB-G3 FIXED_VISUAL_ACCEPTANCE'
+)
+expected_routes=(deep_reviewer deep_reviewer deep_reviewer deep_reviewer+ultra_gatekeeper)
+expected_kinds=(GOVERNANCE_AND_REFERENCE SEMANTIC_TOKEN_PROJECTION BOUNDED_VISUAL_IMPLEMENTATION FIXED_VISUAL_ACCEPTANCE)
+expected_digests=(
+  ff87aaab09631b25775041a6c69c08d70630b8b4c11032a65f56d8cd75027ddd
+  a433e7389e1e5e3322f06b9dea7f039869a7ae0e9ce843b7ddc119550556ec30
+  eeb6edda5b1b8cc538681c00d9f2001191ac5978663c8d65d32ce5e8c5f97907
+  b7947440397a8716c8a6390d11cf318ca659dcb8e194c08fe2b5cba07f1920e9
+)
+
+[[ "$(one_field_value "${index_file}" CanonicalProjectName README.md)" == Cognitura ]] ||
+  fail "README.md: CanonicalProjectName must be Cognitura"
+[[ "$(one_field_value "${index_file}" TaskCardSet README.md)" == VISUAL_STYLE_BASELINE ]] ||
+  fail "README.md: TaskCardSet mismatch"
+[[ "$(one_field_value "${index_file}" TaskCardIDs README.md)" == VSB-00,VSB-01,VSB-02,VSB-03 ]] ||
+  fail "README.md: TaskCardIDs mismatch"
+[[ "$(one_field_value "${index_file}" TaskCardCount README.md)" == 4 ]] ||
+  fail "README.md: TaskCardCount must be 4"
+[[ "$(one_field_value "${index_file}" ExecutionStateAuthority README.md)" == docs/task-cards/visual-style-baseline/execution-state.md ]] ||
+  fail "README.md: ExecutionStateAuthority mismatch"
+[[ "$(one_field_value "${index_file}" CardBodyStatus README.md)" == GOVERNED_BY_EXECUTION_STATE ]] ||
+  fail "README.md: CardBodyStatus mismatch"
+[[ "$(one_field_value "${index_file}" FormalDatabaseWrite README.md)" == NOT_AUTHORIZED ]] ||
+  fail "README.md: FormalDatabaseWrite must remain NOT_AUTHORIZED"
+[[ "$(one_field_value "${index_file}" RemotePush README.md)" == NOT_AUTHORIZED ]] ||
+  fail "README.md: RemotePush must remain NOT_AUTHORIZED"
+
+shopt -s nullglob
+actual_cards=("${cards_dir}"/VSB-*.md)
+shopt -u nullglob
+[[ "${#actual_cards[@]}" -eq 4 ]] ||
+  fail "actual task card count ${#actual_cards[@]} does not match 4"
+
+for index in 0 1 2 3; do
+  file="${cards_dir}/${expected_files[${index}]}"
+  [[ -f "${file}" ]] || fail "missing task card: ${expected_files[${index}]}"
+  [[ "$(one_field_value "${file}" TaskCardID "${expected_files[${index}]}")" == "${expected_ids[${index}]}" ]] ||
+    fail "TaskCardID mismatch for ${expected_files[${index}]}"
+  [[ "$(one_field_value "${file}" CardKind "${expected_files[${index}]}")" == "${expected_kinds[${index}]}" ]] ||
+    fail "CardKind mismatch for ${expected_ids[${index}]}"
+  [[ "$(one_field_value "${file}" Status "${expected_files[${index}]}")" == GOVERNED_BY_EXECUTION_STATE ]] ||
+    fail "${expected_ids[${index}]}: Status must be GOVERNED_BY_EXECUTION_STATE"
+  [[ "$(one_field_value "${file}" DependsOn "${expected_files[${index}]}")" == "${expected_dependencies[${index}]}" ]] ||
+    fail "DependsOn mismatch for ${expected_ids[${index}]}"
+  [[ "$(one_field_value "${file}" Gate "${expected_files[${index}]}")" == "${expected_gates[${index}]}" ]] ||
+    fail "Gate mismatch for ${expected_ids[${index}]}"
+  [[ "$(one_field_value "${file}" ReviewRoute "${expected_files[${index}]}")" == "${expected_routes[${index}]}" ]] ||
+    fail "ReviewRoute mismatch for ${expected_ids[${index}]}"
+  [[ "$(one_field_value "${file}" FormalDatabaseWrite "${expected_files[${index}]}")" == NOT_AUTHORIZED ]] ||
+    fail "FormalDatabaseWrite must remain NOT_AUTHORIZED for ${expected_ids[${index}]}"
+  [[ "$(one_field_value "${file}" RemotePush "${expected_files[${index}]}")" == NOT_AUTHORIZED ]] ||
+    fail "RemotePush must remain NOT_AUTHORIZED for ${expected_ids[${index}]}"
+  [[ "$(normalized_card_digest "${file}")" == "${expected_digests[${index}]}" ]] ||
+    fail "card body contract digest mismatch for ${expected_ids[${index}]}"
+done
+
+expected_vsb00_write_set='AGENTS.md
+docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png
+docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md
+docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md
+docs/engineering/cognitura-design-index.md
+docs/engineering/cognitura-visual-style-baseline-manifest.yaml
+scripts/import-visual-style-reference
+scripts/verify-visual-style-baseline-reference
+tests/visual-style-baseline/verify-reference.sh'
+expected_vsb01_write_set='web/src/styles/tokens.css
+web/src/styles/typography.css
+web/src/styles/surfaces.css
+web/src/styles/cognitive-visual.css
+web/src/styles/cognitura.css
+web/src/styles/style-contract.test.ts
+scripts/verify-module-default-reading
+tests/visual-style-baseline/verify-module-default-reading-toolchain.sh'
+expected_vsb02_write_set='web/src/modules/module-reading/ModuleDefaultReading.tsx
+web/src/modules/module-reading/ModuleDefaultReading.test.tsx
+web/src/modules/module-reading/ModuleNarrative.tsx
+web/src/modules/module-reading/ModuleNarrative.test.tsx
+web/src/modules/module-reading/StageChainProjection.tsx
+web/src/modules/module-reading/StageChainProjection.test.tsx
+web/src/modules/module-reading/ModuleClosure.tsx
+web/src/modules/module-reading/ModuleClosure.test.tsx
+web/src/modules/module-reading/KeyRelations.tsx
+web/src/modules/module-reading/KeyRelations.test.tsx
+web/src/modules/module-reading/SourceEntry.tsx
+web/src/modules/module-reading/SourceEntry.test.tsx
+web/src/modules/module-reading/module-default-reading.css
+web/vite.config.mjs
+web/visual-reference.html
+web/src/visual-reference/main.tsx
+web/src/visual-reference/VisualReference.tsx
+web/src/visual-reference/VisualReference.test.tsx
+web/src/visual-reference/module-default-reading.fixture.ts
+web/src/visual-reference/visual-reference.css'
+expected_vsb03_write_set='scripts/capture-visual-style-baseline
+scripts/verify-visual-style-baseline
+tests/visual-style-baseline/browser-probe.html
+tests/visual-style-baseline/browser-runtime-guard.js
+tests/visual-style-baseline/reference-comparison.html
+tests/visual-style-baseline/verify-visual-style-baseline.sh
+docs/design/visual-style-baseline/evidence/README.md
+docs/design/visual-style-baseline/evidence/module-default-reading-1440x1100.png
+docs/design/visual-style-baseline/evidence/module-default-reading-1280x960.png
+docs/design/visual-style-baseline/evidence/module-default-reading-1024x900.png
+docs/design/visual-style-baseline/evidence/reference-comparison.png
+docs/engineering/cognitura-visual-style-baseline-acceptance.md'
+expected_write_sets=(
+  "${expected_vsb00_write_set}"
+  "${expected_vsb01_write_set}"
+  "${expected_vsb02_write_set}"
+  "${expected_vsb03_write_set}"
+)
+
+for index in 0 1 2 3; do
+  file="${cards_dir}/${expected_files[${index}]}"
+  actual_write_set="$(sed -n 's/^WriteSet = //p' "${file}")"
+  [[ "${actual_write_set}" == "${expected_write_sets[${index}]}" ]] ||
+    fail "WriteSet mismatch for ${expected_ids[${index}]}"
+  while IFS= read -r write_path; do
+    case "${write_path}" in
+      server/*|schemas/*|raw/*|web/src/App.tsx|web/src/main.tsx|web/src/routes/*|docs/design/high-fidelity/evidence/*|.idea/*|FORMAL_DATABASE_WRITE|REMOTE_PUSH)
+        fail "forbidden path in ${expected_ids[${index}]} WriteSet: ${write_path}"
+        ;;
+    esac
+  done <<< "${actual_write_set}"
+done
+
+required_state_fields=(
+  CanonicalProjectName TaskCardSet ExecutionStateVersion ExecutionStateAuthority
+  ApprovedSpecSHA GovernanceBootstrapStatus GovernanceReviewedCandidateSHA
+  GovernanceReviewRoute GovernanceReviewVerdict SetAuthorizationStatus
+  SetAuthorizationScope HumanCheckpointRequirement TaskCardSetStatus ActiveTaskCard
+  ReleasedTaskCard CompletedTaskCards CurrentCandidateSHA CurrentGateStatus
+  CurrentReviewRoute CurrentReviewVerdict VSB00CandidateSHA VSB00GateStatus
+  VSB00ReviewRoute VSB00ReviewVerdict VSB01CandidateSHA VSB01GateStatus
+  VSB01ReviewRoute VSB01ReviewVerdict VSB02CandidateSHA VSB02GateStatus
+  VSB02ReviewRoute VSB02ReviewVerdict VSB03CandidateSHA VSB03GateStatus
+  VSB03ReviewRoute VSB03DeepReviewVerdict VSB03UltraReviewVerdict NextTaskCard
+  TransitionSequence TransitionKind TransitionBaseSHA FrozenWave1TaskCard
+  FrozenWave1CandidateSHA HistoricalVisualEvidenceBaselineSHA VisualImplementation
+  FullProductImplementation UserStopAuthorization FormalDatabaseWrite RemotePush
+)
+for field in "${required_state_fields[@]}"; do
+  one_field_value "${state_file}" "${field}" execution-state.md >/dev/null
+done
+
+[[ "$(field_value "${state_file}" CanonicalProjectName)" == Cognitura ]] || fail "CanonicalProjectName mismatch"
+[[ "$(field_value "${state_file}" TaskCardSet)" == VISUAL_STYLE_BASELINE ]] || fail "TaskCardSet mismatch"
+[[ "$(field_value "${state_file}" ExecutionStateVersion)" == 1 ]] || fail "ExecutionStateVersion mismatch"
+[[ "$(field_value "${state_file}" ExecutionStateAuthority)" == THIS_DOCUMENT ]] || fail "ExecutionStateAuthority mismatch"
+[[ "$(field_value "${state_file}" ApprovedSpecSHA)" == 70eefba5912e6884e4e7e1d6477a65f4091d6590 ]] || fail "ApprovedSpecSHA mismatch"
+[[ "$(field_value "${state_file}" FrozenWave1TaskCard)" == W1-I03 ]] || fail "FrozenWave1TaskCard mismatch"
+[[ "$(field_value "${state_file}" FrozenWave1CandidateSHA)" == 4e63936c631ab34807e714b90d30415a959bc13d ]] || fail "FrozenWave1CandidateSHA mismatch"
+[[ "$(field_value "${state_file}" HistoricalVisualEvidenceBaselineSHA)" == 70eefba5912e6884e4e7e1d6477a65f4091d6590 ]] || fail "HistoricalVisualEvidenceBaselineSHA mismatch"
+[[ "$(field_value "${state_file}" GovernanceReviewRoute)" == deep_reviewer ]] || fail "GovernanceReviewRoute mismatch"
+[[ "$(field_value "${state_file}" SetAuthorizationStatus)" == USER_AUTHORIZED ]] || fail "SetAuthorizationStatus mismatch"
+[[ "$(field_value "${state_file}" SetAuthorizationScope)" == VSB-00..VSB-03_AUTOMATIC_SERIAL ]] || fail "SetAuthorizationScope mismatch"
+[[ "$(field_value "${state_file}" HumanCheckpointRequirement)" == NONE_WITHIN_AUTHORIZED_SET ]] || fail "HumanCheckpointRequirement mismatch"
+[[ "$(field_value "${state_file}" FullProductImplementation)" == NOT_AUTHORIZED ]] || fail "FullProductImplementation must remain NOT_AUTHORIZED"
+[[ "$(field_value "${state_file}" FormalDatabaseWrite)" == NOT_AUTHORIZED ]] || fail "FormalDatabaseWrite must remain NOT_AUTHORIZED"
+[[ "$(field_value "${state_file}" RemotePush)" == NOT_AUTHORIZED ]] || fail "RemotePush must remain NOT_AUTHORIZED"
+[[ "$(field_value "${state_file}" VSB00ReviewRoute)" == deep_reviewer ]] || fail "VSB00ReviewRoute mismatch"
+[[ "$(field_value "${state_file}" VSB01ReviewRoute)" == deep_reviewer ]] || fail "VSB01ReviewRoute mismatch"
+[[ "$(field_value "${state_file}" VSB02ReviewRoute)" == deep_reviewer ]] || fail "VSB02ReviewRoute mismatch"
+[[ "$(field_value "${state_file}" VSB03ReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] || fail "VSB03ReviewRoute mismatch"
+
+set_status="$(field_value "${state_file}" TaskCardSetStatus)"
+active="$(field_value "${state_file}" ActiveTaskCard)"
+released="$(field_value "${state_file}" ReleasedTaskCard)"
+completed="$(field_value "${state_file}" CompletedTaskCards)"
+next="$(field_value "${state_file}" NextTaskCard)"
+sequence="$(field_value "${state_file}" TransitionSequence)"
+kind="$(field_value "${state_file}" TransitionKind)"
+[[ "${sequence}" =~ ^[0-9]+$ ]] || fail "TransitionSequence must be a non-negative integer"
+case "${active}" in NONE|VSB-00|VSB-01|VSB-02|VSB-03) ;; *) fail "ActiveTaskCard must name one known card or NONE" ;; esac
+case "${released}" in NONE|VSB-00|VSB-01|VSB-02|VSB-03) ;; *) fail "ReleasedTaskCard must name one known card or NONE" ;; esac
+case "${completed}" in NONE|VSB-00|VSB-00,VSB-01|VSB-00,VSB-01,VSB-02|VSB-00,VSB-01,VSB-02,VSB-03) ;;
+  *) fail "CompletedTaskCards must be an exact card prefix" ;;
+esac
+
+receipt_candidate() { field_value "${state_file}" "VSB0${1}CandidateSHA"; }
+receipt_gate() { field_value "${state_file}" "VSB0${1}GateStatus"; }
+receipt_deep_verdict() {
+  if [[ "$1" -eq 3 ]]; then field_value "${state_file}" VSB03DeepReviewVerdict;
+  else field_value "${state_file}" "VSB0${1}ReviewVerdict"; fi
+}
+require_empty_receipt() {
+  local i="$1"
+  [[ "$(receipt_candidate "${i}")" == NONE && "$(receipt_gate "${i}")" == NOT_RUN && "$(receipt_deep_verdict "${i}")" == NOT_RUN ]] ||
+    fail "bootstrap receipts must remain NONE or NOT_RUN"
+  if [[ "${i}" -eq 3 ]]; then
+    [[ "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
+      fail "bootstrap receipts must remain NONE or NOT_RUN"
+  fi
+}
+require_pass_receipt() {
+  local i="$1"
+  local candidate gate verdict
+  candidate="$(receipt_candidate "${i}")"
+  gate="$(receipt_gate "${i}")"
+  verdict="$(receipt_deep_verdict "${i}")"
+  is_commit_sha "${candidate}" || fail "VSB0${i}CandidateSHA must resolve to a 40-character commit"
+  [[ "${gate}" == "VSB-G${i}_PASS" ]] || fail "VSB0${i}GateStatus mismatch"
+  [[ "${verdict}" == GO_P0_0_P1_0_P2_0 ]] || fail "VSB0${i} deep review must be zero-finding GO"
+  if [[ "${i}" -eq 3 ]]; then
+    [[ "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+      fail "VSB03 ultra review must be final zero-finding GO"
+  fi
+}
+
+completed_count=0
+case "${completed}" in
+  NONE) completed_count=0 ;;
+  VSB-00) completed_count=1 ;;
+  VSB-00,VSB-01) completed_count=2 ;;
+  VSB-00,VSB-01,VSB-02) completed_count=3 ;;
+  VSB-00,VSB-01,VSB-02,VSB-03) completed_count=4 ;;
+esac
+
+governance_status="$(field_value "${state_file}" GovernanceBootstrapStatus)"
+governance_candidate="$(field_value "${state_file}" GovernanceReviewedCandidateSHA)"
+governance_verdict="$(field_value "${state_file}" GovernanceReviewVerdict)"
+if [[ "${set_status}" == USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW ]]; then
+  [[ "${governance_status}" == AWAITING_FIXED_COMMIT_REVIEW && "${governance_candidate}" == NONE && "${governance_verdict}" == NOT_RUN ]] ||
+    fail "bootstrap governance fields mismatch"
+  [[ "${active}" == NONE && "${released}" == NONE && "${completed}" == NONE && "${next}" == VSB-00 ]] ||
+    fail "bootstrap card state mismatch"
+  [[ "${sequence}" == 0 && "${kind}" == BOOTSTRAP && "$(field_value "${state_file}" TransitionBaseSHA)" == NONE ]] ||
+    fail "bootstrap transition fields mismatch"
+  [[ "$(field_value "${state_file}" CurrentCandidateSHA)" == NONE && "$(field_value "${state_file}" CurrentGateStatus)" == NOT_RUN && "$(field_value "${state_file}" CurrentReviewRoute)" == NONE && "$(field_value "${state_file}" CurrentReviewVerdict)" == NOT_RUN ]] ||
+    fail "bootstrap current receipt mismatch"
+  for i in 0 1 2 3; do require_empty_receipt "${i}"; done
+  [[ "$(field_value "${state_file}" VisualImplementation)" == USER_AUTHORIZED_PENDING_GOVERNANCE_REVIEW ]] ||
+    fail "bootstrap VisualImplementation mismatch"
+elif [[ "${set_status}" == IN_PROGRESS ]]; then
+  [[ "${governance_status}" == PASS && "${governance_verdict}" == GO_P0_0_P1_0_P2_0 ]] ||
+    fail "activation requires governance zero-finding GO"
+  is_commit_sha "${governance_candidate}" || fail "GovernanceReviewedCandidateSHA must resolve to a 40-character commit"
+  case "${completed_count}" in
+    0) expected_active=VSB-00; expected_next=VSB-01 ;;
+    1) expected_active=VSB-01; expected_next=VSB-02 ;;
+    2) expected_active=VSB-02; expected_next=VSB-03 ;;
+    3) expected_active=VSB-03; expected_next=NONE ;;
+    *) fail "IN_PROGRESS cannot have all four cards completed" ;;
+  esac
+  [[ "${active}" == "${expected_active}" && "${released}" == "${expected_active}" && "${next}" == "${expected_next}" ]] ||
+    fail "IN_PROGRESS active, released, or next card mismatch"
+  for i in 0 1 2 3; do
+    if [[ "${i}" -lt "${completed_count}" ]]; then require_pass_receipt "${i}"; else require_empty_receipt "${i}"; fi
+  done
+  case "${kind}" in
+    ACTIVATE_SET)
+      [[ "${completed_count}" -eq 0 && "$(field_value "${state_file}" CurrentCandidateSHA)" == NONE && "$(field_value "${state_file}" CurrentGateStatus)" == NOT_RUN && "$(field_value "${state_file}" CurrentReviewRoute)" == NONE && "$(field_value "${state_file}" CurrentReviewVerdict)" == NOT_RUN ]] ||
+        fail "ACTIVATE_SET cannot contain a card receipt"
+      [[ "$(grep -c '^Owner = ' "${state_file}" || true)" -eq 0 ]] ||
+        fail "Owner is allowed only for RETURN_TO_OWNER"
+      ;;
+    ADVANCE)
+      [[ "${completed_count}" -ge 1 ]] || fail "ADVANCE requires one newly completed card"
+      [[ "$(field_value "${state_file}" CurrentCandidateSHA)" == NONE || "$(field_value "${state_file}" CurrentCandidateSHA)" =~ ^[0-9a-f]{40}$ ]] ||
+        fail "CurrentCandidateSHA must be NONE or a 40-character commit"
+      completed_index=$((completed_count - 1))
+      [[ "$(field_value "${state_file}" CurrentCandidateSHA)" == "$(receipt_candidate "${completed_index}")" &&
+         "$(field_value "${state_file}" CurrentGateStatus)" == "$(receipt_gate "${completed_index}")" &&
+         "$(field_value "${state_file}" CurrentReviewRoute)" == deep_reviewer &&
+         "$(field_value "${state_file}" CurrentReviewVerdict)" == "$(receipt_deep_verdict "${completed_index}")" ]] ||
+        fail "ADVANCE current receipt must equal the just-completed card receipt"
+      [[ "$(grep -c '^Owner = ' "${state_file}" || true)" -eq 0 ]] ||
+        fail "Owner is allowed only for RETURN_TO_OWNER"
+      ;;
+    RETURN_TO_OWNER)
+      owner="$(one_field_value "${state_file}" Owner execution-state.md)"
+      [[ "${owner}" == "${active}" && "${owner}" == "${released}" ]] ||
+        fail "RETURN_TO_OWNER Owner must equal ActiveTaskCard and ReleasedTaskCard"
+      [[ "$(field_value "${state_file}" CurrentGateStatus)" == FAIL ]] ||
+        fail "RETURN_TO_OWNER requires CurrentGateStatus FAIL"
+      review="$(field_value "${state_file}" CurrentReviewVerdict)"
+      [[ "${review}" == VISUAL_ACCEPTANCE_FAIL || "${review}" =~ ^FINDING_P0_[0-9]+_P1_[0-9]+_P2_[0-9]+$ ]] ||
+        fail "RETURN_TO_OWNER requires a finding verdict"
+      ;;
+    *) fail "unsupported IN_PROGRESS TransitionKind: ${kind}" ;;
+  esac
+  [[ "$(field_value "${state_file}" VisualImplementation)" == USER_AUTHORIZED ]] ||
+    fail "IN_PROGRESS VisualImplementation mismatch"
+elif [[ "${set_status}" == STOPPED_BY_USER ]]; then
+  [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE ]] ||
+    fail "STOPPED_BY_USER cannot have an active, released, or next card"
+  [[ "$(field_value "${state_file}" UserStopAuthorization)" == EXPLICIT_USER_INSTRUCTION ]] ||
+    fail "STOPPED_BY_USER requires explicit user-stop authorization"
+  [[ "${kind}" == STOP_BY_USER && "$(field_value "${state_file}" CurrentGateStatus)" == STOPPED_BY_USER && "$(field_value "${state_file}" CurrentReviewVerdict)" == NOT_APPLICABLE_USER_STOP ]] ||
+    fail "STOPPED_BY_USER transition fields mismatch"
+  [[ "$(field_value "${state_file}" VisualImplementation)" == STOPPED_BY_USER ]] || fail "STOPPED_BY_USER VisualImplementation mismatch"
+  for i in 0 1 2 3; do
+    if [[ "${i}" -lt "${completed_count}" ]]; then require_pass_receipt "${i}"; else require_empty_receipt "${i}"; fi
+  done
+elif [[ "${set_status}" == FINAL_NO_GO ]]; then
+  [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE ]] ||
+    fail "FINAL_NO_GO cannot have an active, released, or next card"
+  [[ "$(field_value "${state_file}" CurrentGateStatus)" == FAIL ]] || fail "FINAL_NO_GO requires FAIL Gate"
+  for i in 0 1 2 3; do
+    if [[ "${i}" -lt "${completed_count}" ]]; then require_pass_receipt "${i}"; else require_empty_receipt "${i}"; fi
+  done
+elif [[ "${set_status}" == COMPLETE ]]; then
+  [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE && "${completed_count}" -eq 4 ]] ||
+    fail "COMPLETE requires all four cards and no active, released, or next card"
+  for i in 0 1 2 3; do require_pass_receipt "${i}"; done
+  [[ "${kind}" == COMPLETE && "$(field_value "${state_file}" CurrentGateStatus)" == VSB-G3_PASS && "$(field_value "${state_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper && "$(field_value "${state_file}" CurrentReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+    fail "COMPLETE current Gate or review receipt mismatch"
+  [[ "$(field_value "${state_file}" VisualImplementation)" == COMPLETE ]] || fail "COMPLETE VisualImplementation mismatch"
+else
+  fail "unsupported TaskCardSetStatus: ${set_status}"
+fi
+
+w1_index="${repo_root}/docs/task-cards/wave-1-implementation/README.md"
+w1_card="${repo_root}/docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md"
+[[ -f "${w1_index}" && -f "${w1_card}" ]] || fail "Wave 1 suspension authority is missing"
+w1_set_status="$(one_field_value "${w1_index}" TaskCardSetStatus Wave1-README.md)"
+w1_active="$(one_field_value "${w1_index}" ActiveTaskCard Wave1-README.md)"
+w1_suspended="$(one_field_value "${w1_index}" SuspendedTaskCard Wave1-README.md)"
+w1_candidate="$(one_field_value "${w1_index}" SuspendedCandidateSHA Wave1-README.md)"
+w1_mutation="$(one_field_value "${w1_index}" SuspendedCandidateMutation Wave1-README.md)"
+w1_i03_status="$(one_field_value "${w1_card}" Status W1-I03)"
+w1_is_suspended=0
+w1_is_restored=0
+if [[ "${w1_set_status}" == SUSPENDED_BY_USER && "${w1_active}" == NONE && "${w1_suspended}" == W1-I03 && "${w1_candidate}" == 4e63936c631ab34807e714b90d30415a959bc13d && "${w1_mutation}" == FORBIDDEN && "${w1_i03_status}" == SUSPENDED_BY_USER ]]; then
+  w1_is_suspended=1
+fi
+if [[ "${w1_set_status}" == READY_FOR_EXECUTION && "${w1_active}" == W1-I03 && "${w1_suspended}" == NONE && "${w1_candidate}" == NONE && "${w1_mutation}" == NONE && "${w1_i03_status}" == READY ]]; then
+  w1_is_restored=1
+fi
+if [[ "${set_status}" == COMPLETE ]]; then
+  [[ "${w1_is_suspended}" -eq 1 || "${w1_is_restored}" -eq 1 ]] ||
+    fail "COMPLETE requires exact suspended or restored W1-I03"
+else
+  [[ "${w1_is_suspended}" -eq 1 ]] || fail "VSB in progress requires exact W1-I03 suspension"
+fi
+
+if [[ -n "${transition_base}" ]]; then
+  resolved_base="$(git -C "${repo_root}" rev-parse --verify "${transition_base}^{commit}" 2>/dev/null)" ||
+    fail "transition BASE is not a commit"
+  resolved_head="$(git -C "${repo_root}" rev-parse --verify "${transition_head}^{commit}" 2>/dev/null)" ||
+    fail "transition HEAD is not a commit"
+  [[ "$(git -C "${repo_root}" rev-parse "${resolved_head}^")" == "${resolved_base}" ]] ||
+    fail "transition HEAD must be the direct child of BASE"
+  ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  diff_paths="$(git -C "${repo_root}" diff --name-only "${resolved_base}..${resolved_head}")"
+  [[ "${diff_paths}" == "${ledger_path}" ]] ||
+    fail "state transition fixed diff must contain only execution-state.md"
+  base_text="$(git -C "${repo_root}" show "${resolved_base}:${ledger_path}")" || fail "transition BASE ledger is missing"
+  head_text="$(git -C "${repo_root}" show "${resolved_head}:${ledger_path}")" || fail "transition HEAD ledger is missing"
+  [[ "$(<"${state_file}")" == "${head_text}" ]] || fail "working ledger must match transition HEAD tree"
+  [[ "$(state_value_from_text "${head_text}" TransitionBaseSHA)" == "${resolved_base}" ]] ||
+    fail "TransitionBaseSHA must equal the fixed transition BASE"
+  base_sequence="$(state_value_from_text "${base_text}" TransitionSequence)"
+  head_sequence="$(state_value_from_text "${head_text}" TransitionSequence)"
+  [[ "${base_sequence}" =~ ^[0-9]+$ && "${head_sequence}" -eq $((base_sequence + 1)) ]] ||
+    fail "TransitionSequence must increment by exactly one"
+  head_kind="$(state_value_from_text "${head_text}" TransitionKind)"
+  case "${head_kind}" in
+    ACTIVATE_SET)
+      [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW ]] ||
+        fail "ACTIVATE_SET must start from the governance-review bootstrap state"
+      [[ "$(state_value_from_text "${head_text}" GovernanceReviewedCandidateSHA)" == "${resolved_base}" ]] ||
+        fail "activation candidate must equal TransitionBaseSHA"
+      ;;
+    ADVANCE|COMPLETE)
+      [[ "$(state_value_from_text "${head_text}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
+        fail "candidate SHA must equal TransitionBaseSHA"
+      [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
+        fail "ADVANCE or COMPLETE must start from IN_PROGRESS"
+      base_completed="$(state_value_from_text "${base_text}" CompletedTaskCards)"
+      base_active="$(state_value_from_text "${base_text}" ActiveTaskCard)"
+      head_completed="$(state_value_from_text "${head_text}" CompletedTaskCards)"
+      if [[ "${head_kind}" == ADVANCE ]]; then
+        case "${base_active}" in
+          VSB-00) expected_base_prefix=NONE; expected_head_prefix=VSB-00; expected_head_active=VSB-01 ;;
+          VSB-01) expected_base_prefix=VSB-00; expected_head_prefix=VSB-00,VSB-01; expected_head_active=VSB-02 ;;
+          VSB-02) expected_base_prefix=VSB-00,VSB-01; expected_head_prefix=VSB-00,VSB-01,VSB-02; expected_head_active=VSB-03 ;;
+          *) fail "ADVANCE must complete the unique active predecessor" ;;
+        esac
+        [[ "${base_completed}" == "${expected_base_prefix}" && "${head_completed}" == "${expected_head_prefix}" && "$(state_value_from_text "${head_text}" ActiveTaskCard)" == "${expected_head_active}" && "$(state_value_from_text "${head_text}" ReleasedTaskCard)" == "${expected_head_active}" ]] ||
+          fail "ADVANCE must extend the completed prefix by exactly the active card"
+      else
+        [[ "${base_active}" == VSB-03 && "${base_completed}" == VSB-00,VSB-01,VSB-02 && "${head_completed}" == VSB-00,VSB-01,VSB-02,VSB-03 ]] ||
+          fail "COMPLETE must close VSB-03 after the exact predecessor prefix"
+      fi
+      ;;
+    RETURN_TO_OWNER)
+      [[ "$(state_value_from_text "${head_text}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
+        fail "candidate SHA must equal TransitionBaseSHA"
+      head_owner="$(state_value_from_text "${head_text}" Owner)"
+      case "${head_owner}" in
+        VSB-00) expected_return_prefix=NONE ;;
+        VSB-01) expected_return_prefix=VSB-00 ;;
+        VSB-02) expected_return_prefix=VSB-00,VSB-01 ;;
+        VSB-03) expected_return_prefix=VSB-00,VSB-01,VSB-02 ;;
+        *) fail "RETURN_TO_OWNER must reopen a known owner" ;;
+      esac
+      [[ "$(state_value_from_text "${head_text}" ActiveTaskCard)" == "${head_owner}" && "$(state_value_from_text "${head_text}" ReleasedTaskCard)" == "${head_owner}" && "$(state_value_from_text "${head_text}" CompletedTaskCards)" == "${expected_return_prefix}" ]] ||
+        fail "RETURN_TO_OWNER must reopen owner and truncate to its strict predecessor prefix"
+      ;;
+    STOP_BY_USER)
+      [[ "$(state_value_from_text "${head_text}" UserStopAuthorization)" == EXPLICIT_USER_INSTRUCTION ]] ||
+        fail "STOP_BY_USER requires explicit user instruction"
+      ;;
+    *) fail "unsupported transition kind: ${head_kind}" ;;
+  esac
+fi
+
+printf '%s\n' \
+  'VisualStyleBaselineTaskCardValidation = PASS' \
+  'TaskCardCount = 4' \
+  "TaskCardSetStatus = ${set_status}" \
+  "ActiveTaskCard = ${active}"

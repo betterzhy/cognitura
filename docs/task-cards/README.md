@@ -22,6 +22,8 @@ ModuleDefaultReadingImplementationEntry = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingActiveImplementationTaskCard = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
 ModuleDefaultReadingBusinessImplementation = SEE_MODULE_DEFAULT_READING_EXECUTION_STATE
 ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
+VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
+VisualStyleBaselineTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ```
 
 本目录将
@@ -122,5 +124,8 @@ ExpectedActiveTaskCard = NONE
   source bootstrap。专用验证入口为
   `bash tests/task-cards/verify-module-default-reading-implementation-cards.sh`；
   `DOC-GAP-MDR-001` 继续阻断完整默认阅读实现验收。
+- [Visual Style Baseline 任务卡集](visual-style-baseline/README.md)：`VSB-00..VSB-03`
+  的唯一可变运行态由 `visual-style-baseline/execution-state.md` 管理；执行期间冻结
+  W1-I03，且不授权正式数据库写入或远程推送。
 
 这些卡集拥有各自的状态机和验证器；Wave 0 九卡状态仍保持 `COMPLETE`。

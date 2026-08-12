@@ -33,7 +33,7 @@ W0G6CIURL = https://github.com/betterzhy/cognitura/actions/runs/30495773273
 Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
-Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+Wave1ImplementationTaskCardSet = SUSPENDED_BY_USER
 ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 ModuleDefaultReadingImplementationTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingImplementationTaskCardCount = 9
@@ -58,7 +58,10 @@ HighFidelityVisualValidation = PASS
 HighFidelityUsabilityValidation = PASS
 HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
-ActiveImplementationTaskCard = W1-I03
+ActiveImplementationTaskCard = NONE
+VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
+VisualStyleBaselineTaskCardSet = GOVERNED_BY_EXECUTION_STATE
+VisualStyleBaselineImplementationEntry = GOVERNED_BY_EXECUTION_STATE
 HighFidelityVisualTaskCardSet = COMPLETE
 HighFidelityVisualProjectedEntry = NONE
 ActiveDesignTaskCard = NONE
@@ -88,7 +91,9 @@ Wave 1 详细设计复审修复候选
 bootstrap；非业务治理卡 I00 已完成固定候选零发现深审并关闭。I00 未创建解析器、
 页面、数据库对象、LLM 调用或其他业务实现；用户已授权持续执行现有卡集。
 `W1-I01` 已对固定候选 `6796079de8c919055ddc6538234254b50630a491`
-完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I03` 是唯一 `READY` 卡。
+完成零发现深审并关闭；I02 等待独立数据库 Gate。`W1-I03` 已冻结在
+`4e63936c631ab34807e714b90d30415a959bc13d`，当前没有 Wave 1 READY 卡；
+Visual Style Baseline 运行态只从其 execution-state 读取。
 
 Wave 1 implementation 的当前执行投影见
 [工程实现计划](docs/engineering/cognitura-wave-1-implementation-plan.md)，统一验证入口为：
@@ -159,6 +164,7 @@ Spring Boot 4.1.0、PostgreSQL 18 和 MyBatis Spring Boot Starter 4.0.0；
 - [高保真证据验收台账](docs/engineering/cognitura-high-fidelity-design-acceptance.md)
 - [高保真视觉设计基础](docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md)
 - [高保真视觉任务卡索引](docs/task-cards/high-fidelity-visual/README.md)
+- [Visual Style Baseline 任务卡索引](docs/task-cards/visual-style-baseline/README.md)
 
 当前分支的独立 `HIGH_FIDELITY_DESIGN` 卡集已经全部关闭；`HF-D01` 已通过页面与
 呈现合同 Gate，`HF-D02` 已通过正交状态与恢复 Gate，`HF-D03` 已通过证据输入合同
@@ -215,7 +221,8 @@ task-card、Schema、Golden Case、UI、server、web 七阶段并通过，固定
 该 GO 仅开放后续受控任务卡，不授权直接实现 Wave 1。
 Wave 1 书面详细设计和 14 张中细粒度实现切片规格均已获用户批准，14 张实现卡已
 bootstrap，非业务治理卡 I00 已关闭；I01 已完成固定候选零发现深审并关闭，I02
-保持 `QUEUED` 等待独立数据库 Gate，`W1-I03` 已释放为唯一 `READY` 业务卡。
+保持 `QUEUED` 等待独立数据库 Gate；`W1-I03` 在 Visual Style Baseline 期间为
+`SUSPENDED_BY_USER`，冻结候选 production WriteSet 不得变更。
 
 首个 `ModuleDefaultReadingState` 已另行规划为 `MDR-I00..MDR-I08` 九张小卡，避免
 覆盖上述 Wave 1 source work。该集合的书面文本和自动串行治理规格已获用户批准；
