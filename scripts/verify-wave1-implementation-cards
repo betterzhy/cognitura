@@ -52,17 +52,63 @@ require_all_projection_values() {
     fail "current suspension projection mismatch: ${relative_file} ${key}"
 }
 
-require_projection_line() {
+require_exact_task_table_row_text() {
+  local content="$1"
+  local task_id="$2"
+  local expected_line="$3"
+  local failure_message="$4"
+  local matching_rows matching_count
+  matching_rows="$(
+    printf '%s\n' "${content}" | awk -v task_id="${task_id}" '
+      {
+        line = $0
+        sub(/^[[:space:]]*/, "", line)
+        if (substr(line, 1, 1) != "|") {
+          next
+        }
+        remainder = substr(line, 2)
+        separator = index(remainder, "|")
+        if (separator == 0) {
+          next
+        }
+        first_column = substr(remainder, 1, separator - 1)
+        sub(/^[[:space:]]*/, "", first_column)
+        sub(/[[:space:]]*$/, "", first_column)
+        if (first_column == task_id || first_column == "`" task_id "`") {
+          print $0
+        }
+      }
+    '
+  )"
+  matching_count="$(printf '%s\n' "${matching_rows}" | awk 'NF { count++ } END { print count + 0 }')"
+  [[ "${matching_count}" -eq 1 && "${matching_rows}" == "${expected_line}" ]] ||
+    fail "${failure_message}"
+}
+
+require_exact_projection_table_row() {
   local relative_file="$1"
-  local expected_line="$2"
-  local contradictory_line="$3"
+  local task_id="$2"
+  local expected_line="$3"
   local file="${repo_root}/${relative_file}"
-  local expected_count contradictory_count
   [[ -f "${file}" ]] || fail "projection file is missing: ${relative_file}"
-  expected_count="$(grep -Fxc -- "${expected_line}" "${file}" || true)"
-  contradictory_count="$(grep -Fxc -- "${contradictory_line}" "${file}" || true)"
-  [[ "${expected_count}" -eq 1 && "${contradictory_count}" -eq 0 ]] ||
-    fail "current suspension projection mismatch: ${relative_file} status table"
+  require_exact_task_table_row_text \
+    "$(<"${file}")" \
+    "${task_id}" \
+    "${expected_line}" \
+    "current suspension projection mismatch: ${relative_file} status table"
+}
+
+require_exact_git_tree_table_row() {
+  local commit="$1"
+  local path="$2"
+  local task_id="$3"
+  local expected_line="$4"
+  local failure_message="$5"
+  local content
+  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
+    fail "transition tree is missing ${path}"
+  require_exact_task_table_row_text \
+    "${content}" "${task_id}" "${expected_line}" "${failure_message}"
 }
 
 sha256_stream() {
@@ -983,12 +1029,14 @@ case "${task_set_status}" in
     require_projection docs/task-cards/wave-1/README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
     require_projection docs/task-cards/wave-1/README.md ActiveImplementationGovernanceTaskCard NONE
     require_projection docs/task-cards/wave-1/README.md BusinessImplementation USER_AUTHORIZED
-    require_projection_line docs/engineering/cognitura-wave-1-implementation-plan.md \
-      '| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |' \
-      '| `W1-I03` | DOCX security | `I01` | `READY` |'
-    require_projection_line docs/task-cards/wave-1-implementation/README.md \
-      '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |' \
-      '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `READY` | `W1-I01` | `W1-IG3` | `HIGH` |'
+    require_exact_projection_table_row \
+      docs/engineering/cognitura-wave-1-implementation-plan.md \
+      W1-I03 \
+      '| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |'
+    require_exact_projection_table_row \
+      docs/task-cards/wave-1-implementation/README.md \
+      W1-I03 \
+      '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |'
     for projection_path in AGENTS.md README.md docs/engineering/cognitura-design-index.md; do
       require_all_projection_values "${projection_path}" BusinessImplementation USER_AUTHORIZED
       require_all_projection_values "${projection_path}" FormalDatabaseWrite NOT_AUTHORIZED
@@ -1070,14 +1118,6 @@ require_all_git_tree_fields() {
   [[ -z "${mismatches}" ]] || fail "transition ${path}: every ${key} must equal ${expected}"
 }
 
-require_git_tree_line() {
-  local commit="$1"
-  local path="$2"
-  local expected_line="$3"
-  git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null | grep -Fqx "${expected_line}" ||
-    fail "transition ${path}: restored status table mismatch"
-}
-
 write_normalized_restore_file() {
   local commit="$1"
   local path="$2"
@@ -1139,14 +1179,6 @@ require_all_suspended_base_fields() {
   count="$(printf '%s\n' "${content}" | grep -c "^${key} = " || true)"
   mismatches="$(printf '%s\n' "${content}" | sed -n "s/^${key} = //p" | grep -Fvx "${expected}" || true)"
   [[ "${count}" -gt 0 && -z "${mismatches}" ]] ||
-    fail "restore transition BASE must preserve exact suspended projection: ${path}"
-}
-
-require_suspended_base_line() {
-  local commit="$1"
-  local path="$2"
-  local expected_line="$3"
-  git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null | grep -Fqx "${expected_line}" ||
     fail "restore transition BASE must preserve exact suspended projection: ${path}"
 }
 
@@ -1228,10 +1260,18 @@ if [[ -n "${transition_base}" ]]; then
   require_suspended_base_field "${resolved_base}" "${base_index_path}" ReadyTaskCardCount 0
   require_suspended_base_field "${resolved_base}" "${base_index_path}" SuspendedTaskCardCount 1
   require_suspended_base_field "${resolved_base}" "${base_card_path}" Status SUSPENDED_BY_USER
-  require_suspended_base_line "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md \
-    '| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |'
-  require_suspended_base_line "${resolved_base}" "${base_index_path}" \
-    '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |'
+  require_exact_git_tree_table_row \
+    "${resolved_base}" \
+    docs/engineering/cognitura-wave-1-implementation-plan.md \
+    W1-I03 \
+    '| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |' \
+    'restore transition BASE must preserve exact suspended projection: docs/engineering/cognitura-wave-1-implementation-plan.md'
+  require_exact_git_tree_table_row \
+    "${resolved_base}" \
+    "${base_index_path}" \
+    W1-I03 \
+    '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |' \
+    "restore transition BASE must preserve exact suspended projection: ${base_index_path}"
   for path in AGENTS.md README.md docs/engineering/cognitura-design-index.md; do
     require_all_suspended_base_fields "${resolved_base}" "${path}" BusinessImplementation USER_AUTHORIZED
     require_all_suspended_base_fields "${resolved_base}" "${path}" FormalDatabaseWrite NOT_AUTHORIZED
@@ -1332,10 +1372,18 @@ if [[ -n "${transition_base}" ]]; then
   require_git_tree_field "${resolved_head}" docs/task-cards/wave-1/README.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
   require_git_tree_field "${resolved_head}" "${base_index_path}" ReadyTaskCardCount 1
   require_git_tree_field "${resolved_head}" "${base_index_path}" SuspendedTaskCardCount 0
-  require_git_tree_line "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md \
-    '| `W1-I03` | DOCX security | `I01` | `READY` |'
-  require_git_tree_line "${resolved_head}" "${base_index_path}" \
-    '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `READY` | `W1-I01` | `W1-IG3` | `HIGH` |'
+  require_exact_git_tree_table_row \
+    "${resolved_head}" \
+    docs/engineering/cognitura-wave-1-implementation-plan.md \
+    W1-I03 \
+    '| `W1-I03` | DOCX security | `I01` | `READY` |' \
+    'transition docs/engineering/cognitura-wave-1-implementation-plan.md: restored status table mismatch'
+  require_exact_git_tree_table_row \
+    "${resolved_head}" \
+    "${base_index_path}" \
+    W1-I03 \
+    '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `READY` | `W1-I01` | `W1-IG3` | `HIGH` |' \
+    "transition ${base_index_path}: restored status table mismatch"
   for path in AGENTS.md README.md docs/engineering/cognitura-design-index.md; do
     require_all_git_tree_fields "${resolved_head}" "${path}" BusinessImplementation USER_AUTHORIZED
     require_all_git_tree_fields "${resolved_head}" "${path}" FormalDatabaseWrite NOT_AUTHORIZED

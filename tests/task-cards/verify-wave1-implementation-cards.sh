@@ -838,21 +838,27 @@ expect_both_static_verifiers_fail() {
   local fixture_root="$1"
   local expected_message="$2"
   local wave_output vsb_output
+  local wave_passed=0
+  local vsb_passed=0
   if wave_output="$(
     "${verifier}" \
       --repo-root "${fixture_root}" \
       --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1
   )"; then
-    fail "Wave 1 static validator accepted a drifted suspended projection"
+    wave_passed=1
   fi
-  assert_contains "${wave_output}" "${expected_message}"
   if vsb_output="$(
     "${repo_root}/scripts/verify-visual-style-baseline-cards" \
       --repo-root "${fixture_root}" \
       --cards-dir "${fixture_root}/docs/task-cards/visual-style-baseline" 2>&1
   )"; then
-    fail "VSB static validator accepted a drifted suspended projection"
+    vsb_passed=1
   fi
+  [[ "${wave_passed}" -eq 0 ]] ||
+    fail "Wave 1 static validator accepted a drifted suspended projection"
+  [[ "${vsb_passed}" -eq 0 ]] ||
+    fail "VSB static validator accepted a drifted suspended projection"
+  assert_contains "${wave_output}" "${expected_message}"
   assert_contains "${vsb_output}" "Wave 1 static suspension validation failed"
 }
 
@@ -867,6 +873,20 @@ git -C "${static_plan_contradictory_row_root}" commit -qm \
   "test: add contradictory current implementation-plan row"
 expect_both_static_verifiers_fail \
   "${static_plan_contradictory_row_root}" \
+  "current suspension projection mismatch"
+
+static_plan_unexpected_rows_root="${test_tmp_root}/static-plan-unexpected-rows"
+git clone --shared -q "${repo_root}" "${static_plan_unexpected_rows_root}"
+printf '%s\n' \
+  '| `W1-I03` | DOCX security | `I01` | `QUEUED` |' \
+  '| `W1-I03` | altered projection text | `I01` | `NOT_A_REAL_STATE` |' >> \
+  "${static_plan_unexpected_rows_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+git -C "${static_plan_unexpected_rows_root}" add \
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+git -C "${static_plan_unexpected_rows_root}" commit -qm \
+  "test: add unexpected current implementation-plan rows"
+expect_both_static_verifiers_fail \
+  "${static_plan_unexpected_rows_root}" \
   "current suspension projection mismatch"
 
 static_plan_row_drift_root="${test_tmp_root}/static-plan-row-drift"
