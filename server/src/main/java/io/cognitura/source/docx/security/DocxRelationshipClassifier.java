@@ -87,7 +87,7 @@ public final class DocxRelationshipClassifier {
                 throw formatInvalid("relationship identifiers must be unique within a part");
             }
             String targetMode = relationship.getAttribute("TargetMode");
-            if (targetMode.isEmpty()) {
+            if (targetMode.isEmpty() || targetMode.equals("Internal")) {
                 String internalTarget = resolveInternalTarget(sourcePart, target);
                 if (!verifiedParts.contains(internalTarget)) {
                     throw formatInvalid("internal relationship target is absent from the verified package");

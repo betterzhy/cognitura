@@ -281,6 +281,44 @@ class DocxSecurityGateTest {
     }
 
     @Test
+    void acceptsExplicitInternalRelationshipMode() throws IOException {
+        byte[] image = "explicit-internal".getBytes(StandardCharsets.UTF_8);
+        String relationshipXml = relationships(
+                relationship("rExplicit", imageType(), "media/image.png", "Internal"));
+        Path packagePath = writeZip(
+                "explicit-internal.docx",
+                entries(
+                        "[Content_Types].xml", CONTENT_TYPES.getBytes(StandardCharsets.UTF_8),
+                        "_rels/.rels", ROOT_RELATIONSHIPS.getBytes(StandardCharsets.UTF_8),
+                        "word/document.xml", DOCUMENT.getBytes(StandardCharsets.UTF_8),
+                        "word/_rels/document.xml.rels", relationshipXml.getBytes(StandardCharsets.UTF_8),
+                        "word/media/image.png", image));
+
+        try (SafeDocxPackage safePackage = new DocxSecurityGate().open(packagePath)) {
+            var relationship = safePackage.relationships().stream()
+                    .filter(candidate -> candidate.relationshipId().equals("rExplicit"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(relationship.mode()).isEqualTo(DocxRelationshipClassifier.Mode.INTERNAL);
+            assertThat(safePackage.readRelationshipTarget(relationship)).containsExactly(image);
+        }
+    }
+
+    @Test
+    void classifiesUnavailableSourceReadAsRetryable() {
+        Path unavailableSource = temporaryDirectory.resolve("source-no-longer-available.docx");
+
+        assertThatThrownBy(() -> new DocxSecurityGate().open(unavailableSource))
+                .isInstanceOf(SourceDomainException.class)
+                .satisfies(error -> {
+                    SourceDomainException failure = (SourceDomainException) error;
+                    assertThat(failure.code())
+                            .isEqualTo(SourceDomainException.Code.PARSER_RETRYABLE_FAILURE);
+                    assertThat(failure.retryable()).isTrue();
+                });
+    }
+
+    @Test
     void classifiesMissingPartsMalformedXmlAndUnknownRelationshipModeAsFormatInvalid()
             throws IOException {
         LinkedHashMap<String, byte[]> missingEntries = requiredEntries();

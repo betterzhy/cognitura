@@ -82,7 +82,11 @@ class ExternalRelationshipIsolationTest {
         assertThat(finished).as(probeOutput).isTrue();
         assertThat(process.exitValue()).as(probeOutput).isZero();
         assertThat(probeOutput)
-                .contains("BLOCKED_CANARIES=4", "OPERATION_ATTEMPTS=0", "EXTERNAL_RELATIONSHIPS=3");
+                .contains(
+                        "BLOCKED_CANARIES=4",
+                        "OPERATION_ATTEMPTS=0",
+                        "EXTERNAL_RELATIONSHIPS=3",
+                        "DIGESTS_VERIFIED=3");
         assertThat(httpAccessCount).hasValue(0);
         assertThat(Files.readString(fileCanary, StandardCharsets.UTF_8)).isEqualTo("must-not-be-read");
     }
@@ -105,6 +109,7 @@ class ExternalRelationshipIsolationTest {
                     .filter(relationship -> relationship.relationshipId().equals("rExternal"))
                     .findFirst()
                     .orElseThrow();
+            assertExternalDigest(external, target);
             assertThatThrownBy(() -> safePackage.readRelationshipTarget(external))
                     .isInstanceOf(DocxSecurityViolation.class)
                     .satisfies(error -> assertThat(((DocxSecurityViolation) error).rule())
@@ -284,6 +289,16 @@ class ExternalRelationshipIsolationTest {
             if (externalRelationships.size() != 3) {
                 throw new AssertionError("EXTERNAL_RELATIONSHIP_COUNT:" + externalRelationships.size());
             }
+            for (int index = 0; index < literalTargets.size(); index++) {
+                SourceHash expectedDigest = SourceHash.sha256(
+                        literalTargets.get(index).getBytes(StandardCharsets.UTF_8));
+                if (!externalRelationships.get(index)
+                        .externalTargetLiteralSha256()
+                        .orElseThrow()
+                        .equals(expectedDigest)) {
+                    throw new AssertionError("EXTERNAL_TARGET_DIGEST_MISMATCH:" + index);
+                }
+            }
             String metadata = externalRelationships.toString();
             if (literalTargets.stream().anyMatch(metadata::contains)) {
                 throw new AssertionError("EXTERNAL_TARGET_LITERAL_LEAK");
@@ -291,6 +306,7 @@ class ExternalRelationshipIsolationTest {
             System.out.println("BLOCKED_CANARIES=" + blockedCanaries);
             System.out.println("OPERATION_ATTEMPTS=" + operationAudit.attemptCount());
             System.out.println("EXTERNAL_RELATIONSHIPS=" + externalRelationships.size());
+            System.out.println("DIGESTS_VERIFIED=" + literalTargets.size());
         }
     }
 }

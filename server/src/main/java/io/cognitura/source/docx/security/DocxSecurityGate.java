@@ -74,7 +74,7 @@ public final class DocxSecurityGate {
             throw formatInvalid("DOCX container is not a valid ZIP package");
         } catch (IOException error) {
             closeAfterFailure(zipFile);
-            throw formatInvalid("DOCX container could not be opened or validated");
+            throw retryableReadFailure();
         } catch (RuntimeException error) {
             closeAfterFailure(zipFile);
             throw error;
@@ -373,6 +373,12 @@ public final class DocxSecurityGate {
 
     private static SourceDomainException formatInvalid(String detail) {
         return new SourceDomainException(SourceDomainException.Code.DOCX_FORMAT_INVALID, detail);
+    }
+
+    private static SourceDomainException retryableReadFailure() {
+        return new SourceDomainException(
+                SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
+                "DOCX source could not be read due to an I/O failure");
     }
 
     private static void closeAfterFailure(ZipFile zipFile) {
