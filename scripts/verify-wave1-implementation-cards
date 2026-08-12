@@ -154,14 +154,25 @@ ready_narratives=(
   '完成零发现深审并关闭；I02 等待独立数据库 Gate，I03 已原子释放为唯一 `READY` 卡。'
 )
 
-normalize_narrative_pair() {
-  local text="$1"
-  local suspended_text="$2"
-  local ready_text="$3"
-  local marker="$4"
-  local expected_state="$5"
-  local failure_context="$6"
-  local expected_text unexpected_text prefix suffix
+copy_nul_free_file() {
+  local input_file="$1"
+  local output_file="$2"
+  local failure_context="$3"
+  if ! LC_ALL=C tr -d '\000' < "${input_file}" > "${output_file}"; then
+    fail "${failure_context}"
+  fi
+  cmp -s "${input_file}" "${output_file}" || fail "${failure_context}"
+}
+
+normalize_narrative_pair_file() {
+  local input_file="$1"
+  local output_file="$2"
+  local suspended_text="$3"
+  local ready_text="$4"
+  local marker="$5"
+  local expected_state="$6"
+  local failure_context="$7"
+  local expected_text unexpected_text
   case "${expected_state}" in
     SUSPENDED)
       expected_text="${suspended_text}"
@@ -173,39 +184,62 @@ normalize_narrative_pair() {
       ;;
     *) fail "unsupported narrative projection state: ${expected_state}" ;;
   esac
-  [[ "${text}" == *"${expected_text}"* ]] || fail "${failure_context}"
-  [[ "${text}" != *"${unexpected_text}"* ]] || fail "${failure_context}"
-  prefix="${text%%"${expected_text}"*}"
-  suffix="${text#*"${expected_text}"}"
-  [[ "${suffix}" != *"${expected_text}"* ]] || fail "${failure_context}"
-  printf '%s%s%s' "${prefix}" "${marker}" "${suffix}"
+  if ! perl -0777 -e '
+    use strict;
+    use warnings;
+    use bytes;
+    my ($expected, $unexpected, $marker) = @ARGV;
+    my $text = <STDIN>;
+    $text = q{} unless defined $text;
+    my $first = index($text, $expected);
+    exit 2 if $first < 0;
+    exit 3 if index($text, $expected, $first + length($expected)) >= 0;
+    exit 4 if index($text, $unexpected) >= 0;
+    substr($text, $first, length($expected), $marker);
+    print STDOUT $text or exit 5;
+  ' -- "${expected_text}" "${unexpected_text}" "${marker}" \
+    < "${input_file}" > "${output_file}"; then
+    fail "${failure_context}"
+  fi
 }
 
-normalize_projection_narratives_text() {
-  local text="$1"
-  local path="$2"
-  local expected_state="$3"
-  local failure_context="$4"
-  local narrative_index matched=0
+normalize_projection_narratives_file() {
+  local input_file="$1"
+  local output_file="$2"
+  local path="$3"
+  local expected_state="$4"
+  local failure_context="$5"
+  local binary_failure_context="${6:-${failure_context}}"
+  local narrative_index matched=0 current_file next_file
+  current_file="${output_file}.nul-free"
+  copy_nul_free_file \
+    "${input_file}" "${current_file}" "${binary_failure_context}: ${path}"
   for narrative_index in "${!suspension_narratives[@]}"; do
     [[ "${suspension_narrative_paths[${narrative_index}]}" == "${path}" ]] || continue
     matched=1
-    text="$(normalize_narrative_pair \
-      "${text}" \
+    next_file="${output_file}.narrative-${narrative_index}"
+    normalize_narrative_pair_file \
+      "${current_file}" \
+      "${next_file}" \
       "${suspension_narratives[${narrative_index}]}" \
       "${ready_narratives[${narrative_index}]}" \
       "__W1_RESTORE_NARRATIVE_${narrative_index}__" \
       "${expected_state}" \
-      "${failure_context}: ${path}")"
+      "${failure_context}: ${path}"
+    current_file="${next_file}"
   done
   if [[ "${path}" != docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md ]]; then
     [[ "${matched}" -eq 1 ]] || fail "missing exact narrative contract for ${path}"
   fi
-  printf '%s' "${text}"
+  cp "${current_file}" "${output_file}" ||
+    fail "could not materialize normalized narrative projection: ${path}"
 }
 
 require_current_suspension_narratives() {
-  local path content
+  local path narrative_validation_dir narrative_validation_index=0
+  narrative_validation_dir="$(
+    mktemp -d "${TMPDIR:-/tmp}/cognitura-current-narratives.XXXXXX"
+  )"
   for path in \
     AGENTS.md \
     README.md \
@@ -217,11 +251,14 @@ require_current_suspension_narratives() {
     docs/task-cards/wave-1/README.md \
     docs/task-cards/wave-1-implementation/README.md; do
     [[ -f "${repo_root}/${path}" ]] || fail "projection file is missing: ${path}"
-    content="$(<"${repo_root}/${path}")"$'\034'
-    normalize_projection_narratives_text \
-      "${content}" "${path}" SUSPENDED \
-      "current suspension narrative projection mismatch" >/dev/null
+    normalize_projection_narratives_file \
+      "${repo_root}/${path}" \
+      "${narrative_validation_dir}/normalized-${narrative_validation_index}" \
+      "${path}" SUSPENDED \
+      "current suspension narrative projection mismatch"
+    narrative_validation_index=$((narrative_validation_index + 1))
   done
+  rm -rf -- "${narrative_validation_dir}"
 }
 
 sha256_stream() {
@@ -1237,47 +1274,58 @@ write_normalized_restore_file() {
   local path="$2"
   local output_file="$3"
   local expected_state="$4"
-  local content narrative_failure_context
-  git -C "${repo_root}" cat-file -e "${commit}:${path}" 2>/dev/null ||
+  local raw_file narrative_file narrative_failure_context
+  raw_file="${output_file}.raw"
+  narrative_file="${output_file}.narratives"
+  if ! git -C "${repo_root}" show "${commit}:${path}" > "${raw_file}" 2>/dev/null; then
     fail "transition tree is missing ${path}"
+  fi
   if [[ "${expected_state}" == SUSPENDED ]]; then
     narrative_failure_context="restore transition BASE must preserve exact suspended narrative projection"
   else
     narrative_failure_context="restore transition HEAD must contain exact READY narrative projection"
   fi
-  content="$(git -C "${repo_root}" show "${commit}:${path}"; printf '\034')"
-  content="$(normalize_projection_narratives_text \
-    "${content}" "${path}" "${expected_state}" "${narrative_failure_context}")"
+  normalize_projection_narratives_file \
+    "${raw_file}" "${narrative_file}" "${path}" "${expected_state}" \
+    "${narrative_failure_context}" \
+    "restore transition must preserve exact bytes and file mode"
   case "${path}" in
     AGENTS.md|README.md)
-      printf '%s' "${content%$'\034'}" | sed -E \
-        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
+      sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/' \
+        "${narrative_file}" > "${output_file}"
       ;;
     docs/design/wave-1/README.md|docs/engineering/cognitura-wave-1-design-plan.md|docs/task-cards/wave-1/README.md)
-      printf '%s' "${content%$'\034'}" | sed -E \
-        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
+      sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/' \
+        "${narrative_file}" > "${output_file}"
       ;;
     docs/engineering/cognitura-design-index.md)
-      printf '%s' "${content%$'\034'}" | sed -E \
-        -e 's/^(Wave1ImplementationTaskCardSet|ActiveTaskCard|ActiveTaskCardStatus|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
+      sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveTaskCard|ActiveTaskCardStatus|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/' \
+        "${narrative_file}" > "${output_file}"
       ;;
     docs/engineering/cognitura-wave-1-design-acceptance.md)
-      printf '%s' "${content%$'\034'}" | sed -E \
-        -e 's/^(ImplementationTaskCardPlanStatus|Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
+      sed -E \
+        -e 's/^(ImplementationTaskCardPlanStatus|Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/' \
+        "${narrative_file}" > "${output_file}"
       ;;
     docs/engineering/cognitura-wave-1-implementation-plan.md)
-      printf '%s' "${content%$'\034'}" | sed -E \
+      sed -E \
         -e 's/^(TaskCardSetStatus|ActiveTaskCard|SuspendedTaskCard|SuspendedCandidateSHA|SuspendedCandidateMutation) = .*/\1 = __RESTORED__/' \
-        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g' > "${output_file}"
+        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g' \
+        "${narrative_file}" > "${output_file}"
       ;;
     docs/task-cards/wave-1-implementation/README.md)
-      printf '%s' "${content%$'\034'}" | sed -E \
+      sed -E \
         -e 's/^(TaskCardSetStatus|ActiveTaskCard|SuspendedTaskCard|SuspendedCandidateSHA|SuspendedCandidateMutation|ReadyTaskCardCount|SuspendedTaskCardCount) = .*/\1 = __RESTORED__/' \
-        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g' > "${output_file}"
+        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g' \
+        "${narrative_file}" > "${output_file}"
       ;;
     docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md)
-      printf '%s' "${content%$'\034'}" | sed -E \
-        -e 's/^Status = .*/Status = __RESTORED__/' > "${output_file}"
+      sed -E \
+        -e 's/^Status = .*/Status = __RESTORED__/' \
+        "${narrative_file}" > "${output_file}"
       ;;
     *) fail "unsupported restore projection path: ${path}" ;;
   esac
@@ -1469,10 +1517,25 @@ if [[ -n "${transition_base}" ]]; then
      "$(git_tree_field "${resolved_head}" "${base_card_path}" Status)" == READY ]] ||
     fail "restore transition HEAD must release only W1-I03 and clear suspended fields"
 
+  working_compare_dir="$(
+    mktemp -d "${TMPDIR:-/tmp}/cognitura-working-projection-compare.XXXXXX"
+  )"
+  working_compare_index=0
   for path in "${restore_paths[@]}"; do
-    [[ "$(<"${repo_root}/${path}")" == "$(git -C "${repo_root}" show "${resolved_head}:${path}")" ]] ||
+    if ! git -C "${repo_root}" show "${resolved_head}:${path}" > \
+      "${working_compare_dir}/head-${working_compare_index}" 2>/dev/null; then
+      rm -rf -- "${working_compare_dir}"
+      fail "transition tree is missing ${path}"
+    fi
+    if ! cmp -s \
+      "${repo_root}/${path}" \
+      "${working_compare_dir}/head-${working_compare_index}"; then
+      rm -rf -- "${working_compare_dir}"
       fail "working projection must match transition HEAD tree: ${path}"
+    fi
+    working_compare_index=$((working_compare_index + 1))
   done
+  rm -rf -- "${working_compare_dir}"
   [[ "$(git_tree_field "${resolved_head}" AGENTS.md ActiveImplementationTaskCard)" == W1-I03 &&
      "$(git_tree_field "${resolved_head}" README.md ActiveImplementationTaskCard)" == W1-I03 &&
      "$(git_tree_field "${resolved_head}" docs/design/wave-1/README.md ActiveImplementationGovernanceTaskCard)" == W1-I03 &&

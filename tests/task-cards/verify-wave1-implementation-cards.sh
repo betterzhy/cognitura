@@ -949,7 +949,7 @@ git -C "${static_narrative_base_root}" checkout -q
 sync_current_acceptance_projection "${static_narrative_base_root}"
 git -C "${static_narrative_base_root}" add \
   docs/engineering/cognitura-wave-1-design-acceptance.md
-git -C "${static_narrative_base_root}" commit -qm \
+git -C "${static_narrative_base_root}" commit --allow-empty -qm \
   "test: establish exact suspension narrative projection"
 
 for narrative_index in "${!suspension_narratives[@]}"; do
@@ -1336,6 +1336,25 @@ assert_contains "${trailing_newline_output}" \
 
 git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
 make_restore_projection "${transition_repo_root}"
+printf '\000' >> "${transition_repo_root}/AGENTS.md"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: add a NUL byte during restore"
+nul_drift_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if nul_drift_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${nul_drift_restore_sha}" 2>&1
+)"; then
+  fail "restore with NUL-byte drift unexpectedly passed"
+fi
+assert_contains "${nul_drift_output}" \
+  "restore transition must preserve exact bytes and file mode"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
 chmod 755 "${transition_repo_root}/AGENTS.md"
 git -C "${transition_repo_root}" add "${transition_paths[@]}"
 git -C "${transition_repo_root}" commit -qm \
@@ -1574,6 +1593,7 @@ assert_contains "${nonancestor_output}" "SuspendedCandidateSHA must be an ancest
 git_transition_cases=10
 narrative_suspension_cases=12
 narrative_restore_cases=15
+binary_restore_cases=1
 
 printf '%s\n' \
   "Wave1ImplementationTaskCardContractTests = PASS" \
@@ -1587,4 +1607,5 @@ printf '%s\n' \
   "SuspensionMutationCases = ${suspension_mutation_cases}" \
   "GitTransitionCases = ${git_transition_cases}" \
   "NarrativeSuspensionCases = ${narrative_suspension_cases}" \
-  "NarrativeRestoreCases = ${narrative_restore_cases}"
+  "NarrativeRestoreCases = ${narrative_restore_cases}" \
+  "BinaryRestoreCases = ${binary_restore_cases}"
