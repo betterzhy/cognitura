@@ -1059,6 +1059,37 @@ normalized_restore_file() {
   esac
 }
 
+require_suspended_base_field() {
+  local commit="$1"
+  local path="$2"
+  local key="$3"
+  local expected="$4"
+  [[ "$(git_tree_field "${commit}" "${path}" "${key}")" == "${expected}" ]] ||
+    fail "restore transition BASE must preserve exact suspended projection: ${path}"
+}
+
+require_all_suspended_base_fields() {
+  local commit="$1"
+  local path="$2"
+  local key="$3"
+  local expected="$4"
+  local content count mismatches
+  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
+    fail "transition tree is missing ${path}"
+  count="$(printf '%s\n' "${content}" | grep -c "^${key} = " || true)"
+  mismatches="$(printf '%s\n' "${content}" | sed -n "s/^${key} = //p" | grep -Fvx "${expected}" || true)"
+  [[ "${count}" -gt 0 && -z "${mismatches}" ]] ||
+    fail "restore transition BASE must preserve exact suspended projection: ${path}"
+}
+
+require_suspended_base_line() {
+  local commit="$1"
+  local path="$2"
+  local expected_line="$3"
+  git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null | grep -Fqx "${expected_line}" ||
+    fail "restore transition BASE must preserve exact suspended projection: ${path}"
+}
+
 if [[ -n "${transition_base}" ]]; then
   resolved_base="$(git -C "${repo_root}" rev-parse --verify "${transition_base}^{commit}" 2>/dev/null)" ||
     fail "transition BASE is not a commit"
@@ -1090,13 +1121,62 @@ if [[ -n "${transition_base}" ]]; then
 
   base_index_path="docs/task-cards/wave-1-implementation/README.md"
   base_card_path="docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md"
-  [[ "$(git_tree_field "${resolved_base}" "${base_index_path}" TaskCardSetStatus)" == SUSPENDED_BY_USER &&
-     "$(git_tree_field "${resolved_base}" "${base_index_path}" ActiveTaskCard)" == NONE &&
-     "$(git_tree_field "${resolved_base}" "${base_index_path}" SuspendedTaskCard)" == W1-I03 &&
-     "$(git_tree_field "${resolved_base}" "${base_index_path}" SuspendedCandidateSHA)" == 4e63936c631ab34807e714b90d30415a959bc13d &&
-     "$(git_tree_field "${resolved_base}" "${base_index_path}" SuspendedCandidateMutation)" == FORBIDDEN &&
-     "$(git_tree_field "${resolved_base}" "${base_card_path}" Status)" == SUSPENDED_BY_USER ]] ||
-    fail "restore transition BASE must be the exact suspended W1-I03 state"
+  require_suspended_base_field "${resolved_base}" AGENTS.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" AGENTS.md ActiveImplementationTaskCard NONE
+  require_suspended_base_field "${resolved_base}" README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" README.md ActiveImplementationTaskCard NONE
+  require_suspended_base_field "${resolved_base}" docs/design/wave-1/README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" docs/design/wave-1/README.md ActiveImplementationGovernanceTaskCard NONE
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-design-index.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-design-index.md ActiveTaskCard NONE
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-design-index.md ActiveTaskCardStatus NONE
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-design-index.md ActiveImplementationTaskCard NONE
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-design-plan.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-design-plan.md ActiveImplementationGovernanceTaskCard NONE
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-design-acceptance.md ImplementationTaskCardPlanStatus I01_COMPLETE_I03_SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-design-acceptance.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-design-acceptance.md ActiveImplementationGovernanceTaskCard NONE
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md TaskCardSetStatus SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md ActiveTaskCard NONE
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md SuspendedTaskCard W1-I03
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md SuspendedCandidateSHA 4e63936c631ab34807e714b90d30415a959bc13d
+  require_suspended_base_field "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md SuspendedCandidateMutation FORBIDDEN
+  require_suspended_base_field "${resolved_base}" docs/task-cards/wave-1/README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" docs/task-cards/wave-1/README.md ActiveImplementationGovernanceTaskCard NONE
+  require_suspended_base_field "${resolved_base}" "${base_index_path}" TaskCardSetStatus SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" "${base_index_path}" ActiveTaskCard NONE
+  require_suspended_base_field "${resolved_base}" "${base_index_path}" SuspendedTaskCard W1-I03
+  require_suspended_base_field "${resolved_base}" "${base_index_path}" SuspendedCandidateSHA 4e63936c631ab34807e714b90d30415a959bc13d
+  require_suspended_base_field "${resolved_base}" "${base_index_path}" SuspendedCandidateMutation FORBIDDEN
+  require_suspended_base_field "${resolved_base}" "${base_index_path}" ReadyTaskCardCount 0
+  require_suspended_base_field "${resolved_base}" "${base_index_path}" SuspendedTaskCardCount 1
+  require_suspended_base_field "${resolved_base}" "${base_card_path}" Status SUSPENDED_BY_USER
+  require_suspended_base_line "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md \
+    '| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |'
+  require_suspended_base_line "${resolved_base}" "${base_index_path}" \
+    '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |'
+  for path in AGENTS.md README.md docs/engineering/cognitura-design-index.md; do
+    require_all_suspended_base_fields "${resolved_base}" "${path}" BusinessImplementation USER_AUTHORIZED
+    require_all_suspended_base_fields "${resolved_base}" "${path}" FormalDatabaseWrite NOT_AUTHORIZED
+    require_all_suspended_base_fields "${resolved_base}" "${path}" RemotePush NOT_AUTHORIZED
+  done
+  require_all_suspended_base_fields "${resolved_base}" docs/design/wave-1/README.md BusinessImplementation USER_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-design-plan.md BusinessImplementation USER_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-design-plan.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-design-plan.md DeploymentAndRelease NOT_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-design-acceptance.md BusinessImplementation USER_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-design-acceptance.md RemotePush NOT_PERFORMED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md BusinessImplementation USER_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md DeploymentAndRelease NOT_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/engineering/cognitura-wave-1-implementation-plan.md RemotePush NOT_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" docs/task-cards/wave-1/README.md BusinessImplementation USER_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" "${base_index_path}" BusinessImplementation USER_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" "${base_index_path}" FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_suspended_base_fields "${resolved_base}" "${base_index_path}" RemotePush NOT_AUTHORIZED
+  require_suspended_base_field "${resolved_base}" "${base_card_path}" BusinessImplementationAuthorization USER_AUTHORIZED
+  require_suspended_base_field "${resolved_base}" "${base_card_path}" FormalDatabaseGate NOT_APPLICABLE
+  require_suspended_base_field "${resolved_base}" "${base_card_path}" RemotePush NOT_AUTHORIZED
 
   vsb_path="docs/task-cards/visual-style-baseline/execution-state.md"
   base_vsb_status="$(git_tree_field "${resolved_base}" "${vsb_path}" TaskCardSetStatus)"

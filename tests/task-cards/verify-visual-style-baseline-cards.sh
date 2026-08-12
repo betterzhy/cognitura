@@ -378,6 +378,43 @@ stopped_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --transition-base "${activation_sha}" \
   --transition-head "${stopped_sha}" >/dev/null ||
   fail "valid STOP_BY_USER transition was rejected"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+set_field "${transition_state}" "NextTaskCard" "VSB-03"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: forge nominal in-progress STOP base"
+forged_stop_base_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "TaskCardSetStatus" "STOPPED_BY_USER"
+set_field "${transition_state}" "ActiveTaskCard" "NONE"
+set_field "${transition_state}" "ReleasedTaskCard" "NONE"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "CurrentGateStatus" "STOPPED_BY_USER"
+set_field "${transition_state}" "CurrentReviewRoute" "NONE"
+set_field "${transition_state}" "CurrentReviewVerdict" "NOT_APPLICABLE_USER_STOP"
+set_field "${transition_state}" "TransitionSequence" "2"
+set_field "${transition_state}" "TransitionKind" "STOP_BY_USER"
+set_field "${transition_state}" "TransitionBaseSHA" "${forged_stop_base_sha}"
+set_field "${transition_state}" "VisualImplementation" "STOPPED_BY_USER"
+set_field "${transition_state}" "UserStopAuthorization" "EXPLICIT_USER_INSTRUCTION"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: stop from forged nominal in-progress base"
+forged_stop_head_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if forged_stop_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${forged_stop_base_sha}" \
+    --transition-head "${forged_stop_head_sha}" 2>&1
+)"; then
+  fail "STOP_BY_USER from a forged nominal IN_PROGRESS base unexpectedly passed"
+fi
+assert_contains "${forged_stop_output}" \
+  "transition BASE failed full VSB state validation"
+negative_cases=$((negative_cases + 1))
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 
 mkdir -p "${transition_repo_root}/docs/design/visual-style-baseline-fixtures"
@@ -415,6 +452,62 @@ if unauthorized_candidate_output="$(
   fail "candidate outside the exact VSB-00 WriteSet unexpectedly passed"
 fi
 assert_contains "${unauthorized_candidate_output}" \
+  "candidate diff must equal the exact VSB-00 WriteSet"
+negative_cases=$((negative_cases + 1))
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+
+forbidden_rename_source="server/forbidden-vsb-rename-source.txt"
+allowed_rename_target="scripts/import-visual-style-reference"
+mkdir -p "${transition_repo_root}/$(dirname "${forbidden_rename_source}")"
+printf '%s\n' 'rename-identical-content' > \
+  "${transition_repo_root}/${forbidden_rename_source}"
+git -C "${transition_repo_root}" add "${forbidden_rename_source}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: establish forbidden rename source"
+rename_parent_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "rename-detection candidate"
+rm "${transition_repo_root}/${allowed_rename_target}"
+git -C "${transition_repo_root}" mv \
+  "${forbidden_rename_source}" "${allowed_rename_target}"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: rename forbidden source into allowed VSB-00 target"
+rename_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+test "$(git -C "${transition_repo_root}" diff --name-status \
+  "${rename_parent_sha}..${rename_candidate_sha}" -- | \
+  grep -c "^R100.*${forbidden_rename_source}.*${allowed_rename_target}$")" -eq 1 ||
+  fail "rename bypass fixture did not produce an R100 change"
+set_field "${transition_state}" "CompletedTaskCards" "VSB-00"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-01"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-01"
+set_field "${transition_state}" "CurrentCandidateSHA" "${rename_candidate_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+set_field "${transition_state}" "CurrentReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB00CandidateSHA" "${rename_candidate_sha}"
+set_field "${transition_state}" "VSB00GateStatus" "VSB-G0_PASS"
+set_field "${transition_state}" "VSB00ReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "VSB-02"
+set_field "${transition_state}" "TransitionSequence" "2"
+set_field "${transition_state}" "TransitionKind" "ADVANCE"
+set_field "${transition_state}" "TransitionBaseSHA" "${rename_candidate_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: try to release rename-bypassed VSB-00 candidate"
+rename_receipt_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if rename_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${rename_candidate_sha}" \
+    --transition-head "${rename_receipt_sha}" 2>&1
+)"; then
+  fail "forbidden-source rename into an allowed candidate target unexpectedly passed"
+fi
+assert_contains "${rename_output}" \
   "candidate diff must equal the exact VSB-00 WriteSet"
 negative_cases=$((negative_cases + 1))
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
@@ -460,6 +553,88 @@ for i in 0 1 2; do
 done
 
 after_vsb02_receipt="${receipt_shas[2]}"
+
+git -C "${transition_repo_root}" switch -q --detach "${receipt_shas[0]}"
+write_exact_candidate_paths "${transition_repo_root}" 1 \
+  "early FINAL owner candidate"
+printf '%s\n' "${candidate_write_sets[1]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create early FINAL owner candidate"
+early_final_base_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "TaskCardSetStatus" "FINAL_NO_GO"
+set_field "${transition_state}" "ActiveTaskCard" "NONE"
+set_field "${transition_state}" "ReleasedTaskCard" "NONE"
+set_field "${transition_state}" "CurrentCandidateSHA" "${early_final_base_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "FAIL"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer+ultra_gatekeeper"
+set_field "${transition_state}" "CurrentReviewVerdict" "FINDING_P0_0_P1_1_P2_0"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "TransitionSequence" "3"
+set_field "${transition_state}" "TransitionKind" "FINAL_NO_GO"
+set_field "${transition_state}" "TransitionBaseSHA" "${early_final_base_sha}"
+set_field "${transition_state}" "VisualImplementation" "FINAL_NO_GO"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: try FINAL_NO_GO before VSB-03"
+early_final_head_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if early_final_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${early_final_base_sha}" \
+    --transition-head "${early_final_head_sha}" 2>&1
+)"; then
+  fail "FINAL_NO_GO from an Owner other than VSB-03 unexpectedly passed"
+fi
+assert_contains "${early_final_output}" \
+  "FINAL_NO_GO is allowed only for VSB-03 fixed visual acceptance"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${after_vsb02_receipt}"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-02"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: forge nominal in-progress FINAL base"
+forged_final_preparent_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+write_exact_candidate_paths "${transition_repo_root}" 3 \
+  "forged FINAL base candidate"
+printf '%s\n' "${candidate_write_sets[3]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create candidate over forged FINAL base"
+forged_final_base_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "TaskCardSetStatus" "FINAL_NO_GO"
+set_field "${transition_state}" "ActiveTaskCard" "NONE"
+set_field "${transition_state}" "ReleasedTaskCard" "NONE"
+set_field "${transition_state}" "CurrentCandidateSHA" "${forged_final_base_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "FAIL"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer+ultra_gatekeeper"
+set_field "${transition_state}" "CurrentReviewVerdict" "FINDING_P0_0_P1_1_P2_0"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "TransitionSequence" "5"
+set_field "${transition_state}" "TransitionKind" "FINAL_NO_GO"
+set_field "${transition_state}" "TransitionBaseSHA" "${forged_final_base_sha}"
+set_field "${transition_state}" "VisualImplementation" "FINAL_NO_GO"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: finalize from forged nominal in-progress base"
+forged_final_head_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if forged_final_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${forged_final_base_sha}" \
+    --transition-head "${forged_final_head_sha}" 2>&1
+)"; then
+  fail "FINAL_NO_GO from a forged nominal IN_PROGRESS base unexpectedly passed"
+fi
+assert_contains "${forged_final_output}" \
+  "transition BASE failed full VSB state validation"
+negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 write_exact_candidate_paths "${transition_repo_root}" 0 \
@@ -579,6 +754,37 @@ final_no_go_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --transition-base "${vsb03_candidate_sha}" \
   --transition-head "${final_no_go_sha}" >/dev/null ||
   fail "valid FINAL_NO_GO transition was rejected"
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+set_field "${transition_state}" "TaskCardSetStatus" "FINAL_NO_GO"
+set_field "${transition_state}" "ActiveTaskCard" "NONE"
+set_field "${transition_state}" "ReleasedTaskCard" "NONE"
+set_field "${transition_state}" "CurrentCandidateSHA" "${vsb03_candidate_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "FAIL"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+set_field "${transition_state}" "CurrentReviewVerdict" "FINDING_P0_0_P1_1_P2_0"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "TransitionSequence" "5"
+set_field "${transition_state}" "TransitionKind" "FINAL_NO_GO"
+set_field "${transition_state}" "TransitionBaseSHA" "${vsb03_candidate_sha}"
+set_field "${transition_state}" "VisualImplementation" "FINAL_NO_GO"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: finalize VSB-03 with wrong review route"
+wrong_final_route_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if wrong_final_route_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${vsb03_candidate_sha}" \
+    --transition-head "${wrong_final_route_sha}" 2>&1
+)"; then
+  fail "FINAL_NO_GO with the wrong review route unexpectedly passed"
+fi
+assert_contains "${wrong_final_route_output}" \
+  "FINAL_NO_GO requires the fixed visual acceptance review route"
+negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
 set_field "${transition_state}" "ActiveTaskCard" "VSB-01"

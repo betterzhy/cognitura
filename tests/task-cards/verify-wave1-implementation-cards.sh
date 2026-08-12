@@ -1004,6 +1004,33 @@ assert_contains "${restore_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
 assert_contains "${restore_output}" "ActiveTaskCard = W1-I03"
 
 git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+set_field \
+  "${transition_repo_root}/docs/design/wave-1/README.md" \
+  "ActiveImplementationGovernanceTaskCard" \
+  "W1-I03"
+git -C "${transition_repo_root}" add \
+  docs/design/wave-1/README.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: drift a central suspension projection before restore"
+base_projection_drift_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+make_restore_projection "${transition_repo_root}"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: restore over a drifted central suspension projection"
+base_projection_drift_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if base_projection_drift_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${base_projection_drift_sha}" \
+    --transition-head "${base_projection_drift_restore_sha}" 2>&1
+)"; then
+  fail "restore from a drifted central suspension projection unexpectedly passed"
+fi
+assert_contains "${base_projection_drift_output}" \
+  "restore transition BASE must preserve exact suspended projection"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
 make_restore_projection "${transition_repo_root}"
 set_field \
   "${transition_repo_root}/docs/task-cards/wave-1-implementation/README.md" \

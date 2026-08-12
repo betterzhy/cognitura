@@ -3,6 +3,7 @@
 set -euo pipefail
 
 script_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+self_verifier="${script_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${script_repo_root}"
 cards_dir=""
 transition_base=""
@@ -137,6 +138,29 @@ owner_index_from_id() {
     VSB-03) printf '3\n' ;;
     *) fail "transition Owner must be a known VSB card" ;;
   esac
+}
+
+validate_fixed_vsb_tree() {
+  local commit="$1"
+  local fixed_checkout validation_output
+  fixed_checkout="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-transition-base.XXXXXX")"
+  if ! git clone --shared -q "${repo_root}" "${fixed_checkout}"; then
+    rm -rf -- "${fixed_checkout}"
+    fail "could not create isolated transition BASE checkout"
+  fi
+  if ! git -C "${fixed_checkout}" checkout -q --detach "${commit}"; then
+    rm -rf -- "${fixed_checkout}"
+    fail "could not check out transition BASE"
+  fi
+  if ! validation_output="$(
+    "${self_verifier}" \
+      --repo-root "${fixed_checkout}" \
+      --cards-dir "${fixed_checkout}/docs/task-cards/visual-style-baseline" 2>&1
+  )"; then
+    rm -rf -- "${fixed_checkout}"
+    fail "transition BASE failed full VSB state validation"
+  fi
+  rm -rf -- "${fixed_checkout}"
 }
 
 while [[ "$#" -gt 0 ]]; do
@@ -313,7 +337,7 @@ verify_candidate_write_set() {
   candidate_parent="$(git -C "${repo_root}" rev-parse "${candidate_sha}^" 2>/dev/null)" ||
     fail "${owner_id} candidate must have a parent commit"
   actual_paths="$(
-    git -C "${repo_root}" diff --name-only \
+    git -C "${repo_root}" diff --no-renames --name-only \
       "${candidate_parent}..${candidate_sha}" | LC_ALL=C sort
   )"
   expected_paths="$(
@@ -514,6 +538,8 @@ elif [[ "${set_status}" == FINAL_NO_GO ]]; then
   [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE ]] ||
     fail "FINAL_NO_GO cannot have an active, released, or next card"
   [[ "$(field_value "${state_file}" CurrentGateStatus)" == FAIL ]] || fail "FINAL_NO_GO requires FAIL Gate"
+  [[ "$(field_value "${state_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] ||
+    fail "FINAL_NO_GO requires the fixed visual acceptance review route"
   [[ "${kind}" == FINAL_NO_GO ]] || fail "FINAL_NO_GO requires TransitionKind FINAL_NO_GO"
   [[ "$(field_value "${state_file}" VisualImplementation)" == FINAL_NO_GO ]] ||
     fail "FINAL_NO_GO VisualImplementation mismatch"
@@ -702,6 +728,7 @@ if [[ -n "${transition_base}" ]]; then
       done
       ;;
     STOP_BY_USER)
+      validate_fixed_vsb_tree "${resolved_base}"
       [[ "$(state_value_from_text "${head_text}" UserStopAuthorization)" == EXPLICIT_USER_INSTRUCTION ]] ||
         fail "STOP_BY_USER requires explicit user instruction"
       base_status="$(state_value_from_text "${base_text}" TaskCardSetStatus)"
@@ -740,9 +767,13 @@ if [[ -n "${transition_base}" ]]; then
       done
       ;;
     FINAL_NO_GO)
+      validate_fixed_vsb_tree "${resolved_base}"
       [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
         fail "FINAL_NO_GO must start from IN_PROGRESS"
       final_owner="$(state_value_from_text "${base_text}" ActiveTaskCard)"
+      [[ "${final_owner}" == VSB-03 &&
+         "$(state_value_from_text "${head_text}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] ||
+        fail "FINAL_NO_GO is allowed only for VSB-03 fixed visual acceptance"
       final_owner_index="$(owner_index_from_id "${final_owner}")"
       [[ "$(completed_count_from_text "${base_text}")" -eq "${final_owner_index}" ]] ||
         fail "FINAL_NO_GO base active Owner must match its completed prefix"
