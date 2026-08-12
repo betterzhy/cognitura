@@ -2,6 +2,16 @@
 
 set -euo pipefail
 
+temporary_paths=("")
+
+cleanup_temporary_paths() {
+  local temporary_path
+  for temporary_path in "${temporary_paths[@]}"; do
+    [[ -z "${temporary_path}" ]] || rm -rf -- "${temporary_path}"
+  done
+}
+trap cleanup_temporary_paths EXIT
+
 usage() {
   printf '%s\n' \
     'Usage: scripts/verify-wave1-implementation-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA]' >&2
@@ -11,6 +21,21 @@ usage() {
 fail() {
   printf 'Wave1ImplementationTaskCardValidation = FAIL\n%s\n' "$1" >&2
   exit 1
+}
+
+register_temporary_directory() {
+  local destination_variable="$1"
+  local prefix="$2"
+  local temporary_path
+  temporary_path="$(mktemp -d "${TMPDIR:-/tmp}/${prefix}.XXXXXX")" ||
+    fail "could not create temporary directory: ${prefix}"
+  temporary_paths+=("${temporary_path}")
+  printf -v "${destination_variable}" '%s' "${temporary_path}"
+}
+
+remove_temporary_directory() {
+  local target="$1"
+  [[ -z "${target}" ]] || rm -rf -- "${target}"
 }
 
 single_parent_of() {
@@ -248,9 +273,8 @@ normalize_projection_narratives_file() {
 
 require_current_suspension_narratives() {
   local path narrative_validation_dir narrative_validation_index=0
-  narrative_validation_dir="$(
-    mktemp -d "${TMPDIR:-/tmp}/cognitura-current-narratives.XXXXXX"
-  )"
+  register_temporary_directory \
+    narrative_validation_dir cognitura-current-narratives
   for path in \
     AGENTS.md \
     README.md \
@@ -269,7 +293,7 @@ require_current_suspension_narratives() {
       "current suspension narrative projection mismatch"
     narrative_validation_index=$((narrative_validation_index + 1))
   done
-  rm -rf -- "${narrative_validation_dir}"
+  remove_temporary_directory "${narrative_validation_dir}"
 }
 
 sha256_stream() {
@@ -1388,7 +1412,7 @@ if [[ -n "${transition_base}" ]]; then
   actual_restore_paths="$(git -C "${repo_root}" diff --name-only "${resolved_base}..${resolved_head}" | LC_ALL=C sort)"
   [[ "${actual_restore_paths}" == "${expected_restore_paths}" ]] ||
     fail "restore transition fixed diff must equal the exact ten projection paths"
-  restore_compare_dir="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-restore-compare.XXXXXX")"
+  register_temporary_directory restore_compare_dir cognitura-restore-compare
   restore_compare_index=0
   for path in "${restore_paths[@]}"; do
     base_mode="$(git -C "${repo_root}" ls-tree "${resolved_base}" -- "${path}" | awk '{print $1}')"
@@ -1400,12 +1424,12 @@ if [[ -n "${transition_base}" ]]; then
     if [[ "${base_mode}" != "${head_mode}" ]] || ! cmp -s \
       "${restore_compare_dir}/base-${restore_compare_index}" \
       "${restore_compare_dir}/head-${restore_compare_index}"; then
-      rm -rf -- "${restore_compare_dir}"
+      remove_temporary_directory "${restore_compare_dir}"
       fail "restore transition must preserve exact bytes and file mode: ${path}"
     fi
     restore_compare_index=$((restore_compare_index + 1))
   done
-  rm -rf -- "${restore_compare_dir}"
+  remove_temporary_directory "${restore_compare_dir}"
 
   base_index_path="docs/task-cards/wave-1-implementation/README.md"
   base_card_path="docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md"
@@ -1497,17 +1521,17 @@ if [[ -n "${transition_base}" ]]; then
      "${resolved_terminal_vsb_transition_base}" ]] ||
     fail "restore base must be the exact VSB terminal receipt commit"
   [[ -x "${vsb_verifier}" ]] || fail "VSB validator is unavailable"
-  vsb_checkout="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-base.XXXXXX")"
+  register_temporary_directory vsb_checkout cognitura-vsb-base
   git clone --shared -q "${repo_root}" "${vsb_checkout}" ||
     fail "could not create isolated VSB base-tree checkout"
   git -C "${vsb_checkout}" checkout -q --detach "${resolved_base}" || {
-    rm -rf -- "${vsb_checkout}"
+    remove_temporary_directory "${vsb_checkout}"
     fail "could not check out the VSB transition BASE"
   }
   if ! "${vsb_verifier}" \
     --repo-root "${vsb_checkout}" \
     --cards-dir "${vsb_checkout}/docs/task-cards/visual-style-baseline" >/dev/null 2>&1; then
-    rm -rf -- "${vsb_checkout}"
+    remove_temporary_directory "${vsb_checkout}"
     fail "VSB base tree validation failed"
   fi
   if ! "${vsb_verifier}" \
@@ -1515,10 +1539,10 @@ if [[ -n "${transition_base}" ]]; then
     --cards-dir "${vsb_checkout}/docs/task-cards/visual-style-baseline" \
     --transition-base "${resolved_terminal_vsb_transition_base}" \
     --transition-head "${resolved_base}" >/dev/null 2>&1; then
-    rm -rf -- "${vsb_checkout}"
+    remove_temporary_directory "${vsb_checkout}"
     fail "restore VSB terminal receipt transition validation failed"
   fi
-  rm -rf -- "${vsb_checkout}"
+  remove_temporary_directory "${vsb_checkout}"
 
   [[ "$(git_tree_field "${resolved_head}" "${base_index_path}" TaskCardSetStatus)" == READY_FOR_EXECUTION &&
      "$(git_tree_field "${resolved_head}" "${base_index_path}" ActiveTaskCard)" == W1-I03 &&
@@ -1528,25 +1552,24 @@ if [[ -n "${transition_base}" ]]; then
      "$(git_tree_field "${resolved_head}" "${base_card_path}" Status)" == READY ]] ||
     fail "restore transition HEAD must release only W1-I03 and clear suspended fields"
 
-  working_compare_dir="$(
-    mktemp -d "${TMPDIR:-/tmp}/cognitura-working-projection-compare.XXXXXX"
-  )"
+  register_temporary_directory \
+    working_compare_dir cognitura-working-projection-compare
   working_compare_index=0
   for path in "${restore_paths[@]}"; do
     if ! git -C "${repo_root}" show "${resolved_head}:${path}" > \
       "${working_compare_dir}/head-${working_compare_index}" 2>/dev/null; then
-      rm -rf -- "${working_compare_dir}"
+      remove_temporary_directory "${working_compare_dir}"
       fail "transition tree is missing ${path}"
     fi
     if ! cmp -s \
       "${repo_root}/${path}" \
       "${working_compare_dir}/head-${working_compare_index}"; then
-      rm -rf -- "${working_compare_dir}"
+      remove_temporary_directory "${working_compare_dir}"
       fail "working projection must match transition HEAD tree: ${path}"
     fi
     working_compare_index=$((working_compare_index + 1))
   done
-  rm -rf -- "${working_compare_dir}"
+  remove_temporary_directory "${working_compare_dir}"
   [[ "$(git_tree_field "${resolved_head}" AGENTS.md ActiveImplementationTaskCard)" == W1-I03 &&
      "$(git_tree_field "${resolved_head}" README.md ActiveImplementationTaskCard)" == W1-I03 &&
      "$(git_tree_field "${resolved_head}" docs/design/wave-1/README.md ActiveImplementationGovernanceTaskCard)" == W1-I03 &&

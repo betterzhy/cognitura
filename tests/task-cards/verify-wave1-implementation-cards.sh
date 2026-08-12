@@ -952,6 +952,33 @@ git -C "${static_narrative_base_root}" add \
 git -C "${static_narrative_base_root}" commit --allow-empty -qm \
   "test: establish exact suspension narrative projection"
 
+current_narrative_cleanup_tmp="$(
+  mktemp -d "${test_tmp_root}/round13-current-narrative-tmp.XXXXXX"
+)"
+replace_exact_block \
+  "${static_narrative_base_root}/${suspension_narrative_paths[0]}" \
+  "${suspension_narratives[0]}" \
+  "${ready_narratives[0]}" \
+  "exercise current-narrative cleanup after validation failure"
+if current_narrative_cleanup_output="$(
+  TMPDIR="${current_narrative_cleanup_tmp}" "${verifier}" \
+    --repo-root "${static_narrative_base_root}" \
+    --cards-dir "${static_narrative_base_root}/docs/task-cards/wave-1-implementation" 2>&1
+)"; then
+  fail "current narrative cleanup negative unexpectedly passed"
+fi
+assert_contains "${current_narrative_cleanup_output}" \
+  "current suspension narrative projection mismatch"
+shopt -s nullglob
+current_narrative_leaks=(
+  "${current_narrative_cleanup_tmp}"/cognitura-current-narratives.*
+)
+shopt -u nullglob
+[[ "${#current_narrative_leaks[@]}" -eq 0 ]] ||
+  fail "current narrative verifier leaked its registered temporary directory"
+git -C "${static_narrative_base_root}" restore \
+  "${suspension_narrative_paths[0]}"
+
 for narrative_index in "${!suspension_narratives[@]}"; do
   narrative_path="${suspension_narrative_paths[${narrative_index}]}"
   git -C "${static_narrative_base_root}" switch -q --detach HEAD
@@ -1397,8 +1424,11 @@ git -C "${transition_repo_root}" add "${transition_paths[@]}"
 git -C "${transition_repo_root}" commit -qm \
   "test: add a NUL byte during restore"
 nul_drift_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+nul_restore_cleanup_tmp="$(
+  mktemp -d "${test_tmp_root}/round13-restore-compare-tmp.XXXXXX"
+)"
 if nul_drift_output="$(
-  "${verifier}" \
+  TMPDIR="${nul_restore_cleanup_tmp}" "${verifier}" \
     --repo-root "${transition_repo_root}" \
     --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
     --transition-base "${allowed_visual_sha}" \
@@ -1408,6 +1438,13 @@ if nul_drift_output="$(
 fi
 assert_contains "${nul_drift_output}" \
   "restore transition must preserve exact bytes and file mode"
+shopt -s nullglob
+nul_restore_compare_leaks=(
+  "${nul_restore_cleanup_tmp}"/cognitura-restore-compare.*
+)
+shopt -u nullglob
+[[ "${#nul_restore_compare_leaks[@]}" -eq 0 ]] ||
+  fail "restore verifier leaked its registered temporary directory"
 
 git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
 make_restore_projection "${transition_repo_root}"
