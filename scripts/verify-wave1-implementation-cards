@@ -64,6 +64,7 @@ normalized_i03_digest() {
 }
 
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
 cards_dir=""
 transition_base=""
@@ -986,6 +987,78 @@ git_tree_field() {
   printf '%s\n' "${content}" | sed -n "s/^${key} = //p"
 }
 
+require_git_tree_field() {
+  local commit="$1"
+  local path="$2"
+  local key="$3"
+  local expected="$4"
+  [[ "$(git_tree_field "${commit}" "${path}" "${key}")" == "${expected}" ]] ||
+    fail "transition ${path}: ${key} must equal ${expected}"
+}
+
+require_all_git_tree_fields() {
+  local commit="$1"
+  local path="$2"
+  local key="$3"
+  local expected="$4"
+  local content count mismatches
+  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
+    fail "transition tree is missing ${path}"
+  count="$(printf '%s\n' "${content}" | grep -c "^${key} = " || true)"
+  [[ "${count}" -gt 0 ]] || fail "transition ${path}: ${key} must occur at least once"
+  mismatches="$(printf '%s\n' "${content}" | sed -n "s/^${key} = //p" | grep -Fvx "${expected}" || true)"
+  [[ -z "${mismatches}" ]] || fail "transition ${path}: every ${key} must equal ${expected}"
+}
+
+require_git_tree_line() {
+  local commit="$1"
+  local path="$2"
+  local expected_line="$3"
+  git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null | grep -Fqx "${expected_line}" ||
+    fail "transition ${path}: restored status table mismatch"
+}
+
+normalized_restore_file() {
+  local commit="$1"
+  local path="$2"
+  local content
+  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
+    fail "transition tree is missing ${path}"
+  case "${path}" in
+    AGENTS.md|README.md)
+      printf '%s\n' "${content}" | sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/'
+      ;;
+    docs/design/wave-1/README.md|docs/engineering/cognitura-wave-1-design-plan.md|docs/task-cards/wave-1/README.md)
+      printf '%s\n' "${content}" | sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/'
+      ;;
+    docs/engineering/cognitura-design-index.md)
+      printf '%s\n' "${content}" | sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveTaskCard|ActiveTaskCardStatus|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/'
+      ;;
+    docs/engineering/cognitura-wave-1-design-acceptance.md)
+      printf '%s\n' "${content}" | sed -E \
+        -e 's/^(ImplementationTaskCardPlanStatus|Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/'
+      ;;
+    docs/engineering/cognitura-wave-1-implementation-plan.md)
+      printf '%s\n' "${content}" | sed -E \
+        -e 's/^(TaskCardSetStatus|ActiveTaskCard|SuspendedTaskCard|SuspendedCandidateSHA|SuspendedCandidateMutation) = .*/\1 = __RESTORED__/' \
+        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g'
+      ;;
+    docs/task-cards/wave-1-implementation/README.md)
+      printf '%s\n' "${content}" | sed -E \
+        -e 's/^(TaskCardSetStatus|ActiveTaskCard|SuspendedTaskCard|SuspendedCandidateSHA|SuspendedCandidateMutation|ReadyTaskCardCount|SuspendedTaskCardCount) = .*/\1 = __RESTORED__/' \
+        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g'
+      ;;
+    docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md)
+      printf '%s\n' "${content}" | sed -E \
+        -e 's/^Status = .*/Status = __RESTORED__/'
+      ;;
+    *) fail "unsupported restore projection path: ${path}" ;;
+  esac
+}
+
 if [[ -n "${transition_base}" ]]; then
   resolved_base="$(git -C "${repo_root}" rev-parse --verify "${transition_base}^{commit}" 2>/dev/null)" ||
     fail "transition BASE is not a commit"
@@ -1009,6 +1082,11 @@ if [[ -n "${transition_base}" ]]; then
   actual_restore_paths="$(git -C "${repo_root}" diff --name-only "${resolved_base}..${resolved_head}" | LC_ALL=C sort)"
   [[ "${actual_restore_paths}" == "${expected_restore_paths}" ]] ||
     fail "restore transition fixed diff must equal the exact ten projection paths"
+  for path in "${restore_paths[@]}"; do
+    [[ "$(normalized_restore_file "${resolved_base}" "${path}")" == \
+       "$(normalized_restore_file "${resolved_head}" "${path}")" ]] ||
+      fail "restore transition must preserve authorization and non-restored content: ${path}"
+  done
 
   base_index_path="docs/task-cards/wave-1-implementation/README.md"
   base_card_path="docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md"
@@ -1030,6 +1108,21 @@ if [[ -n "${transition_base}" ]]; then
       ;;
     *) fail "restore requires COMPLETE or explicitly authorized STOPPED_BY_USER VSB state" ;;
   esac
+  [[ -x "${vsb_verifier}" ]] || fail "VSB validator is unavailable"
+  vsb_checkout="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-base.XXXXXX")"
+  git clone --shared -q "${repo_root}" "${vsb_checkout}" ||
+    fail "could not create isolated VSB base-tree checkout"
+  git -C "${vsb_checkout}" checkout -q --detach "${resolved_base}" || {
+    rm -rf -- "${vsb_checkout}"
+    fail "could not check out the VSB transition BASE"
+  }
+  if ! "${vsb_verifier}" \
+    --repo-root "${vsb_checkout}" \
+    --cards-dir "${vsb_checkout}/docs/task-cards/visual-style-baseline" >/dev/null 2>&1; then
+    rm -rf -- "${vsb_checkout}"
+    fail "VSB base tree validation failed"
+  fi
+  rm -rf -- "${vsb_checkout}"
 
   [[ "$(git_tree_field "${resolved_head}" "${base_index_path}" TaskCardSetStatus)" == READY_FOR_EXECUTION &&
      "$(git_tree_field "${resolved_head}" "${base_index_path}" ActiveTaskCard)" == W1-I03 &&
@@ -1049,6 +1142,49 @@ if [[ -n "${transition_base}" ]]; then
      "$(git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-design-plan.md ActiveImplementationGovernanceTaskCard)" == W1-I03 &&
      "$(git_tree_field "${resolved_head}" docs/task-cards/wave-1/README.md ActiveImplementationGovernanceTaskCard)" == W1-I03 ]] ||
     fail "restore transition projections must release only W1-I03"
+  require_git_tree_field "${resolved_head}" AGENTS.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" README.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" docs/design/wave-1/README.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-design-index.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-design-index.md ActiveTaskCard W1-I03
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-design-index.md ActiveTaskCardStatus READY
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-design-plan.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-design-acceptance.md ImplementationTaskCardPlanStatus I01_COMPLETE_I03_READY
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-design-acceptance.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md TaskCardSetStatus READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md ActiveTaskCard W1-I03
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md SuspendedTaskCard NONE
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md SuspendedCandidateSHA NONE
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md SuspendedCandidateMutation NONE
+  require_git_tree_field "${resolved_head}" docs/task-cards/wave-1/README.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" "${base_index_path}" ReadyTaskCardCount 1
+  require_git_tree_field "${resolved_head}" "${base_index_path}" SuspendedTaskCardCount 0
+  require_git_tree_line "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md \
+    '| `W1-I03` | DOCX security | `I01` | `READY` |'
+  require_git_tree_line "${resolved_head}" "${base_index_path}" \
+    '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `READY` | `W1-I01` | `W1-IG3` | `HIGH` |'
+  for path in AGENTS.md README.md docs/engineering/cognitura-design-index.md; do
+    require_all_git_tree_fields "${resolved_head}" "${path}" BusinessImplementation USER_AUTHORIZED
+    require_all_git_tree_fields "${resolved_head}" "${path}" FormalDatabaseWrite NOT_AUTHORIZED
+    require_all_git_tree_fields "${resolved_head}" "${path}" RemotePush NOT_AUTHORIZED
+  done
+  require_all_git_tree_fields "${resolved_head}" docs/design/wave-1/README.md BusinessImplementation USER_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-design-plan.md BusinessImplementation USER_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-design-plan.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-design-plan.md DeploymentAndRelease NOT_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-design-acceptance.md BusinessImplementation USER_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-design-acceptance.md RemotePush NOT_PERFORMED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md BusinessImplementation USER_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md DeploymentAndRelease NOT_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md RemotePush NOT_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" docs/task-cards/wave-1/README.md BusinessImplementation USER_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" "${base_index_path}" BusinessImplementation USER_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" "${base_index_path}" FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_git_tree_fields "${resolved_head}" "${base_index_path}" RemotePush NOT_AUTHORIZED
+  require_git_tree_field "${resolved_head}" "${base_card_path}" BusinessImplementationAuthorization USER_AUTHORIZED
+  require_git_tree_field "${resolved_head}" "${base_card_path}" FormalDatabaseGate NOT_APPLICABLE
+  require_git_tree_field "${resolved_head}" "${base_card_path}" RemotePush NOT_AUTHORIZED
   git -C "${repo_root}" diff --quiet \
     4e63936c631ab34807e714b90d30415a959bc13d.."${resolved_head}" -- \
     server/src/main/java/io/cognitura/source/docx/security/DocxSecurityGate.java \

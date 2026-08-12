@@ -966,6 +966,11 @@ make_restore_projection() {
   set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" "SuspendedTaskCard" "NONE"
   set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" "SuspendedCandidateSHA" "NONE"
   set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" "SuspendedCandidateMutation" "NONE"
+  set_table_status \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    "W1-I03" \
+    "SUSPENDED_BY_USER" \
+    "READY"
   set_field "${fixture_root}/docs/task-cards/wave-1/README.md" "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
   set_field "${fixture_root}/docs/task-cards/wave-1/README.md" "ActiveImplementationGovernanceTaskCard" "W1-I03"
   set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" "TaskCardSetStatus" "READY_FOR_EXECUTION"
@@ -1104,6 +1109,71 @@ if unauthorized_restore_output="$(
   fail "restore after a stop without explicit authorization unexpectedly passed"
 fi
 assert_contains "${unauthorized_restore_output}" "explicit user-stop authorization"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+set_field "${transition_repo_root}/AGENTS.md" \
+  "FormalDatabaseWrite" "AUTHORIZED"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: alter database authorization during restore"
+authorization_drift_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if authorization_drift_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${authorization_drift_sha}" 2>&1
+)"; then
+  fail "restore altering FormalDatabaseWrite unexpectedly passed"
+fi
+assert_contains "${authorization_drift_output}" \
+  "restore transition must preserve authorization and non-restored content"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+for forged_index in 0 1 2; do
+  set_field "${transition_state}" "VSB0${forged_index}CandidateSHA" \
+    "${allowed_visual_sha}"
+  set_field "${transition_state}" "VSB0${forged_index}GateStatus" \
+    "VSB-G${forged_index}_PASS"
+  set_field "${transition_state}" "VSB0${forged_index}ReviewVerdict" \
+    "GO_P0_0_P1_0_P2_0"
+done
+set_field "${transition_state}" "VSB03CandidateSHA" "${allowed_visual_sha}"
+set_field "${transition_state}" "VSB03GateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "VSB03DeepReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB03UltraReviewVerdict" "FINAL_GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "TaskCardSetStatus" "COMPLETE"
+set_field "${transition_state}" "CompletedTaskCards" "VSB-00,VSB-01,VSB-02,VSB-03"
+set_field "${transition_state}" "CurrentCandidateSHA" "${allowed_visual_sha}"
+set_field "${transition_state}" "CurrentGateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer+ultra_gatekeeper"
+set_field "${transition_state}" "CurrentReviewVerdict" "FINAL_GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "NextTaskCard" "NONE"
+set_field "${transition_state}" "TransitionSequence" "5"
+set_field "${transition_state}" "TransitionKind" "COMPLETE"
+set_field "${transition_state}" "TransitionBaseSHA" "${allowed_visual_sha}"
+set_field "${transition_state}" "VisualImplementation" "COMPLETE"
+set_field "${transition_state}" "UserStopAuthorization" "NONE"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm "test: forge VSB COMPLETE ledger"
+forged_complete_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+make_restore_projection "${transition_repo_root}"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: restore from forged VSB COMPLETE ledger"
+forged_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if forged_restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${forged_complete_sha}" \
+    --transition-head "${forged_restore_sha}" 2>&1
+)"; then
+  fail "restore from a forged COMPLETE VSB ledger unexpectedly passed"
+fi
+assert_contains "${forged_restore_output}" "VSB base tree validation failed"
 
 nonancestor_repo_root="${test_tmp_root}/nonancestor-repo"
 git clone --shared -q "${repo_root}" "${nonancestor_repo_root}"

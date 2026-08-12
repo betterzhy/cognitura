@@ -64,6 +64,81 @@ state_value_from_text() {
   printf '%s\n' "${text}" | sed -n "s/^${key} = //p"
 }
 
+receipt_fields_for_index() {
+  case "$1" in
+    0) printf '%s\n' VSB00CandidateSHA VSB00GateStatus VSB00ReviewRoute VSB00ReviewVerdict ;;
+    1) printf '%s\n' VSB01CandidateSHA VSB01GateStatus VSB01ReviewRoute VSB01ReviewVerdict ;;
+    2) printf '%s\n' VSB02CandidateSHA VSB02GateStatus VSB02ReviewRoute VSB02ReviewVerdict ;;
+    3) printf '%s\n' VSB03CandidateSHA VSB03GateStatus VSB03ReviewRoute VSB03DeepReviewVerdict VSB03UltraReviewVerdict ;;
+    *) fail "unknown receipt index: $1" ;;
+  esac
+}
+
+require_receipt_unchanged_between_texts() {
+  local base_text="$1"
+  local head_text="$2"
+  local index="$3"
+  local message="$4"
+  local field
+  while IFS= read -r field; do
+    [[ "$(state_value_from_text "${head_text}" "${field}")" == \
+       "$(state_value_from_text "${base_text}" "${field}")" ]] || fail "${message}"
+  done < <(receipt_fields_for_index "${index}")
+}
+
+require_receipt_empty_in_text() {
+  local text="$1"
+  local index="$2"
+  local message="$3"
+  local field expected
+  while IFS= read -r field; do
+    case "${field}" in
+      *CandidateSHA) expected=NONE ;;
+      *ReviewRoute)
+        if [[ "${index}" -eq 3 ]]; then expected=deep_reviewer+ultra_gatekeeper;
+        else expected=deep_reviewer; fi
+        ;;
+      *) expected=NOT_RUN ;;
+    esac
+    [[ "$(state_value_from_text "${text}" "${field}")" == "${expected}" ]] ||
+      fail "${message}"
+  done < <(receipt_fields_for_index "${index}")
+}
+
+is_nonzero_finding_verdict() {
+  local verdict="$1"
+  if [[ "${verdict}" == VISUAL_ACCEPTANCE_FAIL ]]; then
+    return 0
+  fi
+  if [[ "${verdict}" =~ ^FINDING_P0_([0-9]+)_P1_([0-9]+)_P2_([0-9]+)$ ]]; then
+    [[ $((10#${BASH_REMATCH[1]} + 10#${BASH_REMATCH[2]} + 10#${BASH_REMATCH[3]})) -gt 0 ]]
+    return
+  fi
+  return 1
+}
+
+completed_count_from_text() {
+  local text="$1"
+  case "$(state_value_from_text "${text}" CompletedTaskCards)" in
+    NONE) printf '0\n' ;;
+    VSB-00) printf '1\n' ;;
+    VSB-00,VSB-01) printf '2\n' ;;
+    VSB-00,VSB-01,VSB-02) printf '3\n' ;;
+    VSB-00,VSB-01,VSB-02,VSB-03) printf '4\n' ;;
+    *) fail "transition CompletedTaskCards must be an exact card prefix" ;;
+  esac
+}
+
+owner_index_from_id() {
+  case "$1" in
+    VSB-00) printf '0\n' ;;
+    VSB-01) printf '1\n' ;;
+    VSB-02) printf '2\n' ;;
+    VSB-03) printf '3\n' ;;
+    *) fail "transition Owner must be a known VSB card" ;;
+  esac
+}
+
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --repo-root)
@@ -230,6 +305,24 @@ expected_write_sets=(
   "${expected_vsb03_write_set}"
 )
 
+verify_candidate_write_set() {
+  local candidate_sha="$1"
+  local owner_index="$2"
+  local owner_id="${expected_ids[${owner_index}]}"
+  local candidate_parent actual_paths expected_paths
+  candidate_parent="$(git -C "${repo_root}" rev-parse "${candidate_sha}^" 2>/dev/null)" ||
+    fail "${owner_id} candidate must have a parent commit"
+  actual_paths="$(
+    git -C "${repo_root}" diff --name-only \
+      "${candidate_parent}..${candidate_sha}" | LC_ALL=C sort
+  )"
+  expected_paths="$(
+    printf '%s\n' "${expected_write_sets[${owner_index}]}" | LC_ALL=C sort
+  )"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "candidate diff must equal the exact ${owner_id} WriteSet"
+}
+
 for index in 0 1 2 3; do
   file="${cards_dir}/${expected_files[${index}]}"
   actual_write_set="$(sed -n 's/^WriteSet = //p' "${file}")"
@@ -291,6 +384,10 @@ next="$(field_value "${state_file}" NextTaskCard)"
 sequence="$(field_value "${state_file}" TransitionSequence)"
 kind="$(field_value "${state_file}" TransitionKind)"
 [[ "${sequence}" =~ ^[0-9]+$ ]] || fail "TransitionSequence must be a non-negative integer"
+if [[ "${set_status}" != STOPPED_BY_USER ]]; then
+  [[ "$(field_value "${state_file}" UserStopAuthorization)" == NONE ]] ||
+    fail "UserStopAuthorization is allowed only for STOPPED_BY_USER"
+fi
 case "${active}" in NONE|VSB-00|VSB-01|VSB-02|VSB-03) ;; *) fail "ActiveTaskCard must name one known card or NONE" ;; esac
 case "${released}" in NONE|VSB-00|VSB-01|VSB-02|VSB-03) ;; *) fail "ReleasedTaskCard must name one known card or NONE" ;; esac
 case "${completed}" in NONE|VSB-00|VSB-00,VSB-01|VSB-00,VSB-01,VSB-02|VSB-00,VSB-01,VSB-02,VSB-03) ;;
@@ -319,6 +416,7 @@ require_pass_receipt() {
   gate="$(receipt_gate "${i}")"
   verdict="$(receipt_deep_verdict "${i}")"
   is_commit_sha "${candidate}" || fail "VSB0${i}CandidateSHA must resolve to a 40-character commit"
+  verify_candidate_write_set "${candidate}" "${i}"
   [[ "${gate}" == "VSB-G${i}_PASS" ]] || fail "VSB0${i}GateStatus mismatch"
   [[ "${verdict}" == GO_P0_0_P1_0_P2_0 ]] || fail "VSB0${i} deep review must be zero-finding GO"
   if [[ "${i}" -eq 3 ]]; then
@@ -394,8 +492,8 @@ elif [[ "${set_status}" == IN_PROGRESS ]]; then
       [[ "$(field_value "${state_file}" CurrentGateStatus)" == FAIL ]] ||
         fail "RETURN_TO_OWNER requires CurrentGateStatus FAIL"
       review="$(field_value "${state_file}" CurrentReviewVerdict)"
-      [[ "${review}" == VISUAL_ACCEPTANCE_FAIL || "${review}" =~ ^FINDING_P0_[0-9]+_P1_[0-9]+_P2_[0-9]+$ ]] ||
-        fail "RETURN_TO_OWNER requires a finding verdict"
+      is_nonzero_finding_verdict "${review}" ||
+        fail "finding verdict must contain at least one non-zero count"
       ;;
     *) fail "unsupported IN_PROGRESS TransitionKind: ${kind}" ;;
   esac
@@ -416,6 +514,11 @@ elif [[ "${set_status}" == FINAL_NO_GO ]]; then
   [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE ]] ||
     fail "FINAL_NO_GO cannot have an active, released, or next card"
   [[ "$(field_value "${state_file}" CurrentGateStatus)" == FAIL ]] || fail "FINAL_NO_GO requires FAIL Gate"
+  [[ "${kind}" == FINAL_NO_GO ]] || fail "FINAL_NO_GO requires TransitionKind FINAL_NO_GO"
+  [[ "$(field_value "${state_file}" VisualImplementation)" == FINAL_NO_GO ]] ||
+    fail "FINAL_NO_GO VisualImplementation mismatch"
+  is_nonzero_finding_verdict "$(field_value "${state_file}" CurrentReviewVerdict)" ||
+    fail "FINAL_NO_GO requires a non-zero finding verdict"
   for i in 0 1 2 3; do
     if [[ "${i}" -lt "${completed_count}" ]]; then require_pass_receipt "${i}"; else require_empty_receipt "${i}"; fi
   done
@@ -475,12 +578,40 @@ if [[ -n "${transition_base}" ]]; then
   [[ "${base_sequence}" =~ ^[0-9]+$ && "${head_sequence}" -eq $((base_sequence + 1)) ]] ||
     fail "TransitionSequence must increment by exactly one"
   head_kind="$(state_value_from_text "${head_text}" TransitionKind)"
+  immutable_transition_fields=(
+    CanonicalProjectName TaskCardSet ExecutionStateVersion ExecutionStateAuthority
+    ApprovedSpecSHA GovernanceReviewRoute SetAuthorizationStatus SetAuthorizationScope
+    HumanCheckpointRequirement FrozenWave1TaskCard FrozenWave1CandidateSHA
+    HistoricalVisualEvidenceBaselineSHA FullProductImplementation FormalDatabaseWrite RemotePush
+  )
+  for immutable_field in "${immutable_transition_fields[@]}"; do
+    [[ "$(state_value_from_text "${head_text}" "${immutable_field}")" == \
+       "$(state_value_from_text "${base_text}" "${immutable_field}")" ]] ||
+      fail "state transition must preserve ${immutable_field}"
+  done
+  if [[ "${head_kind}" != ACTIVATE_SET ]]; then
+    for governance_field in GovernanceBootstrapStatus GovernanceReviewedCandidateSHA GovernanceReviewVerdict; do
+      [[ "$(state_value_from_text "${head_text}" "${governance_field}")" == \
+         "$(state_value_from_text "${base_text}" "${governance_field}")" ]] ||
+        fail "state transition must preserve ${governance_field}"
+    done
+  fi
+  if [[ "${head_kind}" != STOP_BY_USER ]]; then
+    [[ "$(state_value_from_text "${head_text}" UserStopAuthorization)" == \
+       "$(state_value_from_text "${base_text}" UserStopAuthorization)" ]] ||
+      fail "state transition must preserve UserStopAuthorization"
+  fi
   case "${head_kind}" in
     ACTIVATE_SET)
       [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW ]] ||
         fail "ACTIVATE_SET must start from the governance-review bootstrap state"
       [[ "$(state_value_from_text "${head_text}" GovernanceReviewedCandidateSHA)" == "${resolved_base}" ]] ||
         fail "activation candidate must equal TransitionBaseSHA"
+      for receipt_index in 0 1 2 3; do
+        require_receipt_empty_in_text \
+          "${base_text}" "${receipt_index}" \
+          "ACTIVATE_SET base must have empty per-card receipts"
+      done
       ;;
     ADVANCE|COMPLETE)
       [[ "$(state_value_from_text "${head_text}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
@@ -490,6 +621,29 @@ if [[ -n "${transition_base}" ]]; then
       base_completed="$(state_value_from_text "${base_text}" CompletedTaskCards)"
       base_active="$(state_value_from_text "${base_text}" ActiveTaskCard)"
       head_completed="$(state_value_from_text "${head_text}" CompletedTaskCards)"
+      case "${base_active}" in
+        VSB-00) candidate_owner_index=0 ;;
+        VSB-01) candidate_owner_index=1 ;;
+        VSB-02) candidate_owner_index=2 ;;
+        VSB-03) candidate_owner_index=3 ;;
+        *) fail "candidate transition BASE must name one active Owner" ;;
+      esac
+      verify_candidate_write_set "${resolved_base}" "${candidate_owner_index}"
+      for receipt_index in 0 1 2 3; do
+        if [[ "${receipt_index}" -lt "${candidate_owner_index}" ]]; then
+          require_receipt_unchanged_between_texts \
+            "${base_text}" "${head_text}" "${receipt_index}" \
+            "${head_kind} must preserve every predecessor receipt"
+        elif [[ "${receipt_index}" -eq "${candidate_owner_index}" ]]; then
+          require_receipt_empty_in_text \
+            "${base_text}" "${receipt_index}" \
+            "${head_kind} must fill only the just-completed Owner receipt"
+        else
+          require_receipt_unchanged_between_texts \
+            "${base_text}" "${head_text}" "${receipt_index}" \
+            "${head_kind} must preserve every successor receipt"
+        fi
+      done
       if [[ "${head_kind}" == ADVANCE ]]; then
         case "${base_active}" in
           VSB-00) expected_base_prefix=NONE; expected_head_prefix=VSB-00; expected_head_active=VSB-01 ;;
@@ -507,7 +661,23 @@ if [[ -n "${transition_base}" ]]; then
     RETURN_TO_OWNER)
       [[ "$(state_value_from_text "${head_text}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
         fail "candidate SHA must equal TransitionBaseSHA"
+      [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
+        fail "RETURN_TO_OWNER must start from IN_PROGRESS"
       head_owner="$(state_value_from_text "${head_text}" Owner)"
+      base_owner="$(state_value_from_text "${base_text}" ActiveTaskCard)"
+      [[ "${head_owner}" == "${base_owner}" ]] ||
+        fail "RETURN_TO_OWNER Owner must equal the base active Owner"
+      return_owner_index="$(owner_index_from_id "${head_owner}")"
+      verify_candidate_write_set "${resolved_base}" "${return_owner_index}"
+      [[ "$(completed_count_from_text "${base_text}")" -eq "${return_owner_index}" ]] ||
+        fail "RETURN_TO_OWNER base must contain the Owner strict predecessor prefix"
+      for receipt_index in 0 1 2 3; do
+        if [[ "${receipt_index}" -ge "${return_owner_index}" ]]; then
+          require_receipt_empty_in_text \
+            "${base_text}" "${receipt_index}" \
+            "RETURN_TO_OWNER base Owner and successor receipts must be empty"
+        fi
+      done
       case "${head_owner}" in
         VSB-00) expected_return_prefix=NONE ;;
         VSB-01) expected_return_prefix=VSB-00 ;;
@@ -517,10 +687,84 @@ if [[ -n "${transition_base}" ]]; then
       esac
       [[ "$(state_value_from_text "${head_text}" ActiveTaskCard)" == "${head_owner}" && "$(state_value_from_text "${head_text}" ReleasedTaskCard)" == "${head_owner}" && "$(state_value_from_text "${head_text}" CompletedTaskCards)" == "${expected_return_prefix}" ]] ||
         fail "RETURN_TO_OWNER must reopen owner and truncate to its strict predecessor prefix"
+      is_nonzero_finding_verdict "$(state_value_from_text "${head_text}" CurrentReviewVerdict)" ||
+        fail "finding verdict must contain at least one non-zero count"
+      for receipt_index in 0 1 2 3; do
+        if [[ "${receipt_index}" -lt "${return_owner_index}" ]]; then
+          require_receipt_unchanged_between_texts \
+            "${base_text}" "${head_text}" "${receipt_index}" \
+            "RETURN_TO_OWNER must preserve strict predecessor receipts"
+        else
+          require_receipt_empty_in_text \
+            "${head_text}" "${receipt_index}" \
+            "RETURN_TO_OWNER must reset Owner and successor receipts"
+        fi
+      done
       ;;
     STOP_BY_USER)
       [[ "$(state_value_from_text "${head_text}" UserStopAuthorization)" == EXPLICIT_USER_INSTRUCTION ]] ||
         fail "STOP_BY_USER requires explicit user instruction"
+      base_status="$(state_value_from_text "${base_text}" TaskCardSetStatus)"
+      case "${base_status}" in
+        IN_PROGRESS|FINAL_NO_GO) ;;
+        *) fail "STOP_BY_USER must start from IN_PROGRESS or FINAL_NO_GO" ;;
+      esac
+      [[ "$(state_value_from_text "${head_text}" CompletedTaskCards)" == \
+         "$(state_value_from_text "${base_text}" CompletedTaskCards)" ]] ||
+        fail "STOP_BY_USER must preserve the reviewed completed prefix"
+      stop_completed_count="$(completed_count_from_text "${base_text}")"
+      if [[ "${base_status}" == IN_PROGRESS ]]; then
+        case "${stop_completed_count}" in
+          0) expected_stop_owner=VSB-00 ;;
+          1) expected_stop_owner=VSB-01 ;;
+          2) expected_stop_owner=VSB-02 ;;
+          3) expected_stop_owner=VSB-03 ;;
+          *) fail "STOP_BY_USER active base cannot have every card complete" ;;
+        esac
+        [[ "$(state_value_from_text "${base_text}" ActiveTaskCard)" == "${expected_stop_owner}" ]] ||
+          fail "STOP_BY_USER base active Owner must match its completed prefix"
+      fi
+      for receipt_index in 0 1 2 3; do
+        if [[ "${receipt_index}" -lt "${stop_completed_count}" ]]; then
+          require_receipt_unchanged_between_texts \
+            "${base_text}" "${head_text}" "${receipt_index}" \
+            "STOP_BY_USER must preserve strict predecessor receipts"
+        else
+          require_receipt_empty_in_text \
+            "${base_text}" "${receipt_index}" \
+            "STOP_BY_USER base Owner and successor receipts must be empty"
+          require_receipt_empty_in_text \
+            "${head_text}" "${receipt_index}" \
+            "STOP_BY_USER must reset interrupted Owner and successor receipts"
+        fi
+      done
+      ;;
+    FINAL_NO_GO)
+      [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
+        fail "FINAL_NO_GO must start from IN_PROGRESS"
+      final_owner="$(state_value_from_text "${base_text}" ActiveTaskCard)"
+      final_owner_index="$(owner_index_from_id "${final_owner}")"
+      [[ "$(completed_count_from_text "${base_text}")" -eq "${final_owner_index}" ]] ||
+        fail "FINAL_NO_GO base active Owner must match its completed prefix"
+      require_receipt_empty_in_text \
+        "${base_text}" "${final_owner_index}" \
+        "FINAL_NO_GO base active Owner receipt must be empty"
+      verify_candidate_write_set "${resolved_base}" "${final_owner_index}"
+      [[ "$(state_value_from_text "${head_text}" TaskCardSetStatus)" == FINAL_NO_GO &&
+         "$(state_value_from_text "${head_text}" ActiveTaskCard)" == NONE &&
+         "$(state_value_from_text "${head_text}" ReleasedTaskCard)" == NONE &&
+         "$(state_value_from_text "${head_text}" NextTaskCard)" == NONE &&
+         "$(state_value_from_text "${head_text}" CompletedTaskCards)" == "$(state_value_from_text "${base_text}" CompletedTaskCards)" &&
+         "$(state_value_from_text "${head_text}" CurrentCandidateSHA)" == "${resolved_base}" &&
+         "$(state_value_from_text "${head_text}" CurrentGateStatus)" == FAIL ]] ||
+        fail "FINAL_NO_GO transition fields mismatch"
+      is_nonzero_finding_verdict "$(state_value_from_text "${head_text}" CurrentReviewVerdict)" ||
+        fail "FINAL_NO_GO requires a non-zero finding verdict"
+      for receipt_index in 0 1 2 3; do
+        require_receipt_unchanged_between_texts \
+          "${base_text}" "${head_text}" "${receipt_index}" \
+          "FINAL_NO_GO must preserve all per-card receipts"
+      done
       ;;
     *) fail "unsupported transition kind: ${head_kind}" ;;
   esac
