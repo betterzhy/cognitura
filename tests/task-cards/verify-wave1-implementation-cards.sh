@@ -1246,6 +1246,28 @@ restore_output="$(
 assert_contains "${restore_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
 assert_contains "${restore_output}" "ActiveTaskCard = W1-I03"
 
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+set_field \
+  "${transition_repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+  "ActiveImplementationGovernanceTaskCard" \
+  "NONE"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: omit active governance card from restore acceptance"
+inactive_acceptance_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if inactive_acceptance_restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${inactive_acceptance_restore_sha}" 2>&1
+)"; then
+  fail "restore leaving acceptance governance card inactive unexpectedly passed"
+fi
+assert_contains "${inactive_acceptance_restore_output}" \
+  "transition docs/engineering/cognitura-wave-1-design-acceptance.md: ActiveImplementationGovernanceTaskCard must equal W1-I03"
+
 for narrative_index in "${!suspension_narratives[@]}"; do
   narrative_path="${suspension_narrative_paths[${narrative_index}]}"
   git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"

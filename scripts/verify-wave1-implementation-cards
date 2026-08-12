@@ -1551,6 +1551,7 @@ if [[ -n "${transition_base}" ]]; then
   require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-design-plan.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
   require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-design-acceptance.md ImplementationTaskCardPlanStatus I01_COMPLETE_I03_READY
   require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-design-acceptance.md Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-design-acceptance.md ActiveImplementationGovernanceTaskCard W1-I03
   require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md TaskCardSetStatus READY_FOR_EXECUTION
   require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md ActiveTaskCard W1-I03
   require_git_tree_field "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md SuspendedTaskCard NONE
