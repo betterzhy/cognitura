@@ -856,6 +856,19 @@ expect_both_static_verifiers_fail() {
   assert_contains "${vsb_output}" "Wave 1 static suspension validation failed"
 }
 
+static_plan_contradictory_row_root="${test_tmp_root}/static-plan-contradictory-row"
+git clone --shared -q "${repo_root}" "${static_plan_contradictory_row_root}"
+printf '%s\n' \
+  '| `W1-I03` | DOCX security | `I01` | `READY` |' >> \
+  "${static_plan_contradictory_row_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+git -C "${static_plan_contradictory_row_root}" add \
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+git -C "${static_plan_contradictory_row_root}" commit -qm \
+  "test: add contradictory current implementation-plan row"
+expect_both_static_verifiers_fail \
+  "${static_plan_contradictory_row_root}" \
+  "current suspension projection mismatch"
+
 static_plan_row_drift_root="${test_tmp_root}/static-plan-row-drift"
 git clone --shared -q "${repo_root}" "${static_plan_row_drift_root}"
 set_table_status \
@@ -870,6 +883,19 @@ git -C "${static_plan_row_drift_root}" commit -qm \
 expect_both_static_verifiers_fail \
   "${static_plan_row_drift_root}" \
   "current suspension projection mismatch"
+
+static_agents_active_drift_root="${test_tmp_root}/static-agents-active-drift"
+git clone --shared -q "${repo_root}" "${static_agents_active_drift_root}"
+set_field "${static_agents_active_drift_root}/AGENTS.md" \
+  "ActiveTaskCard" "W1-I03"
+set_field "${static_agents_active_drift_root}/AGENTS.md" \
+  "ActiveTaskCardStatus" "READY"
+git -C "${static_agents_active_drift_root}" add AGENTS.md
+git -C "${static_agents_active_drift_root}" commit -qm \
+  "test: drift current suspended active task projections"
+expect_both_static_verifiers_fail \
+  "${static_agents_active_drift_root}" \
+  "ActiveTaskCard projection mismatch"
 
 static_database_auth_drift_root="${test_tmp_root}/static-database-auth-drift"
 git clone --shared -q "${repo_root}" "${static_database_auth_drift_root}"

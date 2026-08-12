@@ -55,7 +55,13 @@ require_all_projection_values() {
 require_projection_line() {
   local relative_file="$1"
   local expected_line="$2"
-  grep -Fqx "${expected_line}" "${repo_root}/${relative_file}" ||
+  local contradictory_line="$3"
+  local file="${repo_root}/${relative_file}"
+  local expected_count contradictory_count
+  [[ -f "${file}" ]] || fail "projection file is missing: ${relative_file}"
+  expected_count="$(grep -Fxc -- "${expected_line}" "${file}" || true)"
+  contradictory_count="$(grep -Fxc -- "${contradictory_line}" "${file}" || true)"
+  [[ "${expected_count}" -eq 1 && "${contradictory_count}" -eq 0 ]] ||
     fail "current suspension projection mismatch: ${relative_file} status table"
 }
 
@@ -944,9 +950,13 @@ case "${task_set_status}" in
       "${suspended_candidate_sha}..HEAD" -- "${frozen_w1_i03_paths[@]}" ||
       fail "frozen W1-I03 production paths changed after SuspendedCandidateSHA"
     require_projection AGENTS.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+    require_projection AGENTS.md ActiveTaskCard NONE
+    require_projection AGENTS.md ActiveTaskCardStatus NONE
     require_projection AGENTS.md ActiveImplementationTaskCard NONE
     require_projection AGENTS.md BusinessImplementation USER_AUTHORIZED
     require_projection README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+    require_projection README.md ActiveTaskCard NONE
+    require_projection README.md ActiveTaskCardStatus NONE
     require_projection README.md ActiveImplementationTaskCard NONE
     require_projection README.md BusinessImplementation USER_AUTHORIZED
     require_projection docs/design/wave-1/README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
@@ -974,9 +984,11 @@ case "${task_set_status}" in
     require_projection docs/task-cards/wave-1/README.md ActiveImplementationGovernanceTaskCard NONE
     require_projection docs/task-cards/wave-1/README.md BusinessImplementation USER_AUTHORIZED
     require_projection_line docs/engineering/cognitura-wave-1-implementation-plan.md \
-      '| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |'
+      '| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |' \
+      '| `W1-I03` | DOCX security | `I01` | `READY` |'
     require_projection_line docs/task-cards/wave-1-implementation/README.md \
-      '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |'
+      '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |' \
+      '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `READY` | `W1-I01` | `W1-IG3` | `HIGH` |'
     for projection_path in AGENTS.md README.md docs/engineering/cognitura-design-index.md; do
       require_all_projection_values "${projection_path}" BusinessImplementation USER_AUTHORIZED
       require_all_projection_values "${projection_path}" FormalDatabaseWrite NOT_AUTHORIZED
@@ -1183,8 +1195,12 @@ if [[ -n "${transition_base}" ]]; then
   base_index_path="docs/task-cards/wave-1-implementation/README.md"
   base_card_path="docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md"
   require_suspended_base_field "${resolved_base}" AGENTS.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" AGENTS.md ActiveTaskCard NONE
+  require_suspended_base_field "${resolved_base}" AGENTS.md ActiveTaskCardStatus NONE
   require_suspended_base_field "${resolved_base}" AGENTS.md ActiveImplementationTaskCard NONE
   require_suspended_base_field "${resolved_base}" README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
+  require_suspended_base_field "${resolved_base}" README.md ActiveTaskCard NONE
+  require_suspended_base_field "${resolved_base}" README.md ActiveTaskCardStatus NONE
   require_suspended_base_field "${resolved_base}" README.md ActiveImplementationTaskCard NONE
   require_suspended_base_field "${resolved_base}" docs/design/wave-1/README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
   require_suspended_base_field "${resolved_base}" docs/design/wave-1/README.md ActiveImplementationGovernanceTaskCard NONE

@@ -173,28 +173,67 @@ require_governance_pass_state() {
 }
 
 validate_terminal_receipt_provenance() {
-  local terminal_sha base_sha terminal_parent ledger_path replay_output tree_ledger working_ledger
-  terminal_sha="$(git -C "${repo_root}" rev-parse HEAD)"
+  local repository_head base_sha head_parent terminal_sha terminal_parent ledger_path
+  local replay_output restore_output tree_ledger working_ledger receipt_checkout replay_root replay_cards
+  repository_head="$(git -C "${repo_root}" rev-parse HEAD)"
   base_sha="$(field_value "${state_file}" TransitionBaseSHA)"
   is_commit_sha "${base_sha}" ||
     fail "terminal VSB state requires a resolvable TransitionBaseSHA"
+  head_parent="$(git -C "${repo_root}" rev-parse "${repository_head}^")" ||
+    fail "terminal VSB state HEAD must have a parent commit"
+  if [[ "${head_parent}" == "${base_sha}" ]]; then
+    terminal_sha="${repository_head}"
+  else
+    terminal_sha="${head_parent}"
+  fi
   terminal_parent="$(git -C "${repo_root}" rev-parse "${terminal_sha}^")" ||
     fail "terminal VSB receipt must have a parent commit"
   [[ "${terminal_parent}" == "${base_sha}" ]] ||
-    fail "terminal VSB state must be the exact direct-child receipt commit"
+    fail "terminal VSB state must be the exact direct-child receipt commit or its exact Wave 1 restore"
   ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
   tree_ledger="$(git -C "${repo_root}" show "${terminal_sha}:${ledger_path}"; printf '\037')"
   working_ledger="$(cat "${state_file}"; printf '\037')"
   [[ "${tree_ledger}" == "${working_ledger}" ]] ||
     fail "terminal VSB working ledger must match the exact receipt tree"
+
+  receipt_checkout=""
+  replay_root="${repo_root}"
+  replay_cards="${cards_dir}"
+  if [[ "${terminal_sha}" != "${repository_head}" ]]; then
+    receipt_checkout="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-terminal-receipt.XXXXXX")"
+    if ! git clone --shared -q "${repo_root}" "${receipt_checkout}"; then
+      rm -rf -- "${receipt_checkout}"
+      fail "could not create isolated terminal receipt checkout"
+    fi
+    if ! git -C "${receipt_checkout}" checkout -q --detach "${terminal_sha}"; then
+      rm -rf -- "${receipt_checkout}"
+      fail "could not check out the terminal receipt"
+    fi
+    replay_root="${receipt_checkout}"
+    replay_cards="${receipt_checkout}/docs/task-cards/visual-style-baseline"
+  fi
   if ! replay_output="$(
     "${self_verifier}" \
-      --repo-root "${repo_root}" \
-      --cards-dir "${cards_dir}" \
+      --repo-root "${replay_root}" \
+      --cards-dir "${replay_cards}" \
       --transition-base "${base_sha}" \
       --transition-head "${terminal_sha}" 2>&1
   )"; then
+    [[ -z "${receipt_checkout}" ]] || rm -rf -- "${receipt_checkout}"
     fail "terminal VSB receipt failed exact transition replay"
+  fi
+  [[ -z "${receipt_checkout}" ]] || rm -rf -- "${receipt_checkout}"
+
+  if [[ "${terminal_sha}" != "${repository_head}" ]]; then
+    if ! restore_output="$(
+      "${wave1_verifier}" \
+        --repo-root "${repo_root}" \
+        --cards-dir "${repo_root}/docs/task-cards/wave-1-implementation" \
+        --transition-base "${terminal_sha}" \
+        --transition-head "${repository_head}" 2>&1
+    )"; then
+      fail "terminal VSB state must be the exact direct-child receipt commit or its exact Wave 1 restore"
+    fi
   fi
 }
 
@@ -626,9 +665,9 @@ fi
 if [[ "${w1_set_status}" == READY_FOR_EXECUTION && "${w1_active}" == W1-I03 && "${w1_suspended}" == NONE && "${w1_candidate}" == NONE && "${w1_mutation}" == NONE && "${w1_i03_status}" == READY ]]; then
   w1_is_restored=1
 fi
-if [[ "${set_status}" == COMPLETE ]]; then
+if [[ "${set_status}" == COMPLETE || "${set_status}" == STOPPED_BY_USER ]]; then
   [[ "${w1_is_suspended}" -eq 1 || "${w1_is_restored}" -eq 1 ]] ||
-    fail "COMPLETE requires exact suspended or restored W1-I03"
+    fail "terminal VSB state requires exact suspended or restored W1-I03"
 else
   [[ "${w1_is_suspended}" -eq 1 ]] || fail "VSB in progress requires exact W1-I03 suspension"
 fi

@@ -32,6 +32,17 @@ set_field() {
   rm "${file}.bak"
 }
 
+set_table_status() {
+  local file="$1"
+  local task_id="$2"
+  local old_status="$3"
+  local new_status="$4"
+  sed -i.bak \
+    "/^| \`${task_id}\` |/s/\`${old_status}\`/\`${new_status}\`/" \
+    "${file}"
+  rm "${file}.bak"
+}
+
 expect_failure() {
   local fixture_dir="$1"
   local expected_message="$2"
@@ -227,6 +238,18 @@ git -C "${transition_repo_root}" commit --allow-empty -qm \
 
 transition_cards="${transition_repo_root}/docs/task-cards/visual-style-baseline"
 transition_state="${transition_cards}/execution-state.md"
+wave1_restore_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md
+)
 candidate_write_sets=(
   'AGENTS.md
 docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png
@@ -293,6 +316,78 @@ write_exact_candidate_paths() {
     fi
   done <<< "${candidate_write_sets[${owner_index}]}"
 }
+
+make_wave1_restore_projection() {
+  local fixture_root="$1"
+  set_field "${fixture_root}/AGENTS.md" \
+    "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/AGENTS.md" \
+    "ActiveImplementationTaskCard" "W1-I03"
+  set_field "${fixture_root}/README.md" \
+    "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/README.md" \
+    "ActiveImplementationTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/design/wave-1/README.md" \
+    "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/design/wave-1/README.md" \
+    "ActiveImplementationGovernanceTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    "ActiveTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    "ActiveTaskCardStatus" "READY"
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    "ActiveImplementationTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+    "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+    "ActiveImplementationGovernanceTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    "ImplementationTaskCardPlanStatus" "I01_COMPLETE_I03_READY"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    "ActiveImplementationGovernanceTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    "TaskCardSetStatus" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    "ActiveTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    "SuspendedTaskCard" "NONE"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    "SuspendedCandidateSHA" "NONE"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    "SuspendedCandidateMutation" "NONE"
+  set_table_status \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    "W1-I03" "SUSPENDED_BY_USER" "READY"
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" \
+    "Wave1ImplementationTaskCardSet" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" \
+    "ActiveImplementationGovernanceTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "TaskCardSetStatus" "READY_FOR_EXECUTION"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "ActiveTaskCard" "W1-I03"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "SuspendedTaskCard" "NONE"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "SuspendedCandidateSHA" "NONE"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "SuspendedCandidateMutation" "NONE"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "ReadyTaskCardCount" "1"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "SuspendedTaskCardCount" "0"
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    "W1-I03" "SUSPENDED_BY_USER" "READY"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md" \
+    "Status" "READY"
+}
+
 printf '%s\n' 'fixed governance review input' > \
   "${transition_cards}/governance-review-input.md"
 git -C "${transition_repo_root}" add \
@@ -396,6 +491,33 @@ if post_stop_output="$(
   fail "post-STOP commit with copied terminal ledger unexpectedly passed"
 fi
 assert_contains "${post_stop_output}" \
+  "terminal VSB state must be the exact direct-child receipt commit"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${stopped_sha}"
+make_wave1_restore_projection "${transition_repo_root}"
+git -C "${transition_repo_root}" add "${wave1_restore_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: restore W1-I03 after terminal STOP receipt"
+stopped_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${verifier}" \
+  --repo-root "${transition_repo_root}" \
+  --cards-dir "${transition_cards}" >/dev/null ||
+  fail "valid restored STOPPED_BY_USER state was rejected statically"
+printf '%s\n' 'post-restore mutation' > \
+  "${transition_cards}/post-restore-mutation.md"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/post-restore-mutation.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: mutate history after exact Wave 1 restore"
+if post_restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" 2>&1
+)"; then
+  fail "post-restore commit with copied terminal ledger unexpectedly passed"
+fi
+assert_contains "${post_restore_output}" \
   "terminal VSB state must be the exact direct-child receipt commit"
 negative_cases=$((negative_cases + 1))
 
@@ -739,6 +861,20 @@ complete_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --transition-base "${vsb03_candidate_sha}" \
   --transition-head "${complete_sha}" >/dev/null ||
   fail "valid VSB COMPLETE transition was rejected"
+"${verifier}" \
+  --repo-root "${transition_repo_root}" \
+  --cards-dir "${transition_cards}" >/dev/null ||
+  fail "valid VSB COMPLETE terminal receipt was rejected statically"
+
+make_wave1_restore_projection "${transition_repo_root}"
+git -C "${transition_repo_root}" add "${wave1_restore_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: restore W1-I03 after terminal COMPLETE receipt"
+complete_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${verifier}" \
+  --repo-root "${transition_repo_root}" \
+  --cards-dir "${transition_cards}" >/dev/null ||
+  fail "valid restored COMPLETE state was rejected statically"
 
 set_field "${transition_state}" "VSB03UltraReviewVerdict" "NOT_RUN"
 complete_failure_output="$(
@@ -897,7 +1033,7 @@ assert_contains "${zero_finding_output}" \
   "finding verdict must contain at least one non-zero count"
 negative_cases=$((negative_cases + 1))
 
-transition_cases=9
+transition_cases=11
 
 printf '%s\n' \
   "VisualStyleBaselineTaskCardContractTests = PASS" \
