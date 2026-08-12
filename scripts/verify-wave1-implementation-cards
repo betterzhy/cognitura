@@ -39,6 +39,26 @@ require_projection() {
     fail "${relative_file}: ${key} projection mismatch"
 }
 
+require_all_projection_values() {
+  local relative_file="$1"
+  local key="$2"
+  local expected="$3"
+  local file="${repo_root}/${relative_file}"
+  local count mismatches
+  [[ -f "${file}" ]] || fail "projection file is missing: ${relative_file}"
+  count="$(grep -c "^${key} = " "${file}" || true)"
+  mismatches="$(sed -n "s/^${key} = //p" "${file}" | grep -Fvx "${expected}" || true)"
+  [[ "${count}" -gt 0 && -z "${mismatches}" ]] ||
+    fail "current suspension projection mismatch: ${relative_file} ${key}"
+}
+
+require_projection_line() {
+  local relative_file="$1"
+  local expected_line="$2"
+  grep -Fqx "${expected_line}" "${repo_root}/${relative_file}" ||
+    fail "current suspension projection mismatch: ${relative_file} status table"
+}
+
 sha256_stream() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 | awk '{print $1}'
@@ -943,6 +963,7 @@ case "${task_set_status}" in
     require_projection docs/engineering/cognitura-wave-1-design-acceptance.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
     require_projection docs/engineering/cognitura-wave-1-design-acceptance.md ActiveImplementationGovernanceTaskCard NONE
     require_projection docs/engineering/cognitura-wave-1-design-acceptance.md BusinessImplementation USER_AUTHORIZED
+    require_projection docs/engineering/cognitura-wave-1-design-acceptance.md ImplementationTaskCardPlanStatus I01_COMPLETE_I03_SUSPENDED_BY_USER
     require_projection docs/engineering/cognitura-wave-1-implementation-plan.md TaskCardSetStatus SUSPENDED_BY_USER
     require_projection docs/engineering/cognitura-wave-1-implementation-plan.md ActiveTaskCard NONE
     require_projection docs/engineering/cognitura-wave-1-implementation-plan.md SuspendedTaskCard W1-I03
@@ -952,6 +973,33 @@ case "${task_set_status}" in
     require_projection docs/task-cards/wave-1/README.md Wave1ImplementationTaskCardSet SUSPENDED_BY_USER
     require_projection docs/task-cards/wave-1/README.md ActiveImplementationGovernanceTaskCard NONE
     require_projection docs/task-cards/wave-1/README.md BusinessImplementation USER_AUTHORIZED
+    require_projection_line docs/engineering/cognitura-wave-1-implementation-plan.md \
+      '| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |'
+    require_projection_line docs/task-cards/wave-1-implementation/README.md \
+      '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `SUSPENDED_BY_USER` | `W1-I01` | `W1-IG3` | `HIGH` |'
+    for projection_path in AGENTS.md README.md docs/engineering/cognitura-design-index.md; do
+      require_all_projection_values "${projection_path}" BusinessImplementation USER_AUTHORIZED
+      require_all_projection_values "${projection_path}" FormalDatabaseWrite NOT_AUTHORIZED
+      require_all_projection_values "${projection_path}" RemotePush NOT_AUTHORIZED
+    done
+    require_all_projection_values docs/design/wave-1/README.md BusinessImplementation USER_AUTHORIZED
+    require_all_projection_values docs/engineering/cognitura-wave-1-design-plan.md BusinessImplementation USER_AUTHORIZED
+    require_all_projection_values docs/engineering/cognitura-wave-1-design-plan.md FormalDatabaseWrite NOT_AUTHORIZED
+    require_all_projection_values docs/engineering/cognitura-wave-1-design-plan.md DeploymentAndRelease NOT_AUTHORIZED
+    require_all_projection_values docs/engineering/cognitura-wave-1-design-acceptance.md BusinessImplementation USER_AUTHORIZED
+    require_all_projection_values docs/engineering/cognitura-wave-1-design-acceptance.md RemotePush NOT_PERFORMED
+    require_all_projection_values docs/engineering/cognitura-wave-1-implementation-plan.md BusinessImplementation USER_AUTHORIZED
+    require_all_projection_values docs/engineering/cognitura-wave-1-implementation-plan.md FormalDatabaseWrite NOT_AUTHORIZED
+    require_all_projection_values docs/engineering/cognitura-wave-1-implementation-plan.md DeploymentAndRelease NOT_AUTHORIZED
+    require_all_projection_values docs/engineering/cognitura-wave-1-implementation-plan.md RemotePush NOT_AUTHORIZED
+    require_all_projection_values docs/task-cards/wave-1/README.md BusinessImplementation USER_AUTHORIZED
+    require_all_projection_values docs/task-cards/wave-1-implementation/README.md BusinessImplementation USER_AUTHORIZED
+    require_all_projection_values docs/task-cards/wave-1-implementation/README.md FormalDatabaseWrite NOT_AUTHORIZED
+    require_all_projection_values docs/task-cards/wave-1-implementation/README.md RemotePush NOT_AUTHORIZED
+    require_projection docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md Status SUSPENDED_BY_USER
+    require_projection docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md BusinessImplementationAuthorization USER_AUTHORIZED
+    require_projection docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md FormalDatabaseGate NOT_APPLICABLE
+    require_projection docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md RemotePush NOT_AUTHORIZED
     ;;
   COMPLETE)
     [[ "${ready_count}" -eq 0 && "${active_task_card}" == "NONE" ]] ||
@@ -1018,42 +1066,42 @@ require_git_tree_line() {
     fail "transition ${path}: restored status table mismatch"
 }
 
-normalized_restore_file() {
+write_normalized_restore_file() {
   local commit="$1"
   local path="$2"
-  local content
-  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
+  local output_file="$3"
+  git -C "${repo_root}" cat-file -e "${commit}:${path}" 2>/dev/null ||
     fail "transition tree is missing ${path}"
   case "${path}" in
     AGENTS.md|README.md)
-      printf '%s\n' "${content}" | sed -E \
-        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/'
+      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
       ;;
     docs/design/wave-1/README.md|docs/engineering/cognitura-wave-1-design-plan.md|docs/task-cards/wave-1/README.md)
-      printf '%s\n' "${content}" | sed -E \
-        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/'
+      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
       ;;
     docs/engineering/cognitura-design-index.md)
-      printf '%s\n' "${content}" | sed -E \
-        -e 's/^(Wave1ImplementationTaskCardSet|ActiveTaskCard|ActiveTaskCardStatus|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/'
+      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+        -e 's/^(Wave1ImplementationTaskCardSet|ActiveTaskCard|ActiveTaskCardStatus|ActiveImplementationTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
       ;;
     docs/engineering/cognitura-wave-1-design-acceptance.md)
-      printf '%s\n' "${content}" | sed -E \
-        -e 's/^(ImplementationTaskCardPlanStatus|Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/'
+      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+        -e 's/^(ImplementationTaskCardPlanStatus|Wave1ImplementationTaskCardSet|ActiveImplementationGovernanceTaskCard) = .*/\1 = __RESTORED__/' > "${output_file}"
       ;;
     docs/engineering/cognitura-wave-1-implementation-plan.md)
-      printf '%s\n' "${content}" | sed -E \
+      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
         -e 's/^(TaskCardSetStatus|ActiveTaskCard|SuspendedTaskCard|SuspendedCandidateSHA|SuspendedCandidateMutation) = .*/\1 = __RESTORED__/' \
-        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g'
+        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g' > "${output_file}"
       ;;
     docs/task-cards/wave-1-implementation/README.md)
-      printf '%s\n' "${content}" | sed -E \
+      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
         -e 's/^(TaskCardSetStatus|ActiveTaskCard|SuspendedTaskCard|SuspendedCandidateSHA|SuspendedCandidateMutation|ReadyTaskCardCount|SuspendedTaskCardCount) = .*/\1 = __RESTORED__/' \
-        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g'
+        -e '/^\| `?W1-I03`? \|/s/(SUSPENDED_BY_USER|READY)/__RESTORED__/g' > "${output_file}"
       ;;
     docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md)
-      printf '%s\n' "${content}" | sed -E \
-        -e 's/^Status = .*/Status = __RESTORED__/'
+      git -C "${repo_root}" show "${commit}:${path}" | sed -E \
+        -e 's/^Status = .*/Status = __RESTORED__/' > "${output_file}"
       ;;
     *) fail "unsupported restore projection path: ${path}" ;;
   esac
@@ -1113,11 +1161,24 @@ if [[ -n "${transition_base}" ]]; then
   actual_restore_paths="$(git -C "${repo_root}" diff --name-only "${resolved_base}..${resolved_head}" | LC_ALL=C sort)"
   [[ "${actual_restore_paths}" == "${expected_restore_paths}" ]] ||
     fail "restore transition fixed diff must equal the exact ten projection paths"
+  restore_compare_dir="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-restore-compare.XXXXXX")"
+  restore_compare_index=0
   for path in "${restore_paths[@]}"; do
-    [[ "$(normalized_restore_file "${resolved_base}" "${path}")" == \
-       "$(normalized_restore_file "${resolved_head}" "${path}")" ]] ||
-      fail "restore transition must preserve authorization and non-restored content: ${path}"
+    base_mode="$(git -C "${repo_root}" ls-tree "${resolved_base}" -- "${path}" | awk '{print $1}')"
+    head_mode="$(git -C "${repo_root}" ls-tree "${resolved_head}" -- "${path}" | awk '{print $1}')"
+    write_normalized_restore_file \
+      "${resolved_base}" "${path}" "${restore_compare_dir}/base-${restore_compare_index}"
+    write_normalized_restore_file \
+      "${resolved_head}" "${path}" "${restore_compare_dir}/head-${restore_compare_index}"
+    if [[ "${base_mode}" != "${head_mode}" ]] || ! cmp -s \
+      "${restore_compare_dir}/base-${restore_compare_index}" \
+      "${restore_compare_dir}/head-${restore_compare_index}"; then
+      rm -rf -- "${restore_compare_dir}"
+      fail "restore transition must preserve exact bytes and file mode: ${path}"
+    fi
+    restore_compare_index=$((restore_compare_index + 1))
   done
+  rm -rf -- "${restore_compare_dir}"
 
   base_index_path="docs/task-cards/wave-1-implementation/README.md"
   base_card_path="docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md"
@@ -1188,6 +1249,14 @@ if [[ -n "${transition_base}" ]]; then
       ;;
     *) fail "restore requires COMPLETE or explicitly authorized STOPPED_BY_USER VSB state" ;;
   esac
+  terminal_vsb_transition_base="$(git_tree_field "${resolved_base}" "${vsb_path}" TransitionBaseSHA)"
+  resolved_terminal_vsb_transition_base="$(
+    git -C "${repo_root}" rev-parse --verify \
+      "${terminal_vsb_transition_base}^{commit}" 2>/dev/null
+  )" || fail "restore VSB terminal receipt has an invalid TransitionBaseSHA"
+  [[ "$(git -C "${repo_root}" rev-parse "${resolved_base}^")" == \
+     "${resolved_terminal_vsb_transition_base}" ]] ||
+    fail "restore base must be the exact VSB terminal receipt commit"
   [[ -x "${vsb_verifier}" ]] || fail "VSB validator is unavailable"
   vsb_checkout="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-base.XXXXXX")"
   git clone --shared -q "${repo_root}" "${vsb_checkout}" ||
@@ -1201,6 +1270,14 @@ if [[ -n "${transition_base}" ]]; then
     --cards-dir "${vsb_checkout}/docs/task-cards/visual-style-baseline" >/dev/null 2>&1; then
     rm -rf -- "${vsb_checkout}"
     fail "VSB base tree validation failed"
+  fi
+  if ! "${vsb_verifier}" \
+    --repo-root "${vsb_checkout}" \
+    --cards-dir "${vsb_checkout}/docs/task-cards/visual-style-baseline" \
+    --transition-base "${resolved_terminal_vsb_transition_base}" \
+    --transition-head "${resolved_base}" >/dev/null 2>&1; then
+    rm -rf -- "${vsb_checkout}"
+    fail "restore VSB terminal receipt transition validation failed"
   fi
   rm -rf -- "${vsb_checkout}"
 

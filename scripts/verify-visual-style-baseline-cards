@@ -4,6 +4,7 @@ set -euo pipefail
 
 script_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 self_verifier="${script_repo_root}/scripts/verify-visual-style-baseline-cards"
+wave1_verifier="${script_repo_root}/scripts/verify-wave1-implementation-cards"
 repo_root="${script_repo_root}"
 cards_dir=""
 transition_base=""
@@ -161,6 +162,40 @@ validate_fixed_vsb_tree() {
     fail "transition BASE failed full VSB state validation"
   fi
   rm -rf -- "${fixed_checkout}"
+}
+
+require_governance_pass_state() {
+  [[ "$(field_value "${state_file}" GovernanceBootstrapStatus)" == PASS &&
+     "$(field_value "${state_file}" GovernanceReviewVerdict)" == GO_P0_0_P1_0_P2_0 ]] ||
+    fail "terminal VSB state requires governance zero-finding GO"
+  is_commit_sha "$(field_value "${state_file}" GovernanceReviewedCandidateSHA)" ||
+    fail "terminal VSB state requires a resolvable governance candidate"
+}
+
+validate_terminal_receipt_provenance() {
+  local terminal_sha base_sha terminal_parent ledger_path replay_output tree_ledger working_ledger
+  terminal_sha="$(git -C "${repo_root}" rev-parse HEAD)"
+  base_sha="$(field_value "${state_file}" TransitionBaseSHA)"
+  is_commit_sha "${base_sha}" ||
+    fail "terminal VSB state requires a resolvable TransitionBaseSHA"
+  terminal_parent="$(git -C "${repo_root}" rev-parse "${terminal_sha}^")" ||
+    fail "terminal VSB receipt must have a parent commit"
+  [[ "${terminal_parent}" == "${base_sha}" ]] ||
+    fail "terminal VSB state must be the exact direct-child receipt commit"
+  ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  tree_ledger="$(git -C "${repo_root}" show "${terminal_sha}:${ledger_path}"; printf '\037')"
+  working_ledger="$(cat "${state_file}"; printf '\037')"
+  [[ "${tree_ledger}" == "${working_ledger}" ]] ||
+    fail "terminal VSB working ledger must match the exact receipt tree"
+  if ! replay_output="$(
+    "${self_verifier}" \
+      --repo-root "${repo_root}" \
+      --cards-dir "${cards_dir}" \
+      --transition-base "${base_sha}" \
+      --transition-head "${terminal_sha}" 2>&1
+  )"; then
+    fail "terminal VSB receipt failed exact transition replay"
+  fi
 }
 
 while [[ "$#" -gt 0 ]]; do
@@ -524,23 +559,28 @@ elif [[ "${set_status}" == IN_PROGRESS ]]; then
   [[ "$(field_value "${state_file}" VisualImplementation)" == USER_AUTHORIZED ]] ||
     fail "IN_PROGRESS VisualImplementation mismatch"
 elif [[ "${set_status}" == STOPPED_BY_USER ]]; then
+  require_governance_pass_state
   [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE ]] ||
     fail "STOPPED_BY_USER cannot have an active, released, or next card"
   [[ "$(field_value "${state_file}" UserStopAuthorization)" == EXPLICIT_USER_INSTRUCTION ]] ||
     fail "STOPPED_BY_USER requires explicit user-stop authorization"
-  [[ "${kind}" == STOP_BY_USER && "$(field_value "${state_file}" CurrentGateStatus)" == STOPPED_BY_USER && "$(field_value "${state_file}" CurrentReviewVerdict)" == NOT_APPLICABLE_USER_STOP ]] ||
+  [[ "${kind}" == STOP_BY_USER && "$(field_value "${state_file}" CurrentGateStatus)" == STOPPED_BY_USER && "$(field_value "${state_file}" CurrentReviewRoute)" == NONE && "$(field_value "${state_file}" CurrentReviewVerdict)" == NOT_APPLICABLE_USER_STOP ]] ||
     fail "STOPPED_BY_USER transition fields mismatch"
   [[ "$(field_value "${state_file}" VisualImplementation)" == STOPPED_BY_USER ]] || fail "STOPPED_BY_USER VisualImplementation mismatch"
   for i in 0 1 2 3; do
     if [[ "${i}" -lt "${completed_count}" ]]; then require_pass_receipt "${i}"; else require_empty_receipt "${i}"; fi
   done
 elif [[ "${set_status}" == FINAL_NO_GO ]]; then
+  require_governance_pass_state
   [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE ]] ||
     fail "FINAL_NO_GO cannot have an active, released, or next card"
   [[ "$(field_value "${state_file}" CurrentGateStatus)" == FAIL ]] || fail "FINAL_NO_GO requires FAIL Gate"
   [[ "$(field_value "${state_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] ||
     fail "FINAL_NO_GO requires the fixed visual acceptance review route"
   [[ "${kind}" == FINAL_NO_GO ]] || fail "FINAL_NO_GO requires TransitionKind FINAL_NO_GO"
+  [[ "${completed_count}" -eq 3 &&
+     "$(field_value "${state_file}" CurrentCandidateSHA)" == "$(field_value "${state_file}" TransitionBaseSHA)" ]] ||
+    fail "FINAL_NO_GO requires the VSB-03 candidate and exact predecessor prefix"
   [[ "$(field_value "${state_file}" VisualImplementation)" == FINAL_NO_GO ]] ||
     fail "FINAL_NO_GO VisualImplementation mismatch"
   is_nonzero_finding_verdict "$(field_value "${state_file}" CurrentReviewVerdict)" ||
@@ -549,14 +589,24 @@ elif [[ "${set_status}" == FINAL_NO_GO ]]; then
     if [[ "${i}" -lt "${completed_count}" ]]; then require_pass_receipt "${i}"; else require_empty_receipt "${i}"; fi
   done
 elif [[ "${set_status}" == COMPLETE ]]; then
+  require_governance_pass_state
   [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE && "${completed_count}" -eq 4 ]] ||
     fail "COMPLETE requires all four cards and no active, released, or next card"
   for i in 0 1 2 3; do require_pass_receipt "${i}"; done
   [[ "${kind}" == COMPLETE && "$(field_value "${state_file}" CurrentGateStatus)" == VSB-G3_PASS && "$(field_value "${state_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper && "$(field_value "${state_file}" CurrentReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
     fail "COMPLETE current Gate or review receipt mismatch"
+  [[ "$(field_value "${state_file}" CurrentCandidateSHA)" == "$(field_value "${state_file}" TransitionBaseSHA)" &&
+     "$(field_value "${state_file}" CurrentCandidateSHA)" == "$(receipt_candidate 3)" ]] ||
+    fail "COMPLETE requires the exact VSB-03 terminal candidate"
   [[ "$(field_value "${state_file}" VisualImplementation)" == COMPLETE ]] || fail "COMPLETE VisualImplementation mismatch"
 else
   fail "unsupported TaskCardSetStatus: ${set_status}"
+fi
+
+if [[ -z "${transition_base}" ]]; then
+  case "${set_status}" in
+    STOPPED_BY_USER|FINAL_NO_GO|COMPLETE) validate_terminal_receipt_provenance ;;
+  esac
 fi
 
 w1_index="${repo_root}/docs/task-cards/wave-1-implementation/README.md"
@@ -581,6 +631,11 @@ if [[ "${set_status}" == COMPLETE ]]; then
     fail "COMPLETE requires exact suspended or restored W1-I03"
 else
   [[ "${w1_is_suspended}" -eq 1 ]] || fail "VSB in progress requires exact W1-I03 suspension"
+fi
+if ! "${wave1_verifier}" \
+  --repo-root "${repo_root}" \
+  --cards-dir "${repo_root}/docs/task-cards/wave-1-implementation" >/dev/null 2>&1; then
+  fail "Wave 1 static suspension validation failed"
 fi
 
 if [[ -n "${transition_base}" ]]; then

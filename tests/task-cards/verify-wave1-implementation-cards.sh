@@ -834,6 +834,54 @@ cp -R "${suspended_dir}" "${suspended_business_dir}"
 set_field "${suspended_business_dir}/README.md" "BusinessImplementation" "NOT_AUTHORIZED"
 expect_failure "${suspended_business_dir}" "README.md: BusinessImplementation projection mismatch"
 
+expect_both_static_verifiers_fail() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local wave_output vsb_output
+  if wave_output="$(
+    "${verifier}" \
+      --repo-root "${fixture_root}" \
+      --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1
+  )"; then
+    fail "Wave 1 static validator accepted a drifted suspended projection"
+  fi
+  assert_contains "${wave_output}" "${expected_message}"
+  if vsb_output="$(
+    "${repo_root}/scripts/verify-visual-style-baseline-cards" \
+      --repo-root "${fixture_root}" \
+      --cards-dir "${fixture_root}/docs/task-cards/visual-style-baseline" 2>&1
+  )"; then
+    fail "VSB static validator accepted a drifted suspended projection"
+  fi
+  assert_contains "${vsb_output}" "Wave 1 static suspension validation failed"
+}
+
+static_plan_row_drift_root="${test_tmp_root}/static-plan-row-drift"
+git clone --shared -q "${repo_root}" "${static_plan_row_drift_root}"
+set_table_status \
+  "${static_plan_row_drift_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+  "W1-I03" \
+  "SUSPENDED_BY_USER" \
+  "READY"
+git -C "${static_plan_row_drift_root}" add \
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+git -C "${static_plan_row_drift_root}" commit -qm \
+  "test: drift current suspended implementation-plan row"
+expect_both_static_verifiers_fail \
+  "${static_plan_row_drift_root}" \
+  "current suspension projection mismatch"
+
+static_database_auth_drift_root="${test_tmp_root}/static-database-auth-drift"
+git clone --shared -q "${repo_root}" "${static_database_auth_drift_root}"
+set_field "${static_database_auth_drift_root}/AGENTS.md" \
+  "FormalDatabaseWrite" "AUTHORIZED"
+git -C "${static_database_auth_drift_root}" add AGENTS.md
+git -C "${static_database_auth_drift_root}" commit -qm \
+  "test: drift current suspended database authorization"
+expect_both_static_verifiers_fail \
+  "${static_database_auth_drift_root}" \
+  "current suspension projection mismatch"
+
 for released_id in W1-I02 W1-I04; do
   if [[ "${released_id}" == "W1-I02" ]]; then
     released_file="W1-I02-source-persistence.md"
@@ -883,6 +931,35 @@ mkdir -p "${transition_repo_root}/docs/task-cards/visual-style-baseline"
 cp -R "${repo_root}/docs/task-cards/visual-style-baseline/." \
   "${transition_repo_root}/docs/task-cards/visual-style-baseline/"
 transition_state="${transition_repo_root}/docs/task-cards/visual-style-baseline/execution-state.md"
+git -C "${transition_repo_root}" add "${transition_paths[@]}" \
+  docs/task-cards/visual-style-baseline
+git -C "${transition_repo_root}" commit --allow-empty -qm \
+  "test: establish suspended Wave 1 bootstrap fixture"
+
+printf '%s\n' 'fixed governance review input' > \
+  "${transition_repo_root}/docs/task-cards/visual-style-baseline/governance-review-input.md"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/governance-review-input.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: create VSB governance candidate"
+governance_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+set_field "${transition_state}" "GovernanceBootstrapStatus" "PASS"
+set_field "${transition_state}" "GovernanceReviewedCandidateSHA" \
+  "${governance_candidate_sha}"
+set_field "${transition_state}" "GovernanceReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "TaskCardSetStatus" "IN_PROGRESS"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-00"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-00"
+set_field "${transition_state}" "NextTaskCard" "VSB-01"
+set_field "${transition_state}" "TransitionSequence" "1"
+set_field "${transition_state}" "TransitionKind" "ACTIVATE_SET"
+set_field "${transition_state}" "TransitionBaseSHA" "${governance_candidate_sha}"
+set_field "${transition_state}" "VisualImplementation" "USER_AUTHORIZED"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm "test: activate VSB fixture"
+activation_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
 set_field "${transition_state}" "TaskCardSetStatus" "STOPPED_BY_USER"
 set_field "${transition_state}" "ActiveTaskCard" "NONE"
 set_field "${transition_state}" "ReleasedTaskCard" "NONE"
@@ -890,21 +967,17 @@ set_field "${transition_state}" "NextTaskCard" "NONE"
 set_field "${transition_state}" "CurrentGateStatus" "STOPPED_BY_USER"
 set_field "${transition_state}" "CurrentReviewRoute" "NONE"
 set_field "${transition_state}" "CurrentReviewVerdict" "NOT_APPLICABLE_USER_STOP"
-set_field "${transition_state}" "TransitionSequence" "1"
+set_field "${transition_state}" "TransitionSequence" "2"
 set_field "${transition_state}" "TransitionKind" "STOP_BY_USER"
+set_field "${transition_state}" "TransitionBaseSHA" "${activation_sha}"
 set_field "${transition_state}" "VisualImplementation" "STOPPED_BY_USER"
 set_field "${transition_state}" "UserStopAuthorization" "EXPLICIT_USER_INSTRUCTION"
-git -C "${transition_repo_root}" add "${transition_paths[@]}" \
-  docs/task-cards/visual-style-baseline
-git -C "${transition_repo_root}" commit -qm "test: suspend W1-I03 for visual lane"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: stop VSB by explicit user instruction"
 suspension_git_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
-
-mkdir -p "${transition_repo_root}/docs/task-cards/visual-style-baseline"
-printf '%s\n' 'allowed visual governance change' > \
-  "${transition_repo_root}/docs/task-cards/visual-style-baseline/example.md"
-git -C "${transition_repo_root}" add docs/task-cards/visual-style-baseline/example.md
-git -C "${transition_repo_root}" commit -qm "docs: allowed VSB change"
-allowed_visual_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+allowed_visual_sha="${suspension_git_sha}"
 "${verifier}" \
   --repo-root "${transition_repo_root}" \
   --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" >/dev/null ||
@@ -1002,6 +1075,44 @@ restore_output="$(
 )" || fail "valid stopped-state W1-I03 restore was rejected"
 assert_contains "${restore_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
 assert_contains "${restore_output}" "ActiveTaskCard = W1-I03"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+printf '\n' >> "${transition_repo_root}/AGENTS.md"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: add a trailing newline during restore"
+trailing_newline_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if trailing_newline_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${trailing_newline_restore_sha}" 2>&1
+)"; then
+  fail "restore with trailing-newline drift unexpectedly passed"
+fi
+assert_contains "${trailing_newline_output}" \
+  "restore transition must preserve exact bytes and file mode"
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+make_restore_projection "${transition_repo_root}"
+chmod 755 "${transition_repo_root}/AGENTS.md"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: change a restore projection file mode"
+mode_drift_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if mode_drift_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${mode_drift_restore_sha}" 2>&1
+)"; then
+  fail "restore with 100644-to-100755 mode drift unexpectedly passed"
+fi
+assert_contains "${mode_drift_output}" \
+  "restore transition must preserve exact bytes and file mode"
 
 git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
 set_field \
@@ -1155,7 +1266,7 @@ if authorization_drift_output="$(
   fail "restore altering FormalDatabaseWrite unexpectedly passed"
 fi
 assert_contains "${authorization_drift_output}" \
-  "restore transition must preserve authorization and non-restored content"
+  "restore transition must preserve exact bytes and file mode"
 
 git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
 for forged_index in 0 1 2; do

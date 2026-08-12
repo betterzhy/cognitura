@@ -352,7 +352,7 @@ if illegal_stop_output="$(
   fail "STOP_BY_USER from an inactive bootstrap state unexpectedly passed"
 fi
 assert_contains "${illegal_stop_output}" \
-  "STOP_BY_USER must start from IN_PROGRESS or FINAL_NO_GO"
+  "terminal VSB state requires governance zero-finding GO"
 negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
@@ -378,6 +378,26 @@ stopped_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --transition-base "${activation_sha}" \
   --transition-head "${stopped_sha}" >/dev/null ||
   fail "valid STOP_BY_USER transition was rejected"
+"${verifier}" \
+  --repo-root "${transition_repo_root}" \
+  --cards-dir "${transition_cards}" >/dev/null ||
+  fail "valid STOP_BY_USER terminal receipt was rejected statically"
+printf '%s\n' 'post-stop mutation' > \
+  "${transition_cards}/post-stop-mutation.md"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/post-stop-mutation.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: mutate history after terminal STOP receipt"
+if post_stop_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" 2>&1
+)"; then
+  fail "post-STOP commit with copied terminal ledger unexpectedly passed"
+fi
+assert_contains "${post_stop_output}" \
+  "terminal VSB state must be the exact direct-child receipt commit"
+negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 set_field "${transition_state}" "NextTaskCard" "VSB-03"
@@ -589,7 +609,7 @@ if early_final_output="$(
   fail "FINAL_NO_GO from an Owner other than VSB-03 unexpectedly passed"
 fi
 assert_contains "${early_final_output}" \
-  "FINAL_NO_GO is allowed only for VSB-03 fixed visual acceptance"
+  "FINAL_NO_GO requires the VSB-03 candidate and exact predecessor prefix"
 negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${after_vsb02_receipt}"
