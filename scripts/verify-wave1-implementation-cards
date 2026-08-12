@@ -13,6 +13,17 @@ fail() {
   exit 1
 }
 
+single_parent_of() {
+  local commit="$1"
+  local label="$2"
+  local parent_line
+  parent_line="$(git -C "${repo_root}" rev-list --parents -n 1 "${commit}" 2>/dev/null)" ||
+    fail "${label} must resolve to a commit"
+  set -- ${parent_line}
+  [[ "$#" -eq 2 ]] || fail "${label} must have exactly one parent"
+  printf '%s\n' "$2"
+}
+
 field_value() {
   local file="$1"
   local key="$2"
@@ -1359,7 +1370,7 @@ if [[ -n "${transition_base}" ]]; then
     fail "transition BASE is not a commit"
   resolved_head="$(git -C "${repo_root}" rev-parse --verify "${transition_head}^{commit}" 2>/dev/null)" ||
     fail "transition HEAD is not a commit"
-  [[ "$(git -C "${repo_root}" rev-parse "${resolved_head}^")" == "${resolved_base}" ]] ||
+  [[ "$(single_parent_of "${resolved_head}" "restore transition HEAD")" == "${resolved_base}" ]] ||
     fail "restore transition HEAD must be the direct child of BASE"
   restore_paths=(
     AGENTS.md
@@ -1482,7 +1493,7 @@ if [[ -n "${transition_base}" ]]; then
     git -C "${repo_root}" rev-parse --verify \
       "${terminal_vsb_transition_base}^{commit}" 2>/dev/null
   )" || fail "restore VSB terminal receipt has an invalid TransitionBaseSHA"
-  [[ "$(git -C "${repo_root}" rev-parse "${resolved_base}^")" == \
+  [[ "$(single_parent_of "${resolved_base}" "restore VSB terminal receipt")" == \
      "${resolved_terminal_vsb_transition_base}" ]] ||
     fail "restore base must be the exact VSB terminal receipt commit"
   [[ -x "${vsb_verifier}" ]] || fail "VSB validator is unavailable"

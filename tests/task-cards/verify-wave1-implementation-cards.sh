@@ -1247,6 +1247,40 @@ assert_contains "${restore_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
 assert_contains "${restore_output}" "ActiveTaskCard = W1-I03"
 
 git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+printf '%s\n' 'merge restore side history' > \
+  "${transition_repo_root}/docs/task-cards/wave-1-implementation/round12-side.txt"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/wave-1-implementation/round12-side.txt
+git -C "${transition_repo_root}" commit -qm \
+  "test: create side parent for Wave restore"
+merge_restore_side_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
+git -C "${transition_repo_root}" merge -q --no-ff -s ours --no-commit \
+  "${merge_restore_side_sha}"
+make_restore_projection "${transition_repo_root}"
+git -C "${transition_repo_root}" add "${transition_paths[@]}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: create merge Wave restore"
+merge_restore_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+merge_restore_parent_line="$(
+  git -C "${transition_repo_root}" rev-list --parents -n 1 "${merge_restore_sha}"
+)"
+set -- ${merge_restore_parent_line}
+[[ "$#" -eq 3 ]] || fail "merge restore fixture must have exactly two parents"
+if merge_restore_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_repo_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${allowed_visual_sha}" \
+    --transition-head "${merge_restore_sha}" 2>&1
+)"; then
+  fail "merge Wave restore HEAD unexpectedly passed"
+fi
+assert_contains "${merge_restore_output}" \
+  "restore transition HEAD must have exactly one parent"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${allowed_visual_sha}"
 make_restore_projection "${transition_repo_root}"
 set_field \
   "${transition_repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
@@ -1612,7 +1646,7 @@ if nonancestor_output="$(
 fi
 assert_contains "${nonancestor_output}" "SuspendedCandidateSHA must be an ancestor of HEAD"
 
-git_transition_cases=10
+git_transition_cases=11
 narrative_suspension_cases=12
 narrative_restore_cases=15
 binary_restore_cases=1
