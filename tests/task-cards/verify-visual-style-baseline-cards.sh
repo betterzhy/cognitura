@@ -455,6 +455,54 @@ make_wave1_restore_projection() {
   done
 }
 
+clear_vsb_receipt() {
+  local receipt_index="$1"
+  set_field "${transition_state}" "VSB0${receipt_index}CandidateSHA" "NONE"
+  set_field "${transition_state}" "VSB0${receipt_index}GateStatus" "NOT_RUN"
+  if [[ "${receipt_index}" -eq 3 ]]; then
+    set_field "${transition_state}" "VSB03DeepReviewVerdict" "NOT_RUN"
+    set_field "${transition_state}" "VSB03UltraReviewVerdict" "NOT_RUN"
+  else
+    set_field "${transition_state}" "VSB0${receipt_index}ReviewVerdict" "NOT_RUN"
+  fi
+}
+
+prepare_return_to_owner() {
+  local failed_candidate_sha="$1"
+  local owner="$2"
+  local completed_prefix="$3"
+  local next_card="$4"
+  local sequence="$5"
+  local review_route="$6"
+  local review_verdict="$7"
+  local owner_index receipt_index
+  case "${owner}" in
+    VSB-00) owner_index=0 ;;
+    VSB-01) owner_index=1 ;;
+    VSB-02) owner_index=2 ;;
+    VSB-03) owner_index=3 ;;
+    *) fail "test fixture requested an unknown RETURN owner: ${owner}" ;;
+  esac
+  set_field "${transition_state}" "TaskCardSetStatus" "IN_PROGRESS"
+  set_field "${transition_state}" "ActiveTaskCard" "${owner}"
+  set_field "${transition_state}" "ReleasedTaskCard" "${owner}"
+  set_field "${transition_state}" "CompletedTaskCards" "${completed_prefix}"
+  set_field "${transition_state}" "CurrentCandidateSHA" \
+    "${failed_candidate_sha}"
+  set_field "${transition_state}" "CurrentGateStatus" "FAIL"
+  set_field "${transition_state}" "CurrentReviewRoute" "${review_route}"
+  set_field "${transition_state}" "CurrentReviewVerdict" "${review_verdict}"
+  for ((receipt_index = owner_index; receipt_index < 4; receipt_index++)); do
+    clear_vsb_receipt "${receipt_index}"
+  done
+  set_field "${transition_state}" "NextTaskCard" "${next_card}"
+  set_field "${transition_state}" "TransitionSequence" "${sequence}"
+  set_field "${transition_state}" "TransitionKind" "RETURN_TO_OWNER"
+  set_field "${transition_state}" "TransitionBaseSHA" \
+    "${failed_candidate_sha}"
+  printf '%s\n' "Owner = ${owner}" >> "${transition_state}"
+}
+
 printf '%s\n' 'fixed governance review input' > \
   "${transition_cards}/governance-review-input.md"
 git -C "${transition_repo_root}" add \
@@ -483,6 +531,38 @@ activation_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
   --transition-base "${governance_candidate_sha}" \
   --transition-head "${activation_sha}" >/dev/null ||
   fail "valid VSB activation transition was rejected"
+
+git -C "${transition_repo_root}" switch -q --detach "${governance_candidate_sha}"
+set_field "${transition_state}" "GovernanceBootstrapStatus" "PASS"
+set_field "${transition_state}" "GovernanceReviewedCandidateSHA" \
+  "${governance_candidate_sha}"
+set_field "${transition_state}" "GovernanceReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "TaskCardSetStatus" "IN_PROGRESS"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-00"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-00"
+set_field "${transition_state}" "NextTaskCard" "VSB-01"
+set_field "${transition_state}" "TransitionSequence" "1"
+set_field "${transition_state}" "TransitionKind" "ACTIVATE_SET"
+set_field "${transition_state}" "TransitionBaseSHA" "${governance_candidate_sha}"
+set_field "${transition_state}" "VisualImplementation" "USER_AUTHORIZED"
+printf '\000' >> "${transition_state}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: append NUL to an otherwise valid VSB activation receipt"
+nul_activation_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if nul_activation_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${governance_candidate_sha}" \
+    --transition-head "${nul_activation_sha}" 2>&1
+)"; then
+  fail "ACTIVATE_SET receipt with NUL-byte drift unexpectedly passed"
+fi
+assert_contains "${nul_activation_output}" \
+  "transition ledger must not contain NUL bytes"
+negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${governance_candidate_sha}"
 set_field "${transition_state}" "NextTaskCard" "VSB-03"
@@ -1033,6 +1113,226 @@ printf '%s\n' "${candidate_write_sets[3]}" | \
   git -C "${transition_repo_root}" add --pathspec-from-file=-
 git -C "${transition_repo_root}" commit -qm "test: create VSB-03 candidate"
 vsb03_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
+git -C "${transition_repo_root}" switch -q --detach "${receipt_shas[0]}"
+write_exact_candidate_paths "${transition_repo_root}" 1 \
+  "alternate immutable VSB-01 receipt"
+printf '%s\n' "${candidate_write_sets[1]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create alternate valid VSB-01 candidate"
+alternate_vsb01_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+prepare_return_to_owner \
+  "${vsb03_candidate_sha}" VSB-02 VSB-00,VSB-01 VSB-03 5 \
+  deep_reviewer+ultra_gatekeeper VISUAL_ACCEPTANCE_FAIL
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: return VSB-03 visual finding to VSB-02"
+vsb03_to_vsb02_return_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if ! vsb03_to_vsb02_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${vsb03_candidate_sha}" \
+    --transition-head "${vsb03_to_vsb02_return_sha}" 2>&1
+)"; then
+  fail "valid VSB-03 to VSB-02 RETURN_TO_OWNER was rejected: ${vsb03_to_vsb02_output}"
+fi
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+prepare_return_to_owner \
+  "${vsb03_candidate_sha}" VSB-01 VSB-00 VSB-02 5 \
+  deep_reviewer+ultra_gatekeeper FINDING_P0_0_P1_1_P2_0
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: return VSB-03 review finding to VSB-01"
+vsb03_to_vsb01_return_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+"${verifier}" \
+  --repo-root "${transition_repo_root}" \
+  --cards-dir "${transition_cards}" \
+  --transition-base "${vsb03_candidate_sha}" \
+  --transition-head "${vsb03_to_vsb01_return_sha}" >/dev/null ||
+  fail "valid VSB-03 to VSB-01 RETURN_TO_OWNER was rejected"
+
+git -C "${transition_repo_root}" switch -q --detach "${candidate_shas[1]}"
+prepare_return_to_owner \
+  "${candidate_shas[1]}" VSB-02 VSB-00,VSB-01 VSB-03 3 \
+  deep_reviewer FINDING_P0_0_P1_1_P2_0
+set_field "${transition_state}" "VSB01CandidateSHA" "${candidate_shas[1]}"
+set_field "${transition_state}" "VSB01GateStatus" "VSB-G1_PASS"
+set_field "${transition_state}" "VSB01ReviewVerdict" "GO_P0_0_P1_0_P2_0"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: try to return VSB-01 forward to VSB-02"
+forward_return_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if forward_return_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${candidate_shas[1]}" \
+    --transition-head "${forward_return_sha}" 2>&1
+)"; then
+  fail "RETURN_TO_OWNER targeting a later card unexpectedly passed"
+fi
+assert_contains "${forward_return_output}" \
+  "RETURN_TO_OWNER target must be the base active Owner or a strict predecessor"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+prepare_return_to_owner \
+  "${vsb03_candidate_sha}" VSB-02 VSB-00 VSB-03 5 \
+  deep_reviewer+ultra_gatekeeper VISUAL_ACCEPTANCE_FAIL
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: return with the wrong strict predecessor prefix"
+wrong_return_prefix_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if wrong_return_prefix_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${vsb03_candidate_sha}" \
+    --transition-head "${wrong_return_prefix_sha}" 2>&1
+)"; then
+  fail "RETURN_TO_OWNER with the wrong predecessor prefix unexpectedly passed"
+fi
+assert_contains "${wrong_return_prefix_output}" \
+  "IN_PROGRESS active, released, or next card mismatch"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+prepare_return_to_owner \
+  "${vsb03_candidate_sha}" VSB-02 VSB-00,VSB-01 VSB-03 5 \
+  deep_reviewer+ultra_gatekeeper VISUAL_ACCEPTANCE_FAIL
+set_field "${transition_state}" "VSB02CandidateSHA" "${candidate_shas[2]}"
+set_field "${transition_state}" "VSB02GateStatus" "VSB-G2_PASS"
+set_field "${transition_state}" "VSB02ReviewVerdict" "GO_P0_0_P1_0_P2_0"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: retain the returned VSB-02 receipt"
+uncleared_owner_return_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if uncleared_owner_return_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${vsb03_candidate_sha}" \
+    --transition-head "${uncleared_owner_return_sha}" 2>&1
+)"; then
+  fail "RETURN_TO_OWNER retaining the target Owner receipt unexpectedly passed"
+fi
+assert_contains "${uncleared_owner_return_output}" \
+  "bootstrap receipts must remain NONE or NOT_RUN"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+prepare_return_to_owner \
+  "${vsb03_candidate_sha}" VSB-02 VSB-00,VSB-01 VSB-03 5 \
+  deep_reviewer+ultra_gatekeeper VISUAL_ACCEPTANCE_FAIL
+set_field "${transition_state}" "VSB03CandidateSHA" "${vsb03_candidate_sha}"
+set_field "${transition_state}" "VSB03GateStatus" "VSB-G3_PASS"
+set_field "${transition_state}" "VSB03DeepReviewVerdict" "GO_P0_0_P1_0_P2_0"
+set_field "${transition_state}" "VSB03UltraReviewVerdict" \
+  "FINAL_GO_P0_0_P1_0_P2_0"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: retain a successor receipt during return"
+uncleared_successor_return_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if uncleared_successor_return_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${vsb03_candidate_sha}" \
+    --transition-head "${uncleared_successor_return_sha}" 2>&1
+)"; then
+  fail "RETURN_TO_OWNER retaining a successor receipt unexpectedly passed"
+fi
+assert_contains "${uncleared_successor_return_output}" \
+  "bootstrap receipts must remain NONE or NOT_RUN"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+prepare_return_to_owner \
+  "${vsb03_candidate_sha}" VSB-02 VSB-00,VSB-01 VSB-03 5 \
+  deep_reviewer+ultra_gatekeeper VISUAL_ACCEPTANCE_FAIL
+set_field "${transition_state}" "VSB01CandidateSHA" \
+  "${alternate_vsb01_candidate_sha}"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: rewrite a strict predecessor receipt during return"
+mutated_predecessor_return_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if mutated_predecessor_return_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${vsb03_candidate_sha}" \
+    --transition-head "${mutated_predecessor_return_sha}" 2>&1
+)"; then
+  fail "RETURN_TO_OWNER rewriting a strict predecessor receipt unexpectedly passed"
+fi
+assert_contains "${mutated_predecessor_return_output}" \
+  "RETURN_TO_OWNER must preserve strict predecessor receipts"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${after_vsb02_receipt}"
+write_exact_candidate_paths "${transition_repo_root}" 2 \
+  "wrong VSB-03 failure candidate WriteSet"
+printf '%s\n' "${candidate_write_sets[2]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create VSB-03 failure candidate from the VSB-02 WriteSet"
+wrong_return_candidate_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+prepare_return_to_owner \
+  "${wrong_return_candidate_sha}" VSB-02 VSB-00,VSB-01 VSB-03 5 \
+  deep_reviewer+ultra_gatekeeper VISUAL_ACCEPTANCE_FAIL
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: return a failure candidate from the wrong card WriteSet"
+wrong_return_candidate_receipt_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if wrong_return_candidate_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${wrong_return_candidate_sha}" \
+    --transition-head "${wrong_return_candidate_receipt_sha}" 2>&1
+)"; then
+  fail "RETURN_TO_OWNER accepting the target Owner WriteSet for the failed candidate unexpectedly passed"
+fi
+assert_contains "${wrong_return_candidate_output}" \
+  "candidate diff must equal the exact VSB-03 WriteSet"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
+prepare_return_to_owner \
+  "${vsb03_candidate_sha}" VSB-02 VSB-00,VSB-01 VSB-03 5 \
+  deep_reviewer VISUAL_ACCEPTANCE_FAIL
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: return with the target Owner review route"
+wrong_return_route_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+if wrong_return_route_output="$(
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${vsb03_candidate_sha}" \
+    --transition-head "${wrong_return_route_sha}" 2>&1
+)"; then
+  fail "RETURN_TO_OWNER using the target Owner review route unexpectedly passed"
+fi
+assert_contains "${wrong_return_route_output}" \
+  "RETURN_TO_OWNER current review route must match the base active Owner"
+negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
 set_field "${transition_state}" "TaskCardSetStatus" "COMPLETE"
 set_field "${transition_state}" "ActiveTaskCard" "NONE"
 set_field "${transition_state}" "ReleasedTaskCard" "NONE"
@@ -1142,31 +1442,21 @@ assert_contains "${wrong_final_route_output}" \
 negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"
-set_field "${transition_state}" "ActiveTaskCard" "VSB-01"
-set_field "${transition_state}" "ReleasedTaskCard" "VSB-01"
-set_field "${transition_state}" "CompletedTaskCards" "VSB-00"
+set_field "${transition_state}" "ActiveTaskCard" "VSB-99"
+set_field "${transition_state}" "ReleasedTaskCard" "VSB-99"
 set_field "${transition_state}" "CurrentCandidateSHA" "${vsb03_candidate_sha}"
 set_field "${transition_state}" "CurrentGateStatus" "FAIL"
-set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+set_field "${transition_state}" "CurrentReviewRoute" \
+  "deep_reviewer+ultra_gatekeeper"
 set_field "${transition_state}" "CurrentReviewVerdict" "FINDING_P0_0_P1_1_P2_0"
-for i in 1 2; do
-  set_field "${transition_state}" "VSB0${i}CandidateSHA" "NONE"
-  set_field "${transition_state}" "VSB0${i}GateStatus" "NOT_RUN"
-  set_field "${transition_state}" "VSB0${i}ReviewVerdict" "NOT_RUN"
-done
-set_field "${transition_state}" "VSB03CandidateSHA" "NONE"
-set_field "${transition_state}" "VSB03GateStatus" "NOT_RUN"
-set_field "${transition_state}" "VSB03DeepReviewVerdict" "NOT_RUN"
-set_field "${transition_state}" "VSB03UltraReviewVerdict" "NOT_RUN"
-set_field "${transition_state}" "NextTaskCard" "VSB-02"
 set_field "${transition_state}" "TransitionSequence" "5"
 set_field "${transition_state}" "TransitionKind" "RETURN_TO_OWNER"
 set_field "${transition_state}" "TransitionBaseSHA" "${vsb03_candidate_sha}"
-printf '%s\n' 'Owner = VSB-01' >> "${transition_state}"
+printf '%s\n' 'Owner = VSB-99' >> "${transition_state}"
 git -C "${transition_repo_root}" add \
   docs/task-cards/visual-style-baseline/execution-state.md
 git -C "${transition_repo_root}" commit -qm \
-  "test: return VSB-03 finding to the wrong owner"
+  "test: return VSB-03 finding to a nonexistent owner"
 wrong_return_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
 if wrong_return_output="$(
   "${verifier}" \
@@ -1175,10 +1465,10 @@ if wrong_return_output="$(
     --transition-base "${vsb03_candidate_sha}" \
     --transition-head "${wrong_return_sha}" 2>&1
 )"; then
-  fail "RETURN_TO_OWNER reopening a card other than the base active Owner unexpectedly passed"
+  fail "RETURN_TO_OWNER reopening a nonexistent card unexpectedly passed"
 fi
 assert_contains "${wrong_return_output}" \
-  "RETURN_TO_OWNER Owner must equal the base active Owner"
+  "ActiveTaskCard must name one known card or NONE"
 negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${receipt_shas[0]}"
@@ -1273,12 +1563,18 @@ assert_contains "${zero_finding_output}" \
   "finding verdict must contain at least one non-zero count"
 negative_cases=$((negative_cases + 1))
 
-transition_cases=11
+transition_cases=22
 fixed_base_transition_cases=6
+binary_ledger_cases=1
+cross_card_return_positive_cases=2
+cross_card_return_negative_cases=8
 
 printf '%s\n' \
   "VisualStyleBaselineTaskCardContractTests = PASS" \
   "PositiveCases = 1" \
   "NegativeCases = ${negative_cases}" \
   "TransitionCases = ${transition_cases}" \
-  "FixedBaseTransitionCases = ${fixed_base_transition_cases}"
+  "FixedBaseTransitionCases = ${fixed_base_transition_cases}" \
+  "BinaryLedgerCases = ${binary_ledger_cases}" \
+  "CrossCardReturnPositiveCases = ${cross_card_return_positive_cases}" \
+  "CrossCardReturnNegativeCases = ${cross_card_return_negative_cases}"

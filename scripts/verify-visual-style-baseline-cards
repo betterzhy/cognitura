@@ -9,6 +9,15 @@ repo_root="${script_repo_root}"
 cards_dir=""
 transition_base=""
 transition_head=""
+temporary_paths=()
+
+cleanup_temporary_paths() {
+  local temporary_path
+  for temporary_path in "${temporary_paths[@]}"; do
+    [[ -z "${temporary_path}" ]] || rm -rf -- "${temporary_path}"
+  done
+}
+trap cleanup_temporary_paths EXIT
 
 usage() {
   printf '%s\n' \
@@ -57,13 +66,25 @@ is_commit_sha() {
     git -C "${repo_root}" rev-parse --verify "${sha}^{commit}" >/dev/null 2>&1
 }
 
-state_value_from_text() {
-  local text="$1"
+require_nul_free_file() {
+  local input_file="$1"
+  local failure_context="$2"
+  local nul_free_file
+  nul_free_file="$(mktemp "${TMPDIR:-/tmp}/cognitura-vsb-nul-free.XXXXXX")"
+  temporary_paths+=("${nul_free_file}")
+  if ! LC_ALL=C tr -d '\000' < "${input_file}" > "${nul_free_file}"; then
+    fail "${failure_context}"
+  fi
+  cmp -s "${input_file}" "${nul_free_file}" || fail "${failure_context}"
+}
+
+state_value_from_file() {
+  local file="$1"
   local key="$2"
   local count
-  count="$(printf '%s\n' "${text}" | grep -c "^${key} = " || true)"
+  count="$(grep -c "^${key} = " "${file}" || true)"
   [[ "${count}" -eq 1 ]] || fail "transition ledger: ${key} must occur exactly once"
-  printf '%s\n' "${text}" | sed -n "s/^${key} = //p"
+  sed -n "s/^${key} = //p" "${file}"
 }
 
 receipt_fields_for_index() {
@@ -76,20 +97,20 @@ receipt_fields_for_index() {
   esac
 }
 
-require_receipt_unchanged_between_texts() {
-  local base_text="$1"
-  local head_text="$2"
+require_receipt_unchanged_between_files() {
+  local base_file="$1"
+  local head_file="$2"
   local index="$3"
   local message="$4"
   local field
   while IFS= read -r field; do
-    [[ "$(state_value_from_text "${head_text}" "${field}")" == \
-       "$(state_value_from_text "${base_text}" "${field}")" ]] || fail "${message}"
+    [[ "$(state_value_from_file "${head_file}" "${field}")" == \
+       "$(state_value_from_file "${base_file}" "${field}")" ]] || fail "${message}"
   done < <(receipt_fields_for_index "${index}")
 }
 
-require_receipt_empty_in_text() {
-  local text="$1"
+require_receipt_empty_in_file() {
+  local file="$1"
   local index="$2"
   local message="$3"
   local field expected
@@ -102,7 +123,7 @@ require_receipt_empty_in_text() {
         ;;
       *) expected=NOT_RUN ;;
     esac
-    [[ "$(state_value_from_text "${text}" "${field}")" == "${expected}" ]] ||
+    [[ "$(state_value_from_file "${file}" "${field}")" == "${expected}" ]] ||
       fail "${message}"
   done < <(receipt_fields_for_index "${index}")
 }
@@ -119,9 +140,9 @@ is_nonzero_finding_verdict() {
   return 1
 }
 
-completed_count_from_text() {
-  local text="$1"
-  case "$(state_value_from_text "${text}" CompletedTaskCards)" in
+completed_count_from_file() {
+  local file="$1"
+  case "$(state_value_from_file "${file}" CompletedTaskCards)" in
     NONE) printf '0\n' ;;
     VSB-00) printf '1\n' ;;
     VSB-00,VSB-01) printf '2\n' ;;
@@ -175,7 +196,8 @@ require_governance_pass_state() {
 
 validate_terminal_receipt_provenance() {
   local repository_head base_sha head_parent terminal_sha terminal_parent ledger_path
-  local replay_output restore_output tree_ledger working_ledger receipt_checkout replay_root replay_cards
+  local replay_output restore_output ledger_compare_dir tree_ledger_file
+  local receipt_checkout replay_root replay_cards
   repository_head="$(git -C "${repo_root}" rev-parse HEAD)"
   base_sha="$(field_value "${state_file}" TransitionBaseSHA)"
   is_commit_sha "${base_sha}" ||
@@ -192,9 +214,16 @@ validate_terminal_receipt_provenance() {
   [[ "${terminal_parent}" == "${base_sha}" ]] ||
     fail "terminal VSB state must be the exact direct-child receipt commit or its exact Wave 1 restore"
   ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
-  tree_ledger="$(git -C "${repo_root}" show "${terminal_sha}:${ledger_path}"; printf '\037')"
-  working_ledger="$(cat "${state_file}"; printf '\037')"
-  [[ "${tree_ledger}" == "${working_ledger}" ]] ||
+  ledger_compare_dir="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-terminal-ledger.XXXXXX")"
+  temporary_paths+=("${ledger_compare_dir}")
+  tree_ledger_file="${ledger_compare_dir}/receipt-ledger"
+  if ! git -C "${repo_root}" show "${terminal_sha}:${ledger_path}" > \
+    "${tree_ledger_file}" 2>/dev/null; then
+    fail "terminal VSB receipt ledger is missing"
+  fi
+  require_nul_free_file \
+    "${tree_ledger_file}" "terminal VSB ledger must not contain NUL bytes"
+  cmp -s "${tree_ledger_file}" "${state_file}" ||
     fail "terminal VSB working ledger must match the exact receipt tree"
 
   receipt_checkout=""
@@ -278,6 +307,8 @@ index_file="${cards_dir}/README.md"
 state_file="${cards_dir}/execution-state.md"
 [[ -f "${index_file}" ]] || fail "task card index is missing: README.md"
 [[ -f "${state_file}" ]] || fail "execution-state.md is missing"
+require_nul_free_file \
+  "${state_file}" "transition ledger must not contain NUL bytes"
 
 expected_files=(
   VSB-00-governance-reference.md
@@ -689,16 +720,33 @@ if [[ -n "${transition_base}" ]]; then
   diff_paths="$(git -C "${repo_root}" diff --name-only "${resolved_base}..${resolved_head}")"
   [[ "${diff_paths}" == "${ledger_path}" ]] ||
     fail "state transition fixed diff must contain only execution-state.md"
-  base_text="$(git -C "${repo_root}" show "${resolved_base}:${ledger_path}")" || fail "transition BASE ledger is missing"
-  head_text="$(git -C "${repo_root}" show "${resolved_head}:${ledger_path}")" || fail "transition HEAD ledger is missing"
-  [[ "$(<"${state_file}")" == "${head_text}" ]] || fail "working ledger must match transition HEAD tree"
-  [[ "$(state_value_from_text "${head_text}" TransitionBaseSHA)" == "${resolved_base}" ]] ||
+  transition_ledger_dir="$(
+    mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-transition-ledgers.XXXXXX"
+  )"
+  temporary_paths+=("${transition_ledger_dir}")
+  base_ledger_file="${transition_ledger_dir}/base-ledger"
+  head_ledger_file="${transition_ledger_dir}/head-ledger"
+  if ! git -C "${repo_root}" show "${resolved_base}:${ledger_path}" > \
+    "${base_ledger_file}" 2>/dev/null; then
+    fail "transition BASE ledger is missing"
+  fi
+  if ! git -C "${repo_root}" show "${resolved_head}:${ledger_path}" > \
+    "${head_ledger_file}" 2>/dev/null; then
+    fail "transition HEAD ledger is missing"
+  fi
+  require_nul_free_file \
+    "${base_ledger_file}" "transition ledger must not contain NUL bytes"
+  require_nul_free_file \
+    "${head_ledger_file}" "transition ledger must not contain NUL bytes"
+  cmp -s "${state_file}" "${head_ledger_file}" ||
+    fail "working ledger must match transition HEAD tree"
+  [[ "$(state_value_from_file "${head_ledger_file}" TransitionBaseSHA)" == "${resolved_base}" ]] ||
     fail "TransitionBaseSHA must equal the fixed transition BASE"
-  base_sequence="$(state_value_from_text "${base_text}" TransitionSequence)"
-  head_sequence="$(state_value_from_text "${head_text}" TransitionSequence)"
+  base_sequence="$(state_value_from_file "${base_ledger_file}" TransitionSequence)"
+  head_sequence="$(state_value_from_file "${head_ledger_file}" TransitionSequence)"
   [[ "${base_sequence}" =~ ^[0-9]+$ && "${head_sequence}" -eq $((base_sequence + 1)) ]] ||
     fail "TransitionSequence must increment by exactly one"
-  head_kind="$(state_value_from_text "${head_text}" TransitionKind)"
+  head_kind="$(state_value_from_file "${head_ledger_file}" TransitionKind)"
   validate_fixed_vsb_tree "${resolved_base}"
   immutable_transition_fields=(
     CanonicalProjectName TaskCardSet ExecutionStateVersion ExecutionStateAuthority
@@ -707,42 +755,42 @@ if [[ -n "${transition_base}" ]]; then
     HistoricalVisualEvidenceBaselineSHA FullProductImplementation FormalDatabaseWrite RemotePush
   )
   for immutable_field in "${immutable_transition_fields[@]}"; do
-    [[ "$(state_value_from_text "${head_text}" "${immutable_field}")" == \
-       "$(state_value_from_text "${base_text}" "${immutable_field}")" ]] ||
+    [[ "$(state_value_from_file "${head_ledger_file}" "${immutable_field}")" == \
+       "$(state_value_from_file "${base_ledger_file}" "${immutable_field}")" ]] ||
       fail "state transition must preserve ${immutable_field}"
   done
   if [[ "${head_kind}" != ACTIVATE_SET ]]; then
     for governance_field in GovernanceBootstrapStatus GovernanceReviewedCandidateSHA GovernanceReviewVerdict; do
-      [[ "$(state_value_from_text "${head_text}" "${governance_field}")" == \
-         "$(state_value_from_text "${base_text}" "${governance_field}")" ]] ||
+      [[ "$(state_value_from_file "${head_ledger_file}" "${governance_field}")" == \
+         "$(state_value_from_file "${base_ledger_file}" "${governance_field}")" ]] ||
         fail "state transition must preserve ${governance_field}"
     done
   fi
   if [[ "${head_kind}" != STOP_BY_USER ]]; then
-    [[ "$(state_value_from_text "${head_text}" UserStopAuthorization)" == \
-       "$(state_value_from_text "${base_text}" UserStopAuthorization)" ]] ||
+    [[ "$(state_value_from_file "${head_ledger_file}" UserStopAuthorization)" == \
+       "$(state_value_from_file "${base_ledger_file}" UserStopAuthorization)" ]] ||
       fail "state transition must preserve UserStopAuthorization"
   fi
   case "${head_kind}" in
     ACTIVATE_SET)
-      [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW ]] ||
+      [[ "$(state_value_from_file "${base_ledger_file}" TaskCardSetStatus)" == USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW ]] ||
         fail "ACTIVATE_SET must start from the governance-review bootstrap state"
-      [[ "$(state_value_from_text "${head_text}" GovernanceReviewedCandidateSHA)" == "${resolved_base}" ]] ||
+      [[ "$(state_value_from_file "${head_ledger_file}" GovernanceReviewedCandidateSHA)" == "${resolved_base}" ]] ||
         fail "activation candidate must equal TransitionBaseSHA"
       for receipt_index in 0 1 2 3; do
-        require_receipt_empty_in_text \
-          "${base_text}" "${receipt_index}" \
+        require_receipt_empty_in_file \
+          "${base_ledger_file}" "${receipt_index}" \
           "ACTIVATE_SET base must have empty per-card receipts"
       done
       ;;
     ADVANCE|COMPLETE)
-      [[ "$(state_value_from_text "${head_text}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
+      [[ "$(state_value_from_file "${head_ledger_file}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
         fail "candidate SHA must equal TransitionBaseSHA"
-      [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
+      [[ "$(state_value_from_file "${base_ledger_file}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
         fail "ADVANCE or COMPLETE must start from IN_PROGRESS"
-      base_completed="$(state_value_from_text "${base_text}" CompletedTaskCards)"
-      base_active="$(state_value_from_text "${base_text}" ActiveTaskCard)"
-      head_completed="$(state_value_from_text "${head_text}" CompletedTaskCards)"
+      base_completed="$(state_value_from_file "${base_ledger_file}" CompletedTaskCards)"
+      base_active="$(state_value_from_file "${base_ledger_file}" ActiveTaskCard)"
+      head_completed="$(state_value_from_file "${head_ledger_file}" CompletedTaskCards)"
       case "${base_active}" in
         VSB-00) candidate_owner_index=0 ;;
         VSB-01) candidate_owner_index=1 ;;
@@ -753,16 +801,16 @@ if [[ -n "${transition_base}" ]]; then
       verify_candidate_write_set "${resolved_base}" "${candidate_owner_index}"
       for receipt_index in 0 1 2 3; do
         if [[ "${receipt_index}" -lt "${candidate_owner_index}" ]]; then
-          require_receipt_unchanged_between_texts \
-            "${base_text}" "${head_text}" "${receipt_index}" \
+          require_receipt_unchanged_between_files \
+            "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
             "${head_kind} must preserve every predecessor receipt"
         elif [[ "${receipt_index}" -eq "${candidate_owner_index}" ]]; then
-          require_receipt_empty_in_text \
-            "${base_text}" "${receipt_index}" \
+          require_receipt_empty_in_file \
+            "${base_ledger_file}" "${receipt_index}" \
             "${head_kind} must fill only the just-completed Owner receipt"
         else
-          require_receipt_unchanged_between_texts \
-            "${base_text}" "${head_text}" "${receipt_index}" \
+          require_receipt_unchanged_between_files \
+            "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
             "${head_kind} must preserve every successor receipt"
         fi
       done
@@ -773,7 +821,7 @@ if [[ -n "${transition_base}" ]]; then
           VSB-02) expected_base_prefix=VSB-00,VSB-01; expected_head_prefix=VSB-00,VSB-01,VSB-02; expected_head_active=VSB-03 ;;
           *) fail "ADVANCE must complete the unique active predecessor" ;;
         esac
-        [[ "${base_completed}" == "${expected_base_prefix}" && "${head_completed}" == "${expected_head_prefix}" && "$(state_value_from_text "${head_text}" ActiveTaskCard)" == "${expected_head_active}" && "$(state_value_from_text "${head_text}" ReleasedTaskCard)" == "${expected_head_active}" ]] ||
+        [[ "${base_completed}" == "${expected_base_prefix}" && "${head_completed}" == "${expected_head_prefix}" && "$(state_value_from_file "${head_ledger_file}" ActiveTaskCard)" == "${expected_head_active}" && "$(state_value_from_file "${head_ledger_file}" ReleasedTaskCard)" == "${expected_head_active}" ]] ||
           fail "ADVANCE must extend the completed prefix by exactly the active card"
       else
         [[ "${base_active}" == VSB-03 && "${base_completed}" == VSB-00,VSB-01,VSB-02 && "${head_completed}" == VSB-00,VSB-01,VSB-02,VSB-03 ]] ||
@@ -781,60 +829,67 @@ if [[ -n "${transition_base}" ]]; then
       fi
       ;;
     RETURN_TO_OWNER)
-      [[ "$(state_value_from_text "${head_text}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
+      [[ "$(state_value_from_file "${head_ledger_file}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
         fail "candidate SHA must equal TransitionBaseSHA"
-      [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
+      [[ "$(state_value_from_file "${base_ledger_file}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
         fail "RETURN_TO_OWNER must start from IN_PROGRESS"
-      head_owner="$(state_value_from_text "${head_text}" Owner)"
-      base_owner="$(state_value_from_text "${base_text}" ActiveTaskCard)"
-      [[ "${head_owner}" == "${base_owner}" ]] ||
-        fail "RETURN_TO_OWNER Owner must equal the base active Owner"
+      head_owner="$(state_value_from_file "${head_ledger_file}" Owner)"
+      base_owner="$(state_value_from_file "${base_ledger_file}" ActiveTaskCard)"
       return_owner_index="$(owner_index_from_id "${head_owner}")"
-      verify_candidate_write_set "${resolved_base}" "${return_owner_index}"
-      [[ "$(completed_count_from_text "${base_text}")" -eq "${return_owner_index}" ]] ||
-        fail "RETURN_TO_OWNER base must contain the Owner strict predecessor prefix"
+      failed_owner_index="$(owner_index_from_id "${base_owner}")"
+      [[ "${return_owner_index}" -le "${failed_owner_index}" ]] ||
+        fail "RETURN_TO_OWNER target must be the base active Owner or a strict predecessor"
+      verify_candidate_write_set "${resolved_base}" "${failed_owner_index}"
+      [[ "$(completed_count_from_file "${base_ledger_file}")" -eq "${failed_owner_index}" ]] ||
+        fail "RETURN_TO_OWNER base active Owner must match its completed prefix"
+      [[ "$(state_value_from_file "${head_ledger_file}" CurrentGateStatus)" == FAIL &&
+         "$(state_value_from_file "${head_ledger_file}" CurrentReviewRoute)" == "${expected_routes[${failed_owner_index}]}" ]] ||
+        fail "RETURN_TO_OWNER current review route must match the base active Owner"
       for receipt_index in 0 1 2 3; do
-        if [[ "${receipt_index}" -ge "${return_owner_index}" ]]; then
-          require_receipt_empty_in_text \
-            "${base_text}" "${receipt_index}" \
-            "RETURN_TO_OWNER base Owner and successor receipts must be empty"
+        if [[ "${receipt_index}" -ge "${failed_owner_index}" ]]; then
+          require_receipt_empty_in_file \
+            "${base_ledger_file}" "${receipt_index}" \
+            "RETURN_TO_OWNER base active Owner and successor receipts must be empty"
         fi
       done
       case "${head_owner}" in
-        VSB-00) expected_return_prefix=NONE ;;
-        VSB-01) expected_return_prefix=VSB-00 ;;
-        VSB-02) expected_return_prefix=VSB-00,VSB-01 ;;
-        VSB-03) expected_return_prefix=VSB-00,VSB-01,VSB-02 ;;
+        VSB-00) expected_return_prefix=NONE; expected_return_next=VSB-01 ;;
+        VSB-01) expected_return_prefix=VSB-00; expected_return_next=VSB-02 ;;
+        VSB-02) expected_return_prefix=VSB-00,VSB-01; expected_return_next=VSB-03 ;;
+        VSB-03) expected_return_prefix=VSB-00,VSB-01,VSB-02; expected_return_next=NONE ;;
         *) fail "RETURN_TO_OWNER must reopen a known owner" ;;
       esac
-      [[ "$(state_value_from_text "${head_text}" ActiveTaskCard)" == "${head_owner}" && "$(state_value_from_text "${head_text}" ReleasedTaskCard)" == "${head_owner}" && "$(state_value_from_text "${head_text}" CompletedTaskCards)" == "${expected_return_prefix}" ]] ||
-        fail "RETURN_TO_OWNER must reopen owner and truncate to its strict predecessor prefix"
-      is_nonzero_finding_verdict "$(state_value_from_text "${head_text}" CurrentReviewVerdict)" ||
+      [[ "$(state_value_from_file "${head_ledger_file}" ActiveTaskCard)" == "${head_owner}" &&
+         "$(state_value_from_file "${head_ledger_file}" ReleasedTaskCard)" == "${head_owner}" &&
+         "$(state_value_from_file "${head_ledger_file}" CompletedTaskCards)" == "${expected_return_prefix}" &&
+         "$(state_value_from_file "${head_ledger_file}" NextTaskCard)" == "${expected_return_next}" ]] ||
+        fail "RETURN_TO_OWNER must reopen owner, truncate to its strict predecessor prefix, and select its successor"
+      is_nonzero_finding_verdict "$(state_value_from_file "${head_ledger_file}" CurrentReviewVerdict)" ||
         fail "finding verdict must contain at least one non-zero count"
       for receipt_index in 0 1 2 3; do
         if [[ "${receipt_index}" -lt "${return_owner_index}" ]]; then
-          require_receipt_unchanged_between_texts \
-            "${base_text}" "${head_text}" "${receipt_index}" \
+          require_receipt_unchanged_between_files \
+            "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
             "RETURN_TO_OWNER must preserve strict predecessor receipts"
         else
-          require_receipt_empty_in_text \
-            "${head_text}" "${receipt_index}" \
+          require_receipt_empty_in_file \
+            "${head_ledger_file}" "${receipt_index}" \
             "RETURN_TO_OWNER must reset Owner and successor receipts"
         fi
       done
       ;;
     STOP_BY_USER)
-      [[ "$(state_value_from_text "${head_text}" UserStopAuthorization)" == EXPLICIT_USER_INSTRUCTION ]] ||
+      [[ "$(state_value_from_file "${head_ledger_file}" UserStopAuthorization)" == EXPLICIT_USER_INSTRUCTION ]] ||
         fail "STOP_BY_USER requires explicit user instruction"
-      base_status="$(state_value_from_text "${base_text}" TaskCardSetStatus)"
+      base_status="$(state_value_from_file "${base_ledger_file}" TaskCardSetStatus)"
       case "${base_status}" in
         IN_PROGRESS|FINAL_NO_GO) ;;
         *) fail "STOP_BY_USER must start from IN_PROGRESS or FINAL_NO_GO" ;;
       esac
-      [[ "$(state_value_from_text "${head_text}" CompletedTaskCards)" == \
-         "$(state_value_from_text "${base_text}" CompletedTaskCards)" ]] ||
+      [[ "$(state_value_from_file "${head_ledger_file}" CompletedTaskCards)" == \
+         "$(state_value_from_file "${base_ledger_file}" CompletedTaskCards)" ]] ||
         fail "STOP_BY_USER must preserve the reviewed completed prefix"
-      stop_completed_count="$(completed_count_from_text "${base_text}")"
+      stop_completed_count="$(completed_count_from_file "${base_ledger_file}")"
       if [[ "${base_status}" == IN_PROGRESS ]]; then
         case "${stop_completed_count}" in
           0) expected_stop_owner=VSB-00 ;;
@@ -843,51 +898,51 @@ if [[ -n "${transition_base}" ]]; then
           3) expected_stop_owner=VSB-03 ;;
           *) fail "STOP_BY_USER active base cannot have every card complete" ;;
         esac
-        [[ "$(state_value_from_text "${base_text}" ActiveTaskCard)" == "${expected_stop_owner}" ]] ||
+        [[ "$(state_value_from_file "${base_ledger_file}" ActiveTaskCard)" == "${expected_stop_owner}" ]] ||
           fail "STOP_BY_USER base active Owner must match its completed prefix"
       fi
       for receipt_index in 0 1 2 3; do
         if [[ "${receipt_index}" -lt "${stop_completed_count}" ]]; then
-          require_receipt_unchanged_between_texts \
-            "${base_text}" "${head_text}" "${receipt_index}" \
+          require_receipt_unchanged_between_files \
+            "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
             "STOP_BY_USER must preserve strict predecessor receipts"
         else
-          require_receipt_empty_in_text \
-            "${base_text}" "${receipt_index}" \
+          require_receipt_empty_in_file \
+            "${base_ledger_file}" "${receipt_index}" \
             "STOP_BY_USER base Owner and successor receipts must be empty"
-          require_receipt_empty_in_text \
-            "${head_text}" "${receipt_index}" \
+          require_receipt_empty_in_file \
+            "${head_ledger_file}" "${receipt_index}" \
             "STOP_BY_USER must reset interrupted Owner and successor receipts"
         fi
       done
       ;;
     FINAL_NO_GO)
-      [[ "$(state_value_from_text "${base_text}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
+      [[ "$(state_value_from_file "${base_ledger_file}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
         fail "FINAL_NO_GO must start from IN_PROGRESS"
-      final_owner="$(state_value_from_text "${base_text}" ActiveTaskCard)"
+      final_owner="$(state_value_from_file "${base_ledger_file}" ActiveTaskCard)"
       [[ "${final_owner}" == VSB-03 &&
-         "$(state_value_from_text "${head_text}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] ||
+         "$(state_value_from_file "${head_ledger_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] ||
         fail "FINAL_NO_GO is allowed only for VSB-03 fixed visual acceptance"
       final_owner_index="$(owner_index_from_id "${final_owner}")"
-      [[ "$(completed_count_from_text "${base_text}")" -eq "${final_owner_index}" ]] ||
+      [[ "$(completed_count_from_file "${base_ledger_file}")" -eq "${final_owner_index}" ]] ||
         fail "FINAL_NO_GO base active Owner must match its completed prefix"
-      require_receipt_empty_in_text \
-        "${base_text}" "${final_owner_index}" \
+      require_receipt_empty_in_file \
+        "${base_ledger_file}" "${final_owner_index}" \
         "FINAL_NO_GO base active Owner receipt must be empty"
       verify_candidate_write_set "${resolved_base}" "${final_owner_index}"
-      [[ "$(state_value_from_text "${head_text}" TaskCardSetStatus)" == FINAL_NO_GO &&
-         "$(state_value_from_text "${head_text}" ActiveTaskCard)" == NONE &&
-         "$(state_value_from_text "${head_text}" ReleasedTaskCard)" == NONE &&
-         "$(state_value_from_text "${head_text}" NextTaskCard)" == NONE &&
-         "$(state_value_from_text "${head_text}" CompletedTaskCards)" == "$(state_value_from_text "${base_text}" CompletedTaskCards)" &&
-         "$(state_value_from_text "${head_text}" CurrentCandidateSHA)" == "${resolved_base}" &&
-         "$(state_value_from_text "${head_text}" CurrentGateStatus)" == FAIL ]] ||
+      [[ "$(state_value_from_file "${head_ledger_file}" TaskCardSetStatus)" == FINAL_NO_GO &&
+         "$(state_value_from_file "${head_ledger_file}" ActiveTaskCard)" == NONE &&
+         "$(state_value_from_file "${head_ledger_file}" ReleasedTaskCard)" == NONE &&
+         "$(state_value_from_file "${head_ledger_file}" NextTaskCard)" == NONE &&
+         "$(state_value_from_file "${head_ledger_file}" CompletedTaskCards)" == "$(state_value_from_file "${base_ledger_file}" CompletedTaskCards)" &&
+         "$(state_value_from_file "${head_ledger_file}" CurrentCandidateSHA)" == "${resolved_base}" &&
+         "$(state_value_from_file "${head_ledger_file}" CurrentGateStatus)" == FAIL ]] ||
         fail "FINAL_NO_GO transition fields mismatch"
-      is_nonzero_finding_verdict "$(state_value_from_text "${head_text}" CurrentReviewVerdict)" ||
+      is_nonzero_finding_verdict "$(state_value_from_file "${head_ledger_file}" CurrentReviewVerdict)" ||
         fail "FINAL_NO_GO requires a non-zero finding verdict"
       for receipt_index in 0 1 2 3; do
-        require_receipt_unchanged_between_texts \
-          "${base_text}" "${head_text}" "${receipt_index}" \
+        require_receipt_unchanged_between_files \
+          "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
           "FINAL_NO_GO must preserve all per-card receipts"
       done
       ;;
