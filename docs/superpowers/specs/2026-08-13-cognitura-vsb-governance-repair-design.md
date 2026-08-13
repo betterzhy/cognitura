@@ -5,7 +5,7 @@
 ```text
 CanonicalProjectName = Cognitura
 DesignKind = ONE_TIME_GOVERNANCE_REPAIR
-Status = DRAFT_PENDING_USER_REVIEW
+Status = USER_APPROVED_DESIGN
 OriginalVisualStyleSpecSHA = 70eefba5912e6884e4e7e1d6477a65f4091d6590
 VisualStyleExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 GovernanceRepairOriginReceiptSHA = d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a
