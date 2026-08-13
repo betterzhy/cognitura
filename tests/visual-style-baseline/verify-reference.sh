@@ -10,6 +10,8 @@ reference_doc="${repo_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-R
 reference_image="${repo_root}/docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png"
 approved_source="${COGNITURA_VISUAL_STYLE_SOURCE_JPEG:-/tmp/codex-remote-attachments/019ff394-031c-7413-b56a-f998be9014b8/56C24D47-8B5E-4367-A394-5748FBC8DD5A/1-Photo-1.jpg}"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-visual-style-reference.XXXXXX")"
+canonical_document_size="$(sed -n '/^document:$/,/^referenceImage:$/s/^  sizeBytes: //p' "${manifest}")"
+canonical_document_hash="$(sed -n '/^document:$/,/^referenceImage:$/s/^  sha256: //p' "${manifest}")"
 
 cleanup() {
   rm -rf -- "${test_tmp_root}"
@@ -61,9 +63,9 @@ sync_manifest_document_fingerprint() {
   local hash
   size="$(stat -f '%z' "${target}")"
   hash="$(shasum -a 256 "${target}" | awk '{print $1}')"
-  sed -i.bak "s/^  sizeBytes: 11065$/  sizeBytes: ${size}/" "${fixture_manifest}"
+  sed -i.bak "s/^  sizeBytes: ${canonical_document_size}$/  sizeBytes: ${size}/" "${fixture_manifest}"
   rm "${fixture_manifest}.bak"
-  sed -i.bak "s/^  sha256: 86851e1dede1ac6bdfbfbd1815511d227a22e922f0e76d9ecf7dafeb9d909ae0$/  sha256: ${hash}/" "${fixture_manifest}"
+  sed -i.bak "s/^  sha256: ${canonical_document_hash}$/  sha256: ${hash}/" "${fixture_manifest}"
   rm "${fixture_manifest}.bak"
 }
 
@@ -105,6 +107,11 @@ expect_line "${canonical_output}" 'PageArchitectureAuthority=NO'
 expect_line "${canonical_output}" 'InteractionAuthority=NO'
 expect_line "${canonical_output}" 'DashboardLayoutAuthority=NO'
 expect_line "${canonical_output}" 'ManifestPath=docs/engineering/cognitura-visual-style-baseline-manifest.yaml'
+expect_line "${canonical_output}" 'ManifestDocumentVersion="1.0"'
+expect_line "${canonical_output}" 'NormalizedColorRoleCount=25'
+expect_line "${canonical_output}" 'NormalizedColorConfidence=INFERRED'
+expect_line "${canonical_output}" 'NonColorVisualContract=PASS'
+expect_line "${canonical_output}" 'ConditionsResultsProjection=BLOCKED_BY_DOC-GAP-MDR-001'
 expect_line "${canonical_output}" 'VisualStyleBaselineReferenceVerification=PASS'
 
 # A wrong source hash must be rejected before image decoding.
@@ -182,11 +189,67 @@ fi
 
 missing_inferred_root="${test_tmp_root}/missing-inferred"
 make_fixture "${missing_inferred_root}"
-sed -i.bak '/^| TypefaceIdentity |/s/`INFERRED`/`UNCLASSIFIED`/' \
+sed -i.bak '/^| FontStack |/s/`INFERRED`/`UNCLASSIFIED`/' \
   "${missing_inferred_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
 rm "${missing_inferred_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
 sync_manifest_document_fingerprint "${missing_inferred_root}"
 expect_failure "${missing_inferred_root}" 'missing INFERRED classification'
+
+wrong_color_role_root="${test_tmp_root}/wrong-color-role"
+make_fixture "${wrong_color_role_root}"
+sed -i.bak 's/^| CanvasBackground |/| Canvas |/' \
+  "${wrong_color_role_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${wrong_color_role_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${wrong_color_role_root}"
+expect_failure "${wrong_color_role_root}" 'wrong approved normalized color role name'
+
+wrong_color_value_root="${test_tmp_root}/wrong-color-value"
+make_fixture "${wrong_color_value_root}"
+sed -i.bak 's/CanvasBackground = #F7F9FC/CanvasBackground = #FFFFFF/' \
+  "${wrong_color_value_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${wrong_color_value_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${wrong_color_value_root}"
+expect_failure "${wrong_color_value_root}" 'wrong approved normalized color value'
+
+forged_normalized_confidence_root="${test_tmp_root}/forged-normalized-confidence"
+make_fixture "${forged_normalized_confidence_root}"
+sed -i.bak '/^| CanvasBackground |/s/`INFERRED`/`MEASURED_FROM_REFERENCE_PIXELS`/' \
+  "${forged_normalized_confidence_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${forged_normalized_confidence_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${forged_normalized_confidence_root}"
+expect_failure "${forged_normalized_confidence_root}" 'normalized color token falsely claims pixel precision'
+
+missing_font_stack_root="${test_tmp_root}/missing-font-stack"
+make_fixture "${missing_font_stack_root}"
+sed -i.bak '/"PingFang SC"/d' \
+  "${missing_font_stack_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${missing_font_stack_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${missing_font_stack_root}"
+expect_failure "${missing_font_stack_root}" 'incomplete approved font stack'
+
+missing_mdr_gap_root="${test_tmp_root}/missing-mdr-gap"
+make_fixture "${missing_mdr_gap_root}"
+sed -i.bak '/DOC-GAP-MDR-001/d' \
+  "${missing_mdr_gap_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${missing_mdr_gap_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${missing_mdr_gap_root}"
+expect_failure "${missing_mdr_gap_root}" 'missing Conditions Results documentation-gap boundary'
+
+wrong_shadow_root="${test_tmp_root}/wrong-shadow-contract"
+make_fixture "${wrong_shadow_root}"
+sed -i.bak 's/0 2px 6px rgb(16 24 40 \/ 5%)/0 4px 12px rgb(16 24 40 \/ 20%)/' \
+  "${wrong_shadow_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${wrong_shadow_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${wrong_shadow_root}"
+expect_failure "${wrong_shadow_root}" 'wrong approved shadow contract'
+
+wrong_relation_priority_root="${test_tmp_root}/wrong-relation-priority"
+make_fixture "${wrong_relation_priority_root}"
+sed -i.bak 's/Natural Language Statement > Relation Verb > Shape > Direction > Endpoint > Line Style > Color/Color > Line Style > Endpoint/' \
+  "${wrong_relation_priority_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${wrong_relation_priority_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${wrong_relation_priority_root}"
+expect_failure "${wrong_relation_priority_root}" 'wrong Relation recognition priority'
 
 dashboard_authority_root="${test_tmp_root}/dashboard-authority"
 make_fixture "${dashboard_authority_root}"
@@ -195,6 +258,25 @@ sed -i.bak 's/^DashboardLayoutAuthority = NO$/DashboardLayoutAuthority = YES/' \
 rm "${dashboard_authority_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
 sync_manifest_document_fingerprint "${dashboard_authority_root}"
 expect_failure "${dashboard_authority_root}" 'DashboardLayoutAuthority=YES'
+
+for authority in DashboardLayoutAuthority InteractionAuthority InformationArchitectureAuthority; do
+  conflicting_formal_authority_root="${test_tmp_root}/formal-conflicting-${authority}"
+  make_fixture "${conflicting_formal_authority_root}"
+  printf '%s = YES\n' "${authority}" >> \
+    "${conflicting_formal_authority_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+  sync_manifest_document_fingerprint "${conflicting_formal_authority_root}"
+  expect_failure "${conflicting_formal_authority_root}" "formal document appends conflicting ${authority}=YES"
+done
+
+for authority in \
+  VisualStyleReferenceDashboardLayoutAuthority \
+  VisualStyleReferenceInteractionAuthority \
+  VisualStyleReferencePageArchitectureAuthority; do
+  conflicting_agents_authority_root="${test_tmp_root}/agents-conflicting-${authority}"
+  make_fixture "${conflicting_agents_authority_root}"
+  printf '%s = YES\n' "${authority}" >> "${conflicting_agents_authority_root}/AGENTS.md"
+  expect_failure "${conflicting_agents_authority_root}" "AGENTS appends conflicting ${authority}=YES"
+done
 
 missing_gap_root="${test_tmp_root}/missing-doc-gap"
 make_fixture "${missing_gap_root}"
@@ -216,35 +298,35 @@ expect_failure "${missing_manifest_root}" 'missing manifest'
 
 wrong_doc_size_root="${test_tmp_root}/wrong-doc-size"
 make_fixture "${wrong_doc_size_root}"
-sed -i.bak 's/^  sizeBytes: 11065$/  sizeBytes: 1/' \
+sed -i.bak "s/^  sizeBytes: ${canonical_document_size}$/  sizeBytes: 1/" \
   "${wrong_doc_size_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
 rm "${wrong_doc_size_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
 expect_failure "${wrong_doc_size_root}" 'wrong manifest document size'
 
 wrong_doc_hash_root="${test_tmp_root}/wrong-doc-hash"
 make_fixture "${wrong_doc_hash_root}"
-sed -i.bak 's/^  sha256: 86851e1dede1ac6bdfbfbd1815511d227a22e922f0e76d9ecf7dafeb9d909ae0$/  sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/' \
+sed -i.bak "s/^  sha256: ${canonical_document_hash}$/  sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/" \
   "${wrong_doc_hash_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
 rm "${wrong_doc_hash_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
 expect_failure "${wrong_doc_hash_root}" 'wrong manifest document hash'
 
 zero_size_root="${test_tmp_root}/zero-size"
 make_fixture "${zero_size_root}"
-sed -i.bak 's/^  sizeBytes: 11065$/  sizeBytes: 0/' \
+sed -i.bak "s/^  sizeBytes: ${canonical_document_size}$/  sizeBytes: 0/" \
   "${zero_size_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
 rm "${zero_size_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
 expect_failure "${zero_size_root}" 'zero manifest size'
 
 nondecimal_size_root="${test_tmp_root}/nondecimal-size"
 make_fixture "${nondecimal_size_root}"
-sed -i.bak 's/^  sizeBytes: 11065$/  sizeBytes: eleven/' \
+sed -i.bak "s/^  sizeBytes: ${canonical_document_size}$/  sizeBytes: eleven/" \
   "${nondecimal_size_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
 rm "${nondecimal_size_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
 expect_failure "${nondecimal_size_root}" 'nondecimal manifest size'
 
 short_hash_root="${test_tmp_root}/short-hash"
 make_fixture "${short_hash_root}"
-sed -i.bak 's/^  sha256: 86851e1dede1ac6bdfbfbd1815511d227a22e922f0e76d9ecf7dafeb9d909ae0$/  sha256: abcdef/' \
+sed -i.bak "s/^  sha256: ${canonical_document_hash}$/  sha256: abcdef/" \
   "${short_hash_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
 rm "${short_hash_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
 expect_failure "${short_hash_root}" 'non-64-character manifest hash'
@@ -255,6 +337,20 @@ sed -i.bak 's/^activationGate: VSB-G0 GOVERNANCE_AND_REFERENCE$/activationGate: 
   "${wrong_activation_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
 rm "${wrong_activation_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
 expect_failure "${wrong_activation_root}" 'wrong activation gate'
+
+unquoted_version_root="${test_tmp_root}/unquoted-document-version"
+make_fixture "${unquoted_version_root}"
+sed -i.bak 's/^  version: "1.0"$/  version: 1.0/' \
+  "${unquoted_version_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
+rm "${unquoted_version_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
+expect_failure "${unquoted_version_root}" 'unquoted YAML document version number'
+
+wrong_version_type_root="${test_tmp_root}/wrong-document-version-type"
+make_fixture "${wrong_version_type_root}"
+sed -i.bak 's/^  version: "1.0"$/  version: true/' \
+  "${wrong_version_type_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
+rm "${wrong_version_type_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
+expect_failure "${wrong_version_type_root}" 'wrong YAML document version type'
 
 duplicate_manifest_root="${test_tmp_root}/duplicate-manifest-key"
 make_fixture "${duplicate_manifest_root}"
@@ -272,7 +368,10 @@ unknownAuthority: YES' \
 rm "${unknown_manifest_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml.bak"
 expect_failure "${unknown_manifest_root}" 'unknown manifest top-level key'
 
-for authority in PageArchitectureAuthority InteractionAuthority DashboardLayoutAuthority; do
+for authority in \
+  VisualStyleReferencePageArchitectureAuthority \
+  VisualStyleReferenceInteractionAuthority \
+  VisualStyleReferenceDashboardLayoutAuthority; do
   agents_authority_root="${test_tmp_root}/agents-${authority}"
   make_fixture "${agents_authority_root}"
   sed -i.bak "s/${authority} = NO/${authority} = YES/" "${agents_authority_root}/AGENTS.md"

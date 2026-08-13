@@ -96,6 +96,12 @@ def require_once(text: str, literal: str, label: str) -> None:
         fail(f"{label} must appear exactly once")
 
 
+def require_authority_no(text: str, field: str, label: str) -> None:
+    matches = re.findall(rf"^[ \t]*{re.escape(field)}\s*=.*$", text, flags=re.MULTILINE)
+    if [match.strip() for match in matches] != [f"{field} = NO"]:
+        fail(f"{label} must declare exactly one literal {field} = NO and no conflict")
+
+
 def parse_manifest(path: Path) -> dict[str, object]:
     top_allowed = {
         "manifestVersion",
@@ -139,7 +145,12 @@ def parse_manifest(path: Path) -> dict[str, object]:
             assert isinstance(target, dict)
             if key in target:
                 fail(f"duplicate {current} field: {key}")
-            target[key] = value
+            if current == "document" and key == "version":
+                if value != '"1.0"':
+                    fail('manifest document version must be the quoted YAML string "1.0"')
+                target[key] = value
+            else:
+                target[key] = value
             continue
         match = re.fullmatch(r"([A-Za-z][A-Za-z0-9]*):(.*)", raw)
         if not match:
@@ -213,7 +224,7 @@ image = manifest["referenceImage"]
 assert isinstance(document, dict) and isinstance(image, dict)
 expected_document = {
     "path": "docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md",
-    "version": "1.0",
+    "version": '"1.0"',
     "mediaType": "text/markdown",
 }
 expected_image = {
@@ -282,33 +293,36 @@ authority_literals = [
     "PixelEquivalence = PASS",
     "ConversionTool = Pillow 12.2.0",
     "ConversionOperation = RGB_PNG_OPTIMIZE_FALSE_COMPRESS_LEVEL_6",
-    "PageArchitectureAuthority = NO",
-    "InteractionAuthority = NO",
-    "InformationArchitectureAuthority = NO",
-    "ComponentHierarchyAuthority = NO",
-    "CardQuantityAuthority = NO",
-    "DashboardLayoutAuthority = NO",
 ]
 for literal in authority_literals:
     require_once(document_text, literal, f"formal authority literal {literal}")
+for authority_field in [
+    "PageArchitectureAuthority",
+    "InteractionAuthority",
+    "InformationArchitectureAuthority",
+    "ComponentHierarchyAuthority",
+    "CardQuantityAuthority",
+    "DashboardLayoutAuthority",
+]:
+    require_authority_no(document_text, authority_field, "formal visual reference authority")
 
 colors = {
-    "Canvas": "#F7F9FC",
-    "PrimarySurface": "#FFF",
-    "Secondary": "#FAFBFD",
-    "Tertiary": "#F5F7FA",
+    "CanvasBackground": "#F7F9FC",
+    "PrimarySurface": "#FFFFFF",
+    "SecondarySurface": "#FAFBFD",
+    "TertiarySurface": "#F5F7FA",
     "BorderSubtle": "#E7EAF0",
-    "Default": "#E2E6EC",
-    "Strong": "#D4DAE3",
+    "BorderDefault": "#E2E6EC",
+    "BorderStrong": "#D4DAE3",
     "TextPrimary": "#172033",
     "TextSecondary": "#475467",
-    "Muted": "#667085",
-    "Subtle": "#98A2B3",
-    "Primary": "#4F67E8",
-    "Hover": "#455BDD",
-    "Active": "#3D50C9",
-    "Soft": "#EEF2FF",
-    "Focus": "#7C6CF2",
+    "TextMuted": "#667085",
+    "TextSubtle": "#98A2B3",
+    "PrimaryColor": "#4F67E8",
+    "PrimaryHover": "#455BDD",
+    "PrimaryActive": "#3D50C9",
+    "PrimarySoft": "#EEF2FF",
+    "FocusColor": "#7C6CF2",
     "FocusSoft": "#F3F0FF",
     "Success": "#278C68",
     "SuccessSoft": "#ECF8F3",
@@ -317,30 +331,52 @@ colors = {
     "Danger": "#D64F58",
     "DangerSoft": "#FFF0F1",
     "Information": "#4385E0",
-    "InfoSoft": "#EEF6FF",
+    "InformationSoft": "#EEF6FF",
 }
 for role, value in colors.items():
-    require_once(
-        document_text,
-        f"| {role} | `{value}` | `MEASURED_FROM_REFERENCE_PIXELS` |",
-        f"measured color role {role}",
-    )
+    matches = [line for line in document_text.splitlines() if line.startswith(f"| {role} |")]
+    if len(matches) != 1:
+        fail(f"approved normalized color role {role} must appear exactly once")
+    line = matches[0]
+    if f"`{role} = {value}`" not in line:
+        fail(f"approved normalized color role {role} value mismatch")
+    if "| `MEASURED_FROM_REFERENCE_PIXELS` | `INFERRED` |" not in line:
+        fail(f"{role} must separate measured pixel observation from inferred normalization")
 
 inferred_roles = [
-    "TypefaceIdentity",
-    "TypeScale",
-    "FontWeight",
+    "FontStack",
+    "DisplayPageTitle",
+    "H1ObjectTitle",
+    "H2MajorSection",
+    "H3CognitiveSection",
+    "Body16",
+    "UI14",
+    "Metadata13",
+    "Caption12",
+    "FontWeights",
     "SpacingScale",
+    "SectionSpacingRules",
+    "ReadingWidths",
     "RadiusScale",
-    "ShadowStyle",
-    "IconStyle",
-    "ControlHeight",
-    "Motion",
-    "Density",
-    "Button",
-    "Badge",
-    "Relation",
-    "ReadingSurface",
+    "RadiusUsage",
+    "ShadowXs",
+    "ShadowSm",
+    "ShadowMd",
+    "IconRules",
+    "PrimaryButton",
+    "SecondaryButton",
+    "TertiaryButton",
+    "BadgeRules",
+    "FocusRing",
+    "MotionRules",
+    "DensityRules",
+    "RelationRecognitionPriority",
+    "RelationLine",
+    "RelationFocused",
+    "RelationWeak",
+    "RelationNonFocused",
+    "ReadingSurfaceRules",
+    "VisualHierarchy",
     "CardBudget",
     "SemanticColorBudget",
 ]
@@ -350,6 +386,48 @@ for role in inferred_roles:
     if "| `INFERRED` |" not in line:
         fail(f"{role} must be classified INFERRED")
 
+non_color_contracts = {
+    "FontStack": "Inter, PingFang SC, SF Pro Text, Noto Sans SC, Microsoft YaHei, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+    "DisplayPageTitle": "32px / 40px / 700",
+    "H1ObjectTitle": "28px / 36px / 600",
+    "H2MajorSection": "22px / 30px / 600",
+    "H3CognitiveSection": "18px / 26px / 600",
+    "Body16": "16px / 27px / 400; line-height ratio 1.6875 within 1.65..1.75",
+    "UI14": "14px / 21px / 400 or 500",
+    "Metadata13": "13px / 18px / 400 or 500",
+    "Caption12": "12px / 18px / 400 or 500",
+    "FontWeights": "400,500,600,700 only",
+    "SpacingScale": "4,8,12,16,20,24,32,40,48,64px",
+    "SectionSpacingRules": "icon 6..8; compact 12; component 16; related 24; major 32..40; chapter 48..64px",
+    "ReadingWidths": "ReadingColumn 720..860px; Projection 900..1100px; Application 1280..1440px",
+    "RadiusScale": "6,8,10,12,16,999px",
+    "RadiusUsage": "Input/Button 8; SemanticBox 8..10; Projection 12; Workspace 12..16; Badge pill",
+    "ShadowXs": "0 1px 2px rgb(16 24 40 / 4%)",
+    "ShadowSm": "0 2px 6px rgb(16 24 40 / 5%)",
+    "ShadowMd": "0 6px 18px rgb(16 24 40 / 7%)",
+    "IconRules": "first slice adds no library; future uses one Outline library only; 16/18/20/24px; stroke 1.5..1.75",
+    "PrimaryButton": "primary blue fill; white text; radius 8px; no gradient; no large shadow",
+    "SecondaryButton": "white or transparent; subtle border; dark text",
+    "TertiaryButton": "transparent; no border; text or icon",
+    "BadgeRules": "soft background; semantic text; compact padding; status only; pill",
+    "FocusRing": "2px solid rgb(79 103 232 / 32%); offset 2px",
+    "MotionRules": "120..180ms ease-out; Hover, Focus, Popover, Disclosure, local Relation Expansion only",
+    "DensityRules": "compact controls; calm continuous reading surface",
+    "RelationRecognitionPriority": "Natural Language Statement > Relation Verb > Shape > Direction > Endpoint > Line Style > Color",
+    "RelationLine": "1..1.5px",
+    "RelationFocused": "solid; higher contrast; explicit arrow; visible Relation Verb",
+    "RelationWeak": "dashed; lower contrast",
+    "RelationNonFocused": "reduce detail and contrast",
+    "ReadingSurfaceRules": "white continuous document; no shadow; ReadingColumn 720..860px",
+    "VisualHierarchy": "Whitespace > Typography > Alignment > Divider > Background Band > Semantic Surface > Card",
+    "CardBudget": "semantic boundary only; no nested cards; no same-shape card wall; primary projection <= 1",
+    "SemanticColorBudget": "Primary Blue only high intensity; Purple focus only; Green success; Amber boundary/risk; Red conflict/error; unrelated states neutral",
+}
+for role, expected_contract in non_color_contracts.items():
+    line = next((line for line in document_text.splitlines() if line.startswith(f"| {role} |")), "")
+    if f"`{expected_contract}`" not in line:
+        fail(f"approved non-color contract mismatch for {role}")
+
 for literal in [
     "FormalDesignPriority = FORMAL_DESIGN_OVERRIDES_VISUAL_REFERENCE",
     "ReadingFirst = REQUIRED",
@@ -357,10 +435,25 @@ for literal in [
     "CardWall = FORBIDDEN",
     "DashboardReplication = FORBIDDEN",
     "GenericAISaaSStyling = FORBIDDEN",
-    "PixelMeasuredScope = COLOR_CLUSTER_ONLY",
+    "PixelMeasuredScope = OBSERVED_PIXEL_CLUSTERS_ONLY",
+    "NormalizedTokenConfidence = INFERRED",
     "NonPixelExactClassification = INFERRED",
+    '"PingFang SC"',
+    '"SF Pro Text"',
+    '"Noto Sans SC"',
+    '"Microsoft YaHei"',
+    "SpacingBase = 4px",
+    "RadiusUnifiedLarge = FORBIDDEN",
+    "ReadingSurfaceShadow = NONE",
+    "PopoverShadow = SHADOW_SM_OR_MD_ONLY",
+    "ConditionsResultsFormalProjection = BLOCKED_BY_DOC-GAP-MDR-001",
+    "ConditionsResultsSyntheticInference = FORBIDDEN",
+    "DashboardLikePanorama = FORBIDDEN",
+    "ThemeCardWall = FORBIDDEN",
+    "GenericAISaaSStyling = FORBIDDEN",
 ]:
-    require_once(document_text, literal, f"style boundary {literal}")
+    if literal not in document_text:
+        fail(f"style boundary is missing: {literal}")
 
 hf_text = hf_path.read_text(encoding="utf-8")
 for literal in [
@@ -393,11 +486,14 @@ for literal in [
     "VisualStyleReferenceAuthority = docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md",
     "VisualStyleReferenceManifest = docs/engineering/cognitura-visual-style-baseline-manifest.yaml",
     "VisualStyleReferenceScope = VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY",
-    "PageArchitectureAuthority = NO",
-    "InteractionAuthority = NO",
-    "DashboardLayoutAuthority = NO",
 ]:
     require_once(agents_text, literal, f"AGENTS authority boundary {literal}")
+for authority_field in [
+    "VisualStyleReferencePageArchitectureAuthority",
+    "VisualStyleReferenceInteractionAuthority",
+    "VisualStyleReferenceDashboardLayoutAuthority",
+]:
+    require_authority_no(agents_text, authority_field, "AGENTS visual reference authority")
 
 print("CanonicalProjectName=Cognitura")
 print("SourceMediaType=image/jpeg")
@@ -414,6 +510,11 @@ print("PageArchitectureAuthority=NO")
 print("InteractionAuthority=NO")
 print("DashboardLayoutAuthority=NO")
 print("ManifestPath=docs/engineering/cognitura-visual-style-baseline-manifest.yaml")
+print('ManifestDocumentVersion="1.0"')
+print(f"NormalizedColorRoleCount={len(colors)}")
+print("NormalizedColorConfidence=INFERRED")
+print("NonColorVisualContract=PASS")
+print("ConditionsResultsProjection=BLOCKED_BY_DOC-GAP-MDR-001")
 print("PixelEquivalence=PASS" if source is not None else "PixelEquivalence=MANIFEST_VERIFIED")
 print("VisualStyleBaselineReferenceVerification=PASS")
 PY

@@ -2,10 +2,10 @@ manifestVersion: 1
 canonicalProjectName: Cognitura
 document:
   path: docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md
-  version: 1.0
+  version: "1.0"
   mediaType: text/markdown
-  sizeBytes: 11065
-  sha256: 86851e1dede1ac6bdfbfbd1815511d227a22e922f0e76d9ecf7dafeb9d909ae0
+  sizeBytes: 16239
+  sha256: 890c69df2948428c3b8fd640671c20ae4baffe4ad4b761594e9d4190253e690a
 referenceImage:
   path: docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png
   mediaType: image/png

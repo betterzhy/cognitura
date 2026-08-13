@@ -124,9 +124,9 @@ work；只有账本记录治理 bootstrap 固定提交零发现 GO 和集合级�
    VisualStyleReferenceAuthority = docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md
    VisualStyleReferenceManifest = docs/engineering/cognitura-visual-style-baseline-manifest.yaml
    VisualStyleReferenceScope = VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY
-   PageArchitectureAuthority = NO
-   InteractionAuthority = NO
-   DashboardLayoutAuthority = NO
+   VisualStyleReferencePageArchitectureAuthority = NO
+   VisualStyleReferenceInteractionAuthority = NO
+   VisualStyleReferenceDashboardLayoutAuthority = NO
    ```
 4. `raw/` 下三份 Golden Case 原始 DOCX。
 5. `docs/engineering/` 下的工程索引、计划和准入记录；这些文件解释落地状态，不覆盖正式设计。
