@@ -4,6 +4,10 @@ set -euo pipefail
 
 repair_contract_only=0
 model_gate_routing_contract_only=0
+fixed_bootstrap_contract_only=0
+current_pending_contract_only=0
+governance_repair_pending_contract_only=0
+historical_failed_receipt_contract_only=0
 case "${1:-}" in
   --repair-contract-only)
     repair_contract_only=1
@@ -11,6 +15,29 @@ case "${1:-}" in
     ;;
   --model-gate-routing-contract-only)
     model_gate_routing_contract_only=1
+    shift
+    ;;
+  --receipt-correction-contract-only)
+    # The receipt-correction fixtures reuse the route-card Git fixture and its
+    # public-entry assertions, so this focused entry intentionally runs the
+    # combined model-routing contract rather than maintaining a second setup.
+    model_gate_routing_contract_only=1
+    shift
+    ;;
+  --fixed-bootstrap-contract-only)
+    fixed_bootstrap_contract_only=1
+    shift
+    ;;
+  --current-pending-contract-only)
+    current_pending_contract_only=1
+    shift
+    ;;
+  --governance-repair-pending-contract-only)
+    governance_repair_pending_contract_only=1
+    shift
+    ;;
+  --historical-failed-receipt-contract-only)
+    historical_failed_receipt_contract_only=1
     shift
     ;;
 esac
@@ -22,6 +49,7 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-visual-style-baseline-cards"
 cards_dir="${repo_root}/docs/task-cards/visual-style-baseline"
+historical_governance_repair_candidate_sha="e971e50dda2dce177853a8aa33338ee9117e12a4"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-cards.XXXXXX")"
 
 cleanup() {
@@ -100,6 +128,38 @@ replace_exact_block() {
   [[ "${suffix}" != *"${old_text}"* ]] || fail "${label}: source block is duplicated"
   rewritten="${prefix}${new_text}${suffix}"
   printf '%s' "${rewritten%$'\034'}" > "${file}"
+}
+
+materialize_fixed_governance_repair_path() {
+  local fixture_root="$1"
+  local repair_path="$2"
+  local repair_mode
+  mkdir -p "${fixture_root}/$(dirname "${repair_path}")"
+  git -C "${fixture_root}" show \
+    "${historical_governance_repair_candidate_sha}:${repair_path}" > \
+    "${fixture_root}/${repair_path}"
+  repair_mode="$(git -C "${fixture_root}" ls-tree \
+    "${historical_governance_repair_candidate_sha}" -- \
+    "${repair_path}" | awk '{print $1}')"
+  case "${repair_mode}" in
+    100644) chmod 644 "${fixture_root}/${repair_path}" ;;
+    100755) chmod 755 "${fixture_root}/${repair_path}" ;;
+    *) fail "unsupported fixed governance repair mode for ${repair_path}: ${repair_mode}" ;;
+  esac
+}
+
+commit_fixed_governance_repair_subset() {
+  local fixture_root="$1"
+  local subject="$2"
+  shift 2
+  local repair_path
+  for repair_path in "$@"; do
+    materialize_fixed_governance_repair_path \
+      "${fixture_root}" "${repair_path}"
+  done
+  git -C "${fixture_root}" add -- "$@"
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
 }
 
 suspension_narrative_paths=(
@@ -582,6 +642,143 @@ mutate_receipt_correction_chain() {
   esac
 }
 
+model_route_vsb02_write_set() {
+  printf '%s\n' \
+    web/src/modules/module-reading/ModuleDefaultReading.tsx \
+    web/src/modules/module-reading/ModuleDefaultReading.test.tsx \
+    web/src/modules/module-reading/ModuleNarrative.tsx \
+    web/src/modules/module-reading/ModuleNarrative.test.tsx \
+    web/src/modules/module-reading/StageChainProjection.tsx \
+    web/src/modules/module-reading/StageChainProjection.test.tsx \
+    web/src/modules/module-reading/ModuleClosure.tsx \
+    web/src/modules/module-reading/ModuleClosure.test.tsx \
+    web/src/modules/module-reading/KeyRelations.tsx \
+    web/src/modules/module-reading/KeyRelations.test.tsx \
+    web/src/modules/module-reading/SourceEntry.tsx \
+    web/src/modules/module-reading/SourceEntry.test.tsx \
+    web/src/modules/module-reading/module-default-reading.css \
+    web/vite.config.mjs \
+    web/visual-reference.html \
+    web/src/visual-reference/main.tsx \
+    web/src/visual-reference/VisualReference.tsx \
+    web/src/visual-reference/VisualReference.test.tsx \
+    web/src/visual-reference/module-default-reading.fixture.ts \
+    web/src/visual-reference/visual-reference.css
+}
+
+model_route_vsb03_write_set() {
+  printf '%s\n' \
+    scripts/capture-visual-style-baseline \
+    scripts/verify-visual-style-baseline \
+    tests/visual-style-baseline/browser-probe.html \
+    tests/visual-style-baseline/browser-runtime-guard.js \
+    tests/visual-style-baseline/reference-comparison.html \
+    tests/visual-style-baseline/verify-visual-style-baseline.sh \
+    docs/design/visual-style-baseline/evidence/README.md \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1440x1100.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1280x960.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1024x900.png \
+    docs/design/visual-style-baseline/evidence/reference-comparison.png \
+    docs/engineering/cognitura-visual-style-baseline-acceptance.md
+}
+
+commit_model_route_owner_candidate() {
+  local fixture_root="$1"
+  local subject="$2"
+  local write_set_function="$3"
+  local owner_path
+  while IFS= read -r owner_path; do
+    mkdir -p "${fixture_root}/$(dirname "${owner_path}")"
+    if [[ -f "${fixture_root}/${owner_path}" ]]; then
+      printf '\nmodel-route-owner-fixture:%s\n' "${owner_path}" >> \
+        "${fixture_root}/${owner_path}"
+    else
+      printf 'model-route-owner-fixture:%s\n' "${owner_path}" > \
+        "${fixture_root}/${owner_path}"
+    fi
+    case "${owner_path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh)
+        chmod +x "${fixture_root}/${owner_path}"
+        ;;
+    esac
+    git -C "${fixture_root}" add -- "${owner_path}"
+  done < <("${write_set_function}")
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+set_vsb02_advance_receipt() {
+  local fixture_state="$1"
+  local candidate_sha="$2"
+  set_field "${fixture_state}" ActiveTaskCard VSB-03
+  set_field "${fixture_state}" ReleasedTaskCard VSB-03
+  set_field "${fixture_state}" CompletedTaskCards VSB-00,VSB-01,VSB-02
+  set_field "${fixture_state}" CurrentCandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" CurrentGateStatus VSB-G2_PASS
+  set_field "${fixture_state}" CurrentReviewRoute deep_reviewer
+  set_field "${fixture_state}" CurrentReviewVerdict GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" VSB02CandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" VSB02GateStatus VSB-G2_PASS
+  set_field "${fixture_state}" VSB02ReviewRoute deep_reviewer
+  set_field "${fixture_state}" VSB02ReviewVerdict GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" NextTaskCard NONE
+  set_field "${fixture_state}" TransitionSequence 6
+  set_field "${fixture_state}" TransitionKind ADVANCE
+  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
+}
+
+set_vsb03_complete_receipt() {
+  local fixture_state="$1"
+  local candidate_sha="$2"
+  local route="$3"
+  local deep_verdict="$4"
+  local ultra_verdict="$5"
+  set_field "${fixture_state}" TaskCardSetStatus COMPLETE
+  set_field "${fixture_state}" ActiveTaskCard NONE
+  set_field "${fixture_state}" ReleasedTaskCard NONE
+  set_field "${fixture_state}" CompletedTaskCards VSB-00,VSB-01,VSB-02,VSB-03
+  set_field "${fixture_state}" CurrentCandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" CurrentGateStatus VSB-G3_PASS
+  set_field "${fixture_state}" CurrentReviewRoute "${route}"
+  set_field "${fixture_state}" CurrentReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" VSB03CandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" VSB03GateStatus VSB-G3_PASS
+  set_field "${fixture_state}" VSB03ReviewRoute "${route}"
+  set_field "${fixture_state}" VSB03DeepReviewVerdict "${deep_verdict}"
+  set_field "${fixture_state}" VSB03UltraReviewVerdict "${ultra_verdict}"
+  set_field "${fixture_state}" NextTaskCard NONE
+  set_field "${fixture_state}" TransitionSequence 7
+  set_field "${fixture_state}" TransitionKind COMPLETE
+  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
+  set_field "${fixture_state}" VisualImplementation COMPLETE
+}
+
+set_vsb03_final_no_go_receipt() {
+  local fixture_state="$1"
+  local candidate_sha="$2"
+  local route="$3"
+  local deep_verdict="$4"
+  local ultra_verdict="$5"
+  set_field "${fixture_state}" TaskCardSetStatus FINAL_NO_GO
+  set_field "${fixture_state}" ActiveTaskCard NONE
+  set_field "${fixture_state}" ReleasedTaskCard NONE
+  set_field "${fixture_state}" CompletedTaskCards VSB-00,VSB-01,VSB-02
+  set_field "${fixture_state}" CurrentCandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" CurrentGateStatus FAIL
+  set_field "${fixture_state}" CurrentReviewRoute "${route}"
+  set_field "${fixture_state}" CurrentReviewVerdict "${deep_verdict}"
+  set_field "${fixture_state}" VSB03CandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" VSB03GateStatus FAIL
+  set_field "${fixture_state}" VSB03ReviewRoute "${route}"
+  set_field "${fixture_state}" VSB03DeepReviewVerdict "${deep_verdict}"
+  set_field "${fixture_state}" VSB03UltraReviewVerdict "${ultra_verdict}"
+  set_field "${fixture_state}" NextTaskCard NONE
+  set_field "${fixture_state}" TransitionSequence 7
+  set_field "${fixture_state}" TransitionKind FINAL_NO_GO
+  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
+  set_field "${fixture_state}" VisualImplementation FINAL_NO_GO
+}
+
 run_model_gate_routing_contract() {
   local correction_origin_sha="0ff410961b0f3865652e54ae46453646ed87f69e"
   local correction_spec_sha="dc4a105bbe95b1b07fa0e734cec1148eab15279c"
@@ -968,6 +1165,41 @@ EOF
     fail "Authority swap negative did not preserve a clean sibling TMPDIR"
   route_card_negative_cases=$((route_card_negative_cases + 1))
 
+  # Current model-route ancestry cannot fall back to the legacy card schema
+  # when all three route surfaces are copied back to their pre-migration blobs.
+  local ancestry_legacy_root ancestry_legacy_cards ancestry_legacy_output
+  local ancestry_legacy_rc ancestry_legacy_path
+  ancestry_legacy_root="${test_tmp_root}/current-ancestry-legacy-cards"
+  git clone --shared -q "${repo_root}" "${ancestry_legacy_root}"
+  git -C "${ancestry_legacy_root}" checkout -q --detach HEAD
+  for ancestry_legacy_path in \
+    docs/task-cards/visual-style-baseline/README.md \
+    docs/task-cards/visual-style-baseline/VSB-02-module-default-reading-visual.md \
+    docs/task-cards/visual-style-baseline/VSB-03-fixed-visual-acceptance.md; do
+    git -C "${ancestry_legacy_root}" show \
+      "${model_route_plan_sha}:${ancestry_legacy_path}" > \
+      "${ancestry_legacy_root}/${ancestry_legacy_path}"
+  done
+  git -C "${ancestry_legacy_root}" show \
+    "${reviewed_vsb01_sha}:${ledger_path}" > \
+    "${ancestry_legacy_root}/${ledger_path}"
+  ancestry_legacy_cards="${ancestry_legacy_root}/docs/task-cards/visual-style-baseline"
+  if ancestry_legacy_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${ancestry_legacy_root}" \
+    --cards-dir "${ancestry_legacy_cards}" 2>&1)"; then
+    ancestry_legacy_rc=0
+  else
+    ancestry_legacy_rc=$?
+  fi
+  [[ "${ancestry_legacy_rc}" -ne 0 ]] ||
+    fail "current model-route ancestry with legacy route cards unexpectedly passed"
+  assert_contains "${ancestry_legacy_output}" \
+    "README.md: ModelGateRouting must occur exactly once"
+  assert_model_route_tmp_clean \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "current ancestry legacy-card fallback"
+  route_card_negative_cases=$((route_card_negative_cases + 1))
+
   historical_route_cards="${test_tmp_root}/model-route-historical-rewrite"
   cp -R "${fixture_cards}" "${historical_route_cards}"
   sed -i.bak \
@@ -1099,6 +1331,146 @@ EOF
   assert_contains "${model_route_public_output}" \
     "ReceiptCorrectionStatus = PASS"
   correction_positive_cases=$((correction_positive_cases + 1))
+
+  # Static replay must audit every first-parent step, not only compare R2 with
+  # the final HEAD.  Mutating the correction block and restoring it later is
+  # still a permanent governance violation.
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_receipt_sha}"
+  set_field "${correction_fixture_state}" ReceiptCorrectionReviewEffort high
+  local intermediate_correction_mutation intermediate_correction_restore
+  intermediate_correction_mutation="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: mutate correction block in intermediate history")"
+  git -C "${correction_fixture_root}" checkout -q \
+    "${correction_receipt_sha}" -- "${ledger_path}"
+  intermediate_correction_restore="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: restore correction block after intermediate mutation")"
+  expect_model_route_static_failure "${correction_fixture_root}" \
+    "${correction_fixture_cards}" \
+    "post-R2 history must preserve the exact canonical ReceiptCorrection block at every commit" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "intermediate correction-block mutation restored at final HEAD"
+
+  # Build the real post-R2 Owner chain through sequence 6 and sequence 7.
+  # This exercises current VSB-03 single-L4 completion through both public
+  # explicit-transition and static entrypoints.
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_receipt_sha}"
+  local current_vsb02_candidate current_vsb02_advance
+  local current_vsb03_candidate current_vsb03_complete
+  current_vsb02_candidate="$(commit_model_route_owner_candidate \
+    "${correction_fixture_root}" \
+    "test: build exact current VSB-02 candidate" \
+    model_route_vsb02_write_set)"
+  set_vsb02_advance_receipt \
+    "${correction_fixture_state}" "${current_vsb02_candidate}"
+  current_vsb02_advance="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: advance current VSB-02 at sequence 6")"
+  run_model_route_transition "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${current_vsb02_candidate}" \
+    "${current_vsb02_advance}" "${invocation_tmp}" \
+    "${invocation_marker}" "current VSB-02 sequence-6 advance fixture"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "current VSB-02 sequence-6 advance fixture was rejected: ${model_route_public_output}"
+
+  current_vsb03_candidate="$(commit_model_route_owner_candidate \
+    "${correction_fixture_root}" \
+    "test: build exact current VSB-03 candidate" \
+    model_route_vsb03_write_set)"
+  set_vsb03_complete_receipt "${correction_fixture_state}" \
+    "${current_vsb03_candidate}" deep_reviewer \
+    FINAL_GO_P0_0_P1_0_P2_0 NOT_RUN
+  current_vsb03_complete="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: complete current VSB-03 with one L4 xhigh gate")"
+  run_model_route_transition "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${current_vsb03_candidate}" \
+    "${current_vsb03_complete}" "${invocation_tmp}" \
+    "${invocation_marker}" "current VSB-03 single-gate COMPLETE explicit positive"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "current VSB-03 single-gate COMPLETE explicit transition was rejected: ${model_route_public_output}"
+  correction_positive_cases=$((correction_positive_cases + 1))
+  run_model_route_static "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${invocation_tmp}" \
+    "${invocation_marker}" "current VSB-03 single-gate COMPLETE static positive"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "current VSB-03 single-gate COMPLETE static state was rejected: ${model_route_public_output}"
+  correction_positive_cases=$((correction_positive_cases + 1))
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${current_vsb03_candidate}"
+  set_vsb03_complete_receipt "${correction_fixture_state}" \
+    "${current_vsb03_candidate}" deep_reviewer+ultra_gatekeeper \
+    GO_P0_0_P1_0_P2_0 FINAL_GO_P0_0_P1_0_P2_0
+  local stacked_vsb03_complete
+  stacked_vsb03_complete="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: reject historical stacked VSB-03 completion")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${current_vsb03_candidate}" "${stacked_vsb03_complete}" \
+    "current VSB-03 completion must use one deep_reviewer xhigh final gate" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "historical stacked current VSB-03 completion"
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${current_vsb03_candidate}"
+  set_vsb03_complete_receipt "${correction_fixture_state}" \
+    "${current_vsb03_candidate}" deep_reviewer \
+    FINAL_GO_P0_0_P1_0_P2_0 FINAL_GO_P0_0_P1_0_P2_0
+  local ultra_vsb03_complete
+  ultra_vsb03_complete="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: reject executed Ultra in current VSB-03 completion")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${current_vsb03_candidate}" "${ultra_vsb03_complete}" \
+    "current VSB-03 completion must leave Ultra verdict NOT_RUN" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "Ultra verdict executed in current VSB-03 completion"
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${current_vsb03_candidate}"
+  local current_final_finding="FINDING_P0_0_P1_1_P2_0"
+  set_vsb03_final_no_go_receipt "${correction_fixture_state}" \
+    "${current_vsb03_candidate}" deep_reviewer \
+    "${current_final_finding}" NOT_RUN
+  local current_vsb03_final_no_go
+  current_vsb03_final_no_go="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: close current VSB-03 with one final finding gate")"
+  run_model_route_transition "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${current_vsb03_candidate}" \
+    "${current_vsb03_final_no_go}" "${invocation_tmp}" \
+    "${invocation_marker}" "current VSB-03 single-gate FINAL_NO_GO explicit positive"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "current VSB-03 single-gate FINAL_NO_GO explicit transition was rejected: ${model_route_public_output}"
+  correction_positive_cases=$((correction_positive_cases + 1))
+  run_model_route_static "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${invocation_tmp}" \
+    "${invocation_marker}" "current VSB-03 single-gate FINAL_NO_GO static positive"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "current VSB-03 single-gate FINAL_NO_GO static state was rejected: ${model_route_public_output}"
+  correction_positive_cases=$((correction_positive_cases + 1))
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${current_vsb03_candidate}"
+  set_vsb03_final_no_go_receipt "${correction_fixture_state}" \
+    "${current_vsb03_candidate}" deep_reviewer+ultra_gatekeeper \
+    "${current_final_finding}" FINAL_GO_P0_0_P1_0_P2_0
+  local stacked_vsb03_final_no_go
+  stacked_vsb03_final_no_go="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: reject stacked current VSB-03 FINAL_NO_GO")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${current_vsb03_candidate}" "${stacked_vsb03_final_no_go}" \
+    "current VSB-03 completion must use one deep_reviewer xhigh final gate" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "stacked current VSB-03 FINAL_NO_GO"
 
   # A minimal later ordinary transition proves version-3 replay preserves the
   # correction fields without duplicating the separate Owner-chain suite.
@@ -1614,10 +1986,44 @@ EOF
     "${invocation_tmp}" "${invocation_marker}" \
     "post-R2 correction-field mutation"
 
-  [[ "${correction_positive_cases}" -eq 4 ]] ||
-    fail "Cycle B positive matrix count drifted from 4"
-  [[ "${receipt_correction_negative_cases}" -eq 72 ]] ||
-    fail "Cycle B negative matrix count drifted from 72"
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_receipt_sha}"
+  set_legal_stop_by_user \
+    "${correction_fixture_state}" "${correction_receipt_sha}"
+  insert_field_after "${correction_fixture_state}" ReceiptCorrectionStatus \
+    ReceiptCorrectionUnknownField FORBIDDEN
+  local extra_correction_prefix_receipt
+  extra_correction_prefix_receipt="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: add unknown correction prefix after R2")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_receipt_sha}" "${extra_correction_prefix_receipt}" \
+    "ordinary version-3 transition requires the exact canonical ReceiptCorrection block" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "post-R2 unknown correction-prefix field"
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_receipt_sha}"
+  set_legal_stop_by_user \
+    "${correction_fixture_state}" "${correction_receipt_sha}"
+  mutate_exact_receipt_correction_ledger \
+    "${correction_fixture_state}" reorder
+  local reordered_correction_block_receipt
+  reordered_correction_block_receipt="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: reorder correction block after R2")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_receipt_sha}" "${reordered_correction_block_receipt}" \
+    "ordinary version-3 transition requires the exact canonical ReceiptCorrection block" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "post-R2 reordered correction block"
+
+  [[ "${correction_positive_cases}" -eq 8 ]] ||
+    fail "Cycle B positive matrix count drifted from 8"
+  [[ "${receipt_correction_negative_cases}" -eq 78 ]] ||
+    fail "Cycle B negative matrix count drifted from 78"
   printf '%s\n' \
     "ReceiptCorrectionContractTests = PASS" \
     "ReceiptCorrectionPositiveCases = ${correction_positive_cases}" \
@@ -1635,15 +2041,85 @@ if [[ "${model_gate_routing_contract_only}" -eq 1 ]]; then
   exit 0
 fi
 
+if [[ "${current_pending_contract_only}" -eq 1 ]]; then
+  [[ -x "${verifier}" ]] ||
+    fail "Visual Style Baseline task-card verifier is missing or not executable"
+  [[ -d "${cards_dir}" ]] ||
+    fail "Visual Style Baseline task-card set is missing"
+  current_pending_output="$(
+    "${verifier}" --repo-root "${repo_root}" --cards-dir "${cards_dir}"
+  )" || fail "current receipt-correction candidate was rejected"
+  assert_contains "${current_pending_output}" \
+    "VisualStyleBaselineTaskCardValidation = PASS"
+  assert_contains "${current_pending_output}" \
+    "ReceiptCorrectionStatus = PENDING"
+  printf '%s\n' 'CurrentReceiptCorrectionPendingContract = PASS'
+  exit 0
+fi
+
+if [[ "${governance_repair_pending_contract_only}" -eq 1 ]]; then
+  pending_repair_root="${test_tmp_root}/pending-governance-repair"
+  git clone --shared -q "${repo_root}" "${pending_repair_root}"
+  git -C "${pending_repair_root}" checkout -q --detach \
+    2123594540c91341c480f504949315a6abec316c
+  commit_fixed_governance_repair_subset \
+    "${pending_repair_root}" "test: governance repair authority" \
+    docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md >/dev/null
+  commit_fixed_governance_repair_subset \
+    "${pending_repair_root}" "test: governance repair contracts" \
+    docs/task-cards/visual-style-baseline/README.md \
+    scripts/verify-visual-style-baseline-cards \
+    tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
+  if pending_repair_output="$(
+    "${verifier}" --repo-root "${pending_repair_root}" \
+      --cards-dir \
+        "${pending_repair_root}/docs/task-cards/visual-style-baseline" 2>&1
+  )"; then
+    pending_repair_rc=0
+  else
+    pending_repair_rc=$?
+  fi
+  [[ "${pending_repair_rc}" -eq 0 ]] ||
+    fail "valid pending governance repair candidate was rejected: ${pending_repair_output}"
+  assert_contains "${pending_repair_output}" \
+    "VisualStyleBaselineTaskCardValidation = PASS"
+  assert_contains "${pending_repair_output}" \
+    "GovernanceRepairStatus = PENDING"
+  printf '%s\n' 'HistoricalGovernanceRepairPendingContract = PASS'
+  exit 0
+fi
+
+if [[ "${historical_failed_receipt_contract_only}" -eq 1 ]]; then
+  historical_failed_repo_root="${test_tmp_root}/historical-failed-receipt"
+  git clone --shared -q "${repo_root}" "${historical_failed_repo_root}"
+  git -C "${historical_failed_repo_root}" checkout -q --detach \
+    d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a
+  if historical_failed_receipt_output="$("${verifier}" \
+    --repo-root "${historical_failed_repo_root}" \
+    --cards-dir \
+      "${historical_failed_repo_root}/docs/task-cards/visual-style-baseline" \
+    --transition-base 737c053483d1f3d084d5f90d5c36f76b0ae8f5a3 \
+    --transition-head d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a 2>&1
+  )"; then
+    fail "fixed failed VSB receipt unexpectedly passed as ordinary ADVANCE"
+  fi
+  assert_contains "${historical_failed_receipt_output}" \
+    "fixed governance repair origin is not a valid ordinary VSB receipt"
+  printf '%s\n' 'HistoricalFailedReceiptContract = PASS'
+  exit 0
+fi
+
 fixed_lifecycle_fixture_sha="c4d1f4342b16d2110369c4eefea5665edce0614d"
 git -C "${repo_root}" cat-file -e \
   "${fixed_lifecycle_fixture_sha}^{commit}" 2>/dev/null ||
   fail "fixed lifecycle fixture commit is unavailable: ${fixed_lifecycle_fixture_sha}"
 
+main_repo_root="${repo_root}"
 fixed_bootstrap_root="${test_tmp_root}/fixed-bootstrap"
-mkdir -p "${fixed_bootstrap_root}"
-git -C "${repo_root}" archive "${fixed_lifecycle_fixture_sha}" \
-  docs/task-cards/visual-style-baseline | tar -x -C "${fixed_bootstrap_root}"
+git clone --shared -q "${main_repo_root}" "${fixed_bootstrap_root}"
+git -C "${fixed_bootstrap_root}" checkout -q --detach \
+  "${fixed_lifecycle_fixture_sha}"
+repo_root="${fixed_bootstrap_root}"
 bootstrap_cards_dir="${fixed_bootstrap_root}/docs/task-cards/visual-style-baseline"
 
 fixed_wave1_projection_paths=(
@@ -1718,16 +2194,22 @@ validation_output="$(
 )" || fail "canonical Visual Style Baseline state was rejected"
 assert_contains "${validation_output}" "VisualStyleBaselineTaskCardValidation = PASS"
 assert_contains "${validation_output}" "TaskCardCount = 4"
+if [[ "${fixed_bootstrap_contract_only}" -eq 1 ]]; then
+  printf '%s\n' \
+    'FixedBootstrapHistoricalRepositoryContract = PASS' \
+    "FixedBootstrapSHA = ${fixed_lifecycle_fixture_sha}"
+  exit 0
+fi
 
-# At the real governance candidate G, static validation must distinguish the
-# approved pending repair from an ordinary receipt without mutating the ledger.
-current_governance_repair_output="$(
-  "${verifier}" --repo-root "${repo_root}" --cards-dir "${cards_dir}"
-)" || fail "current governance repair candidate was rejected"
-assert_contains "${current_governance_repair_output}" \
+# At the real correction candidate G2, static validation must distinguish the
+# approved pending correction from an ordinary receipt without mutating the ledger.
+current_receipt_correction_output="$(
+  "${verifier}" --repo-root "${main_repo_root}" --cards-dir "${cards_dir}"
+)" || fail "current receipt-correction candidate was rejected"
+assert_contains "${current_receipt_correction_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
-assert_contains "${current_governance_repair_output}" \
-  "GovernanceRepairStatus = PENDING"
+assert_contains "${current_receipt_correction_output}" \
+  "ReceiptCorrectionStatus = PENDING"
 
 missing_state_dir="${test_tmp_root}/missing-state"
 cp -R "${bootstrap_cards_dir}" "${missing_state_dir}"
@@ -1872,6 +2354,8 @@ wave1_projection_output="$(
 assert_contains "${wave1_projection_output}" "VSB in progress requires exact W1-I03 suspension"
 negative_cases=$((negative_cases + 1))
 fi
+
+repo_root="${main_repo_root}"
 
 # Real Git state transitions: candidate commits may contain business files, but
 # every release/rollback/complete receipt is a direct child that changes only
@@ -2091,20 +2575,6 @@ commit_governance_repair_subset() {
       printf 'repair-marker=%s\n' "${subject}" > \
         "${fixture_root}/${repair_path}"
     fi
-  done
-  git -C "${fixture_root}" add -- "$@"
-  git -C "${fixture_root}" commit -qm "${subject}"
-  git -C "${fixture_root}" rev-parse HEAD
-}
-
-commit_current_governance_repair_subset() {
-  local fixture_root="$1"
-  local subject="$2"
-  shift 2
-  local repair_path
-  for repair_path in "$@"; do
-    mkdir -p "${fixture_root}/$(dirname "${repair_path}")"
-    cp -p "${repo_root}/${repair_path}" "${fixture_root}/${repair_path}"
   done
   git -C "${fixture_root}" add -- "$@"
   git -C "${fixture_root}" commit -qm "${subject}"
@@ -2577,10 +3047,10 @@ git -C "${repair_repo_root}" checkout -q --detach \
 repair_cards="${repair_repo_root}/docs/task-cards/visual-style-baseline"
 repair_state="${repair_cards}/execution-state.md"
 
-repair_round_one_sha="$(commit_current_governance_repair_subset \
+repair_round_one_sha="$(commit_fixed_governance_repair_subset \
   "${repair_repo_root}" "test: governance repair authority" \
   docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md)"
-repair_candidate_sha="$(commit_current_governance_repair_subset \
+repair_candidate_sha="$(commit_fixed_governance_repair_subset \
   "${repair_repo_root}" "test: governance repair contracts" \
   docs/task-cards/visual-style-baseline/README.md \
   scripts/verify-visual-style-baseline-cards \
@@ -2610,7 +3080,7 @@ governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
 # Copying the approved final tree is insufficient: the fixed approved spec
 # commit must be in G's ancestry, and its approved spec blob must remain exact.
 git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
-commit_current_governance_repair_subset "${repair_repo_root}" \
+commit_fixed_governance_repair_subset "${repair_repo_root}" \
   "test: copy final repair tree without approved spec ancestry" \
   docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
   docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
@@ -2637,7 +3107,7 @@ git -C "${repair_repo_root}" add \
   docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
 git -C "${repair_repo_root}" commit -qm \
   "test: drift approved governance repair spec"
-commit_current_governance_repair_subset "${repair_repo_root}" \
+commit_fixed_governance_repair_subset "${repair_repo_root}" \
   "test: finish repair after approved spec drift" \
   docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
   docs/task-cards/visual-style-baseline/README.md \
@@ -2772,7 +3242,7 @@ git -C "${repair_repo_root}" rm -q -- \
   docs/task-cards/visual-style-baseline/README.md
 git -C "${repair_repo_root}" commit -qm \
   "test: delete repair README before same-mode recreation"
-commit_current_governance_repair_subset "${repair_repo_root}" \
+commit_fixed_governance_repair_subset "${repair_repo_root}" \
   "test: recreate repair README with canonical mode" \
   "${repair_paths[@]}" >/dev/null
 repair_same_mode_candidate="$(git -C "${repair_repo_root}" rev-parse HEAD)"
@@ -2788,8 +3258,8 @@ git -C "${repair_repo_root}" rm -q -- \
 git -C "${repair_repo_root}" commit -qm \
   "test: delete repair README before mode drift"
 for repair_path in "${repair_paths[@]}"; do
-  mkdir -p "${repair_repo_root}/$(dirname "${repair_path}")"
-  cp -p "${repo_root}/${repair_path}" "${repair_repo_root}/${repair_path}"
+  materialize_fixed_governance_repair_path \
+    "${repair_repo_root}" "${repair_path}"
 done
 chmod +x "${repair_repo_root}/docs/task-cards/visual-style-baseline/README.md"
 git -C "${repair_repo_root}" add -- "${repair_paths[@]}"
@@ -2808,7 +3278,7 @@ git -C "${repair_repo_root}" mv -f -- \
   docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
 git -C "${repair_repo_root}" commit -qm \
   "test: rename one repair path onto another"
-commit_current_governance_repair_subset "${repair_repo_root}" \
+commit_fixed_governance_repair_subset "${repair_repo_root}" \
   "test: restore renamed repair paths" "${repair_paths[@]}" >/dev/null
 expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain must not rename or copy paths" \
@@ -2826,7 +3296,7 @@ git -C "${repair_repo_root}" add \
   docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
 git -C "${repair_repo_root}" commit -qm \
   "test: copy one repair path onto another"
-commit_current_governance_repair_subset "${repair_repo_root}" \
+commit_fixed_governance_repair_subset "${repair_repo_root}" \
   "test: restore copied repair paths" "${repair_paths[@]}" >/dev/null
 expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain must not rename or copy paths" \
@@ -2865,7 +3335,7 @@ fi
 grep -q 'exhaustive rename detection was skipped' \
   "${repair_low_limit_error}" ||
   fail "low-limit repair rename fixture emitted no degradation warning"
-commit_current_governance_repair_subset "${repair_repo_root}" \
+commit_fixed_governance_repair_subset "${repair_repo_root}" \
   "test: restore low-limit repair renames" "${repair_paths[@]}" >/dev/null
 expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain must not rename or copy paths" \
@@ -3472,15 +3942,13 @@ expect_transition_failure "${invalid_nearest_tip}" "${invalid_nearest_head}" \
   "candidate chain must start at the nearest valid Owner release receipt" \
   "candidate selection skipping the nearest claimed Owner receipt"
 
-fixed_failed_receipt_cards="${test_tmp_root}/fixed-failed-receipt-cards"
-mkdir -p "${fixed_failed_receipt_cards}"
-git -C "${repo_root}" archive \
-  d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a \
-  docs/task-cards/visual-style-baseline | \
-  tar -x -C "${fixed_failed_receipt_cards}"
+fixed_failed_receipt_repo="${test_tmp_root}/fixed-failed-receipt-repo"
+git clone --shared -q "${repo_root}" "${fixed_failed_receipt_repo}"
+git -C "${fixed_failed_receipt_repo}" checkout -q --detach \
+  d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a
 if fixed_failed_receipt_output="$("${verifier}" \
-  --repo-root "${repo_root}" \
-  --cards-dir "${fixed_failed_receipt_cards}/docs/task-cards/visual-style-baseline" \
+  --repo-root "${fixed_failed_receipt_repo}" \
+  --cards-dir "${fixed_failed_receipt_repo}/docs/task-cards/visual-style-baseline" \
   --transition-base 737c053483d1f3d084d5f90d5c36f76b0ae8f5a3 \
   --transition-head d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a 2>&1)"; then
   fail "fixed failed VSB receipt unexpectedly passed as ordinary ADVANCE"

@@ -14,7 +14,12 @@ governance_repair_spec_sha="2123594540c91341c480f504949315a6abec316c"
 governance_repair_vsb00_candidate_sha="737c053483d1f3d084d5f90d5c36f76b0ae8f5a3"
 model_route_design_sha="1199e76a18db1d168c67c328ce7f195f3cdac7d9"
 model_route_plan_sha="fac5f50c6a3f1afb743f95f40ac6b7f5e4e888e1"
+receipt_correction_spec_sha="dc4a105bbe95b1b07fa0e734cec1148eab15279c"
+receipt_correction_plan_sha="f4bd848186a4a4d2d771d0d031340483bfa5de9b"
+receipt_correction_origin_sha="0ff410961b0f3865652e54ae46453646ed87f69e"
+receipt_correction_reviewed_vsb01_sha="108592b757ba50ea6ded7b901bd2b623737a7048"
 governance_repair_status_output=""
+receipt_correction_status_output=""
 verifier_tmp_root="$(
   mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-verifier.XXXXXX"
 )"
@@ -300,6 +305,534 @@ build_expected_governance_repair_ledger() {
     fail "could not build the approved GOVERNANCE_REPAIR ledger"
 }
 
+receipt_correction_fields() {
+  printf '%s\n' \
+    ReceiptCorrectionStatus ReceiptCorrectionSpecSHA \
+    ReceiptCorrectionOriginReceiptSHA ReceiptCorrectionReviewedCandidateSHA \
+    ReceiptCorrectionReviewLevel ReceiptCorrectionReviewRoute \
+    ReceiptCorrectionReviewEffort ReceiptCorrectionReviewMultiplicity \
+    ReceiptCorrectionReviewVerdict
+}
+
+model_gate_routing_fields() {
+  printf '%s\n' \
+    ReceiptCorrectionReviewLevel ReceiptCorrectionReviewRoute \
+    ReceiptCorrectionReviewEffort ReceiptCorrectionReviewMultiplicity \
+    ReceiptCorrectionReviewVerdict
+}
+
+receipt_correction_write_set() {
+  printf '%s\n' \
+    AGENTS.md \
+    docs/superpowers/plans/2026-08-13-cognitura-model-gate-routing.md \
+    docs/superpowers/plans/2026-08-13-cognitura-vsb-receipt-correction.md \
+    docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md \
+    docs/superpowers/specs/2026-08-13-cognitura-vsb-receipt-correction-design.md \
+    docs/task-cards/visual-style-baseline/README.md \
+    docs/task-cards/visual-style-baseline/VSB-02-module-default-reading-visual.md \
+    docs/task-cards/visual-style-baseline/VSB-03-fixed-visual-acceptance.md \
+    scripts/verify-visual-style-baseline-cards \
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+}
+
+receipt_correction_path_bit() {
+  case "$1" in
+    AGENTS.md) printf '1\n' ;;
+    docs/superpowers/plans/2026-08-13-cognitura-model-gate-routing.md) printf '2\n' ;;
+    docs/superpowers/plans/2026-08-13-cognitura-vsb-receipt-correction.md) printf '4\n' ;;
+    docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md) printf '8\n' ;;
+    docs/superpowers/specs/2026-08-13-cognitura-vsb-receipt-correction-design.md) printf '16\n' ;;
+    docs/task-cards/visual-style-baseline/README.md) printf '32\n' ;;
+    docs/task-cards/visual-style-baseline/VSB-02-module-default-reading-visual.md) printf '64\n' ;;
+    docs/task-cards/visual-style-baseline/VSB-03-fixed-visual-acceptance.md) printf '128\n' ;;
+    scripts/verify-visual-style-baseline-cards) printf '256\n' ;;
+    tests/task-cards/verify-visual-style-baseline-cards.sh) printf '512\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+receipt_correction_expected_mode() {
+  case "$1" in
+    scripts/verify-visual-style-baseline-cards|tests/task-cards/verify-visual-style-baseline-cards.sh)
+      printf '100755\n'
+      ;;
+    *)
+      receipt_correction_path_bit "$1" >/dev/null || return 1
+      printf '100644\n'
+      ;;
+  esac
+}
+
+require_fixed_correction_authority_tip() {
+  local candidate_sha="$1"
+  local authority_sha="$2"
+  local authority_path="$3"
+  local fixed_mode fixed_blob candidate_mode candidate_blob
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${authority_sha}" "${candidate_sha}" 2>/dev/null || return 1
+  fixed_mode="$(git -C "${repo_root}" ls-tree \
+    "${authority_sha}" -- "${authority_path}" | awk '{print $1}')"
+  candidate_mode="$(git -C "${repo_root}" ls-tree \
+    "${candidate_sha}" -- "${authority_path}" | awk '{print $1}')"
+  [[ "${candidate_mode}" == "${fixed_mode}" ]] ||
+    fail "fixed correction authority mode drifted: ${authority_path}"
+  fixed_blob="$(git -C "${repo_root}" rev-parse \
+    "${authority_sha}:${authority_path}" 2>/dev/null)" ||
+    fail "fixed correction authority blob is unavailable: ${authority_path}"
+  candidate_blob="$(git -C "${repo_root}" rev-parse \
+    "${candidate_sha}:${authority_path}" 2>/dev/null)" ||
+    fail "fixed correction authority blob drifted: ${authority_path}"
+  [[ "${candidate_blob}" == "${fixed_blob}" ]] ||
+    fail "fixed correction authority blob drifted: ${authority_path}"
+}
+
+validate_receipt_correction_chain() {
+  local candidate_sha="$1"
+  local previous_sha chain_sha actual_parent correction_path path_bit
+  local changed_path_count child_mode expected_mode content_file
+  local raw_status_file raw_error_file changed_path_file changed_error_file
+  local net_path_file net_error_file net_path_mask=0
+  local actual_paths expected_paths origin_ledger candidate_ledger
+  local chain_path_mask=0
+  local authority_index authority_sha authority_path fixed_blob current_blob current_mode
+  local -a authority_shas authority_paths
+  authority_shas=(
+    "${receipt_correction_spec_sha}"
+    "${receipt_correction_plan_sha}"
+    "${model_route_design_sha}"
+    "${model_route_plan_sha}"
+  )
+  authority_paths=(
+    docs/superpowers/specs/2026-08-13-cognitura-vsb-receipt-correction-design.md
+    docs/superpowers/plans/2026-08-13-cognitura-vsb-receipt-correction.md
+    docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md
+    docs/superpowers/plans/2026-08-13-cognitura-model-gate-routing.md
+  )
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${receipt_correction_origin_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "fixed receipt-correction origin is absent from candidate ancestry"
+  [[ "${candidate_sha}" != "${receipt_correction_origin_sha}" ]] ||
+    fail "fixed receipt-correction origin is not a pending governance candidate"
+  net_path_file="$(mktemp \
+    "${verifier_tmp_root}/correction-net-paths.XXXXXX")"
+  net_error_file="$(mktemp \
+    "${verifier_tmp_root}/correction-net-errors.XXXXXX")"
+  if ! git -C "${repo_root}" diff --no-renames --name-only -z \
+    "${receipt_correction_origin_sha}..${candidate_sha}" \
+    > "${net_path_file}" 2> "${net_error_file}"; then
+    fail "receipt correction governance path inspection failed"
+  fi
+  [[ ! -s "${net_error_file}" ]] ||
+    fail "receipt correction governance path inspection was degraded"
+  while IFS= read -r -d '' correction_path; do
+    [[ "${correction_path}" != *$'\n'* ]] ||
+      fail "receipt correction governance path must not contain a newline"
+    if ! path_bit="$(receipt_correction_path_bit "${correction_path}")"; then
+      fail "receipt correction chain contains a path outside the exact ten-path WriteSet"
+    fi
+    net_path_mask=$((net_path_mask | path_bit))
+  done < "${net_path_file}"
+  [[ "${net_path_mask}" -eq 1023 ]] ||
+    fail "receipt correction chain must have the exact ten-path cumulative WriteSet"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${receipt_correction_spec_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "fixed receipt-correction specification is absent from candidate ancestry"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${receipt_correction_plan_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "fixed receipt-correction plan is absent from candidate ancestry"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${model_route_design_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "fixed model-route design is absent from candidate ancestry"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${model_route_plan_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "fixed model-route plan is absent from candidate ancestry"
+  for authority_index in 0 1 2 3; do
+    require_fixed_correction_authority_tip "${candidate_sha}" \
+      "${authority_shas[${authority_index}]}" \
+      "${authority_paths[${authority_index}]}"
+  done
+
+  # Inspect the whole chain for rename/copy evidence first.  This preserves
+  # the load-bearing diagnostic even when a copy fixture deletes its target
+  # in the immediately preceding commit.
+  previous_sha="${receipt_correction_origin_sha}"
+  while IFS= read -r chain_sha; do
+    [[ -n "${chain_sha}" ]] || continue
+    actual_parent="$(single_parent_of \
+      "${chain_sha}" "receipt correction governance commit")"
+    [[ "${actual_parent}" == "${previous_sha}" ]] ||
+      fail "receipt correction governance commit must have exactly one parent"
+    raw_status_file="$(mktemp \
+      "${verifier_tmp_root}/correction-raw-status.XXXXXX")"
+    raw_error_file="$(mktemp \
+      "${verifier_tmp_root}/correction-raw-error.XXXXXX")"
+    if ! git -C "${repo_root}" -c diff.renameLimit=0 \
+      diff-tree --no-commit-id -r -M -C --find-copies-harder --name-status -z \
+      "${previous_sha}" "${chain_sha}" \
+      > "${raw_status_file}" 2> "${raw_error_file}"; then
+      fail "receipt correction governance rename and copy inspection failed"
+    fi
+    [[ ! -s "${raw_error_file}" ]] ||
+      fail "receipt correction governance rename and copy inspection was degraded"
+    if LC_ALL=C tr '\000' '\n' < "${raw_status_file}" | \
+       awk '$1 ~ /^[RC][0-9]+$/ { found = 1 } END { exit !found }'; then
+      fail "receipt correction governance chain must not rename or copy paths"
+    fi
+    previous_sha="${chain_sha}"
+  done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+    "${receipt_correction_origin_sha}..${candidate_sha}")
+  [[ "${previous_sha}" == "${candidate_sha}" ]] ||
+    fail "receipt correction candidate must be the governance chain tip"
+
+  previous_sha="${receipt_correction_origin_sha}"
+  while IFS= read -r chain_sha; do
+    [[ -n "${chain_sha}" ]] || continue
+    changed_path_file="$(mktemp \
+      "${verifier_tmp_root}/correction-paths.XXXXXX")"
+    changed_error_file="$(mktemp \
+      "${verifier_tmp_root}/correction-path-errors.XXXXXX")"
+    if ! git -C "${repo_root}" diff --no-renames --name-only -z \
+      "${previous_sha}..${chain_sha}" \
+      > "${changed_path_file}" 2> "${changed_error_file}"; then
+      fail "receipt correction governance path inspection failed"
+    fi
+    [[ ! -s "${changed_error_file}" ]] ||
+      fail "receipt correction governance path inspection was degraded"
+    changed_path_count=0
+    while IFS= read -r -d '' correction_path; do
+      changed_path_count=$((changed_path_count + 1))
+      [[ "${correction_path}" != *$'\n'* ]] ||
+        fail "receipt correction governance path must not contain a newline"
+      [[ "${correction_path}" != "${ledger_path}" ]] ||
+        fail "receipt correction governance chain must not change the execution ledger"
+      if ! path_bit="$(receipt_correction_path_bit "${correction_path}")"; then
+        fail "receipt correction chain contains a path outside the exact ten-path WriteSet"
+      fi
+      chain_path_mask=$((chain_path_mask | path_bit))
+      child_mode="$(git -C "${repo_root}" ls-tree \
+        "${chain_sha}" -- "${correction_path}" | awk '{print $1}')"
+      expected_mode="$(receipt_correction_expected_mode "${correction_path}")"
+      [[ "${child_mode}" == "${expected_mode}" ]] ||
+        fail "receipt correction governance commit changed path mode"
+      content_file="$(mktemp \
+        "${verifier_tmp_root}/correction-content.XXXXXX")"
+      git -C "${repo_root}" show \
+        "${chain_sha}:${correction_path}" > "${content_file}" 2>/dev/null ||
+        fail "receipt correction governance path blob is unavailable"
+      require_nul_free_file "${content_file}" \
+        "receipt correction governance path must not contain NUL bytes"
+    done < "${changed_path_file}"
+    [[ "${changed_path_count}" -gt 0 ]] ||
+      fail "receipt correction governance commit must be non-empty"
+    previous_sha="${chain_sha}"
+  done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+    "${receipt_correction_origin_sha}..${candidate_sha}")
+  [[ "${chain_path_mask}" -eq 1023 ]] ||
+    fail "receipt correction chain must have the exact ten-path cumulative WriteSet"
+  actual_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+    "${receipt_correction_origin_sha}..${candidate_sha}" | LC_ALL=C sort)"
+  expected_paths="$(receipt_correction_write_set | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "receipt correction chain must have the exact ten-path cumulative WriteSet"
+
+  origin_ledger="$(git -C "${repo_root}" rev-parse \
+    "${receipt_correction_origin_sha}:${ledger_path}" 2>/dev/null)" ||
+    fail "fixed receipt-correction origin ledger is missing"
+  candidate_ledger="$(git -C "${repo_root}" rev-parse \
+    "${candidate_sha}:${ledger_path}" 2>/dev/null)" ||
+    fail "receipt correction candidate ledger is missing"
+  [[ "${candidate_ledger}" == "${origin_ledger}" ]] ||
+    fail "receipt correction governance chain must preserve the origin ledger bytes"
+
+  for authority_index in 0 1 2 3; do
+    fixed_blob="$(git -C "${repo_root}" rev-parse \
+      "${authority_shas[${authority_index}]}:${authority_paths[${authority_index}]}" \
+      2>/dev/null)" || fail "fixed correction authority blob is unavailable"
+    while IFS= read -r chain_sha; do
+      [[ "${chain_sha}" != "${candidate_sha}" ]] || continue
+      if git -C "${repo_root}" merge-base --is-ancestor \
+          "${authority_shas[${authority_index}]}" "${chain_sha}" 2>/dev/null; then
+        current_mode="$(git -C "${repo_root}" ls-tree \
+          "${chain_sha}" -- "${authority_paths[${authority_index}]}" | awk '{print $1}')"
+        current_blob="$(git -C "${repo_root}" rev-parse \
+          "${chain_sha}:${authority_paths[${authority_index}]}" 2>/dev/null || true)"
+        [[ "${current_mode}" == 100644 && "${current_blob}" == "${fixed_blob}" ]] ||
+          fail "fixed correction authority changed in an intermediate governance commit: ${authority_paths[${authority_index}]}"
+      fi
+    done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+      "${receipt_correction_origin_sha}..${candidate_sha}")
+  done
+}
+
+build_expected_receipt_correction_ledger() {
+  local origin_file="$1"
+  local expected_file="$2"
+  local candidate_sha="$3"
+  awk -v candidate_sha="${candidate_sha}" \
+      -v spec_sha="${receipt_correction_spec_sha}" \
+      -v origin_sha="${receipt_correction_origin_sha}" '
+    /^ExecutionStateVersion = 2$/ {
+      print "ExecutionStateVersion = 3"
+      next
+    }
+    /^GovernanceRepairReviewVerdict = / {
+      print
+      print "ReceiptCorrectionStatus = PASS"
+      print "ReceiptCorrectionSpecSHA = " spec_sha
+      print "ReceiptCorrectionOriginReceiptSHA = " origin_sha
+      print "ReceiptCorrectionReviewedCandidateSHA = " candidate_sha
+      print "ReceiptCorrectionReviewLevel = L4"
+      print "ReceiptCorrectionReviewRoute = deep_reviewer"
+      print "ReceiptCorrectionReviewEffort = xhigh"
+      print "ReceiptCorrectionReviewMultiplicity = ONE"
+      print "ReceiptCorrectionReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0"
+      next
+    }
+    /^NextTaskCard = VSB-02$/ {
+      print "NextTaskCard = VSB-03"
+      next
+    }
+    /^TransitionSequence = 4$/ {
+      print "TransitionSequence = 5"
+      next
+    }
+    /^TransitionKind = ADVANCE$/ {
+      print "TransitionKind = RECEIPT_CORRECTION"
+      next
+    }
+    /^TransitionBaseSHA = / {
+      print "TransitionBaseSHA = " candidate_sha
+      next
+    }
+    { print }
+  ' "${origin_file}" > "${expected_file}" ||
+    fail "could not build the approved RECEIPT_CORRECTION ledger"
+}
+
+require_receipt_correction_state_values() {
+  local file="$1"
+  local candidate_sha="$2"
+  local field field_count ultra_reason_count
+  while IFS= read -r field; do
+    field_count="$(grep -c "^${field} = " "${file}" || true)"
+    [[ "${field_count}" -ne 0 ]] ||
+      fail "missing receipt correction field: ${field}"
+    [[ "${field_count}" -eq 1 ]] ||
+      fail "duplicate receipt correction field: ${field}"
+  done < <(receipt_correction_fields)
+  [[ "$(state_value_from_file "${file}" ReceiptCorrectionStatus)" == PASS ]] ||
+    fail "ReceiptCorrectionStatus must be PASS"
+  [[ "$(state_value_from_file "${file}" ReceiptCorrectionSpecSHA)" == \
+     "${receipt_correction_spec_sha}" ]] ||
+    fail "receipt correction approved spec SHA mismatch"
+  [[ "$(state_value_from_file "${file}" ReceiptCorrectionOriginReceiptSHA)" == \
+     "${receipt_correction_origin_sha}" ]] ||
+    fail "receipt correction origin SHA mismatch"
+  [[ "$(state_value_from_file "${file}" ReceiptCorrectionReviewedCandidateSHA)" == \
+     "${candidate_sha}" ]] ||
+    fail "receipt correction reviewed candidate SHA mismatch"
+  [[ "$(state_value_from_file "${file}" ReceiptCorrectionReviewLevel)" == L4 ]] ||
+    fail "receipt correction review level mismatch"
+  ultra_reason_count="$(grep -c '^ReceiptCorrectionUltraEscalationReason = ' \
+    "${file}" || true)"
+  [[ "${ultra_reason_count}" -eq 0 ]] ||
+    fail "fixed receipt correction does not authorize Ultra replacement"
+  case "$(state_value_from_file "${file}" ReceiptCorrectionReviewRoute)" in
+    deep_reviewer) ;;
+    deep_reviewer+ultra_gatekeeper)
+      fail "receipt correction must not use the historical stacked review route"
+      ;;
+    ultra_gatekeeper)
+      fail "receipt correction must not claim an unexecuted Ultra review"
+      ;;
+    *) fail "receipt correction review route mismatch" ;;
+  esac
+  [[ "$(state_value_from_file "${file}" ReceiptCorrectionReviewEffort)" == xhigh ]] ||
+    fail "receipt correction review effort mismatch"
+  [[ "$(state_value_from_file "${file}" ReceiptCorrectionReviewMultiplicity)" == ONE ]] ||
+    fail "receipt correction review multiplicity mismatch"
+  [[ "$(state_value_from_file "${file}" ReceiptCorrectionReviewVerdict)" == \
+     FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+    fail "receipt correction review verdict mismatch"
+}
+
+require_receipt_correction_fields_unchanged_between_files() {
+  local base_file="$1"
+  local head_file="$2"
+  local field base_block head_block base_expected head_expected prefix_count
+  base_block="$(mktemp \
+    "${verifier_tmp_root}/base-correction-block.XXXXXX")"
+  head_block="$(mktemp \
+    "${verifier_tmp_root}/head-correction-block.XXXXXX")"
+  base_expected="$(mktemp \
+    "${verifier_tmp_root}/base-correction-expected.XXXXXX")"
+  head_expected="$(mktemp \
+    "${verifier_tmp_root}/head-correction-expected.XXXXXX")"
+  grep '^ReceiptCorrection' "${base_file}" > "${base_block}" || true
+  grep '^ReceiptCorrection' "${head_file}" > "${head_block}" || true
+  prefix_count="$(wc -l < "${base_block}" | tr -d ' ')"
+  [[ "${prefix_count}" -eq 9 ]] ||
+    fail "ordinary version-3 transition requires the exact canonical ReceiptCorrection block"
+  prefix_count="$(wc -l < "${head_block}" | tr -d ' ')"
+  [[ "${prefix_count}" -eq 9 ]] ||
+    fail "ordinary version-3 transition requires the exact canonical ReceiptCorrection block"
+  while IFS= read -r field; do
+    [[ "$(grep -c "^${field} = " "${base_file}" || true)" -eq 1 &&
+       "$(grep -c "^${field} = " "${head_file}" || true)" -eq 1 ]] ||
+      fail "ordinary version-3 transition requires the exact canonical ReceiptCorrection block"
+  done < <(receipt_correction_fields)
+  {
+    while IFS= read -r field; do
+      printf '%s = %s\n' "${field}" \
+        "$(state_value_from_file "${base_file}" "${field}")"
+    done < <(receipt_correction_fields)
+  } > "${base_expected}"
+  {
+    while IFS= read -r field; do
+      printf '%s = %s\n' "${field}" \
+        "$(state_value_from_file "${head_file}" "${field}")"
+    done < <(receipt_correction_fields)
+  } > "${head_expected}"
+  cmp -s "${base_block}" "${base_expected}" ||
+    fail "ordinary version-3 transition requires the exact canonical ReceiptCorrection block"
+  cmp -s "${head_block}" "${head_expected}" ||
+    fail "ordinary version-3 transition requires the exact canonical ReceiptCorrection block"
+  cmp -s "${base_block}" "${head_block}" ||
+    fail "ordinary version-3 transition must preserve ReceiptCorrection fields"
+  while IFS= read -r field; do
+    [[ "$(state_value_from_file "${head_file}" "${field}")" == \
+       "$(state_value_from_file "${base_file}" "${field}")" ]] ||
+      fail "ordinary version-3 transition must preserve ReceiptCorrection fields"
+  done < <(receipt_correction_fields)
+}
+
+validate_receipt_correction_transition_files() {
+  local pair_base="$1"
+  local pair_head="$2"
+  local base_file="$3"
+  local head_file="$4"
+  local field expected_file origin_file base_mode head_mode
+  [[ "$(state_value_from_file "${base_file}" ExecutionStateVersion)" == 2 ]] ||
+    fail "RECEIPT_CORRECTION is allowed exactly once"
+  while IFS= read -r field; do
+    [[ "$(grep -c "^${field} = " "${base_file}" || true)" -eq 0 ]] ||
+      fail "RECEIPT_CORRECTION is allowed exactly once"
+  done < <(receipt_correction_fields)
+  validate_receipt_correction_chain "${pair_base}"
+  require_receipt_correction_state_values "${head_file}" "${pair_base}"
+  [[ "$(state_value_from_file "${head_file}" ExecutionStateVersion)" == 3 ]] ||
+    fail "RECEIPT_CORRECTION must upgrade ExecutionStateVersion from 2 to 3"
+  [[ "$(state_value_from_file "${head_file}" NextTaskCard)" == VSB-03 ]] ||
+    fail "receipt correction NextTaskCard must be VSB-03"
+  [[ "$(state_value_from_file "${head_file}" TransitionSequence)" == 5 ]] ||
+    fail "RECEIPT_CORRECTION TransitionSequence must be 5"
+  [[ "$(state_value_from_file "${head_file}" TransitionKind)" == RECEIPT_CORRECTION ]] ||
+    fail "receipt transition kind must be RECEIPT_CORRECTION"
+  [[ "$(state_value_from_file "${head_file}" TransitionBaseSHA)" == "${pair_base}" ]] ||
+    fail "receipt TransitionBaseSHA must equal its fixed BASE"
+  origin_file="$(mktemp \
+    "${verifier_tmp_root}/correction-origin-ledger.XXXXXX")"
+  expected_file="$(mktemp \
+    "${verifier_tmp_root}/expected-correction-ledger.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${receipt_correction_origin_sha}:${ledger_path}" > "${origin_file}" 2>/dev/null ||
+    fail "fixed receipt-correction origin ledger is missing"
+  cmp -s "${origin_file}" "${base_file}" ||
+    fail "RECEIPT_CORRECTION base must be the fixed origin version-2 ledger"
+  build_expected_receipt_correction_ledger \
+    "${origin_file}" "${expected_file}" "${pair_base}"
+  cmp -s "${expected_file}" "${head_file}" ||
+    fail "RECEIPT_CORRECTION receipt must be the exact approved ledger transform"
+  base_mode="$(git -C "${repo_root}" ls-tree \
+    "${pair_base}" -- "${ledger_path}" | awk '{print $1}')"
+  head_mode="$(git -C "${repo_root}" ls-tree \
+    "${pair_head}" -- "${ledger_path}" | awk '{print $1}')"
+  [[ "${base_mode}" == 100644 && "${head_mode}" == 100644 ]] ||
+    fail "RECEIPT_CORRECTION receipt ledger mode must remain canonical"
+}
+
+validate_receipt_correction_pending_head() {
+  local candidate_sha="$1"
+  local repository_head origin_file field
+  repository_head="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null)" ||
+    fail "repository HEAD is unavailable"
+  [[ "${candidate_sha}" == "${repository_head}" ]] ||
+    fail "pending receipt-correction candidate must equal repository HEAD"
+  origin_file="$(mktemp \
+    "${verifier_tmp_root}/pending-correction-origin.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${receipt_correction_origin_sha}:${ledger_path}" > "${origin_file}" 2>/dev/null ||
+    fail "fixed receipt-correction origin ledger is missing"
+  cmp -s "${origin_file}" "${state_file}" ||
+    fail "pending receipt-correction ledger must be byte-identical to the fixed origin"
+  while IFS= read -r field; do
+    [[ "$(grep -c "^${field} = " "${state_file}" || true)" -eq 0 ]] ||
+      fail "pending receipt-correction ledger must not contain correction fields"
+  done < <(receipt_correction_fields)
+  validate_receipt_correction_chain "${candidate_sha}"
+}
+
+validate_receipt_correction_static_replay() {
+  local candidate_sha repository_head correction_receipt correction_count=0
+  local chain_sha chain_kind chain_parent receipt_file receipt_block chain_file chain_block
+  local prefix_count
+  candidate_sha="$(state_value_from_file \
+    "${state_file}" ReceiptCorrectionReviewedCandidateSHA)"
+  repository_head="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null)" ||
+    fail "repository HEAD is unavailable"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${candidate_sha}" "${repository_head}" 2>/dev/null ||
+    fail "receipt correction reviewed candidate is not an ancestor of HEAD"
+  validate_receipt_correction_chain "${candidate_sha}"
+  correction_receipt="$(git -C "${repo_root}" rev-list \
+    --reverse --first-parent "${candidate_sha}..${repository_head}" | sed -n '1p')"
+  [[ -n "${correction_receipt}" ]] || fail "RECEIPT_CORRECTION receipt is missing"
+  [[ "$(single_parent_of "${correction_receipt}" \
+      "RECEIPT_CORRECTION receipt")" == "${candidate_sha}" ]] ||
+    fail "RECEIPT_CORRECTION receipt must be the direct child of G2"
+  receipt_file="$(mktemp \
+    "${verifier_tmp_root}/static-correction-receipt.XXXXXX")"
+  receipt_block="$(mktemp \
+    "${verifier_tmp_root}/static-correction-block.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${correction_receipt}:${ledger_path}" > "${receipt_file}" 2>/dev/null ||
+    fail "RECEIPT_CORRECTION receipt ledger is missing"
+  grep '^ReceiptCorrection' "${receipt_file}" > "${receipt_block}" || true
+  prefix_count="$(wc -l < "${receipt_block}" | tr -d ' ')"
+  [[ "${prefix_count}" -eq 9 ]] ||
+    fail "RECEIPT_CORRECTION receipt must contain the canonical correction block"
+  while IFS= read -r chain_sha; do
+    [[ -n "${chain_sha}" ]] || continue
+    chain_parent="$(single_parent_of \
+      "${chain_sha}" "post-correction first-parent commit")"
+    chain_file="$(mktemp \
+      "${verifier_tmp_root}/post-correction-ledger.XXXXXX")"
+    chain_block="$(mktemp \
+      "${verifier_tmp_root}/post-correction-block.XXXXXX")"
+    git -C "${repo_root}" show \
+      "${chain_sha}:${ledger_path}" > "${chain_file}" 2>/dev/null ||
+      fail "post-R2 ledger is missing"
+    grep '^ReceiptCorrection' "${chain_file}" > "${chain_block}" || true
+    prefix_count="$(wc -l < "${chain_block}" | tr -d ' ')"
+    [[ "${prefix_count}" -eq 9 ]] ||
+      fail "post-R2 history must preserve the exact canonical ReceiptCorrection block at every commit"
+    cmp -s "${receipt_block}" "${chain_block}" ||
+      fail "post-R2 history must preserve the exact canonical ReceiptCorrection block at every commit"
+    if commit_is_ledger_only "${chain_parent}" "${chain_sha}"; then
+      chain_kind="$(commit_ledger_field "${chain_sha}" TransitionKind || true)"
+      [[ "${chain_kind}" == RECEIPT_CORRECTION ]] &&
+        correction_count=$((correction_count + 1))
+    fi
+  done < <(git -C "${repo_root}" rev-list --first-parent \
+    "${candidate_sha}..${repository_head}")
+  [[ "${correction_count}" -eq 1 ]] ||
+    fail "RECEIPT_CORRECTION is allowed exactly once"
+  validate_parent_receipt_transition_pair \
+    "${candidate_sha}" "${correction_receipt}" 0
+  require_receipt_correction_fields_unchanged_between_files \
+    "${receipt_file}" "${state_file}"
+}
+
 receipt_fields_for_index() {
   case "$1" in
     0) printf '%s\n' VSB00CandidateSHA VSB00GateStatus VSB00ReviewRoute VSB00ReviewVerdict ;;
@@ -526,6 +1059,7 @@ fi
 
 index_file="${cards_dir}/README.md"
 state_file="${cards_dir}/execution-state.md"
+ledger_path=docs/task-cards/visual-style-baseline/execution-state.md
 [[ -f "${index_file}" ]] || fail "task card index is missing: README.md"
 [[ -f "${state_file}" ]] || fail "execution-state.md is missing"
 require_nul_free_file \
@@ -534,11 +1068,54 @@ require_nul_free_file \
   "${state_file}" "transition ledger must not contain NUL bytes"
 
 model_route_schema_current=0
+model_route_head_current=0
+model_route_marker_current=0
 if git -C "${repo_root}" merge-base --is-ancestor \
      "${model_route_design_sha}" HEAD 2>/dev/null &&
    git -C "${repo_root}" merge-base --is-ancestor \
      "${model_route_plan_sha}" HEAD 2>/dev/null; then
+  model_route_head_current=1
+fi
+if grep -Eq \
+    '(^ModelGateRouting = |2026-08-13-cognitura-model-gate-routing|1199e76a18db1d168c67c328ce7f195f3cdac7d9|fac5f50c6a3f1afb743f95f40ac6b7f5e4e888e1|deep_reviewer / L[34] / xhigh / ONE)' \
+    "${index_file}"; then
+  model_route_marker_current=1
+fi
+if [[ "${model_route_head_current}" -eq 1 || \
+      "${model_route_marker_current}" -eq 1 ]]; then
   model_route_schema_current=1
+  git -C "${repo_root}" cat-file -e \
+    "${model_route_design_sha}^{commit}" 2>/dev/null ||
+    fail "fixed model-route design commit is unavailable"
+  git -C "${repo_root}" cat-file -e \
+    "${model_route_plan_sha}^{commit}" 2>/dev/null ||
+    fail "fixed model-route plan commit is unavailable"
+  git -C "${repo_root}" cat-file -e \
+    "${model_route_design_sha}:docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md" \
+    2>/dev/null || fail "fixed model-route design blob is unavailable"
+  git -C "${repo_root}" cat-file -e \
+    "${model_route_plan_sha}:docs/superpowers/plans/2026-08-13-cognitura-model-gate-routing.md" \
+    2>/dev/null || fail "fixed model-route plan blob is unavailable"
+fi
+
+# Recognize the one reviewable pending candidate before ordinary card/state
+# diagnostics can mask chain-provenance failures.  A successful preflight does
+# not return yet: current README/card/WriteSet contracts below must also pass.
+receipt_correction_pending_preflight=0
+pending_repository_head="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null)" ||
+  fail "repository HEAD is unavailable"
+if [[ -z "${transition_base}" ]] &&
+   git -C "${repo_root}" merge-base --is-ancestor \
+    "${receipt_correction_origin_sha}" "${pending_repository_head}" 2>/dev/null; then
+  pending_origin_blob="$(git -C "${repo_root}" rev-parse \
+    "${receipt_correction_origin_sha}:${ledger_path}" 2>/dev/null)" ||
+    fail "fixed receipt-correction origin ledger is missing"
+  pending_working_blob="$(git -C "${repo_root}" hash-object "${state_file}")" ||
+    fail "working receipt-correction ledger cannot be read"
+  if [[ "${pending_working_blob}" == "${pending_origin_blob}" ]]; then
+    validate_receipt_correction_pending_head "${pending_repository_head}"
+    receipt_correction_pending_preflight=1
+  fi
 fi
 
 expected_files=(
@@ -716,7 +1293,6 @@ expected_write_sets=(
   "${expected_vsb03_write_set}"
 )
 
-ledger_path=docs/task-cards/visual-style-baseline/execution-state.md
 verified_candidate_sha=""
 verified_candidate_owner_index=""
 verified_candidate_release_sha=""
@@ -750,8 +1326,12 @@ commit_is_ledger_only() {
 require_governance_repair_state_values() {
   local file="$1"
   local candidate_sha="$2"
-  [[ "$(state_value_from_file "${file}" ExecutionStateVersion)" == 2 ]] ||
+  case "$(state_value_from_file "${file}" ExecutionStateVersion)" in
+    2|3) ;;
+    *)
     fail "GOVERNANCE_REPAIR must upgrade ExecutionStateVersion from 1 to 2"
+      ;;
+  esac
   [[ "$(state_value_from_file "${file}" GovernanceRepairStatus)" == PASS ]] ||
     fail "GOVERNANCE_REPAIR status must be PASS"
   [[ "$(state_value_from_file "${file}" GovernanceRepairSpecSHA)" == \
@@ -823,6 +1403,8 @@ validate_governance_repair_transition_files() {
   local field expected_head_file base_mode head_mode
   [[ "$(state_value_from_file "${base_file}" ExecutionStateVersion)" == 1 ]] ||
     fail "GOVERNANCE_REPAIR is allowed exactly once"
+  [[ "$(state_value_from_file "${head_file}" ExecutionStateVersion)" == 2 ]] ||
+    fail "GOVERNANCE_REPAIR must upgrade ExecutionStateVersion from 1 to 2"
   for field in $(governance_repair_fields); do
     [[ "$(grep -c "^${field} = " "${base_file}" || true)" -eq 0 ]] ||
       fail "GOVERNANCE_REPAIR is allowed exactly once"
@@ -862,6 +1444,9 @@ ledger_receipt_claims_owner_release() {
     ACTIVATE_SET|ADVANCE|RETURN_TO_OWNER) ;;
     GOVERNANCE_REPAIR)
       [[ "${owner_id}" == VSB-01 ]] || return 1
+      ;;
+    RECEIPT_CORRECTION)
+      [[ "${owner_id}" == VSB-02 ]] || return 1
       ;;
     *) return 1 ;;
   esac
@@ -1024,6 +1609,7 @@ validate_parent_receipt_transition_pair() {
   local ledger_path pair_dir pair_base_file pair_head_file pair_paths
   local base_sequence head_sequence head_kind immutable_field governance_field
   local receipt_index base_active owner_index base_completed head_completed
+  local correction_intent=0 correction_field
   local expected_base_prefix expected_head_prefix expected_head_active expected_head_next
   local head_owner return_owner_index failed_owner_index expected_return_prefix expected_return_next
   [[ "${pair_head}" != "${governance_repair_origin_sha}" ]] ||
@@ -1049,6 +1635,22 @@ validate_parent_receipt_transition_pair() {
   base_sequence="$(state_value_from_file "${pair_base_file}" TransitionSequence)"
   head_sequence="$(state_value_from_file "${pair_head_file}" TransitionSequence)"
   head_kind="$(state_value_from_file "${pair_head_file}" TransitionKind)"
+  if [[ "${head_kind}" == RECEIPT_CORRECTION ]]; then
+    correction_intent=1
+  elif [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 2 ]]; then
+    while IFS= read -r correction_field; do
+      if grep -q "^${correction_field} = " "${pair_head_file}"; then
+        correction_intent=1
+        break
+      fi
+    done < <(receipt_correction_fields)
+  fi
+  if [[ "${correction_intent}" -eq 1 ]]; then
+    validate_receipt_correction_transition_files \
+      "${pair_base}" "${pair_head}" "${pair_base_file}" "${pair_head_file}"
+    rm -rf -- "${pair_dir}"
+    return 0
+  fi
   if [[ "${head_kind}" == GOVERNANCE_REPAIR &&
         "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 2 ]]; then
     fail "GOVERNANCE_REPAIR is allowed exactly once"
@@ -1076,6 +1678,11 @@ validate_parent_receipt_transition_pair() {
   done
   if [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 2 ]]; then
     require_repair_fields_unchanged_between_files \
+      "${pair_base_file}" "${pair_head_file}"
+  elif [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 3 ]]; then
+    require_repair_fields_unchanged_between_files \
+      "${pair_base_file}" "${pair_head_file}"
+    require_receipt_correction_fields_unchanged_between_files \
       "${pair_base_file}" "${pair_head_file}"
   fi
   if [[ "${head_kind}" != ACTIVATE_SET ]]; then
@@ -1239,9 +1846,15 @@ validate_parent_receipt_transition_pair() {
          "$(state_value_from_file "${pair_head_file}" CompletedTaskCards)" == VSB-00,VSB-01,VSB-02,VSB-03 &&
          "$(state_value_from_file "${pair_head_file}" NextTaskCard)" == NONE ]] ||
         fail "COMPLETE receipt must close VSB-03 after the exact predecessor prefix"
+      expected_pair_complete_route=deep_reviewer+ultra_gatekeeper
+      if [[ "${model_route_schema_current}" -eq 1 &&
+            "$(state_value_from_file "${pair_head_file}" ExecutionStateVersion)" == 3 ]]; then
+        expected_pair_complete_route=deep_reviewer
+      fi
       [[ "$(state_value_from_file "${pair_head_file}" CurrentCandidateSHA)" == "${pair_base}" &&
          "$(state_value_from_file "${pair_head_file}" CurrentGateStatus)" == VSB-G3_PASS &&
-         "$(state_value_from_file "${pair_head_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper &&
+         "$(state_value_from_file "${pair_head_file}" CurrentReviewRoute)" == \
+           "${expected_pair_complete_route}" &&
          "$(state_value_from_file "${pair_head_file}" CurrentReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 &&
          "$(state_value_from_file "${pair_head_file}" VisualImplementation)" == COMPLETE ]] ||
         fail "COMPLETE receipt must bind the fixed VSB-03 final GO"
@@ -1252,11 +1865,24 @@ validate_parent_receipt_transition_pair() {
       require_receipt_empty_in_file "${pair_base_file}" 3 \
         "COMPLETE receipt BASE VSB-03 receipt must be empty"
       [[ "$(state_value_from_file "${pair_head_file}" VSB03CandidateSHA)" == "${pair_base}" &&
-         "$(state_value_from_file "${pair_head_file}" VSB03GateStatus)" == VSB-G3_PASS &&
-         "$(state_value_from_file "${pair_head_file}" VSB03ReviewRoute)" == deep_reviewer+ultra_gatekeeper &&
-         "$(state_value_from_file "${pair_head_file}" VSB03DeepReviewVerdict)" == GO_P0_0_P1_0_P2_0 &&
-         "$(state_value_from_file "${pair_head_file}" VSB03UltraReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+         "$(state_value_from_file "${pair_head_file}" VSB03GateStatus)" == VSB-G3_PASS ]] ||
         fail "COMPLETE receipt must fill the exact VSB-03 receipt"
+      if [[ "${model_route_schema_current}" -eq 1 &&
+            "$(state_value_from_file "${pair_head_file}" ExecutionStateVersion)" == 3 ]]; then
+        [[ "$(state_value_from_file "${pair_head_file}" VSB03ReviewRoute)" == deep_reviewer &&
+           "$(state_value_from_file "${pair_head_file}" VSB03DeepReviewVerdict)" == \
+             FINAL_GO_P0_0_P1_0_P2_0 &&
+           "$(state_value_from_file "${pair_head_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
+          fail "current VSB-03 completion must use one deep_reviewer xhigh final gate"
+      else
+        [[ "$(state_value_from_file "${pair_head_file}" VSB03ReviewRoute)" == \
+             deep_reviewer+ultra_gatekeeper &&
+           "$(state_value_from_file "${pair_head_file}" VSB03DeepReviewVerdict)" == \
+             GO_P0_0_P1_0_P2_0 &&
+           "$(state_value_from_file "${pair_head_file}" VSB03UltraReviewVerdict)" == \
+             FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+          fail "COMPLETE receipt must fill the exact VSB-03 receipt"
+      fi
       verify_candidate_write_set "${pair_base}" 3
       verify_candidate_parent_receipt "${pair_base}"
       ;;
@@ -1264,7 +1890,7 @@ validate_parent_receipt_transition_pair() {
       validate_governance_repair_transition_files \
         "${pair_base}" "${pair_head}" "${pair_base_file}" "${pair_head_file}"
       ;;
-    *) fail "candidate parent receipt kind must be ACTIVATE_SET, ADVANCE, RETURN_TO_OWNER, or GOVERNANCE_REPAIR" ;;
+    *) fail "candidate parent receipt kind must be ACTIVATE_SET, ADVANCE, RETURN_TO_OWNER, GOVERNANCE_REPAIR, or RECEIPT_CORRECTION" ;;
   esac
   rm -rf -- "${pair_dir}"
 }
@@ -1289,6 +1915,76 @@ for index in 0 1 2 3; do
     esac
   done <<< "${actual_write_set}"
 done
+
+if [[ "${receipt_correction_pending_preflight}" -eq 1 && \
+      -z "${transition_base}" ]]; then
+  printf '%s\n' \
+    'VisualStyleBaselineTaskCardValidation = PASS' \
+    'TaskCardCount = 4' \
+    'TaskCardSetStatus = IN_PROGRESS' \
+    'ActiveTaskCard = VSB-02' \
+    'ReceiptCorrectionStatus = PENDING'
+  exit 0
+fi
+
+# RECEIPT_CORRECTION has one deliberately exceptional version transition.
+# Dispatch it before the ordinary immutable-version and business-state rules,
+# while still requiring the current card contracts and exact WriteSets above.
+if [[ -n "${transition_base}" ]]; then
+  early_base="$(git -C "${repo_root}" rev-parse --verify \
+    "${transition_base}^{commit}" 2>/dev/null)" ||
+    fail "transition BASE is not a commit"
+  early_head="$(git -C "${repo_root}" rev-parse --verify \
+    "${transition_head}^{commit}" 2>/dev/null)" ||
+    fail "transition HEAD is not a commit"
+  early_head_probe="$(mktemp \
+    "${verifier_tmp_root}/early-head-ledger.XXXXXX")"
+  early_base_probe="$(mktemp \
+    "${verifier_tmp_root}/early-base-ledger.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${early_base}:${ledger_path}" > "${early_base_probe}" 2>/dev/null ||
+    fail "transition BASE ledger is missing"
+  git -C "${repo_root}" show \
+    "${early_head}:${ledger_path}" > "${early_head_probe}" 2>/dev/null ||
+    fail "transition HEAD ledger is missing"
+  if grep -q '^TransitionKind = RECEIPT_CORRECTION$' "${early_head_probe}" ||
+     { [[ "$(state_value_from_file "${early_base_probe}" ExecutionStateVersion)" == 2 ]] &&
+       grep -q '^ReceiptCorrection[A-Za-z]* = ' "${early_head_probe}"; }; then
+    [[ "${early_head}" == "$(git -C "${repo_root}" rev-parse HEAD)" ]] ||
+      fail "transition HEAD must equal repository HEAD"
+    [[ "$(single_parent_of "${early_head}" "transition HEAD")" == \
+       "${early_base}" ]] ||
+      fail "transition HEAD must be a direct child of transition BASE"
+    early_diff_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+      "${early_base}..${early_head}")"
+    [[ "${early_diff_paths}" == "${ledger_path}" ]] ||
+      fail "receipt diff must contain only execution-state.md"
+    early_pair_dir="$(mktemp -d \
+      "${verifier_tmp_root}/early-correction-pair.XXXXXX")"
+    early_base_file="${early_pair_dir}/base-ledger"
+    early_head_file="${early_pair_dir}/head-ledger"
+    git -C "${repo_root}" show \
+      "${early_base}:${ledger_path}" > "${early_base_file}" 2>/dev/null ||
+      fail "transition BASE ledger is missing"
+    cp "${early_head_probe}" "${early_head_file}"
+    require_nul_free_file \
+      "${early_base_file}" "transition ledger must not contain NUL bytes"
+    require_nul_free_file \
+      "${early_head_file}" "transition ledger must not contain NUL bytes"
+    cmp -s "${state_file}" "${early_head_file}" ||
+      fail "working ledger must match transition HEAD tree"
+    validate_receipt_correction_transition_files \
+      "${early_base}" "${early_head}" \
+      "${early_base_file}" "${early_head_file}"
+    printf '%s\n' \
+      'VisualStyleBaselineTaskCardValidation = PASS' \
+      'TaskCardCount = 4' \
+      "TaskCardSetStatus = $(state_value_from_file "${early_head_file}" TaskCardSetStatus)" \
+      "ActiveTaskCard = $(state_value_from_file "${early_head_file}" ActiveTaskCard)" \
+      'ReceiptCorrectionStatus = PASS'
+    exit 0
+  fi
+fi
 
 required_state_fields=(
   CanonicalProjectName TaskCardSet ExecutionStateVersion ExecutionStateAuthority
@@ -1321,6 +2017,15 @@ case "${execution_state_version}" in
       one_field_value "${state_file}" "${field}" execution-state.md >/dev/null
     done < <(governance_repair_fields)
     ;;
+  3)
+    while IFS= read -r field; do
+      one_field_value "${state_file}" "${field}" execution-state.md >/dev/null
+    done < <(governance_repair_fields)
+    if [[ -z "${transition_base}" ]]; then
+      require_receipt_correction_state_values "${state_file}" \
+        "$(field_value "${state_file}" ReceiptCorrectionReviewedCandidateSHA)"
+    fi
+    ;;
   *)
     if [[ "$(field_value "${state_file}" TransitionKind)" == GOVERNANCE_REPAIR ]]; then
       fail "GOVERNANCE_REPAIR must upgrade ExecutionStateVersion from 1 to 2"
@@ -1346,13 +2051,17 @@ esac
 [[ "$(field_value "${state_file}" VSB00ReviewRoute)" == deep_reviewer ]] || fail "VSB00ReviewRoute mismatch"
 [[ "$(field_value "${state_file}" VSB01ReviewRoute)" == deep_reviewer ]] || fail "VSB01ReviewRoute mismatch"
 [[ "$(field_value "${state_file}" VSB02ReviewRoute)" == deep_reviewer ]] || fail "VSB02ReviewRoute mismatch"
-[[ "$(field_value "${state_file}" VSB03ReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] || fail "VSB03ReviewRoute mismatch"
-if [[ "${execution_state_version}" == 2 ]]; then
+if [[ "${execution_state_version}" == 2 || "${execution_state_version}" == 3 ]]; then
   require_governance_repair_state_values \
     "${state_file}" "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)"
   is_commit_sha "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)" ||
     fail "GovernanceRepairReviewedCandidateSHA must resolve to a 40-character commit"
   governance_repair_status_output=PASS
+fi
+
+if [[ "${execution_state_version}" == 3 && -z "${transition_base}" ]]; then
+  validate_receipt_correction_static_replay
+  receipt_correction_status_output=PASS
 fi
 
 set_status="$(field_value "${state_file}" TaskCardSetStatus)"
@@ -1362,6 +2071,27 @@ completed="$(field_value "${state_file}" CompletedTaskCards)"
 next="$(field_value "${state_file}" NextTaskCard)"
 sequence="$(field_value "${state_file}" TransitionSequence)"
 kind="$(field_value "${state_file}" TransitionKind)"
+if [[ "${model_route_schema_current}" -eq 1 && \
+      "${execution_state_version}" == 3 ]]; then
+  case "${set_status}" in
+    COMPLETE|FINAL_NO_GO)
+      [[ "$(field_value "${state_file}" VSB03ReviewRoute)" == deep_reviewer ]] ||
+        fail "current VSB-03 completion must use one deep_reviewer xhigh final gate"
+      [[ "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
+        fail "current VSB-03 completion must leave Ultra verdict NOT_RUN"
+      ;;
+    *)
+      [[ "$(field_value "${state_file}" VSB03ReviewRoute)" == \
+           deep_reviewer+ultra_gatekeeper &&
+         "$(field_value "${state_file}" VSB03DeepReviewVerdict)" == NOT_RUN &&
+         "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
+        fail "unfinished version-3 VSB-03 must preserve the frozen review placeholder"
+      ;;
+  esac
+else
+  [[ "$(field_value "${state_file}" VSB03ReviewRoute)" == \
+       deep_reviewer+ultra_gatekeeper ]] || fail "VSB03ReviewRoute mismatch"
+fi
 [[ "${sequence}" =~ ^[0-9]+$ ]] || fail "TransitionSequence must be a non-negative integer"
 if [[ "${set_status}" != STOPPED_BY_USER ]]; then
   [[ "$(field_value "${state_file}" UserStopAuthorization)" == NONE ]] ||
@@ -1399,10 +2129,23 @@ require_pass_receipt() {
     verify_candidate_write_set "${candidate}" "${i}"
   fi
   [[ "${gate}" == "VSB-G${i}_PASS" ]] || fail "VSB0${i}GateStatus mismatch"
-  [[ "${verdict}" == GO_P0_0_P1_0_P2_0 ]] || fail "VSB0${i} deep review must be zero-finding GO"
   if [[ "${i}" -eq 3 ]]; then
-    [[ "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
-      fail "VSB03 ultra review must be final zero-finding GO"
+    if [[ "${model_route_schema_current}" -eq 1 && \
+          "${execution_state_version}" == 3 ]]; then
+      [[ "${verdict}" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+        fail "VSB03 deep review must be final zero-finding GO"
+      [[ "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
+        fail "current VSB-03 completion must leave Ultra verdict NOT_RUN"
+    else
+      [[ "${verdict}" == GO_P0_0_P1_0_P2_0 ]] ||
+        fail "VSB03 deep review must be zero-finding GO"
+      [[ "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == \
+         FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+        fail "VSB03 ultra review must be final zero-finding GO"
+    fi
+  else
+    [[ "${verdict}" == GO_P0_0_P1_0_P2_0 ]] ||
+      fail "VSB0${i} deep review must be zero-finding GO"
   fi
 }
 
@@ -1527,6 +2270,14 @@ elif [[ "${set_status}" == IN_PROGRESS ]]; then
       [[ "$(grep -c '^Owner = ' "${state_file}" || true)" -eq 0 ]] ||
         fail "Owner is allowed only for RETURN_TO_OWNER"
       ;;
+    RECEIPT_CORRECTION)
+      [[ "${execution_state_version}" == 3 && "${completed_count}" -eq 2 &&
+         "${active}" == VSB-02 && "${released}" == VSB-02 &&
+         "${next}" == VSB-03 && "${sequence}" == 5 ]] ||
+        fail "RECEIPT_CORRECTION static state mismatch"
+      [[ "$(grep -c '^Owner = ' "${state_file}" || true)" -eq 0 ]] ||
+        fail "Owner is allowed only for RETURN_TO_OWNER"
+      ;;
     RETURN_TO_OWNER)
       owner="$(one_field_value "${state_file}" Owner execution-state.md)"
       [[ "${owner}" == "${active}" && "${owner}" == "${released}" ]] ||
@@ -1558,7 +2309,13 @@ elif [[ "${set_status}" == FINAL_NO_GO ]]; then
   [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE ]] ||
     fail "FINAL_NO_GO cannot have an active, released, or next card"
   [[ "$(field_value "${state_file}" CurrentGateStatus)" == FAIL ]] || fail "FINAL_NO_GO requires FAIL Gate"
-  [[ "$(field_value "${state_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] ||
+  expected_final_route=deep_reviewer+ultra_gatekeeper
+  if [[ "${model_route_schema_current}" -eq 1 && \
+        "${execution_state_version}" == 3 ]]; then
+    expected_final_route=deep_reviewer
+  fi
+  [[ "$(field_value "${state_file}" CurrentReviewRoute)" == \
+     "${expected_final_route}" ]] ||
     fail "FINAL_NO_GO requires the fixed visual acceptance review route"
   [[ "${kind}" == FINAL_NO_GO ]] || fail "FINAL_NO_GO requires TransitionKind FINAL_NO_GO"
   [[ "${completed_count}" -eq 3 &&
@@ -1568,15 +2325,37 @@ elif [[ "${set_status}" == FINAL_NO_GO ]]; then
     fail "FINAL_NO_GO VisualImplementation mismatch"
   is_nonzero_finding_verdict "$(field_value "${state_file}" CurrentReviewVerdict)" ||
     fail "FINAL_NO_GO requires a non-zero finding verdict"
-  for i in 0 1 2 3; do
-    if [[ "${i}" -lt "${completed_count}" ]]; then require_pass_receipt "${i}"; else require_empty_receipt "${i}"; fi
-  done
+  if [[ "${model_route_schema_current}" -eq 1 && \
+        "${execution_state_version}" == 3 ]]; then
+    for i in 0 1 2; do require_pass_receipt "${i}"; done
+    [[ "$(field_value "${state_file}" VSB03CandidateSHA)" == \
+         "$(field_value "${state_file}" CurrentCandidateSHA)" &&
+       "$(field_value "${state_file}" VSB03GateStatus)" == FAIL &&
+       "$(field_value "${state_file}" VSB03ReviewRoute)" == deep_reviewer &&
+       "$(field_value "${state_file}" VSB03DeepReviewVerdict)" == \
+         "$(field_value "${state_file}" CurrentReviewVerdict)" &&
+       "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
+      fail "FINAL_NO_GO must atomically record the current VSB-03 final finding"
+  else
+    for i in 0 1 2 3; do
+      if [[ "${i}" -lt "${completed_count}" ]]; then
+        require_pass_receipt "${i}"
+      else
+        require_empty_receipt "${i}"
+      fi
+    done
+  fi
 elif [[ "${set_status}" == COMPLETE ]]; then
   require_governance_pass_state
   [[ "${active}" == NONE && "${released}" == NONE && "${next}" == NONE && "${completed_count}" -eq 4 ]] ||
     fail "COMPLETE requires all four cards and no active, released, or next card"
   for i in 0 1 2 3; do require_pass_receipt "${i}"; done
-  [[ "${kind}" == COMPLETE && "$(field_value "${state_file}" CurrentGateStatus)" == VSB-G3_PASS && "$(field_value "${state_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper && "$(field_value "${state_file}" CurrentReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+  expected_complete_route=deep_reviewer+ultra_gatekeeper
+  if [[ "${model_route_schema_current}" -eq 1 && \
+        "${execution_state_version}" == 3 ]]; then
+    expected_complete_route=deep_reviewer
+  fi
+  [[ "${kind}" == COMPLETE && "$(field_value "${state_file}" CurrentGateStatus)" == VSB-G3_PASS && "$(field_value "${state_file}" CurrentReviewRoute)" == "${expected_complete_route}" && "$(field_value "${state_file}" CurrentReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
     fail "COMPLETE current Gate or review receipt mismatch"
   [[ "$(field_value "${state_file}" CurrentCandidateSHA)" == "$(field_value "${state_file}" TransitionBaseSHA)" &&
      "$(field_value "${state_file}" CurrentCandidateSHA)" == "$(receipt_candidate 3)" ]] ||
@@ -1586,7 +2365,7 @@ else
   fail "unsupported TaskCardSetStatus: ${set_status}"
 fi
 
-if [[ "${execution_state_version}" == 2 ]]; then
+if [[ "${execution_state_version}" == 2 || "${execution_state_version}" == 3 ]]; then
   validate_governance_repair_chain \
     "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)"
 fi
@@ -1710,6 +2489,11 @@ if [[ -n "${transition_base}" ]]; then
   done
   if [[ "$(state_value_from_file "${base_ledger_file}" ExecutionStateVersion)" == 2 ]]; then
     require_repair_fields_unchanged_between_files \
+      "${base_ledger_file}" "${head_ledger_file}"
+  elif [[ "$(state_value_from_file "${base_ledger_file}" ExecutionStateVersion)" == 3 ]]; then
+    require_repair_fields_unchanged_between_files \
+      "${base_ledger_file}" "${head_ledger_file}"
+    require_receipt_correction_fields_unchanged_between_files \
       "${base_ledger_file}" "${head_ledger_file}"
   fi
   if [[ "${head_kind}" != ACTIVATE_SET ]]; then
@@ -1875,8 +2659,14 @@ if [[ -n "${transition_base}" ]]; then
       [[ "$(state_value_from_file "${base_ledger_file}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
         fail "FINAL_NO_GO must start from IN_PROGRESS"
       final_owner="$(state_value_from_file "${base_ledger_file}" ActiveTaskCard)"
+      expected_pair_final_route=deep_reviewer+ultra_gatekeeper
+      if [[ "${model_route_schema_current}" -eq 1 &&
+            "$(state_value_from_file "${head_ledger_file}" ExecutionStateVersion)" == 3 ]]; then
+        expected_pair_final_route=deep_reviewer
+      fi
       [[ "${final_owner}" == VSB-03 &&
-         "$(state_value_from_file "${head_ledger_file}" CurrentReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] ||
+         "$(state_value_from_file "${head_ledger_file}" CurrentReviewRoute)" == \
+           "${expected_pair_final_route}" ]] ||
         fail "FINAL_NO_GO is allowed only for VSB-03 fixed visual acceptance"
       final_owner_index="$(owner_index_from_id "${final_owner}")"
       [[ "$(completed_count_from_file "${base_ledger_file}")" -eq "${final_owner_index}" ]] ||
@@ -1896,11 +2686,31 @@ if [[ -n "${transition_base}" ]]; then
         fail "FINAL_NO_GO transition fields mismatch"
       is_nonzero_finding_verdict "$(state_value_from_file "${head_ledger_file}" CurrentReviewVerdict)" ||
         fail "FINAL_NO_GO requires a non-zero finding verdict"
-      for receipt_index in 0 1 2 3; do
-        require_receipt_unchanged_between_files \
-          "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
-          "FINAL_NO_GO must preserve all per-card receipts"
-      done
+      if [[ "${model_route_schema_current}" -eq 1 &&
+            "$(state_value_from_file "${head_ledger_file}" ExecutionStateVersion)" == 3 ]]; then
+        for receipt_index in 0 1 2; do
+          require_receipt_unchanged_between_files \
+            "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
+            "FINAL_NO_GO must preserve predecessor receipts"
+        done
+        require_receipt_empty_in_file \
+          "${base_ledger_file}" 3 \
+          "FINAL_NO_GO base VSB-03 receipt must be empty"
+        [[ "$(state_value_from_file "${head_ledger_file}" VSB03CandidateSHA)" == \
+             "${resolved_base}" &&
+           "$(state_value_from_file "${head_ledger_file}" VSB03GateStatus)" == FAIL &&
+           "$(state_value_from_file "${head_ledger_file}" VSB03ReviewRoute)" == deep_reviewer &&
+           "$(state_value_from_file "${head_ledger_file}" VSB03DeepReviewVerdict)" == \
+             "$(state_value_from_file "${head_ledger_file}" CurrentReviewVerdict)" &&
+           "$(state_value_from_file "${head_ledger_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
+          fail "FINAL_NO_GO must atomically record the current VSB-03 final finding"
+      else
+        for receipt_index in 0 1 2 3; do
+          require_receipt_unchanged_between_files \
+            "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
+            "FINAL_NO_GO must preserve all per-card receipts"
+        done
+      fi
       ;;
     *) fail "unsupported transition kind: ${head_kind}" ;;
   esac
@@ -1914,4 +2724,8 @@ printf '%s\n' \
 if [[ -n "${governance_repair_status_output}" ]]; then
   printf 'GovernanceRepairStatus = %s\n' \
     "${governance_repair_status_output}"
+fi
+if [[ -n "${receipt_correction_status_output}" ]]; then
+  printf 'ReceiptCorrectionStatus = %s\n' \
+    "${receipt_correction_status_output}"
 fi
