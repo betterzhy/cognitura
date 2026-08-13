@@ -26,6 +26,224 @@ const styles = {
   "cognitura.css": cognituraCss,
 } as const;
 
+type StyleFile = keyof typeof styles;
+type StyleSet = Record<StyleFile, string>;
+
+const approvedSelectorsByFile: Record<StyleFile, string[]> = {
+  "tokens.css": [":root"],
+  "typography.css": [
+    ".cka-visual-root",
+    ".cka-type-page-title",
+    ".cka-type-object-title",
+    ".cka-type-major-section",
+    ".cka-type-cognitive-section",
+    ".cka-type-reading",
+    ".cka-type-ui",
+    ".cka-type-metadata",
+    ".cka-type-caption",
+  ],
+  "surfaces.css": [
+    ".cka-canvas",
+    ".cka-reading-surface",
+    ".cka-projection-surface",
+    ".cka-subtle-band",
+    ".cka-semantic-boundary",
+  ],
+  "cognitive-visual.css": [
+    ".cka-focusable:focus, .cka-focusable:focus-visible",
+    ".cka-relation-statement",
+    ".cka-relation-verb",
+    ".cka-relation-direction",
+    ".cka-relation-direction::after",
+    ".cka-relation-endpoint",
+    '.cka-relation-statement[data-relation-strength="weak"] .cka-relation-direction',
+    ".cka-status-confirmed",
+    ".cka-status-focus",
+    ".cka-status-warning",
+    ".cka-status-conflict",
+  ],
+  "cognitura.css": [],
+};
+
+const stripCssComments = (css: string) => {
+  let activeCss = "";
+  let quote: '"' | "'" | null = null;
+
+  for (let index = 0; index < css.length; index += 1) {
+    const character = css[index];
+    const nextCharacter = css[index + 1];
+
+    if (quote !== null) {
+      activeCss += character;
+      if (character === "\\" && nextCharacter !== undefined) {
+        activeCss += nextCharacter;
+        index += 1;
+      } else if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      activeCss += character;
+      continue;
+    }
+
+    if (character === "/" && nextCharacter === "*") {
+      activeCss += " ";
+      index += 2;
+      while (index < css.length && !(css[index] === "*" && css[index + 1] === "/")) {
+        if (css[index] === "\n") activeCss += "\n";
+        index += 1;
+      }
+      if (index >= css.length) throw new Error("unterminated CSS comment");
+      index += 1;
+      continue;
+    }
+
+    activeCss += character;
+  }
+
+  return activeCss;
+};
+
+const activeCssFor = (candidateStyles: StyleSet): StyleSet =>
+  Object.fromEntries(
+    Object.entries(candidateStyles).map(([file, css]) => [file, stripCssComments(css)]),
+  ) as StyleSet;
+
+const normalizeSelector = (selector: string) =>
+  selector
+    .split(",")
+    .map((part) => part.trim().replace(/\s+/g, " "))
+    .join(", ");
+
+type ParsedStyleSheet = {
+  imports: string[];
+  rules: Array<{ selector: string; body: string }>;
+};
+
+const findOutsideString = (css: string, start: number, targets: string[]) => {
+  let quote: '"' | "'" | null = null;
+  for (let index = start; index < css.length; index += 1) {
+    const character = css[index];
+    if (quote !== null) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") quote = character;
+    else if (targets.includes(character)) return index;
+  }
+  return -1;
+};
+
+const parseActiveStyleSheet = (activeCss: string): ParsedStyleSheet => {
+  const imports: string[] = [];
+  const rules: ParsedStyleSheet["rules"] = [];
+  let cursor = 0;
+
+  while (cursor < activeCss.length) {
+    while (/\s/.test(activeCss[cursor] ?? "")) cursor += 1;
+    if (cursor >= activeCss.length) break;
+
+    if (activeCss[cursor] === "@") {
+      const atRuleMatch = activeCss.slice(cursor).match(/^@([a-z-]+)/i);
+      if (!atRuleMatch) throw new Error("invalid CSS at-rule");
+      if (atRuleMatch[1].toLowerCase() !== "import") {
+        throw new Error(`unknown CSS at-rule: @${atRuleMatch[1]}`);
+      }
+      const semicolon = findOutsideString(activeCss, cursor, [";"]);
+      if (semicolon < 0) throw new Error("unterminated CSS import");
+      imports.push(activeCss.slice(cursor, semicolon + 1).trim().replace(/\s+/g, " "));
+      cursor = semicolon + 1;
+      continue;
+    }
+
+    const openingBrace = findOutsideString(activeCss, cursor, ["{", ";"]);
+    if (openingBrace < 0 || activeCss[openingBrace] !== "{") {
+      throw new Error("invalid CSS rule");
+    }
+    const selector = normalizeSelector(activeCss.slice(cursor, openingBrace));
+    if (selector.length === 0) throw new Error("empty CSS selector");
+
+    const closingBrace = findOutsideString(activeCss, openingBrace + 1, ["{", "}"]);
+    if (closingBrace < 0) throw new Error(`unterminated CSS rule: ${selector}`);
+    if (activeCss[closingBrace] === "{") throw new Error(`nested CSS rule: ${selector}`);
+
+    rules.push({ selector, body: activeCss.slice(openingBrace + 1, closingBrace) });
+    cursor = closingBrace + 1;
+  }
+
+  return { imports, rules };
+};
+
+const expectedImportsByFile: Record<StyleFile, string[]> = {
+  "tokens.css": [],
+  "typography.css": [],
+  "surfaces.css": [],
+  "cognitive-visual.css": [],
+  "cognitura.css": [
+    '@import "./tokens.css";',
+    '@import "./typography.css";',
+    '@import "./surfaces.css";',
+    '@import "./cognitive-visual.css";',
+  ],
+};
+
+const parseClosedStyleSet = (candidateStyles: StyleSet) => {
+  const activeStyles = activeCssFor(candidateStyles);
+  const parsed = Object.fromEntries(
+    Object.entries(activeStyles).map(([file, css]) => [file, parseActiveStyleSheet(css)]),
+  ) as Record<StyleFile, ParsedStyleSheet>;
+
+  for (const file of Object.keys(candidateStyles) as StyleFile[]) {
+    const selectors = parsed[file].rules.map(({ selector }) => selector);
+    if (JSON.stringify(selectors) !== JSON.stringify(approvedSelectorsByFile[file])) {
+      throw new Error(`CSS selector set is not closed: ${file}`);
+    }
+    if (new Set(selectors).size !== selectors.length) {
+      throw new Error(`duplicate CSS selector: ${file}`);
+    }
+    if (JSON.stringify(parsed[file].imports) !== JSON.stringify(expectedImportsByFile[file])) {
+      throw new Error(`CSS import set is not closed: ${file}`);
+    }
+  }
+
+  return { activeStyles, parsed };
+};
+
+const styleContractAccepts = (candidateStyles: StyleSet) => {
+  try {
+    const { activeStyles } = parseClosedStyleSet(candidateStyles);
+    const candidateDeclarations = Object.entries(activeStyles).flatMap(([file, css]) =>
+      [...css.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map(
+        ([, name, value]) => ({ file, name, value: normalizeValue(value) }),
+      ),
+    );
+    if (candidateDeclarations.length !== Object.keys(expectedTokens).length) return false;
+    if (new Set(candidateDeclarations.map(({ name }) => name)).size !== candidateDeclarations.length) {
+      return false;
+    }
+    if (candidateDeclarations.some(({ file }) => file !== "tokens.css")) return false;
+    if (
+      JSON.stringify(
+        Object.fromEntries(candidateDeclarations.map(({ name, value }) => [name, value])),
+      ) !== JSON.stringify(expectedTokens)
+    ) {
+      return false;
+    }
+
+    const allActiveCss = Object.values(activeStyles).join("\n");
+    return !/--[^:;{}]*(?:blue-|purple-card|green-box|gradient|glass|card-wall)|url\s*\(\s*["']?(?:https?:)?\/\/|backdrop-filter|(?:repeating-)?(?:linear|radial|conic)-gradient|\bglow\b/i.test(
+      allActiveCss,
+    );
+  } catch {
+    return false;
+  }
+};
+
 const expectedTokens: Record<string, string> = {
   "--color-canvas": "#f7f9fc",
   "--surface-reading": "#ffffff",
@@ -136,7 +354,9 @@ const expectedNormalizedColorTokens = [
 const normalizeValue = (value: string) =>
   value.trim().replace(/\s+/g, " ").replace(/#[0-9A-F]{6}/g, (hex) => hex.toLowerCase());
 
-const declarations = Object.entries(styles).flatMap(([file, css]) =>
+const { activeStyles: activeCssByFile, parsed: parsedCssByFile } = parseClosedStyleSet(styles);
+
+const declarations = Object.entries(activeCssByFile).flatMap(([file, css]) =>
   [...css.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map(
     ([, name, value]) => ({ file, name, value: normalizeValue(value) }),
   ),
@@ -150,6 +370,98 @@ const blockFor = (css: string, selector: string) => {
 };
 
 describe("Cognitura semantic style contract", () => {
+  it("rejects declarations and selectors hidden inside CSS comments", () => {
+    expect(styleContractAccepts(styles)).toBe(true);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "tokens.css": `/*${tokensCss}*/`,
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "tokens.css": `${tokensCss}\n/* @import "https://example.invalid/theme.css"; [data-theme="dark"] { --surface-reading: linear-gradient(red, blue); } */\n`,
+      }),
+    ).toBe(true);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "tokens.css": `${tokensCss}\n/* unterminated`,
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "typography.css": `/*${typographyCss}*/`,
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "cognitive-visual.css": `/*${cognitiveVisualCss}*/`,
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "cognitura.css": `/*${cognituraCss}*/`,
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects duplicate approved selectors that override semantic rules", () => {
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "surfaces.css": `${surfacesCss}\n.cka-reading-surface { background: red; box-shadow: var(--shadow-md); }\n`,
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "cognitive-visual.css": `${cognitiveVisualCss}\n.cka-relation-direction { border-block-start: 8px dotted currentColor; }\n`,
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects second themes, active at-rules, unknown selectors, and remote imports", () => {
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "surfaces.css": `${surfacesCss}\n@media (prefers-color-scheme: dark) { :root { --surface-reading: #000000; } }\n`,
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "tokens.css": `${tokensCss}\n[data-theme="dark"] { --surface-reading: #000000; }\n`,
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "cognitura.css": `${cognituraCss}@import "https://example.invalid/theme.css";\n`,
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "surfaces.css": `${surfacesCss}\n.unknown-surface { background: var(--surface-reading); }\n`,
+      }),
+    ).toBe(false);
+  });
+
+  it("strips comment boundaries, preserves comment markers in strings, and fails closed", () => {
+    expect(stripCssComments(".left/* boundary */.right {}")).toBe(".left .right {}");
+    expect(stripCssComments('.rule { content: "/* literal */"; }')).toBe(
+      '.rule { content: "/* literal */"; }',
+    );
+    expect(() => stripCssComments(".rule { color: red; /* unterminated")).toThrow(
+      "unterminated CSS comment",
+    );
+  });
+
   it("declares the complete exact token surface once and only in tokens.css", () => {
     expect(Object.keys(expectedTokens)).toHaveLength(75);
     expect(expectedNormalizedColorTokens).toHaveLength(25);
@@ -161,26 +473,31 @@ describe("Cognitura semantic style contract", () => {
   });
 
   it("keeps cognitura.css as the exact closed four-import graph", () => {
-    expect(cognituraCss).toBe(
-      '@import "./tokens.css";\n@import "./typography.css";\n@import "./surfaces.css";\n@import "./cognitive-visual.css";\n',
+    expect(parsedCssByFile["cognitura.css"].imports).toEqual(
+      expectedImportsByFile["cognitura.css"],
     );
+    expect(parsedCssByFile["cognitura.css"].rules).toHaveLength(0);
+    for (const file of Object.keys(styles) as StyleFile[]) {
+      if (file !== "cognitura.css") expect(parsedCssByFile[file].imports).toHaveLength(0);
+    }
   });
 
   it("projects only the approved typography roles, stack, weights, and scale", () => {
-    const roleClasses = [...typographyCss.matchAll(/\.([a-z0-9-]+)\s*\{/g)].map(([, name]) => name);
-    expect(roleClasses).toEqual([
-      "cka-visual-root",
-      "cka-type-page-title",
-      "cka-type-object-title",
-      "cka-type-major-section",
-      "cka-type-cognitive-section",
-      "cka-type-reading",
-      "cka-type-ui",
-      "cka-type-metadata",
-      "cka-type-caption",
+    expect(parsedCssByFile["typography.css"].rules.map(({ selector }) => selector)).toEqual([
+      ".cka-visual-root",
+      ".cka-type-page-title",
+      ".cka-type-object-title",
+      ".cka-type-major-section",
+      ".cka-type-cognitive-section",
+      ".cka-type-reading",
+      ".cka-type-ui",
+      ".cka-type-metadata",
+      ".cka-type-caption",
     ]);
-    expect(blockFor(typographyCss, ".cka-visual-root")).toContain("font-family: var(--font-interface)");
-    expect(blockFor(typographyCss, ".cka-type-reading")).toMatch(
+    expect(blockFor(activeCssByFile["typography.css"], ".cka-visual-root")).toContain(
+      "font-family: var(--font-interface)",
+    );
+    expect(blockFor(activeCssByFile["typography.css"], ".cka-type-reading")).toMatch(
       /font-size:\s*var\(--type-reading-size\);[\s\S]*line-height:\s*var\(--type-reading-line-height\);/,
     );
     expect(expectedTokens["--type-reading-size"]).toBe("16px");
@@ -191,20 +508,20 @@ describe("Cognitura semantic style contract", () => {
   });
 
   it("keeps reading unshadowed and makes projection border-first", () => {
-    const reading = blockFor(surfacesCss, ".cka-reading-surface");
-    const projection = blockFor(surfacesCss, ".cka-projection-surface");
+    const reading = blockFor(activeCssByFile["surfaces.css"], ".cka-reading-surface");
+    const projection = blockFor(activeCssByFile["surfaces.css"], ".cka-projection-surface");
     expect(reading).toMatch(/box-shadow:\s*none;/);
     expect(projection).toMatch(/border:\s*1px solid var\(--border-subtle\);/);
     expect(projection).toMatch(/box-shadow:\s*var\(--shadow-xs\);/);
     expect(projection.indexOf("border:")).toBeLessThan(projection.indexOf("box-shadow:"));
-    expect(blockFor(surfacesCss, ".cka-semantic-boundary")).toMatch(
+    expect(blockFor(activeCssByFile["surfaces.css"], ".cka-semantic-boundary")).toMatch(
       /border-inline-start:[^;]+;[\s\S]*background(?:-color)?:\s*var\(--color-warning-soft\);/,
     );
   });
 
   it("exposes the approved focus fallback and focus-visible ring", () => {
-    const focus = blockFor(cognitiveVisualCss, ".cka-focusable:focus-visible");
-    expect(cognitiveVisualCss).toContain(".cka-focusable:focus,");
+    const focus = blockFor(activeCssByFile["cognitive-visual.css"], ".cka-focusable:focus-visible");
+    expect(activeCssByFile["cognitive-visual.css"]).toContain(".cka-focusable:focus,");
     expect(focus).toMatch(
       /outline:\s*var\(--focus-ring-width\) solid var\(--focus-ring-color\);/,
     );
@@ -215,7 +532,7 @@ describe("Cognitura semantic style contract", () => {
   });
 
   it("forbids template-style names, remote assets, gradients, glass, glow, and colored shadows", () => {
-    const allCss = Object.values(styles).join("\n");
+    const allCss = Object.values(activeCssByFile).join("\n");
     expect(allCss).not.toMatch(/--[^:;{}]*(?:blue-|purple-card|green-box|gradient|glass|card-wall)/i);
     expect(allCss).not.toMatch(/url\s*\(\s*["']?(?:https?:)?\/\//i);
     expect(allCss).not.toMatch(/backdrop-filter|(?:repeating-)?(?:linear|radial|conic)-gradient|\bglow\b/i);
@@ -233,12 +550,16 @@ describe("Cognitura semantic style contract", () => {
       ".cka-relation-endpoint",
       '.cka-relation-statement[data-relation-strength="weak"] .cka-relation-direction',
     ]) {
-      blockFor(cognitiveVisualCss, selector);
+      blockFor(activeCssByFile["cognitive-visual.css"], selector);
     }
-    expect(cognitiveVisualCss).toMatch(/border-block-start-style:\s*dashed;/);
-    expect(cognitiveVisualCss).not.toMatch(/data-relation-type|relation-(?:causes|depends|supports|contrasts)/i);
+    expect(activeCssByFile["cognitive-visual.css"]).toMatch(/border-block-start-style:\s*dashed;/);
+    expect(activeCssByFile["cognitive-visual.css"]).not.toMatch(
+      /data-relation-type|relation-(?:causes|depends|supports|contrasts)/i,
+    );
     expect(
-      [...cognitiveVisualCss.matchAll(/\.(cka-status-[a-z-]+)\s*\{/g)].map(([, name]) => name),
+      parsedCssByFile["cognitive-visual.css"].rules
+        .map(({ selector }) => selector.match(/^\.(cka-status-[a-z-]+)$/)?.[1])
+        .filter((name): name is string => name !== undefined),
     ).toEqual([
       "cka-status-confirmed",
       "cka-status-focus",
