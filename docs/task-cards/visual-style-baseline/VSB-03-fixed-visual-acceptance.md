@@ -6,7 +6,12 @@ CardKind = FIXED_VISUAL_ACCEPTANCE
 Status = GOVERNED_BY_EXECUTION_STATE
 DependsOn = VSB-02
 Gate = VSB-G3 FIXED_VISUAL_ACCEPTANCE
-ReviewRoute = deep_reviewer+ultra_gatekeeper
+ReviewLevel = L4
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+UltraRequiredByDefault = NO
+ReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
@@ -46,5 +51,7 @@ WriteSet = docs/engineering/cognitura-visual-style-baseline-acceptance.md
 
 ## 5. 审查
 
-同一未变候选依次取得 `deep_reviewer` 与 `ultra_gatekeeper` 零发现 GO。任一 finding
-必须 `RETURN_TO_OWNER`；两阶段 GO 前不得 COMPLETE 或恢复 Wave 1。
+同一未变候选只执行一次 `L4 / deep_reviewer / xhigh` 固定 SHA 最终门禁。只有主
+Agent 先记录本设计允许的明确升级原因时，`ultra_gatekeeper` 才替代默认门禁；
+不得自动叠加。任一 finding 必须 `RETURN_TO_OWNER`；最终 GO 前不得 `COMPLETE`
+或恢复 Wave 1。

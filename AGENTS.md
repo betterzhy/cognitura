@@ -208,15 +208,26 @@ V1Architecture = MODULAR_MONOLITH
 ## 8. Agent 路由
 
 - 主 Agent 负责共享写集、实现决策、最终整合与用户授权边界。
-- 只读代码搜索、大文件扫描、日志与测试输出归纳使用 `fast_explorer`。
-- 固定提交的一般深度审查默认使用 `deep_reviewer`。
-- 固定候选最终 GO/NO-GO、正式数据库写入前复核或同等级高风险门禁默认使用
-  `ultra_gatekeeper`。
+- `L0` 只读代码搜索、大文件扫描、日志与测试输出归纳使用
+  `fast_explorer / gpt-5.6-terra / medium`；不得拥有实现决策或最终裁决。
+- `L1`／`L2` 普通实现、受限调试、测试与本地整合使用
+  `main_or_worker / gpt-5.6-sol / high`。
+- `L3` 固定候选深审使用
+  `deep_reviewer / gpt-5.6-sol / xhigh`，并且只执行一次适用的最高门禁。
+- `L4` 最终 GO/NO-GO 默认仍使用
+  `deep_reviewer / gpt-5.6-sol / xhigh`，并且只执行一次适用的最终门禁；L4
+  不要求先叠加同一未变候选的 L3 审查。
+- 只有主 Agent 先记录
+  `docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md`
+  允许的明确升级原因时，`ultra_gatekeeper / gpt-5.6-sol / ultra` 才可替代
+  默认 L4 门禁；禁止自动叠加 `deep_reviewer + ultra_gatekeeper`。
 - W0-08 采用用户于 `2026-07-30` 明确指定的例外：一般审查与最终门禁均使用
   `gpt-5.6-sol/high`，不使用 ultra 模型，但必须保持两个独立审查阶段。
 - Wave 1 详细设计采用用户批准的路由：W1-D00 至 W1-D04 使用
   `gpt-5.6-sol/high` 设计 Gate；W1-D05 使用两个相互独立的
   `gpt-5.6-sol/high` 审查阶段，不使用 ultra 模型。
+- 已完成的 Visual Style Baseline `GOVERNANCE_REPAIR` 所记录
+  `deep_reviewer+ultra_gatekeeper` 是不可追溯改写的历史事实，不是当前路由先例。
 - 没有独立、边界清晰的子任务时保持 Solo。
 
 ## 9. 准入门禁

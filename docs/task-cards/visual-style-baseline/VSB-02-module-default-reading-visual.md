@@ -6,7 +6,11 @@ CardKind = BOUNDED_VISUAL_IMPLEMENTATION
 Status = GOVERNED_BY_EXECUTION_STATE
 DependsOn = VSB-01
 Gate = VSB-G2 MODULE_DEFAULT_READING_VISUAL
+ReviewLevel = L3
 ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO_P0_0_P1_0_P2_0
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
@@ -53,4 +57,5 @@ WriteSet = web/src/visual-reference/visual-reference.css
 
 ## 5. 审查
 
-形成独立本地候选，执行 `deep_reviewer` 固定 SHA 零发现审查；回执前不释放后继卡。
+`ReviewVerdict` 仅定义 required acceptance，不是运行态或已执行事实。形成独立本地候选，
+对同一固定 SHA 只执行一次 `L3 / deep_reviewer / xhigh` 零 finding 门禁；回执前不释放后继卡。

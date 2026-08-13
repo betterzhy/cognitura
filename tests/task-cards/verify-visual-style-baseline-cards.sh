@@ -225,6 +225,7 @@ run_model_gate_routing_contract() {
   local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
   local fixture_root="${test_tmp_root}/model-gate-routing-repo"
   local fixture_cards="${fixture_root}/docs/task-cards/visual-style-baseline"
+  local fixture_state="${fixture_cards}/execution-state.md"
   local invocation_tmp="${test_tmp_root}/model-gate-routing-tmp"
   local invocation_marker="${invocation_tmp}/sibling-marker"
   local commit parent parent_line path path_bit expected_mode
@@ -237,6 +238,10 @@ run_model_gate_routing_contract() {
   local candidate_vsb02 candidate_vsb03 candidate_vsb03_content
   local vsb03_old_review vsb03_new_review
   local historical_root historical_output historical_rc
+  local authority_swap_cards authority_swap_output authority_swap_rc
+  local historical_route_cards historical_route_output historical_route_rc
+  local contradictory_route_cards contradictory_route_output contradictory_route_rc
+  local route_card_negative_cases=0
   local -a invocation_entries
 
   mkdir -p "${invocation_tmp}"
@@ -291,6 +296,11 @@ run_model_gate_routing_contract() {
   insert_field_after \
     "${fixture_cards}/VSB-02-module-default-reading-visual.md" \
     ReviewMultiplicity ReviewVerdict GO_P0_0_P1_0_P2_0
+  replace_exact_block \
+    "${fixture_cards}/VSB-02-module-default-reading-visual.md" \
+    '形成独立本地候选，执行 `deep_reviewer` 固定 SHA 零发现审查；回执前不释放后继卡。' \
+    $'`ReviewVerdict` 仅定义 required acceptance，不是运行态或已执行事实。形成独立本地候选，\n对同一固定 SHA 只执行一次 `L3 / deep_reviewer / xhigh` 零 finding 门禁；回执前不释放后继卡。' \
+    "VSB-02 single L3 xhigh review narrative"
 
   set_field "${fixture_cards}/VSB-03-fixed-visual-acceptance.md" \
     ReviewRoute deep_reviewer
@@ -317,13 +327,24 @@ run_model_gate_routing_contract() {
     "${vsb03_old_review}" "${vsb03_new_review}" \
     "VSB-03 single L4 xhigh review narrative"
 
-  sed -i.bak \
-    's#deep_reviewer+ultra_gatekeeper#deep_reviewer / L4 / xhigh / ONE#g' \
-    "${fixture_cards}/README.md"
-  rm "${fixture_cards}/README.md.bak"
-  printf '\n%s\n' \
-    'ModelGateRouting = L3_DEEP_REVIEWER_XHIGH_ONE__L4_DEEP_REVIEWER_XHIGH_ONE' \
-    >> "${fixture_cards}/README.md"
+  insert_field_after \
+    "${fixture_cards}/README.md" SetAuthorization ModelGateRouting \
+    L3_DEEP_REVIEWER_XHIGH_ONE__L4_DEEP_REVIEWER_XHIGH_ONE
+  replace_exact_block \
+    "${fixture_cards}/README.md" \
+    '| `VSB-02` | [Module 默认阅读视觉实现](VSB-02-module-default-reading-visual.md) | `VSB-01` | `VSB-G2 MODULE_DEFAULT_READING_VISUAL` | `deep_reviewer` |' \
+    '| `VSB-02` | [Module 默认阅读视觉实现](VSB-02-module-default-reading-visual.md) | `VSB-01` | `VSB-G2 MODULE_DEFAULT_READING_VISUAL` | `deep_reviewer / L3 / xhigh / ONE` |' \
+    "VSB-02 README route table"
+  replace_exact_block \
+    "${fixture_cards}/README.md" \
+    '| `VSB-03` | [固定视觉验收](VSB-03-fixed-visual-acceptance.md) | `VSB-02` | `VSB-G3 FIXED_VISUAL_ACCEPTANCE` | `deep_reviewer+ultra_gatekeeper` |' \
+    '| `VSB-03` | [固定视觉验收](VSB-03-fixed-visual-acceptance.md) | `VSB-02` | `VSB-G3 FIXED_VISUAL_ACCEPTANCE` | `deep_reviewer / L4 / xhigh / ONE`（default） |' \
+    "VSB-03 README route table"
+  replace_exact_block \
+    "${fixture_cards}/README.md" \
+    $'- 修复后，仅 G 的 ledger-only `GOVERNANCE_REPAIR` receipt R 可作为 VSB-01 release anchor。\n\n| ID | 任务卡 | 依赖 | Gate | ReviewRoute |' \
+    $'- 修复后，仅 G 的 ledger-only `GOVERNANCE_REPAIR` receipt R 可作为 VSB-01 release anchor。\n\n当前模型路由 Authority 是\n[`2026-08-13-cognitura-model-gate-routing-design.md`](../../superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md)\n（固定 SHA `1199e76a18db1d168c67c328ce7f195f3cdac7d9`）及其 TDD 修订计划\n[`2026-08-13-cognitura-model-gate-routing.md`](../../superpowers/plans/2026-08-13-cognitura-model-gate-routing.md)\n（固定 SHA `fac5f50c6a3f1afb743f95f40ac6b7f5e4e888e1`）。它们只迁移当前路由；上述已完成\n`GOVERNANCE_REPAIR` 的 stacked route 仍是历史事实，不追溯改写。\n\n| ID | 任务卡 | 依赖 | Gate | ReviewRoute |' \
+    "model-route README Authority"
   printf '\n%s\n' \
     'ModelGateRoutingFixture = L3_L4_SINGLE_XHIGH' >> "${fixture_root}/AGENTS.md"
   printf '\n# model-gate-routing fixture production entry\n' >> \
@@ -520,6 +541,17 @@ EOF
      "${candidate_vsb03_content}" != *'依次取得'* ]] ||
     fail "committed VSB-03 candidate retained the old stacked review narrative"
 
+  # The candidate Git blob remains the immutable failed 0ff receipt evidence.
+  # Cycle A exercises only the new card/route schema against the last legal
+  # VSB-01 runtime projection; receipt-correction pending behavior belongs to
+  # Cycle B and is not made legal here.
+  git -C "${fixture_root}" show \
+    "${reviewed_vsb01_sha}:${ledger_path}" > "${fixture_state}"
+  [[ "$(sed -n 's/^ActiveTaskCard = //p' "${fixture_state}")" == VSB-01 &&
+     "$(sed -n 's/^NextTaskCard = //p' "${fixture_state}")" == VSB-02 &&
+     "$(sed -n 's/^TransitionKind = //p' "${fixture_state}")" == GOVERNANCE_REPAIR ]] ||
+    fail "Cycle A legal VSB-01 runtime projection is malformed"
+
   if pending_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
     --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" 2>&1)"; then
     pending_rc=0
@@ -534,14 +566,98 @@ EOF
      "${#invocation_entries[@]}" -eq 1 &&
      "${invocation_entries[0]}" == "${invocation_marker}" ]] ||
     fail "model-route verifier did not preserve a clean sibling TMPDIR"
-  [[ "${pending_rc}" -ne 0 ]] ||
-    fail "Cycle A route-card contract unexpectedly passed old production"
-  [[ "${pending_output}" == $'VisualStyleBaselineTaskCardValidation = FAIL\ncard body contract digest mismatch for VSB-02' ]] ||
-    fail "Cycle A RED was not the exact VSB-02 card digest diagnostic: ${pending_output}"
+  [[ "${pending_rc}" -eq 0 ]] ||
+    fail "Cycle A route-card contract was rejected: ${pending_output}"
+  assert_contains "${pending_output}" \
+    "VisualStyleBaselineTaskCardValidation = PASS"
 
-  printf '%s\n' "RouteCardContractCases = 2"
-  printf '%s\n' "${pending_output}" >&2
-  return "${pending_rc}"
+  authority_swap_cards="${test_tmp_root}/model-route-authority-swap"
+  cp -R "${fixture_cards}" "${authority_swap_cards}"
+  sed -i.bak \
+    -e 's/1199e76a18db1d168c67c328ce7f195f3cdac7d9/MODEL_ROUTE_SHA_SWAP/' \
+    -e 's/fac5f50c6a3f1afb743f95f40ac6b7f5e4e888e1/1199e76a18db1d168c67c328ce7f195f3cdac7d9/' \
+    -e 's/MODEL_ROUTE_SHA_SWAP/fac5f50c6a3f1afb743f95f40ac6b7f5e4e888e1/' \
+    "${authority_swap_cards}/README.md"
+  rm "${authority_swap_cards}/README.md.bak"
+  if authority_swap_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${fixture_root}" --cards-dir "${authority_swap_cards}" 2>&1)"; then
+    authority_swap_rc=0
+  else
+    authority_swap_rc=$?
+  fi
+  [[ "${authority_swap_rc}" -ne 0 ]] ||
+    fail "swapped model-route Authority SHAs unexpectedly passed"
+  [[ "${authority_swap_output}" == \
+     $'VisualStyleBaselineTaskCardValidation = FAIL\nREADME.md: model-route Authority block mismatch' ]] ||
+    fail "swapped Authority SHAs returned the wrong diagnostic: ${authority_swap_output}"
+  shopt -s nullglob
+  invocation_entries=("${invocation_tmp}"/*)
+  shopt -u nullglob
+  [[ -f "${invocation_marker}" &&
+     "$(cat "${invocation_marker}")" == "preserve sibling" &&
+     "${#invocation_entries[@]}" -eq 1 &&
+     "${invocation_entries[0]}" == "${invocation_marker}" ]] ||
+    fail "Authority swap negative did not preserve a clean sibling TMPDIR"
+  route_card_negative_cases=$((route_card_negative_cases + 1))
+
+  historical_route_cards="${test_tmp_root}/model-route-historical-rewrite"
+  cp -R "${fixture_cards}" "${historical_route_cards}"
+  sed -i.bak \
+    's/并要求 `deep_reviewer` 零 finding GO 以及 `ultra_gatekeeper` 零 finding 最终 GO。/并要求历史审查为零 finding GO。/' \
+    "${historical_route_cards}/README.md"
+  rm "${historical_route_cards}/README.md.bak"
+  if historical_route_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${fixture_root}" --cards-dir "${historical_route_cards}" 2>&1)"; then
+    historical_route_rc=0
+  else
+    historical_route_rc=$?
+  fi
+  [[ "${historical_route_rc}" -ne 0 ]] ||
+    fail "rewritten historical GovernanceRepair route unexpectedly passed"
+  [[ "${historical_route_output}" == \
+     $'VisualStyleBaselineTaskCardValidation = FAIL\nREADME.md: model-route Authority block mismatch' ]] ||
+    fail "historical GovernanceRepair rewrite returned the wrong diagnostic: ${historical_route_output}"
+  shopt -s nullglob
+  invocation_entries=("${invocation_tmp}"/*)
+  shopt -u nullglob
+  [[ -f "${invocation_marker}" &&
+     "$(cat "${invocation_marker}")" == "preserve sibling" &&
+     "${#invocation_entries[@]}" -eq 1 &&
+     "${invocation_entries[0]}" == "${invocation_marker}" ]] ||
+    fail "historical route negative did not preserve a clean sibling TMPDIR"
+  route_card_negative_cases=$((route_card_negative_cases + 1))
+
+  contradictory_route_cards="${test_tmp_root}/model-route-contradictory-current"
+  cp -R "${fixture_cards}" "${contradictory_route_cards}"
+  printf '\n%s\n' \
+    'CurrentVSB03ReviewRoute = deep_reviewer+ultra_gatekeeper' >> \
+    "${contradictory_route_cards}/README.md"
+  if contradictory_route_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${fixture_root}" --cards-dir "${contradictory_route_cards}" 2>&1)"; then
+    contradictory_route_rc=0
+  else
+    contradictory_route_rc=$?
+  fi
+  [[ "${contradictory_route_rc}" -ne 0 ]] ||
+    fail "contradictory current VSB-03 route unexpectedly passed"
+  [[ "${contradictory_route_output}" == \
+     $'VisualStyleBaselineTaskCardValidation = FAIL\nREADME.md: contradictory current model route' ]] ||
+    fail "contradictory current route returned the wrong diagnostic: ${contradictory_route_output}"
+  shopt -s nullglob
+  invocation_entries=("${invocation_tmp}"/*)
+  shopt -u nullglob
+  [[ -f "${invocation_marker}" &&
+     "$(cat "${invocation_marker}")" == "preserve sibling" &&
+     "${#invocation_entries[@]}" -eq 1 &&
+     "${invocation_entries[0]}" == "${invocation_marker}" ]] ||
+    fail "contradictory current route negative did not preserve a clean sibling TMPDIR"
+  route_card_negative_cases=$((route_card_negative_cases + 1))
+
+  printf '%s\n' "RouteCardContractTests = PASS"
+  printf '%s\n' "RouteCardContractPositiveCases = 2"
+  printf '%s\n' "RouteCardContractNegativeCases = ${route_card_negative_cases}"
+  printf '%s\n' "RouteCardContractCases = $((2 + route_card_negative_cases))"
+  return 0
 }
 
 if [[ "${model_gate_routing_contract_only}" -eq 1 ]]; then

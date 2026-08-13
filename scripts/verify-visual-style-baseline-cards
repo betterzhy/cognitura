@@ -12,6 +12,8 @@ transition_head=""
 governance_repair_origin_sha="d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a"
 governance_repair_spec_sha="2123594540c91341c480f504949315a6abec316c"
 governance_repair_vsb00_candidate_sha="737c053483d1f3d084d5f90d5c36f76b0ae8f5a3"
+model_route_design_sha="1199e76a18db1d168c67c328ce7f195f3cdac7d9"
+model_route_plan_sha="fac5f50c6a3f1afb743f95f40ac6b7f5e4e888e1"
 governance_repair_status_output=""
 verifier_tmp_root="$(
   mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-verifier.XXXXXX"
@@ -51,6 +53,17 @@ one_field_value() {
   count="$(grep -c "^${key} = " "${file}" || true)"
   [[ "${count}" -eq 1 ]] || fail "${label}: ${key} must occur exactly once"
   field_value "${file}" "${key}"
+}
+
+require_exact_block_once() {
+  local file="$1"
+  local expected="$2"
+  local failure_message="$3"
+  local content suffix
+  content="$(cat "${file}"; printf '\034')" || fail "${failure_message}"
+  [[ "${content}" == *"${expected}"* ]] || fail "${failure_message}"
+  suffix="${content#*"${expected}"}"
+  [[ "${suffix}" != *"${expected}"* ]] || fail "${failure_message}"
 }
 
 sha256_stream() {
@@ -516,7 +529,17 @@ state_file="${cards_dir}/execution-state.md"
 [[ -f "${index_file}" ]] || fail "task card index is missing: README.md"
 [[ -f "${state_file}" ]] || fail "execution-state.md is missing"
 require_nul_free_file \
+  "${index_file}" "README.md must not contain NUL bytes"
+require_nul_free_file \
   "${state_file}" "transition ledger must not contain NUL bytes"
+
+model_route_schema_current=0
+if git -C "${repo_root}" merge-base --is-ancestor \
+     "${model_route_design_sha}" HEAD 2>/dev/null &&
+   git -C "${repo_root}" merge-base --is-ancestor \
+     "${model_route_plan_sha}" HEAD 2>/dev/null; then
+  model_route_schema_current=1
+fi
 
 expected_files=(
   VSB-00-governance-reference.md
@@ -532,14 +555,24 @@ expected_gates=(
   'VSB-G2 MODULE_DEFAULT_READING_VISUAL'
   'VSB-G3 FIXED_VISUAL_ACCEPTANCE'
 )
-expected_routes=(deep_reviewer deep_reviewer deep_reviewer deep_reviewer+ultra_gatekeeper)
 expected_kinds=(GOVERNANCE_AND_REFERENCE SEMANTIC_TOKEN_PROJECTION BOUNDED_VISUAL_IMPLEMENTATION FIXED_VISUAL_ACCEPTANCE)
-expected_digests=(
-  ff87aaab09631b25775041a6c69c08d70630b8b4c11032a65f56d8cd75027ddd
-  a433e7389e1e5e3322f06b9dea7f039869a7ae0e9ce843b7ddc119550556ec30
-  eeb6edda5b1b8cc538681c00d9f2001191ac5978663c8d65d32ce5e8c5f97907
-  b7947440397a8716c8a6390d11cf318ca659dcb8e194c08fe2b5cba07f1920e9
-)
+if [[ "${model_route_schema_current}" -eq 1 ]]; then
+  expected_routes=(deep_reviewer deep_reviewer deep_reviewer deep_reviewer)
+  expected_digests=(
+    ff87aaab09631b25775041a6c69c08d70630b8b4c11032a65f56d8cd75027ddd
+    a433e7389e1e5e3322f06b9dea7f039869a7ae0e9ce843b7ddc119550556ec30
+    9ce4c8253c15c5cfd5a330f8ef77b4bff8d599562379ddb7dbda4e96665d3f1c
+    a51e758c7e536adf781cc1072ca54b07c06dbcc2bf2e1fa2c0cbb132fde07671
+  )
+else
+  expected_routes=(deep_reviewer deep_reviewer deep_reviewer deep_reviewer+ultra_gatekeeper)
+  expected_digests=(
+    ff87aaab09631b25775041a6c69c08d70630b8b4c11032a65f56d8cd75027ddd
+    a433e7389e1e5e3322f06b9dea7f039869a7ae0e9ce843b7ddc119550556ec30
+    eeb6edda5b1b8cc538681c00d9f2001191ac5978663c8d65d32ce5e8c5f97907
+    b7947440397a8716c8a6390d11cf318ca659dcb8e194c08fe2b5cba07f1920e9
+  )
+fi
 
 [[ "$(one_field_value "${index_file}" CanonicalProjectName README.md)" == Cognitura ]] ||
   fail "README.md: CanonicalProjectName must be Cognitura"
@@ -557,6 +590,22 @@ expected_digests=(
   fail "README.md: FormalDatabaseWrite must remain NOT_AUTHORIZED"
 [[ "$(one_field_value "${index_file}" RemotePush README.md)" == NOT_AUTHORIZED ]] ||
   fail "README.md: RemotePush must remain NOT_AUTHORIZED"
+if [[ "${model_route_schema_current}" -eq 1 ]]; then
+  expected_historical_repair_block=$'- `d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a` 仅保留为失败证据；它永远不是普通\n  receipt，也不是 VSB-01 anchor。\n- `GOVERNANCE_REPAIR` 只允许一次 version 1 到 version 2 的修复：它固定于上述\n  origin、批准规格 `2123594540c91341c480f504949315a6abec316c` 和精确五路径治理链，\n  并要求 `deep_reviewer` 零 finding GO 以及 `ultra_gatekeeper` 零 finding 最终 GO。\n- 修复后，仅 G 的 ledger-only `GOVERNANCE_REPAIR` receipt R 可作为 VSB-01 release anchor。'
+  expected_current_model_route_section=$'当前模型路由 Authority 是\n[`2026-08-13-cognitura-model-gate-routing-design.md`](../../superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md)\n（固定 SHA `1199e76a18db1d168c67c328ce7f195f3cdac7d9`）及其 TDD 修订计划\n[`2026-08-13-cognitura-model-gate-routing.md`](../../superpowers/plans/2026-08-13-cognitura-model-gate-routing.md)\n（固定 SHA `fac5f50c6a3f1afb743f95f40ac6b7f5e4e888e1`）。它们只迁移当前路由；上述已完成\n`GOVERNANCE_REPAIR` 的 stacked route 仍是历史事实，不追溯改写。\n\n| ID | 任务卡 | 依赖 | Gate | ReviewRoute |\n|---|---|---|---|---|\n| `VSB-00` | [治理、参考图与正式样式参考](VSB-00-governance-reference.md) | `GOVERNANCE_BOOTSTRAP` | `VSB-G0 GOVERNANCE_AND_REFERENCE` | `deep_reviewer` |\n| `VSB-01` | [语义 CSS token 投影](VSB-01-semantic-tokens.md) | `VSB-00` | `VSB-G1 SEMANTIC_TOKENS` | `deep_reviewer` |\n| `VSB-02` | [Module 默认阅读视觉实现](VSB-02-module-default-reading-visual.md) | `VSB-01` | `VSB-G2 MODULE_DEFAULT_READING_VISUAL` | `deep_reviewer / L3 / xhigh / ONE` |\n| `VSB-03` | [固定视觉验收](VSB-03-fixed-visual-acceptance.md) | `VSB-02` | `VSB-G3 FIXED_VISUAL_ACCEPTANCE` | `deep_reviewer / L4 / xhigh / ONE`（default） |'
+  [[ "$(one_field_value "${index_file}" ModelGateRouting README.md)" == L3_DEEP_REVIEWER_XHIGH_ONE__L4_DEEP_REVIEWER_XHIGH_ONE ]] ||
+    fail "README.md: ModelGateRouting mismatch"
+  require_exact_block_once "${index_file}" \
+    "${expected_historical_repair_block}" \
+    "README.md: model-route Authority block mismatch"
+  require_exact_block_once "${index_file}" \
+    "${expected_current_model_route_section}" \
+    "README.md: model-route Authority block mismatch"
+  if grep -Fq 'deep_reviewer+ultra_gatekeeper' "${index_file}" ||
+     grep -Fq '依次取得' "${index_file}"; then
+    fail "README.md: contradictory current model route"
+  fi
+fi
 
 shopt -s nullglob
 actual_cards=("${cards_dir}"/VSB-*.md)
@@ -579,6 +628,30 @@ for index in 0 1 2 3; do
     fail "Gate mismatch for ${expected_ids[${index}]}"
   [[ "$(one_field_value "${file}" ReviewRoute "${expected_files[${index}]}")" == "${expected_routes[${index}]}" ]] ||
     fail "ReviewRoute mismatch for ${expected_ids[${index}]}"
+  case "${model_route_schema_current}:${index}" in
+    1:2)
+      [[ "$(one_field_value "${file}" ReviewLevel "${expected_files[${index}]}")" == L3 ]] ||
+        fail "ReviewLevel mismatch for VSB-02"
+      [[ "$(one_field_value "${file}" ReviewEffort "${expected_files[${index}]}")" == xhigh ]] ||
+        fail "ReviewEffort mismatch for VSB-02"
+      [[ "$(one_field_value "${file}" ReviewMultiplicity "${expected_files[${index}]}")" == ONE ]] ||
+        fail "ReviewMultiplicity mismatch for VSB-02"
+      [[ "$(one_field_value "${file}" ReviewVerdict "${expected_files[${index}]}")" == GO_P0_0_P1_0_P2_0 ]] ||
+        fail "ReviewVerdict mismatch for VSB-02"
+      ;;
+    1:3)
+      [[ "$(one_field_value "${file}" ReviewLevel "${expected_files[${index}]}")" == L4 ]] ||
+        fail "ReviewLevel mismatch for VSB-03"
+      [[ "$(one_field_value "${file}" ReviewEffort "${expected_files[${index}]}")" == xhigh ]] ||
+        fail "ReviewEffort mismatch for VSB-03"
+      [[ "$(one_field_value "${file}" ReviewMultiplicity "${expected_files[${index}]}")" == ONE ]] ||
+        fail "ReviewMultiplicity mismatch for VSB-03"
+      [[ "$(one_field_value "${file}" UltraRequiredByDefault "${expected_files[${index}]}")" == NO ]] ||
+        fail "UltraRequiredByDefault mismatch for VSB-03"
+      [[ "$(one_field_value "${file}" ReviewVerdict "${expected_files[${index}]}")" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+        fail "ReviewVerdict mismatch for VSB-03"
+      ;;
+  esac
   [[ "$(one_field_value "${file}" FormalDatabaseWrite "${expected_files[${index}]}")" == NOT_AUTHORIZED ]] ||
     fail "FormalDatabaseWrite must remain NOT_AUTHORIZED for ${expected_ids[${index}]}"
   [[ "$(one_field_value "${file}" RemotePush "${expected_files[${index}]}")" == NOT_AUTHORIZED ]] ||
