@@ -148,9 +148,60 @@ expect_failure() {
   negative_cases=$((negative_cases + 1))
 }
 
+expect_clean_early_exit() {
+  local expected_rc="$1"
+  local expected_output="$2"
+  shift 2
+  local output rc
+  if output="$("${verifier}" "$@" 2>&1)"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  [[ "${rc}" -eq "${expected_rc}" ]] ||
+    fail "early verifier exit returned ${rc}, expected ${expected_rc}: ${output}"
+  [[ "${output}" == "${expected_output}" ]] ||
+    fail "early verifier exit polluted its diagnostic: ${output}"
+}
+
 # Required RED: the verifier and governed set do not exist before Task 1.
 [[ -x "${verifier}" ]] || fail "Visual Style Baseline task-card verifier is missing or not executable"
 [[ -d "${cards_dir}" ]] || fail "Visual Style Baseline task-card set is missing"
+
+expect_clean_early_exit 2 \
+  'Usage: scripts/verify-visual-style-baseline-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA]'
+missing_cards_dir="${test_tmp_root}/missing-cards-dir"
+expect_clean_early_exit 1 \
+  $'VisualStyleBaselineTaskCardValidation = FAIL\ncards directory does not exist: '"${missing_cards_dir}" \
+  --repo-root "${repo_root}" --cards-dir "${missing_cards_dir}"
+early_exit_cases=2
+
+registered_cleanup_tmp="${test_tmp_root}/registered-cleanup"
+registered_cleanup_cards="${test_tmp_root}/registered-cleanup-cards"
+mkdir -p "${registered_cleanup_tmp}"
+cp -R "${bootstrap_cards_dir}" "${registered_cleanup_cards}"
+printf '\0' >> "${registered_cleanup_cards}/execution-state.md"
+if registered_cleanup_output="$(
+  TMPDIR="${registered_cleanup_tmp}" "${verifier}" \
+    --repo-root "${repo_root}" \
+    --cards-dir "${registered_cleanup_cards}" 2>&1
+)"; then
+  fail "NUL ledger cleanup negative unexpectedly passed"
+else
+  registered_cleanup_rc=$?
+fi
+[[ "${registered_cleanup_rc}" -eq 1 ]] ||
+  fail "NUL ledger cleanup returned ${registered_cleanup_rc}, expected 1"
+[[ "${registered_cleanup_output}" == $'VisualStyleBaselineTaskCardValidation = FAIL\ntransition ledger must not contain NUL bytes' ]] ||
+  fail "NUL ledger cleanup polluted its diagnostic: ${registered_cleanup_output}"
+shopt -s nullglob
+registered_cleanup_leaks=(
+  "${registered_cleanup_tmp}"/cognitura-vsb-nul-free.*
+)
+shopt -u nullglob
+[[ "${#registered_cleanup_leaks[@]}" -eq 0 ]] ||
+  fail "VSB verifier leaked a registered temporary path"
+registered_temporary_cleanup_cases=1
 
 validation_output="$(
   "${verifier}" \
@@ -1946,6 +1997,8 @@ cross_card_return_negative_cases=8
 printf '%s\n' \
   "VisualStyleBaselineTaskCardContractTests = PASS" \
   "PositiveCases = 1" \
+  "EarlyExitCases = ${early_exit_cases}" \
+  "RegisteredTemporaryCleanupCases = ${registered_temporary_cleanup_cases}" \
   "NegativeCases = ${negative_cases}" \
   "TransitionCases = ${transition_cases}" \
   "FixedBaseTransitionCases = ${fixed_base_transition_cases}" \

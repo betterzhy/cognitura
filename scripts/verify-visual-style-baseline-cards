@@ -9,7 +9,7 @@ repo_root="${script_repo_root}"
 cards_dir=""
 transition_base=""
 transition_head=""
-temporary_paths=()
+temporary_paths=("")
 
 cleanup_temporary_paths() {
   local temporary_path
