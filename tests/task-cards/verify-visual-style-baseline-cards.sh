@@ -206,7 +206,7 @@ registered_temporary_cleanup_cases=1
 validation_output="$(
   "${verifier}" \
     --repo-root "${repo_root}" \
-    --cards-dir "${cards_dir}"
+    --cards-dir "${bootstrap_cards_dir}"
 )" || fail "canonical Visual Style Baseline state was rejected"
 assert_contains "${validation_output}" "VisualStyleBaselineTaskCardValidation = PASS"
 assert_contains "${validation_output}" "TaskCardCount = 4"
@@ -438,6 +438,77 @@ write_exact_candidate_paths() {
       printf '%s\n' "${marker}" > "${fixture_root}/${candidate_path}"
     fi
   done <<< "${candidate_write_sets[${owner_index}]}"
+}
+
+commit_candidate_subset() {
+  local fixture_root="$1"
+  local subject="$2"
+  shift 2
+  local candidate_path
+  for candidate_path in "$@"; do
+    mkdir -p "${fixture_root}/$(dirname "${candidate_path}")"
+    if [[ -f "${fixture_root}/${candidate_path}" ]]; then
+      printf '\nround-marker=%s\n' "${subject}" >> \
+        "${fixture_root}/${candidate_path}"
+    else
+      printf 'round-marker=%s\n' "${subject}" > \
+        "${fixture_root}/${candidate_path}"
+    fi
+  done
+  git -C "${fixture_root}" add -- "$@"
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+make_vsb00_advance_receipt() {
+  local candidate_sha="$1"
+  local subject="$2"
+  local reviewed_sha="${3:-${candidate_sha}}"
+  set_field "${transition_state}" "CompletedTaskCards" "VSB-00"
+  set_field "${transition_state}" "ActiveTaskCard" "VSB-01"
+  set_field "${transition_state}" "ReleasedTaskCard" "VSB-01"
+  set_field "${transition_state}" "CurrentCandidateSHA" "${reviewed_sha}"
+  set_field "${transition_state}" "CurrentGateStatus" "VSB-G0_PASS"
+  set_field "${transition_state}" "CurrentReviewRoute" "deep_reviewer"
+  set_field "${transition_state}" "CurrentReviewVerdict" \
+    "GO_P0_0_P1_0_P2_0"
+  set_field "${transition_state}" "VSB00CandidateSHA" "${reviewed_sha}"
+  set_field "${transition_state}" "VSB00GateStatus" "VSB-G0_PASS"
+  set_field "${transition_state}" "VSB00ReviewVerdict" \
+    "GO_P0_0_P1_0_P2_0"
+  set_field "${transition_state}" "NextTaskCard" "VSB-02"
+  set_field "${transition_state}" "TransitionSequence" "2"
+  set_field "${transition_state}" "TransitionKind" "ADVANCE"
+  set_field "${transition_state}" "TransitionBaseSHA" "${candidate_sha}"
+  git -C "${transition_repo_root}" add \
+    docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${transition_repo_root}" commit -qm "${subject}"
+  git -C "${transition_repo_root}" rev-parse HEAD
+}
+
+run_vsb_transition() {
+  local transition_base_sha="$1"
+  local transition_head_sha="$2"
+  "${verifier}" \
+    --repo-root "${transition_repo_root}" \
+    --cards-dir "${transition_cards}" \
+    --transition-base "${transition_base_sha}" \
+    --transition-head "${transition_head_sha}" 2>&1
+}
+
+expect_transition_failure() {
+  local transition_base_sha="$1"
+  local transition_head_sha="$2"
+  local expected_message="$3"
+  local label="$4"
+  local output
+  if output="$(run_vsb_transition \
+    "${transition_base_sha}" "${transition_head_sha}")"; then
+    fail "${label} unexpectedly passed"
+  fi
+  assert_contains "${output}" "${expected_message}"
+  negative_cases=$((negative_cases + 1))
+  cumulative_candidate_negative_cases=$((cumulative_candidate_negative_cases + 1))
 }
 
 make_wave1_restore_projection() {
@@ -711,6 +782,265 @@ fi
 assert_contains "${forged_advance_output}" \
   "transition BASE failed full VSB state validation"
 negative_cases=$((negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+
+# A business candidate is the complete linear chain from the nearest valid
+# Owner release receipt to the reviewed tip.  Exercise every row through the
+# public fixed-transition entry.
+cumulative_candidate_positive_cases=0
+cumulative_candidate_negative_cases=0
+
+cumulative_candidate_one="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: VSB-00 candidate round one" \
+  AGENTS.md \
+  docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png)"
+cumulative_candidate_two="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: VSB-00 candidate round two" \
+  docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
+  docs/engineering/cognitura-visual-style-baseline-manifest.yaml)"
+cumulative_candidate_tip="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: VSB-00 candidate final round" \
+  docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
+  docs/engineering/cognitura-design-index.md \
+  scripts/import-visual-style-reference \
+  scripts/verify-visual-style-baseline-reference \
+  tests/visual-style-baseline/verify-reference.sh)"
+assert_commit_parent_count "${transition_repo_root}" \
+  "${cumulative_candidate_one}" 1
+assert_commit_parent_count "${transition_repo_root}" \
+  "${cumulative_candidate_two}" 1
+assert_commit_parent_count "${transition_repo_root}" \
+  "${cumulative_candidate_tip}" 1
+cumulative_paths="$(git -C "${transition_repo_root}" diff --no-renames \
+  --name-only "${activation_sha}..${cumulative_candidate_tip}" | LC_ALL=C sort)"
+expected_cumulative_paths="$(printf '%s\n' "${candidate_write_sets[0]}" | \
+  LC_ALL=C sort)"
+[[ "${cumulative_paths}" == "${expected_cumulative_paths}" ]] ||
+  fail "three-commit positive fixture lost the exact VSB-00 WriteSet"
+cumulative_advance_sha="$(make_vsb00_advance_receipt \
+  "${cumulative_candidate_tip}" \
+  "test: advance three-commit VSB-00 candidate")"
+cumulative_output="$(run_vsb_transition \
+  "${cumulative_candidate_tip}" "${cumulative_advance_sha}")" ||
+  fail "legal three-commit cumulative candidate was rejected: ${cumulative_output}"
+assert_contains "${cumulative_output}" \
+  "VisualStyleBaselineTaskCardValidation = PASS"
+cumulative_candidate_positive_cases=$((cumulative_candidate_positive_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+missing_cumulative_tip="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: omit one VSB-00 cumulative path" \
+  AGENTS.md \
+  docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png \
+  docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
+  docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
+  docs/engineering/cognitura-design-index.md \
+  docs/engineering/cognitura-visual-style-baseline-manifest.yaml \
+  scripts/import-visual-style-reference \
+  scripts/verify-visual-style-baseline-reference)"
+missing_cumulative_receipt="$(make_vsb00_advance_receipt \
+  "${missing_cumulative_tip}" "test: advance incomplete cumulative candidate")"
+expect_transition_failure "${missing_cumulative_tip}" \
+  "${missing_cumulative_receipt}" \
+  "candidate cumulative diff must equal the exact Owner WriteSet" \
+  "candidate missing one cumulative Owner path"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+extra_candidate_path=docs/design/visual-style-baseline-fixtures/temporary-extra.txt
+extra_round_one="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: add temporary unauthorized path" \
+  AGENTS.md "${extra_candidate_path}")"
+git -C "${transition_repo_root}" rm -q -- "${extra_candidate_path}"
+commit_candidate_subset "${transition_repo_root}" \
+  "test: restore temporary unauthorized path" \
+  docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png \
+  docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
+  docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
+  docs/engineering/cognitura-design-index.md \
+  docs/engineering/cognitura-visual-style-baseline-manifest.yaml \
+  scripts/import-visual-style-reference \
+  scripts/verify-visual-style-baseline-reference \
+  tests/visual-style-baseline/verify-reference.sh >/dev/null
+extra_restored_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+extra_restored_receipt="$(make_vsb00_advance_receipt \
+  "${extra_restored_tip}" "test: advance restored-extra candidate")"
+expect_transition_failure "${extra_restored_tip}" \
+  "${extra_restored_receipt}" \
+  "candidate chain commit changed a path outside the Owner WriteSet" \
+  "candidate with intermediate extra path restored before tip"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+set_field "${transition_state}" "NextTaskCard" "VSB-03"
+commit_candidate_subset "${transition_repo_root}" \
+  "test: modify execution ledger inside candidate chain" AGENTS.md >/dev/null
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: record intermediate execution-ledger mutation"
+git -C "${transition_repo_root}" show \
+  "${activation_sha}:docs/task-cards/visual-style-baseline/execution-state.md" > \
+  "${transition_state}"
+commit_candidate_subset "${transition_repo_root}" \
+  "test: finish candidate after restoring execution ledger" \
+  docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png \
+  docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
+  docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
+  docs/engineering/cognitura-design-index.md \
+  docs/engineering/cognitura-visual-style-baseline-manifest.yaml \
+  scripts/import-visual-style-reference \
+  scripts/verify-visual-style-baseline-reference \
+  tests/visual-style-baseline/verify-reference.sh >/dev/null
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: restore intermediate execution ledger"
+ledger_restored_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+ledger_restored_receipt="$(make_vsb00_advance_receipt \
+  "${ledger_restored_tip}" "test: advance ledger-restored candidate")"
+expect_transition_failure "${ledger_restored_tip}" \
+  "${ledger_restored_receipt}" \
+  "candidate chain must not modify the execution ledger" \
+  "candidate with intermediate ledger mutation restored before tip"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+other_owner_path=web/src/styles/tokens.css
+other_owner_tip="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: mix another Owner path" \
+  AGENTS.md "${other_owner_path}")"
+other_owner_receipt="$(make_vsb00_advance_receipt \
+  "${other_owner_tip}" "test: advance cross-Owner candidate")"
+expect_transition_failure "${other_owner_tip}" "${other_owner_receipt}" \
+  "candidate chain commit changed a path outside the Owner WriteSet" \
+  "candidate containing another Owner path"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+git -C "${transition_repo_root}" rm -q -- scripts/import-visual-style-reference
+git -C "${transition_repo_root}" mv -- \
+  server/pom.xml scripts/import-visual-style-reference
+git -C "${transition_repo_root}" commit -qm \
+  "test: rename forbidden source into Owner WriteSet"
+rename_chain_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+rename_chain_receipt="$(make_vsb00_advance_receipt \
+  "${rename_chain_tip}" "test: advance rename-containing candidate")"
+expect_transition_failure "${rename_chain_tip}" "${rename_chain_receipt}" \
+  "candidate chain commit changed a path outside the Owner WriteSet" \
+  "candidate containing a rename"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+merge_side_sha="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: candidate merge side" AGENTS.md)"
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+commit_candidate_subset "${transition_repo_root}" \
+  "test: candidate merge first parent" \
+  docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png >/dev/null
+git -C "${transition_repo_root}" merge -q --no-ff \
+  -m "test: merge candidate chain" "${merge_side_sha}"
+merge_chain_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+assert_commit_parent_count "${transition_repo_root}" "${merge_chain_tip}" 2
+merge_chain_receipt="$(make_vsb00_advance_receipt \
+  "${merge_chain_tip}" "test: advance merge-containing candidate")"
+expect_transition_failure "${merge_chain_tip}" "${merge_chain_receipt}" \
+  "candidate chain commit must have exactly one parent" \
+  "candidate containing a merge commit"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+git -C "${transition_repo_root}" commit --allow-empty -qm \
+  "test: empty candidate chain commit"
+empty_chain_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+empty_chain_tip="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: complete candidate after empty commit" \
+  AGENTS.md \
+  docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png \
+  docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
+  docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
+  docs/engineering/cognitura-design-index.md \
+  docs/engineering/cognitura-visual-style-baseline-manifest.yaml \
+  scripts/import-visual-style-reference \
+  scripts/verify-visual-style-baseline-reference \
+  tests/visual-style-baseline/verify-reference.sh)"
+empty_chain_receipt="$(make_vsb00_advance_receipt \
+  "${empty_chain_tip}" "test: advance candidate containing empty commit")"
+expect_transition_failure "${empty_chain_tip}" "${empty_chain_receipt}" \
+  "candidate chain commit must not be empty" \
+  "candidate containing an empty commit"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+reviewed_non_tip_sha="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: initial reviewed candidate" AGENTS.md)"
+reviewed_actual_tip="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: unreviewed candidate tip" \
+  docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png \
+  docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
+  docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
+  docs/engineering/cognitura-design-index.md \
+  docs/engineering/cognitura-visual-style-baseline-manifest.yaml \
+  scripts/import-visual-style-reference \
+  scripts/verify-visual-style-baseline-reference \
+  tests/visual-style-baseline/verify-reference.sh)"
+reviewed_non_tip_receipt="$(make_vsb00_advance_receipt \
+  "${reviewed_actual_tip}" "test: bind review to a non-tip commit" \
+  "${reviewed_non_tip_sha}")"
+expect_transition_failure "${reviewed_actual_tip}" \
+  "${reviewed_non_tip_receipt}" \
+  "reviewed candidate must be the candidate chain tip" \
+  "review receipt bound to a non-tip candidate"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+set_field "${transition_state}" "NextTaskCard" "VSB-03"
+git -C "${transition_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${transition_repo_root}" commit -qm \
+  "test: forge newer claimed VSB-00 release receipt"
+invalid_nearest_receipt_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+invalid_nearest_tip="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: candidate after invalid nearest receipt" \
+  AGENTS.md \
+  docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png \
+  docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
+  docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
+  docs/engineering/cognitura-design-index.md \
+  docs/engineering/cognitura-visual-style-baseline-manifest.yaml \
+  scripts/import-visual-style-reference \
+  scripts/verify-visual-style-baseline-reference \
+  tests/visual-style-baseline/verify-reference.sh)"
+invalid_nearest_head="$(make_vsb00_advance_receipt \
+  "${invalid_nearest_tip}" \
+  "test: try to skip invalid nearest Owner receipt")"
+expect_transition_failure "${invalid_nearest_tip}" "${invalid_nearest_head}" \
+  "candidate chain must start at the nearest valid Owner release receipt" \
+  "candidate selection skipping the nearest claimed Owner receipt"
+
+fixed_failed_receipt_cards="${test_tmp_root}/fixed-failed-receipt-cards"
+mkdir -p "${fixed_failed_receipt_cards}"
+git -C "${repo_root}" archive \
+  d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a \
+  docs/task-cards/visual-style-baseline | \
+  tar -x -C "${fixed_failed_receipt_cards}"
+if fixed_failed_receipt_output="$("${verifier}" \
+  --repo-root "${repo_root}" \
+  --cards-dir "${fixed_failed_receipt_cards}/docs/task-cards/visual-style-baseline" \
+  --transition-base 737c053483d1f3d084d5f90d5c36f76b0ae8f5a3 \
+  --transition-head d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a 2>&1)"; then
+  fail "fixed failed VSB receipt unexpectedly passed as ordinary ADVANCE"
+fi
+assert_contains "${fixed_failed_receipt_output}" \
+  "fixed governance repair origin is not a valid ordinary VSB receipt"
+negative_cases=$((negative_cases + 1))
+cumulative_candidate_negative_cases=$((cumulative_candidate_negative_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach \
+  737c053483d1f3d084d5f90d5c36f76b0ae8f5a3
+reviewed_vsb00_head="$(make_vsb00_advance_receipt \
+  737c053483d1f3d084d5f90d5c36f76b0ae8f5a3 \
+  "test: replay reviewed real VSB-00 candidate tip")"
+reviewed_vsb00_output="$(run_vsb_transition \
+  737c053483d1f3d084d5f90d5c36f76b0ae8f5a3 \
+  "${reviewed_vsb00_head}")" ||
+  fail "reviewed real VSB-00 business tip was rejected: ${reviewed_vsb00_output}"
+assert_contains "${reviewed_vsb00_output}" \
+  "VisualStyleBaselineTaskCardValidation = PASS"
+cumulative_candidate_positive_cases=$((cumulative_candidate_positive_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 
@@ -2003,5 +2333,7 @@ printf '%s\n' \
   "TransitionCases = ${transition_cases}" \
   "FixedBaseTransitionCases = ${fixed_base_transition_cases}" \
   "BinaryLedgerCases = ${binary_ledger_cases}" \
+  "CumulativeCandidatePositiveCases = ${cumulative_candidate_positive_cases}" \
+  "CumulativeCandidateNegativeCases = ${cumulative_candidate_negative_cases}" \
   "CrossCardReturnPositiveCases = ${cross_card_return_positive_cases}" \
   "CrossCardReturnNegativeCases = ${cross_card_return_negative_cases}"
