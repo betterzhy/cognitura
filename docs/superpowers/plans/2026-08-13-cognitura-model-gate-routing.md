@@ -56,6 +56,39 @@ docs/superpowers/plans/2026-08-13-cognitura-vsb-receipt-correction.md
 
 Every origin-exclusive governance commit must be single-parent, non-empty, no-ledger, NUL-free, mode-preserving, no-merge, no-rename/copy, and a non-empty subset of that exact ten-path set. The cumulative set must equal all ten paths. Preserve untracked `.idea/`; do not read or stage it.
 
+## TDD sequencing amendment
+
+The original Task 2 wording incorrectly required a tests-only fixture to change the governed VSB-02
+and VSB-03 card bodies, retain the old production card digests, and reach receipt-correction dispatch
+in one RED. Those conditions cannot all hold: `normalized_card_digest` covers every card byte except
+the mutable `Status` value, and the public verifier owns the expected digest constants. A test must
+not patch or bypass the production executable to manufacture a deeper failure.
+
+The following two-cycle order supersedes later steps where they conflict. It does not change the
+approved design, WriteSet, candidate topology, review route, or final acceptance:
+
+```text
+CycleA_RED = changed authoritative route cards rejected by old production digest/route contract
+CycleA_GREEN = live Authority, card fields, expected digests, and single-gate route schema pass
+CycleB_RED = legal exact-chain G2/R2 plus all fail-closed fixtures reach public correction dispatch;
+             production rejects the first positive because RECEIPT_CORRECTION is absent
+CycleB_GREEN = deterministic correction chain, version 3 replay, and all negatives pass
+```
+
+Cycle A uses `--model-gate-routing-contract-only` only for the card/route contract. Its intended RED
+is the exact production diagnostic `card body contract digest mismatch for VSB-02`; this is a
+production contract failure, not fixture setup failure. Before committing Cycle A tests, the fixture
+must still prove real Git ancestry, exact path membership without substring matching, historical
+GovernanceRepair replay, clean TMPDIR behavior, and the complete VSB-02/VSB-03 route fields and
+verdicts it expects production to accept after GREEN. It must not claim R2 public coverage or report
+unexecuted correction negatives.
+
+After Cycle A GREEN passes, extend the same focused mode in a new tests-only commit with every
+receipt-correction positive and negative listed below. Observe Cycle B RED at the first legal
+G2/PENDING or G2-to-R2 public-verifier call. Only then implement correction production code. The
+literal model-route plan SHA used by production and tests is the commit that introduces this
+amendment, not the earlier `cf092007...` plan commit; both remain immutable ancestors.
+
 ### Task 1: Freeze this implementation plan
 
 **Files:**
