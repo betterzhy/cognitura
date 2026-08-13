@@ -648,6 +648,9 @@ make_governance_repair_receipt() {
   local override_field="${4:-}"
   local override_value="${5:-}"
   local extra_path="${6:-}"
+  local append_text="${7:-}"
+  local ledger_mode="${8:-}"
+  local append_nul="${9:-0}"
   local fixture_state="${fixture_root}/docs/task-cards/visual-style-baseline/execution-state.md"
   set_field "${fixture_state}" ExecutionStateVersion 2
   insert_field_after "${fixture_state}" GovernanceReviewVerdict \
@@ -672,6 +675,15 @@ make_governance_repair_receipt() {
     mkdir -p "${fixture_root}/$(dirname "${extra_path}")"
     printf 'unauthorized repair receipt path\n' > \
       "${fixture_root}/${extra_path}"
+  fi
+  if [[ -n "${append_text}" ]]; then
+    printf '%s\n' "${append_text}" >> "${fixture_state}"
+  fi
+  if [[ "${append_nul}" -eq 1 ]]; then
+    printf '\000' >> "${fixture_state}"
+  fi
+  if [[ -n "${ledger_mode}" ]]; then
+    chmod "${ledger_mode}" "${fixture_state}"
   fi
   git -C "${fixture_root}" add \
     docs/task-cards/visual-style-baseline/execution-state.md
@@ -1221,6 +1233,105 @@ expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain commit must have exactly one parent" \
   "governance repair containing a merge"
 
+# Mode history is cumulative: delete/recreate with the canonical mode is valid,
+# while restoring the same path with a different executable bit is not.
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" rm -q -- \
+  docs/task-cards/visual-style-baseline/README.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: delete repair README before same-mode recreation"
+commit_current_governance_repair_subset "${repair_repo_root}" \
+  "test: recreate repair README with canonical mode" \
+  "${repair_paths[@]}" >/dev/null
+repair_same_mode_candidate="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+repair_same_mode_output="$(run_repair_static "${repair_repo_root}")" ||
+  fail "same-mode repair delete/recreate was rejected: ${repair_same_mode_output}"
+assert_contains "${repair_same_mode_output}" "GovernanceRepairStatus = PENDING"
+governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" rm -q -- \
+  docs/task-cards/visual-style-baseline/README.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: delete repair README before mode drift"
+for repair_path in "${repair_paths[@]}"; do
+  mkdir -p "${repair_repo_root}/$(dirname "${repair_path}")"
+  cp -p "${repo_root}/${repair_path}" "${repair_repo_root}/${repair_path}"
+done
+chmod +x "${repair_repo_root}/docs/task-cards/visual-style-baseline/README.md"
+git -C "${repair_repo_root}" add -- "${repair_paths[@]}"
+git -C "${repair_repo_root}" commit -qm \
+  "test: recreate repair README directly with different mode"
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair chain must preserve file mode history" \
+  "governance repair delete and different-mode recreate"
+
+# Owner-internal rename/copy attempts must fail even when the final five-path
+# tree is restored.  Low repository rename limits must not weaken detection.
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" mv -- \
+  docs/task-cards/visual-style-baseline/README.md \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: rename one repair path onto another"
+commit_current_governance_repair_subset "${repair_repo_root}" \
+  "test: restore renamed repair paths" "${repair_paths[@]}" >/dev/null
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair chain must not rename or copy paths" \
+  "governance repair owner-internal rename"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+cp "${repair_repo_root}/docs/task-cards/visual-style-baseline/README.md" \
+  "${repair_repo_root}/docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md"
+git -C "${repair_repo_root}" add \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: copy one repair path onto another"
+commit_current_governance_repair_subset "${repair_repo_root}" \
+  "test: restore copied repair paths" "${repair_paths[@]}" >/dev/null
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair chain must not rename or copy paths" \
+  "governance repair owner-internal copy"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+repair_low_limit_parent="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+git -C "${repair_repo_root}" mv -- \
+  docs/task-cards/visual-style-baseline/README.md \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
+git -C "${repair_repo_root}" mv -- \
+  scripts/verify-visual-style-baseline-cards \
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md
+printf '\ninexact low-limit repair rename A\n' >> \
+  "${repair_repo_root}/docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md"
+printf '\ninexact low-limit repair rename B\n' >> \
+  "${repair_repo_root}/docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md"
+git -C "${repair_repo_root}" add -- \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: rename repair paths under a low detection limit"
+repair_low_limit_rename_sha="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+git -C "${repair_repo_root}" config diff.renameLimit 1
+repair_low_limit_status="${test_tmp_root}/repair-low-limit-status"
+repair_low_limit_error="${test_tmp_root}/repair-low-limit-error"
+git -C "${repair_repo_root}" diff-tree --no-commit-id -r -M -C \
+  --find-copies-harder --name-status \
+  "${repair_low_limit_parent}" "${repair_low_limit_rename_sha}" \
+  > "${repair_low_limit_status}" 2> "${repair_low_limit_error}" ||
+  fail "low-limit repair rename fixture inspection failed"
+if grep -Eq '^[RC][0-9]+' "${repair_low_limit_status}"; then
+  fail "low-limit repair rename fixture did not degrade detection"
+fi
+grep -q 'exhaustive rename detection was skipped' \
+  "${repair_low_limit_error}" ||
+  fail "low-limit repair rename fixture emitted no degradation warning"
+commit_current_governance_repair_subset "${repair_repo_root}" \
+  "test: restore low-limit repair renames" "${repair_paths[@]}" >/dev/null
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair chain must not rename or copy paths" \
+  "governance repair rename under low diff.renameLimit"
+git -C "${repair_repo_root}" config --unset diff.renameLimit
+
 git -C "${repair_repo_root}" checkout -q --detach "${repair_candidate_sha}"
 repair_receipt_sha="$(make_governance_repair_receipt \
   "${repair_repo_root}" "${repair_candidate_sha}" \
@@ -1236,6 +1347,78 @@ repair_static_pass_output="$(run_repair_static "${repair_repo_root}")" ||
   fail "valid GOVERNANCE_REPAIR receipt failed static validation"
 assert_contains "${repair_static_pass_output}" "GovernanceRepairStatus = PASS"
 governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
+
+# R is one exact deterministic byte transform of the fixed origin ledger.
+# Unknown keys, free-form body drift, binary data, and ledger mode drift fail.
+repair_receipt_drift_texts=(
+  'UnapprovedState = X'
+  'unapproved governance receipt body'
+)
+repair_drift_receipts=()
+for repair_receipt_drift_text in "${repair_receipt_drift_texts[@]}"; do
+  git -C "${repair_repo_root}" checkout -q --detach "${repair_candidate_sha}"
+  repair_drift_receipt="$(make_governance_repair_receipt \
+    "${repair_repo_root}" "${repair_candidate_sha}" \
+    "test: governance repair receipt with ledger drift" "" "" "" \
+    "${repair_receipt_drift_text}")"
+  repair_drift_receipts+=("${repair_drift_receipt}")
+  expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+    "${repair_candidate_sha}" "${repair_drift_receipt}" \
+    "GOVERNANCE_REPAIR receipt must be the exact approved ledger transform" \
+    "governance repair receipt drift ${repair_receipt_drift_text}"
+done
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_candidate_sha}"
+repair_nul_receipt="$(make_governance_repair_receipt \
+  "${repair_repo_root}" "${repair_candidate_sha}" \
+  "test: governance repair receipt with NUL" "" "" "" "" "" 1)"
+expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+  "${repair_candidate_sha}" "${repair_nul_receipt}" \
+  "transition ledger must not contain NUL bytes" \
+  "governance repair receipt with NUL"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_candidate_sha}"
+repair_mode_receipt="$(make_governance_repair_receipt \
+  "${repair_repo_root}" "${repair_candidate_sha}" \
+  "test: governance repair receipt with executable ledger" \
+  "" "" "" "" 755)"
+expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+  "${repair_candidate_sha}" "${repair_mode_receipt}" \
+  "GOVERNANCE_REPAIR receipt ledger mode must remain canonical" \
+  "governance repair receipt ledger mode drift"
+
+# Fixed-old RED audit: the pre-fix verifier at f99b74f accepted the exact
+# malformed R fixtures that the current public entry rejects above.
+old_verifier_root="${test_tmp_root}/old-governance-repair-verifier"
+git clone --shared -q "${repo_root}" "${old_verifier_root}"
+git -C "${old_verifier_root}" checkout -q --detach \
+  f99b74f98d0ac8e497021bb3ea624c32380c0aeb
+old_verifier_bin="${test_tmp_root}/old-verifier-bin"
+mkdir -p "${old_verifier_bin}/scripts"
+old_verifier="${old_verifier_bin}/scripts/verify-visual-style-baseline-cards"
+cp "${old_verifier_root}/scripts/verify-visual-style-baseline-cards" \
+  "${old_verifier}"
+cp "${old_verifier_root}/scripts/verify-wave1-implementation-cards" \
+  "${old_verifier_bin}/scripts/verify-wave1-implementation-cards"
+old_verifier_red_cases=0
+for old_red_receipt_sha in \
+  "${repair_drift_receipts[@]}" "${repair_mode_receipt}"; do
+  git -C "${old_verifier_root}" fetch -q "${repair_repo_root}" \
+    "${old_red_receipt_sha}"
+  git -C "${old_verifier_root}" checkout -q --detach FETCH_HEAD
+  old_red_output="$("${old_verifier}" \
+    --repo-root "${old_verifier_root}" \
+    --cards-dir \
+      "${old_verifier_root}/docs/task-cards/visual-style-baseline" \
+    --transition-base "${repair_candidate_sha}" \
+    --transition-head "${old_red_receipt_sha}" 2>&1)" ||
+    fail "fixed-old verifier did not reproduce expected malformed-R PASS"
+  assert_contains "${old_red_output}" \
+    "VisualStyleBaselineTaskCardValidation = PASS"
+  old_verifier_red_cases=$((old_verifier_red_cases + 1))
+done
+[[ "${old_verifier_red_cases}" -eq 3 ]] ||
+  fail "fixed-old malformed-R RED audit did not execute three cases"
 
 repair_negative_fields=(
   GovernanceRepairSpecSHA

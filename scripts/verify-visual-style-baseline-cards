@@ -130,6 +130,33 @@ path_is_in_governance_repair_write_set() {
   return 1
 }
 
+validate_governance_repair_mode_history() {
+  local candidate_sha="$1"
+  local repair_path origin_mode expected_mode current_mode chain_sha
+  while IFS= read -r repair_path; do
+    origin_mode="$(git -C "${repo_root}" ls-tree \
+      "${governance_repair_origin_sha}" -- "${repair_path}" | awk '{print $1}')"
+    expected_mode="${origin_mode}"
+    while IFS= read -r chain_sha; do
+      [[ -n "${chain_sha}" ]] || continue
+      current_mode="$(git -C "${repo_root}" ls-tree \
+        "${chain_sha}" -- "${repair_path}" | awk '{print $1}')"
+      [[ -n "${current_mode}" ]] || continue
+      if [[ -z "${expected_mode}" ]]; then
+        expected_mode="${current_mode}"
+      else
+        [[ "${current_mode}" == "${expected_mode}" ]] ||
+          fail "governance repair chain must preserve file mode history"
+      fi
+    done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+      "${governance_repair_origin_sha}..${candidate_sha}")
+    current_mode="$(git -C "${repo_root}" ls-tree \
+      "${candidate_sha}" -- "${repair_path}" | awk '{print $1}')"
+    [[ -n "${expected_mode}" && "${current_mode}" == "${expected_mode}" ]] ||
+      fail "governance repair chain must preserve file mode history"
+  done < <(governance_repair_write_set)
+}
+
 validate_governance_repair_chain() {
   local candidate_sha="$1"
   local expected_origin="${2:-${governance_repair_origin_sha}}"
@@ -198,6 +225,7 @@ validate_governance_repair_chain() {
   expected_paths="$(governance_repair_write_set | LC_ALL=C sort)"
   [[ "${actual_paths}" == "${expected_paths}" ]] ||
     fail "governance repair chain must have the exact repair WriteSet"
+  validate_governance_repair_mode_history "${candidate_sha}"
   origin_ledger="$(git -C "${repo_root}" rev-parse \
     "${governance_repair_origin_sha}:${ledger_path}" 2>/dev/null)" ||
     fail "governance repair origin ledger is missing"
@@ -206,6 +234,44 @@ validate_governance_repair_chain() {
     fail "governance repair candidate ledger is missing"
   [[ "${origin_ledger}" == "${candidate_ledger}" ]] ||
     fail "governance repair chain must preserve the origin ledger bytes"
+}
+
+build_expected_governance_repair_ledger() {
+  local origin_file="$1"
+  local expected_file="$2"
+  local candidate_sha="$3"
+  awk -v candidate_sha="${candidate_sha}" \
+      -v spec_sha="${governance_repair_spec_sha}" \
+      -v origin_sha="${governance_repair_origin_sha}" '
+    /^ExecutionStateVersion = 1$/ {
+      print "ExecutionStateVersion = 2"
+      next
+    }
+    /^GovernanceReviewVerdict = / {
+      print
+      print "GovernanceRepairStatus = PASS"
+      print "GovernanceRepairSpecSHA = " spec_sha
+      print "GovernanceRepairOriginReceiptSHA = " origin_sha
+      print "GovernanceRepairReviewedCandidateSHA = " candidate_sha
+      print "GovernanceRepairReviewRoute = deep_reviewer+ultra_gatekeeper"
+      print "GovernanceRepairReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0"
+      next
+    }
+    /^TransitionSequence = 2$/ {
+      print "TransitionSequence = 3"
+      next
+    }
+    /^TransitionKind = ADVANCE$/ {
+      print "TransitionKind = GOVERNANCE_REPAIR"
+      next
+    }
+    /^TransitionBaseSHA = / {
+      print "TransitionBaseSHA = " candidate_sha
+      next
+    }
+    { print }
+  ' "${origin_file}" > "${expected_file}" ||
+    fail "could not build the approved GOVERNANCE_REPAIR ledger"
 }
 
 receipt_fields_for_index() {
@@ -666,7 +732,7 @@ validate_governance_repair_transition_files() {
   local pair_head="$2"
   local base_file="$3"
   local head_file="$4"
-  local field
+  local field expected_head_file base_mode head_mode
   [[ "$(state_value_from_file "${base_file}" ExecutionStateVersion)" == 1 ]] ||
     fail "GOVERNANCE_REPAIR is allowed exactly once"
   for field in $(governance_repair_fields); do
@@ -683,6 +749,19 @@ validate_governance_repair_transition_files() {
     fail "GOVERNANCE_REPAIR TransitionSequence must be 3"
   require_governance_repair_state_values "${head_file}" "${pair_base}"
   require_governance_repair_business_state_preserved "${base_file}" "${head_file}"
+  expected_head_file="$(mktemp \
+    "${verifier_tmp_root}/expected-repair-ledger.XXXXXX")"
+  temporary_paths+=("${expected_head_file}")
+  build_expected_governance_repair_ledger \
+    "${base_file}" "${expected_head_file}" "${pair_base}"
+  cmp -s "${expected_head_file}" "${head_file}" ||
+    fail "GOVERNANCE_REPAIR receipt must be the exact approved ledger transform"
+  base_mode="$(git -C "${repo_root}" ls-tree \
+    "${pair_base}" -- "${ledger_path}" | awk '{print $1}')"
+  head_mode="$(git -C "${repo_root}" ls-tree \
+    "${pair_head}" -- "${ledger_path}" | awk '{print $1}')"
+  [[ "${base_mode}" == 100644 && "${head_mode}" == 100644 ]] ||
+    fail "GOVERNANCE_REPAIR receipt ledger mode must remain canonical"
 }
 
 ledger_receipt_claims_owner_release() {
