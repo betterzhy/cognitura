@@ -20,6 +20,7 @@ fail() {
 }
 
 mkdir -p "${fixture_root}/web" "${fake_bin}"
+fixture_root="$(cd "${fixture_root}" && pwd -P)"
 
 cat >"${fake_bin}/node" <<'EOF'
 #!/bin/bash
@@ -49,6 +50,26 @@ EOF
 
 chmod +x "${fake_bin}/node" "${fake_bin}/pnpm"
 
+bare_pnpm_version="$(
+  env \
+    PATH="${fake_bin}:/usr/bin:/bin" \
+    PNPM_CALL_LOG="${pnpm_call_log}" \
+    EXPECTED_WEB_DIR="${fixture_root}/web" \
+    pnpm --version
+)"
+[[ "${bare_pnpm_version}" == "9.15.9" ]] ||
+  fail "fake bare pnpm did not expose the parent version"
+
+web_scoped_pnpm_version="$(
+  env \
+    PATH="${fake_bin}:/usr/bin:/bin" \
+    PNPM_CALL_LOG="${pnpm_call_log}" \
+    EXPECTED_WEB_DIR="${fixture_root}/web" \
+    pnpm --dir "${fixture_root}/web" --version
+)"
+[[ "${web_scoped_pnpm_version}" == "11.17.0" ]] ||
+  fail "fake web-scoped pnpm did not expose the locked version"
+
 if ! output="$(
   env \
     PATH="${fake_bin}:/usr/bin:/bin" \
@@ -60,6 +81,8 @@ if ! output="$(
 fi
 
 expected_calls="$(printf '%s\n' \
+  "--version" \
+  "--dir ${fixture_root}/web --version" \
   "--dir ${fixture_root}/web --version" \
   "--dir ${fixture_root}/web test" \
   "--dir ${fixture_root}/web build")"
@@ -69,6 +92,6 @@ actual_calls="$(cat "${pnpm_call_log}")"
 
 printf '%s\n' \
   'ModuleDefaultReadingToolchainTests = PASS' \
-  'BarePnpmVersion = 9.15.9' \
-  'WebScopedPnpmVersion = 11.17.0' \
+  "BarePnpmVersion = ${bare_pnpm_version}" \
+  "WebScopedPnpmVersion = ${web_scoped_pnpm_version}" \
   'PnpmInvocationSequence = PASS'

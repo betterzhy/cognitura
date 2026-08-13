@@ -1,0 +1,84 @@
+:root {
+  color-scheme: light;
+
+  --color-canvas: #f7f9fc;
+  --surface-reading: #ffffff;
+  --surface-projection: #fafbfd;
+  --surface-subtle: #f5f7fa;
+  --border-subtle: #e7eaf0;
+  --border-default: #e2e6ec;
+  --border-strong: #d4dae3;
+  --text-primary: #172033;
+  --text-secondary: #475467;
+  --text-muted: #667085;
+  --text-subtle: #98a2b3;
+  --color-primary: #4f67e8;
+  --color-primary-hover: #455bdd;
+  --color-primary-active: #3d50c9;
+  --color-primary-soft: #eef2ff;
+  --color-focus: #7c6cf2;
+  --color-focus-soft: #f3f0ff;
+  --color-success: #278c68;
+  --color-success-soft: #ecf8f3;
+  --color-warning: #c98526;
+  --color-warning-soft: #fff6e5;
+  --color-danger: #d64f58;
+  --color-danger-soft: #fff0f1;
+  --color-info: #4385e0;
+  --color-info-soft: #eef6ff;
+
+  --font-interface: Inter, "PingFang SC", "SF Pro Text", "Noto Sans SC",
+    "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-reading: var(--font-interface);
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --type-page-title-size: 32px;
+  --type-page-title-line-height: 40px;
+  --type-object-title-size: 28px;
+  --type-object-title-line-height: 36px;
+  --type-major-section-size: 22px;
+  --type-major-section-line-height: 30px;
+  --type-cognitive-section-size: 18px;
+  --type-cognitive-section-line-height: 26px;
+  --type-reading-size: 16px;
+  --type-reading-line-height: 27px;
+  --type-ui-size: 14px;
+  --type-ui-line-height: 21px;
+  --type-metadata-size: 13px;
+  --type-metadata-line-height: 18px;
+  --type-caption-size: 12px;
+  --type-caption-line-height: 18px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --reading-column-width: 52rem;
+  --projection-width: 64rem;
+  --application-max-width: 90rem;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+  --shadow-xs: 0 1px 2px rgb(16 24 40 / 4%);
+  --shadow-sm: 0 2px 6px rgb(16 24 40 / 5%);
+  --shadow-md: 0 6px 18px rgb(16 24 40 / 7%);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: rgb(79 103 232 / 32%);
+  --motion-fast: 140ms;
+  --motion-standard: 180ms;
+  --motion-easing: ease-out;
+}

@@ -1,0 +1,65 @@
+.cka-focusable:focus,
+.cka-focusable:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.cka-relation-statement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+.cka-relation-verb {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cka-relation-direction {
+  position: relative;
+  min-inline-size: var(--space-12);
+  border-block-start: 1.5px solid currentColor;
+}
+
+.cka-relation-direction::after {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-end: 0;
+  inline-size: 6px;
+  block-size: 6px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  content: "";
+  transform: rotate(-45deg);
+}
+
+.cka-relation-endpoint {
+  min-inline-size: 0;
+  color: var(--text-primary);
+}
+
+.cka-relation-statement[data-relation-strength="weak"] .cka-relation-direction {
+  border-block-start-style: dashed;
+  opacity: 0.64;
+}
+
+.cka-status-confirmed {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.cka-status-focus {
+  color: var(--color-focus);
+  background: var(--color-focus-soft);
+}
+
+.cka-status-warning {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.cka-status-conflict {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}

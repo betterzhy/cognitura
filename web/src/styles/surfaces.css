@@ -1,0 +1,33 @@
+.cka-canvas {
+  min-block-size: 100%;
+  background: var(--color-canvas);
+}
+
+.cka-reading-surface {
+  box-sizing: border-box;
+  inline-size: min(100%, var(--reading-column-width));
+  margin-inline: auto;
+  background: var(--surface-reading);
+  box-shadow: none;
+}
+
+.cka-projection-surface {
+  box-sizing: border-box;
+  inline-size: min(100%, var(--projection-width));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-projection);
+  box-shadow: var(--shadow-xs);
+}
+
+.cka-subtle-band {
+  border-block: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+}
+
+.cka-semantic-boundary {
+  border-inline-start: 3px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-soft);
+  padding: var(--space-4);
+}

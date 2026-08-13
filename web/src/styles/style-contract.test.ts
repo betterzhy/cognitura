@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import cognitiveVisualCss from "./cognitive-visual.css?raw";
-import cognituraCss from "./cognitura.css?raw";
-import surfacesCss from "./surfaces.css?raw";
-import tokensCss from "./tokens.css?raw";
-import typographyCss from "./typography.css?raw";
+import cognitiveVisualRaw from "./cognitive-visual.css?raw";
+import cognituraRaw from "./cognitura.css?raw";
+import surfacesRaw from "./surfaces.css?raw";
+import tokensRaw from "./tokens.css?raw";
+import typographyRaw from "./typography.css?raw";
+
+const nodeFsModule = "node:fs";
+const { readFileSync } = await import(nodeFsModule);
+
+const readRawCss = (rawImport: string, relativePath: string) =>
+  rawImport || readFileSync(new URL(relativePath, import.meta.url), "utf8");
+
+const cognitiveVisualCss = readRawCss(cognitiveVisualRaw, "./cognitive-visual.css");
+const cognituraCss = readRawCss(cognituraRaw, "./cognitura.css");
+const surfacesCss = readRawCss(surfacesRaw, "./surfaces.css");
+const tokensCss = readRawCss(tokensRaw, "./tokens.css");
+const typographyCss = readRawCss(typographyRaw, "./typography.css");
 
 const styles = {
   "tokens.css": tokensCss,
@@ -125,8 +137,8 @@ const normalizeValue = (value: string) =>
   value.trim().replace(/\s+/g, " ").replace(/#[0-9A-F]{6}/g, (hex) => hex.toLowerCase());
 
 const declarations = Object.entries(styles).flatMap(([file, css]) =>
-  [...css.matchAll(/(^|[;{]\s*)(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map(
-    ([, , name, value]) => ({ file, name, value: normalizeValue(value) }),
+  [...css.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map(
+    ([, name, value]) => ({ file, name, value: normalizeValue(value) }),
   ),
 );
 

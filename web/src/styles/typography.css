@@ -1,0 +1,52 @@
+.cka-visual-root {
+  color: var(--text-primary);
+  font-family: var(--font-interface);
+  font-size: var(--type-reading-size);
+  line-height: var(--type-reading-line-height);
+  text-rendering: optimizeLegibility;
+}
+
+.cka-type-page-title {
+  font-size: var(--type-page-title-size);
+  line-height: var(--type-page-title-line-height);
+  font-weight: var(--font-weight-bold);
+}
+
+.cka-type-object-title {
+  font-size: var(--type-object-title-size);
+  line-height: var(--type-object-title-line-height);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cka-type-major-section {
+  font-size: var(--type-major-section-size);
+  line-height: var(--type-major-section-line-height);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cka-type-cognitive-section {
+  font-size: var(--type-cognitive-section-size);
+  line-height: var(--type-cognitive-section-line-height);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cka-type-reading {
+  font-size: var(--type-reading-size);
+  line-height: var(--type-reading-line-height);
+  font-weight: var(--font-weight-regular);
+}
+
+.cka-type-ui {
+  font-size: var(--type-ui-size);
+  line-height: var(--type-ui-line-height);
+}
+
+.cka-type-metadata {
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+}
+
+.cka-type-caption {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
