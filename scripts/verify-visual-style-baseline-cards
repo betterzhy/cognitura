@@ -163,6 +163,7 @@ validate_governance_repair_chain() {
   local previous_sha chain_sha actual_parent changed_paths repair_path
   local actual_paths expected_paths origin_ledger candidate_ledger
   local raw_status_file raw_error_file parent_mode child_mode
+  local spec_path approved_spec_blob candidate_spec_blob
   [[ "${expected_origin}" == "${governance_repair_origin_sha}" ]] ||
     fail "governance repair origin SHA mismatch"
   git -C "${repo_root}" merge-base --is-ancestor \
@@ -170,6 +171,18 @@ validate_governance_repair_chain() {
     fail "governance repair origin is not an ancestor of the candidate"
   [[ "${candidate_sha}" != "${governance_repair_origin_sha}" ]] ||
     fail "fixed governance repair origin is not a valid current receipt"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${governance_repair_spec_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "approved governance repair spec commit must be an ancestor of G"
+  spec_path=docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
+  approved_spec_blob="$(git -C "${repo_root}" rev-parse \
+    "${governance_repair_spec_sha}:${spec_path}" 2>/dev/null)" ||
+    fail "approved governance repair spec blob is missing"
+  candidate_spec_blob="$(git -C "${repo_root}" rev-parse \
+    "${candidate_sha}:${spec_path}" 2>/dev/null)" ||
+    fail "governance repair candidate spec blob is missing"
+  [[ "${candidate_spec_blob}" == "${approved_spec_blob}" ]] ||
+    fail "governance repair spec blob must match the approved spec commit"
   previous_sha="${governance_repair_origin_sha}"
   while IFS= read -r chain_sha; do
     [[ -n "${chain_sha}" ]] || continue
@@ -434,15 +447,17 @@ validate_terminal_receipt_provenance() {
       replay_root="${receipt_checkout}"
       replay_cards="${receipt_checkout}/docs/task-cards/visual-style-baseline"
     fi
-    if ! replay_output="$(
-      "${self_verifier}" \
-        --repo-root "${replay_root}" \
-        --cards-dir "${replay_cards}" \
-        --transition-base "${base_sha}" \
-        --transition-head "${terminal_sha}" 2>&1
-    )"; then
-      [[ -z "${receipt_checkout}" ]] || rm -rf -- "${receipt_checkout}"
-      fail "terminal VSB receipt failed exact transition replay"
+    if [[ -z "${transition_base}" ]]; then
+      if ! replay_output="$(
+        "${self_verifier}" \
+          --repo-root "${replay_root}" \
+          --cards-dir "${replay_cards}" \
+          --transition-base "${base_sha}" \
+          --transition-head "${terminal_sha}" 2>&1
+      )"; then
+        [[ -z "${receipt_checkout}" ]] || rm -rf -- "${receipt_checkout}"
+        fail "terminal VSB receipt failed exact transition replay"
+      fi
     fi
     [[ -z "${receipt_checkout}" ]] || rm -rf -- "${receipt_checkout}"
   fi

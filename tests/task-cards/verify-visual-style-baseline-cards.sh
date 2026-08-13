@@ -1102,13 +1102,13 @@ repair_reviewed_vsb00_sha=737c053483d1f3d084d5f90d5c36f76b0ae8f5a3
 repair_repo_root="${test_tmp_root}/governance-repair-repo"
 git clone --shared -q "${repo_root}" "${repair_repo_root}"
 git -C "${repair_repo_root}" config advice.detachedHead false
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
 repair_cards="${repair_repo_root}/docs/task-cards/visual-style-baseline"
 repair_state="${repair_cards}/execution-state.md"
 
 repair_round_one_sha="$(commit_current_governance_repair_subset \
   "${repair_repo_root}" "test: governance repair authority" \
-  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
   docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md)"
 repair_candidate_sha="$(commit_current_governance_repair_subset \
   "${repair_repo_root}" "test: governance repair contracts" \
@@ -1137,6 +1137,47 @@ assert_contains "${repair_pending_output}" \
 assert_contains "${repair_pending_output}" "GovernanceRepairStatus = PENDING"
 governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
 
+# Copying the approved final tree is insufficient: the fixed approved spec
+# commit must be in G's ancestry, and its approved spec blob must remain exact.
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+commit_current_governance_repair_subset "${repair_repo_root}" \
+  "test: copy final repair tree without approved spec ancestry" \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
+  docs/task-cards/visual-style-baseline/README.md \
+  scripts/verify-visual-style-baseline-cards \
+  tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
+copied_tree_candidate="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+expect_repair_static_failure "${repair_repo_root}" \
+  "approved governance repair spec commit must be an ancestor of G" \
+  "governance repair copied tree without approved spec ancestry"
+copied_tree_receipt="$(make_governance_repair_receipt \
+  "${repair_repo_root}" "${copied_tree_candidate}" \
+  "test: record copied-tree governance repair receipt")"
+expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+  "${copied_tree_candidate}" "${copied_tree_receipt}" \
+  "approved governance repair spec commit must be an ancestor of G" \
+  "GOVERNANCE_REPAIR receipt for copied tree without approved spec ancestry"
+
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
+printf '\nunauthorized post-approval spec drift\n' >> \
+  "${repair_repo_root}/docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md"
+git -C "${repair_repo_root}" add \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: drift approved governance repair spec"
+commit_current_governance_repair_subset "${repair_repo_root}" \
+  "test: finish repair after approved spec drift" \
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
+  docs/task-cards/visual-style-baseline/README.md \
+  scripts/verify-visual-style-baseline-cards \
+  tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
+spec_drift_candidate="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair spec blob must match the approved spec commit" \
+  "governance repair candidate with post-approval spec drift"
+
 # Every governance path is mandatory in the cumulative repair WriteSet.
 repair_paths=(
   docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
@@ -1146,29 +1187,50 @@ repair_paths=(
   tests/task-cards/verify-visual-style-baseline-cards.sh
 )
 for missing_repair_path in "${repair_paths[@]}"; do
-  git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+  if [[ "${missing_repair_path}" == \
+    docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md ]]; then
+    git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+  else
+    git -C "${repair_repo_root}" checkout -q --detach \
+      2123594540c91341c480f504949315a6abec316c
+  fi
   included_repair_paths=()
   for repair_path in "${repair_paths[@]}"; do
-    [[ "${repair_path}" == "${missing_repair_path}" ]] ||
+    [[ "${repair_path}" == \
+      docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md ]] ||
+      [[ "${repair_path}" == "${missing_repair_path}" ]] ||
       included_repair_paths+=("${repair_path}")
   done
   commit_governance_repair_subset "${repair_repo_root}" \
     "test: omit governance path ${missing_repair_path}" \
     "${included_repair_paths[@]}" >/dev/null
-  expect_repair_static_failure "${repair_repo_root}" \
-    "governance repair chain must have the exact repair WriteSet" \
-    "governance repair missing ${missing_repair_path}"
+  if [[ "${missing_repair_path}" == \
+    docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md ]]; then
+    expect_repair_static_failure "${repair_repo_root}" \
+      "approved governance repair spec commit must be an ancestor of G" \
+      "governance repair missing ${missing_repair_path}"
+  else
+    expect_repair_static_failure "${repair_repo_root}" \
+      "governance repair chain must have the exact repair WriteSet" \
+      "governance repair missing ${missing_repair_path}"
+  fi
 done
 
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
 commit_governance_repair_subset "${repair_repo_root}" \
   "test: governance repair with extra path" \
-  "${repair_paths[@]}" docs/engineering/governance-repair-extra.md >/dev/null
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
+  docs/task-cards/visual-style-baseline/README.md \
+  scripts/verify-visual-style-baseline-cards \
+  tests/task-cards/verify-visual-style-baseline-cards.sh \
+  docs/engineering/governance-repair-extra.md >/dev/null
 expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain changed an unauthorized path" \
   "governance repair containing an extra path"
 
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
 set_field "${repair_state}" NextTaskCard VSB-03
 printf '\nrepair-marker=ledger-intermediate\n' >> \
   "${repair_repo_root}/docs/task-cards/visual-style-baseline/README.md"
@@ -1182,7 +1244,6 @@ git -C "${repair_repo_root}" show \
   "${repair_state}"
 commit_governance_repair_subset "${repair_repo_root}" \
   "test: restore ledger and finish governance repair" \
-  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
   docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
   scripts/verify-visual-style-baseline-cards \
   tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
@@ -1194,15 +1255,15 @@ expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain must preserve the origin ledger bytes" \
   "governance repair changing and restoring the ledger"
 
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
 commit_governance_repair_subset "${repair_repo_root}" \
   "test: governance repair before empty commit" \
-  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md >/dev/null
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md >/dev/null
 git -C "${repair_repo_root}" commit --allow-empty -qm \
   "test: empty governance repair round"
 commit_governance_repair_subset "${repair_repo_root}" \
   "test: finish governance repair after empty commit" \
-  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
   docs/task-cards/visual-style-baseline/README.md \
   scripts/verify-visual-style-baseline-cards \
   tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
@@ -1210,24 +1271,24 @@ expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain commit must not be empty" \
   "governance repair containing an empty commit"
 
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
 repair_merge_base="$(commit_governance_repair_subset \
   "${repair_repo_root}" "test: governance repair merge base" \
-  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md)"
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md)"
 git -C "${repair_repo_root}" switch -q -c repair-side "${repair_merge_base}"
 commit_governance_repair_subset "${repair_repo_root}" \
   "test: governance repair side" \
-  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md >/dev/null
+  docs/task-cards/visual-style-baseline/README.md >/dev/null
 repair_side_sha="$(git -C "${repair_repo_root}" rev-parse HEAD)"
 git -C "${repair_repo_root}" switch -q -c repair-main "${repair_merge_base}"
 commit_governance_repair_subset "${repair_repo_root}" \
   "test: governance repair main" \
-  docs/task-cards/visual-style-baseline/README.md >/dev/null
+  scripts/verify-visual-style-baseline-cards >/dev/null
 git -C "${repair_repo_root}" merge -q --no-ff "${repair_side_sha}" \
   -m "test: merge governance repair rounds"
 commit_governance_repair_subset "${repair_repo_root}" \
   "test: finish merged governance repair" \
-  scripts/verify-visual-style-baseline-cards \
   tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
 expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain commit must have exactly one parent" \
@@ -1235,7 +1296,8 @@ expect_repair_static_failure "${repair_repo_root}" \
 
 # Mode history is cumulative: delete/recreate with the canonical mode is valid,
 # while restoring the same path with a different executable bit is not.
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
 git -C "${repair_repo_root}" rm -q -- \
   docs/task-cards/visual-style-baseline/README.md
 git -C "${repair_repo_root}" commit -qm \
@@ -1249,7 +1311,8 @@ repair_same_mode_output="$(run_repair_static "${repair_repo_root}")" ||
 assert_contains "${repair_same_mode_output}" "GovernanceRepairStatus = PENDING"
 governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
 
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
 git -C "${repair_repo_root}" rm -q -- \
   docs/task-cards/visual-style-baseline/README.md
 git -C "${repair_repo_root}" commit -qm \
@@ -1268,8 +1331,9 @@ expect_repair_static_failure "${repair_repo_root}" \
 
 # Owner-internal rename/copy attempts must fail even when the final five-path
 # tree is restored.  Low repository rename limits must not weaken detection.
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
-git -C "${repair_repo_root}" mv -- \
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
+git -C "${repair_repo_root}" mv -f -- \
   docs/task-cards/visual-style-baseline/README.md \
   docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
 git -C "${repair_repo_root}" commit -qm \
@@ -1280,7 +1344,12 @@ expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain must not rename or copy paths" \
   "governance repair owner-internal rename"
 
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
+git -C "${repair_repo_root}" rm -q -- \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: delete repair spec before owner-internal copy"
 cp "${repair_repo_root}/docs/task-cards/visual-style-baseline/README.md" \
   "${repair_repo_root}/docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md"
 git -C "${repair_repo_root}" add \
@@ -1293,12 +1362,13 @@ expect_repair_static_failure "${repair_repo_root}" \
   "governance repair chain must not rename or copy paths" \
   "governance repair owner-internal copy"
 
-git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+git -C "${repair_repo_root}" checkout -q --detach \
+  2123594540c91341c480f504949315a6abec316c
 repair_low_limit_parent="$(git -C "${repair_repo_root}" rev-parse HEAD)"
-git -C "${repair_repo_root}" mv -- \
+git -C "${repair_repo_root}" mv -f -- \
   docs/task-cards/visual-style-baseline/README.md \
   docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
-git -C "${repair_repo_root}" mv -- \
+git -C "${repair_repo_root}" mv -f -- \
   scripts/verify-visual-style-baseline-cards \
   docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md
 printf '\ninexact low-limit repair rename A\n' >> \
