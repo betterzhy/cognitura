@@ -464,6 +464,7 @@ make_vsb00_advance_receipt() {
   local candidate_sha="$1"
   local subject="$2"
   local reviewed_sha="${3:-${candidate_sha}}"
+  local sequence="${4:-2}"
   set_field "${transition_state}" "CompletedTaskCards" "VSB-00"
   set_field "${transition_state}" "ActiveTaskCard" "VSB-01"
   set_field "${transition_state}" "ReleasedTaskCard" "VSB-01"
@@ -477,7 +478,7 @@ make_vsb00_advance_receipt() {
   set_field "${transition_state}" "VSB00ReviewVerdict" \
     "GO_P0_0_P1_0_P2_0"
   set_field "${transition_state}" "NextTaskCard" "VSB-02"
-  set_field "${transition_state}" "TransitionSequence" "2"
+  set_field "${transition_state}" "TransitionSequence" "${sequence}"
   set_field "${transition_state}" "TransitionKind" "ADVANCE"
   set_field "${transition_state}" "TransitionBaseSHA" "${candidate_sha}"
   git -C "${transition_repo_root}" add \
@@ -506,7 +507,8 @@ expect_transition_failure() {
     "${transition_base_sha}" "${transition_head_sha}")"; then
     fail "${label} unexpectedly passed"
   fi
-  assert_contains "${output}" "${expected_message}"
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "${label}: expected '${expected_message}', got: ${output}"
   negative_cases=$((negative_cases + 1))
   cumulative_candidate_negative_cases=$((cumulative_candidate_negative_cases + 1))
 }
@@ -828,6 +830,20 @@ assert_contains "${cumulative_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
 cumulative_candidate_positive_cases=$((cumulative_candidate_positive_cases + 1))
 
+cumulative_cleanup_tmp="${test_tmp_root}/cumulative-cleanup"
+mkdir -p "${cumulative_cleanup_tmp}"
+TMPDIR="${cumulative_cleanup_tmp}" "${verifier}" \
+  --repo-root "${transition_repo_root}" \
+  --cards-dir "${transition_cards}" \
+  --transition-base "${cumulative_candidate_tip}" \
+  --transition-head "${cumulative_advance_sha}" >/dev/null ||
+  fail "cumulative candidate cleanup probe was rejected"
+shopt -s nullglob
+cumulative_cleanup_leaks=("${cumulative_cleanup_tmp}"/*)
+shopt -u nullglob
+[[ "${#cumulative_cleanup_leaks[@]}" -eq 0 ]] ||
+  fail "cumulative candidate replay leaked outside its invocation temp root"
+
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 missing_cumulative_tip="$(commit_candidate_subset \
   "${transition_repo_root}" "test: omit one VSB-00 cumulative path" \
@@ -845,6 +861,21 @@ expect_transition_failure "${missing_cumulative_tip}" \
   "${missing_cumulative_receipt}" \
   "candidate cumulative diff must equal the exact Owner WriteSet" \
   "candidate missing one cumulative Owner path"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "candidate with hidden mode drift"
+chmod +x "${transition_repo_root}/AGENTS.md"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: create candidate with hidden mode drift"
+mode_drift_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+mode_drift_receipt="$(make_vsb00_advance_receipt \
+  "${mode_drift_tip}" "test: advance mode-drifted candidate")"
+expect_transition_failure "${mode_drift_tip}" "${mode_drift_receipt}" \
+  "candidate chain commit must preserve existing file modes" \
+  "candidate containing hidden file-mode drift"
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 extra_candidate_path=docs/design/visual-style-baseline-fixtures/temporary-extra.txt
@@ -872,9 +903,8 @@ expect_transition_failure "${extra_restored_tip}" \
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 set_field "${transition_state}" "NextTaskCard" "VSB-03"
-commit_candidate_subset "${transition_repo_root}" \
-  "test: modify execution ledger inside candidate chain" AGENTS.md >/dev/null
-git -C "${transition_repo_root}" add \
+printf '\nround-marker=ledger-chain\n' >> "${transition_repo_root}/AGENTS.md"
+git -C "${transition_repo_root}" add AGENTS.md \
   docs/task-cards/visual-style-baseline/execution-state.md
 git -C "${transition_repo_root}" commit -qm \
   "test: record intermediate execution-ledger mutation"
@@ -915,7 +945,6 @@ expect_transition_failure "${other_owner_tip}" "${other_owner_receipt}" \
   "candidate containing another Owner path"
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
-git -C "${transition_repo_root}" rm -q -- scripts/import-visual-style-reference
 git -C "${transition_repo_root}" mv -- \
   server/pom.xml scripts/import-visual-style-reference
 git -C "${transition_repo_root}" commit -qm \
@@ -967,9 +996,8 @@ expect_transition_failure "${empty_chain_tip}" "${empty_chain_receipt}" \
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 reviewed_non_tip_sha="$(commit_candidate_subset \
-  "${transition_repo_root}" "test: initial reviewed candidate" AGENTS.md)"
-reviewed_actual_tip="$(commit_candidate_subset \
-  "${transition_repo_root}" "test: unreviewed candidate tip" \
+  "${transition_repo_root}" "test: initial reviewed candidate" \
+  AGENTS.md \
   docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png \
   docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
   docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
@@ -978,6 +1006,8 @@ reviewed_actual_tip="$(commit_candidate_subset \
   scripts/import-visual-style-reference \
   scripts/verify-visual-style-baseline-reference \
   tests/visual-style-baseline/verify-reference.sh)"
+reviewed_actual_tip="$(commit_candidate_subset \
+  "${transition_repo_root}" "test: unreviewed candidate tip" AGENTS.md)"
 reviewed_non_tip_receipt="$(make_vsb00_advance_receipt \
   "${reviewed_actual_tip}" "test: bind review to a non-tip commit" \
   "${reviewed_non_tip_sha}")"
@@ -987,7 +1017,8 @@ expect_transition_failure "${reviewed_actual_tip}" \
   "review receipt bound to a non-tip candidate"
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
-set_field "${transition_state}" "NextTaskCard" "VSB-03"
+set_field "${transition_state}" "TransitionSequence" "3"
+set_field "${transition_state}" "TransitionBaseSHA" "${activation_sha}"
 git -C "${transition_repo_root}" add \
   docs/task-cards/visual-style-baseline/execution-state.md
 git -C "${transition_repo_root}" commit -qm \
@@ -1006,7 +1037,8 @@ invalid_nearest_tip="$(commit_candidate_subset \
   tests/visual-style-baseline/verify-reference.sh)"
 invalid_nearest_head="$(make_vsb00_advance_receipt \
   "${invalid_nearest_tip}" \
-  "test: try to skip invalid nearest Owner receipt")"
+  "test: try to skip invalid nearest Owner receipt" \
+  "${invalid_nearest_tip}" 4)"
 expect_transition_failure "${invalid_nearest_tip}" "${invalid_nearest_head}" \
   "candidate chain must start at the nearest valid Owner release receipt" \
   "candidate selection skipping the nearest claimed Owner receipt"
@@ -1232,7 +1264,7 @@ if intervening_output="$(
   fail "ADVANCE candidate whose parent is not a VSB receipt unexpectedly passed"
 fi
 assert_contains "${intervening_output}" \
-  "candidate parent must be a replayable ledger-only VSB receipt"
+  "candidate chain commit changed a path outside the Owner WriteSet"
 negative_cases=$((negative_cases + 1))
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 
@@ -1282,7 +1314,7 @@ if merge_candidate_output="$(
   fail "merge business candidate unexpectedly passed"
 fi
 assert_contains "${merge_candidate_output}" \
-  "business candidate must have exactly one parent"
+  "candidate chain commit must have exactly one parent"
 negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
@@ -1377,7 +1409,7 @@ if unauthorized_candidate_output="$(
   fail "candidate outside the exact VSB-00 WriteSet unexpectedly passed"
 fi
 assert_contains "${unauthorized_candidate_output}" \
-  "candidate diff must equal the exact VSB-00 WriteSet"
+  "candidate chain commit changed a path outside the Owner WriteSet"
 negative_cases=$((negative_cases + 1))
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 
@@ -1433,7 +1465,7 @@ if rename_output="$(
   fail "forbidden-source rename into an allowed candidate target unexpectedly passed"
 fi
 assert_contains "${rename_output}" \
-  "candidate diff must equal the exact VSB-00 WriteSet"
+  "candidate chain commit changed a path outside the Owner WriteSet"
 negative_cases=$((negative_cases + 1))
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 
@@ -1760,7 +1792,7 @@ if intervening_complete_output="$(
   fail "COMPLETE candidate whose parent is not a VSB receipt unexpectedly passed"
 fi
 assert_contains "${intervening_complete_output}" \
-  "candidate parent must be a replayable ledger-only VSB receipt"
+  "candidate chain commit changed a path outside the Owner WriteSet"
 negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach \
@@ -1783,7 +1815,7 @@ if intervening_return_output="$(
   fail "cross-card RETURN candidate whose parent is not a VSB receipt unexpectedly passed"
 fi
 assert_contains "${intervening_return_output}" \
-  "candidate parent must be a replayable ledger-only VSB receipt"
+  "candidate chain commit changed a path outside the Owner WriteSet"
 negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${receipt_shas[0]}"
@@ -1979,7 +2011,7 @@ if wrong_return_candidate_output="$(
   fail "RETURN_TO_OWNER accepting the target Owner WriteSet for the failed candidate unexpectedly passed"
 fi
 assert_contains "${wrong_return_candidate_output}" \
-  "candidate diff must equal the exact VSB-03 WriteSet"
+  "candidate chain commit changed a path outside the Owner WriteSet"
 negative_cases=$((negative_cases + 1))
 
 git -C "${transition_repo_root}" switch -q --detach "${vsb03_candidate_sha}"

@@ -9,7 +9,10 @@ repo_root="${script_repo_root}"
 cards_dir=""
 transition_base=""
 transition_head=""
-temporary_paths=("")
+verifier_tmp_root="$(
+  mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-verifier.XXXXXX"
+)"
+temporary_paths=("${verifier_tmp_root}")
 
 cleanup_temporary_paths() {
   local temporary_path
@@ -81,7 +84,7 @@ require_nul_free_file() {
   local input_file="$1"
   local failure_context="$2"
   local nul_free_file
-  nul_free_file="$(mktemp "${TMPDIR:-/tmp}/cognitura-vsb-nul-free.XXXXXX")"
+  nul_free_file="$(mktemp "${verifier_tmp_root}/nul-free.XXXXXX")"
   temporary_paths+=("${nul_free_file}")
   if ! LC_ALL=C tr -d '\000' < "${input_file}" > "${nul_free_file}"; then
     fail "${failure_context}"
@@ -176,7 +179,7 @@ owner_index_from_id() {
 validate_fixed_vsb_tree() {
   local commit="$1"
   local fixed_checkout validation_output
-  fixed_checkout="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-transition-base.XXXXXX")"
+  fixed_checkout="$(mktemp -d "${verifier_tmp_root}/transition-base.XXXXXX")"
   if ! git clone --shared -q "${repo_root}" "${fixed_checkout}"; then
     rm -rf -- "${fixed_checkout}"
     fail "could not create isolated transition BASE checkout"
@@ -223,7 +226,7 @@ validate_terminal_receipt_provenance() {
   [[ "${terminal_parent}" == "${base_sha}" ]] ||
     fail "terminal VSB state must be the exact direct-child receipt commit or its exact Wave 1 restore"
   ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
-  ledger_compare_dir="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-terminal-ledger.XXXXXX")"
+  ledger_compare_dir="$(mktemp -d "${verifier_tmp_root}/terminal-ledger.XXXXXX")"
   temporary_paths+=("${ledger_compare_dir}")
   tree_ledger_file="${ledger_compare_dir}/receipt-ledger"
   if ! git -C "${repo_root}" show "${terminal_sha}:${ledger_path}" > \
@@ -246,7 +249,7 @@ validate_terminal_receipt_provenance() {
     replay_root="${repo_root}"
     replay_cards="${cards_dir}"
     if [[ "${terminal_sha}" != "${repository_head}" ]]; then
-      receipt_checkout="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-terminal-receipt.XXXXXX")"
+      receipt_checkout="$(mktemp -d "${verifier_tmp_root}/terminal-receipt.XXXXXX")"
       if ! git clone --shared -q "${repo_root}" "${receipt_checkout}"; then
         rm -rf -- "${receipt_checkout}"
         fail "could not create isolated terminal receipt checkout"
@@ -452,22 +455,144 @@ expected_write_sets=(
   "${expected_vsb03_write_set}"
 )
 
-verify_candidate_write_set() {
+ledger_path=docs/task-cards/visual-style-baseline/execution-state.md
+verified_candidate_sha=""
+verified_candidate_owner_index=""
+verified_candidate_release_sha=""
+
+commit_ledger_field() {
+  local commit_sha="$1"
+  local key="$2"
+  git -C "${repo_root}" show "${commit_sha}:${ledger_path}" 2>/dev/null | \
+    sed -n "s/^${key} = //p"
+}
+
+path_is_in_owner_write_set() {
+  local owner_index="$1"
+  local candidate_path="$2"
+  local allowed_path
+  while IFS= read -r allowed_path; do
+    [[ "${candidate_path}" == "${allowed_path}" ]] && return 0
+  done <<< "${expected_write_sets[${owner_index}]}"
+  return 1
+}
+
+commit_is_ledger_only() {
+  local parent_sha="$1"
+  local child_sha="$2"
+  local changed_paths
+  changed_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+    "${parent_sha}..${child_sha}")"
+  [[ "${changed_paths}" == "${ledger_path}" ]]
+}
+
+ledger_receipt_claims_owner_release() {
+  local receipt_sha="$1"
+  local receipt_parent_sha="$2"
+  local owner_id="$3"
+  local transition_kind
+  transition_kind="$(commit_ledger_field "${receipt_sha}" TransitionKind)"
+  case "${transition_kind}" in
+    ACTIVATE_SET|ADVANCE|RETURN_TO_OWNER) ;;
+    *) return 1 ;;
+  esac
+  [[ "$(commit_ledger_field "${receipt_sha}" TransitionBaseSHA)" == \
+       "${receipt_parent_sha}" &&
+     "$(commit_ledger_field "${receipt_sha}" ActiveTaskCard)" == "${owner_id}" &&
+     "$(commit_ledger_field "${receipt_sha}" ReleasedTaskCard)" == "${owner_id}" ]]
+}
+
+find_nearest_owner_release_receipt() {
   local candidate_sha="$1"
   local owner_index="$2"
   local owner_id="${expected_ids[${owner_index}]}"
-  local candidate_parent actual_paths expected_paths
-  candidate_parent="$(single_parent_of "${candidate_sha}" "business candidate")"
-  single_parent_of "${candidate_parent}" "candidate-parent ledger receipt" >/dev/null
-  actual_paths="$(
-    git -C "${repo_root}" diff --no-renames --name-only \
-      "${candidate_parent}..${candidate_sha}" | LC_ALL=C sort
-  )"
-  expected_paths="$(
-    printf '%s\n' "${expected_write_sets[${owner_index}]}" | LC_ALL=C sort
-  )"
+  local cursor_sha parent_sha replay_output
+  cursor_sha="${candidate_sha}"
+  while :; do
+    if ! parent_sha="$(single_parent_of "${cursor_sha}" \
+      "candidate chain commit")"; then
+      fail "candidate chain must start at the nearest valid Owner release receipt"
+    fi
+    if commit_is_ledger_only "${parent_sha}" "${cursor_sha}" &&
+       ledger_receipt_claims_owner_release \
+         "${cursor_sha}" "${parent_sha}" "${owner_id}"; then
+      if ! replay_output="$(
+        validate_parent_receipt_transition_pair \
+          "${parent_sha}" "${cursor_sha}" 0 2>&1
+      )"; then
+        fail "candidate chain must start at the nearest valid Owner release receipt"
+      fi
+      printf '%s\n' "${cursor_sha}"
+      return 0
+    fi
+    cursor_sha="${parent_sha}"
+  done
+}
+
+validate_candidate_chain_commit() {
+  local owner_index="$1"
+  local parent_sha="$2"
+  local child_sha="$3"
+  local actual_parent changed_paths candidate_path parent_mode child_mode
+  actual_parent="$(single_parent_of "${child_sha}" \
+    "candidate chain commit")"
+  [[ "${actual_parent}" == "${parent_sha}" ]] ||
+    fail "candidate chain commit must have exactly one parent"
+  changed_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+    "${parent_sha}..${child_sha}")"
+  [[ -n "${changed_paths}" ]] ||
+    fail "candidate chain commit must not be empty"
+  while IFS= read -r candidate_path; do
+    [[ "${candidate_path}" != "${ledger_path}" ]] ||
+      fail "candidate chain must not modify the execution ledger"
+    path_is_in_owner_write_set "${owner_index}" "${candidate_path}" ||
+      fail "candidate chain commit changed a path outside the Owner WriteSet"
+    parent_mode="$(git -C "${repo_root}" ls-tree \
+      "${parent_sha}" -- "${candidate_path}" | awk '{print $1}')"
+    child_mode="$(git -C "${repo_root}" ls-tree \
+      "${child_sha}" -- "${candidate_path}" | awk '{print $1}')"
+    if [[ -n "${parent_mode}" && -n "${child_mode}" ]]; then
+      [[ "${parent_mode}" == "${child_mode}" ]] ||
+        fail "candidate chain commit must preserve existing file modes"
+    fi
+    case "${child_mode}" in
+      ""|100644|100755) ;;
+      *) fail "candidate chain commit must preserve existing file modes" ;;
+    esac
+  done <<< "${changed_paths}"
+}
+
+validate_linear_cumulative_candidate() {
+  local candidate_sha="$1"
+  local owner_index="$2"
+  local release_sha previous_sha chain_sha actual_paths expected_paths
+  if ! release_sha="$(find_nearest_owner_release_receipt \
+    "${candidate_sha}" "${owner_index}")"; then
+    fail "candidate chain must start at the nearest valid Owner release receipt"
+  fi
+  previous_sha="${release_sha}"
+  while IFS= read -r chain_sha; do
+    [[ -n "${chain_sha}" ]] || continue
+    validate_candidate_chain_commit \
+      "${owner_index}" "${previous_sha}" "${chain_sha}"
+    previous_sha="${chain_sha}"
+  done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+    "${release_sha}..${candidate_sha}")
+  [[ "${previous_sha}" == "${candidate_sha}" ]] ||
+    fail "reviewed candidate must be the candidate chain tip"
+  actual_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+    "${release_sha}..${candidate_sha}" | LC_ALL=C sort)"
+  expected_paths="$(printf '%s\n' \
+    "${expected_write_sets[${owner_index}]}" | LC_ALL=C sort)"
   [[ "${actual_paths}" == "${expected_paths}" ]] ||
-    fail "candidate diff must equal the exact ${owner_id} WriteSet"
+    fail "candidate cumulative diff must equal the exact Owner WriteSet"
+  verified_candidate_sha="${candidate_sha}"
+  verified_candidate_owner_index="${owner_index}"
+  verified_candidate_release_sha="${release_sha}"
+}
+
+verify_candidate_write_set() {
+  validate_linear_cumulative_candidate "$1" "$2"
 }
 
 validate_parent_receipt_transition_pair() {
@@ -479,13 +604,15 @@ validate_parent_receipt_transition_pair() {
   local receipt_index base_active owner_index base_completed head_completed
   local expected_base_prefix expected_head_prefix expected_head_active expected_head_next
   local head_owner return_owner_index failed_owner_index expected_return_prefix expected_return_next
+  [[ "${pair_head}" != d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a ]] ||
+    fail "fixed governance repair origin is not a valid ordinary VSB receipt"
   [[ "$(single_parent_of "${pair_head}" "candidate-parent ledger receipt")" == "${pair_base}" ]] ||
     fail "receipt HEAD must be the direct child of its BASE"
   ledger_path=docs/task-cards/visual-style-baseline/execution-state.md
   pair_paths="$(git -C "${repo_root}" diff --no-renames --name-only "${pair_base}..${pair_head}")"
   [[ "${pair_paths}" == "${ledger_path}" ]] ||
     fail "receipt diff must contain only execution-state.md"
-  pair_dir="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-receipt-pair.XXXXXX")"
+  pair_dir="$(mktemp -d "${verifier_tmp_root}/receipt-pair.XXXXXX")"
   temporary_paths+=("${pair_dir}")
   pair_base_file="${pair_dir}/base-ledger"
   pair_head_file="${pair_dir}/head-ledger"
@@ -700,21 +827,9 @@ validate_parent_receipt_transition_pair() {
 
 verify_candidate_parent_receipt() {
   local candidate_sha="$1"
-  local candidate_parent receipt_base receipt_paths
-  local replay_output
-  candidate_parent="$(single_parent_of "${candidate_sha}" "business candidate")"
-  receipt_base="$(single_parent_of "${candidate_parent}" "candidate-parent ledger receipt")"
-  receipt_paths="$(
-    git -C "${repo_root}" diff --no-renames --name-only \
-      "${receipt_base}..${candidate_parent}"
-  )"
-  [[ "${receipt_paths}" == docs/task-cards/visual-style-baseline/execution-state.md ]] ||
-    fail "candidate parent must be a replayable ledger-only VSB receipt"
-  if ! replay_output="$(
-    validate_parent_receipt_transition_pair "${receipt_base}" "${candidate_parent}" 2>&1
-  )"; then
-    fail "candidate parent must be a replayable ledger-only VSB receipt"
-  fi
+  [[ "${verified_candidate_sha}" == "${candidate_sha}" &&
+     -n "${verified_candidate_release_sha}" ]] ||
+    fail "candidate chain must start at the nearest valid Owner release receipt"
 }
 
 for index in 0 1 2 3; do
@@ -810,7 +925,9 @@ require_pass_receipt() {
   gate="$(receipt_gate "${i}")"
   verdict="$(receipt_deep_verdict "${i}")"
   is_commit_sha "${candidate}" || fail "VSB0${i}CandidateSHA must resolve to a 40-character commit"
-  verify_candidate_write_set "${candidate}" "${i}"
+  if [[ -z "${transition_base}" ]]; then
+    verify_candidate_write_set "${candidate}" "${i}"
+  fi
   [[ "${gate}" == "VSB-G${i}_PASS" ]] || fail "VSB0${i}GateStatus mismatch"
   [[ "${verdict}" == GO_P0_0_P1_0_P2_0 ]] || fail "VSB0${i} deep review must be zero-finding GO"
   if [[ "${i}" -eq 3 ]]; then
@@ -978,6 +1095,8 @@ if [[ -n "${transition_base}" ]]; then
     fail "transition BASE is not a commit"
   resolved_head="$(git -C "${repo_root}" rev-parse --verify "${transition_head}^{commit}" 2>/dev/null)" ||
     fail "transition HEAD is not a commit"
+  [[ "${resolved_head}" != d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a ]] ||
+    fail "fixed governance repair origin is not a valid ordinary VSB receipt"
   [[ "$(single_parent_of "${resolved_head}" "transition HEAD")" == "${resolved_base}" ]] ||
     fail "transition HEAD must be the direct child of BASE"
   ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
@@ -985,7 +1104,7 @@ if [[ -n "${transition_base}" ]]; then
   [[ "${diff_paths}" == "${ledger_path}" ]] ||
     fail "state transition fixed diff must contain only execution-state.md"
   transition_ledger_dir="$(
-    mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-transition-ledgers.XXXXXX"
+    mktemp -d "${verifier_tmp_root}/transition-ledgers.XXXXXX"
   )"
   temporary_paths+=("${transition_ledger_dir}")
   base_ledger_file="${transition_ledger_dir}/base-ledger"
@@ -1049,7 +1168,7 @@ if [[ -n "${transition_base}" ]]; then
       ;;
     ADVANCE|COMPLETE)
       [[ "$(state_value_from_file "${head_ledger_file}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
-        fail "candidate SHA must equal TransitionBaseSHA"
+        fail "reviewed candidate must be the candidate chain tip"
       [[ "$(state_value_from_file "${base_ledger_file}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
         fail "ADVANCE or COMPLETE must start from IN_PROGRESS"
       base_completed="$(state_value_from_file "${base_ledger_file}" CompletedTaskCards)"
@@ -1095,7 +1214,7 @@ if [[ -n "${transition_base}" ]]; then
       ;;
     RETURN_TO_OWNER)
       [[ "$(state_value_from_file "${head_ledger_file}" CurrentCandidateSHA)" == "${resolved_base}" ]] ||
-        fail "candidate SHA must equal TransitionBaseSHA"
+        fail "reviewed candidate must be the candidate chain tip"
       [[ "$(state_value_from_file "${base_ledger_file}" TaskCardSetStatus)" == IN_PROGRESS ]] ||
         fail "RETURN_TO_OWNER must start from IN_PROGRESS"
       head_owner="$(state_value_from_file "${head_ledger_file}" Owner)"
