@@ -214,6 +214,374 @@ model_route_expected_mode() {
   esac
 }
 
+resolve_receipt_correction_candidate() {
+  local source_repo="$1"
+  local source_state="$2"
+  local origin_sha="$3"
+  local ledger_path="$4"
+  local source_head state_version reviewed_candidate correction_field field_count
+  local version_count=0 reviewed_count=0
+  local -a resolver_correction_fields
+  while IFS= read -r state_version; do
+    version_count=$((version_count + 1))
+  done < <(sed -n 's/^ExecutionStateVersion = //p' "${source_state}")
+  [[ "${version_count}" -eq 1 ]] ||
+    fail "formal execution state must contain ExecutionStateVersion exactly once"
+  state_version="$(sed -n 's/^ExecutionStateVersion = //p' "${source_state}")"
+  source_head="$(git -C "${source_repo}" rev-parse HEAD)"
+  case "${state_version}" in
+    2)
+      receipt_correction_resolved_candidate="${source_head}"
+      ;;
+    ''|*[!0-9]*)
+      fail "unsupported formal execution state version: ${state_version}"
+      ;;
+    *)
+      [[ "${state_version}" -ge 3 ]] ||
+        fail "unsupported formal execution state version: ${state_version}"
+      resolver_correction_fields=(
+        ReceiptCorrectionStatus
+        ReceiptCorrectionSpecSHA
+        ReceiptCorrectionOriginReceiptSHA
+        ReceiptCorrectionReviewedCandidateSHA
+        ReceiptCorrectionReviewLevel
+        ReceiptCorrectionReviewRoute
+        ReceiptCorrectionReviewEffort
+        ReceiptCorrectionReviewMultiplicity
+        ReceiptCorrectionReviewVerdict
+      )
+      for correction_field in "${resolver_correction_fields[@]}"; do
+        field_count="$(sed -n "/^${correction_field} = /p" \
+          "${source_state}" | wc -l | tr -d ' ')"
+        [[ "${field_count}" -eq 1 ]] ||
+          fail "version-3 formal state must contain ${correction_field} exactly once"
+      done
+      while IFS= read -r reviewed_candidate; do
+        reviewed_count=$((reviewed_count + 1))
+      done < <(sed -n \
+        's/^ReceiptCorrectionReviewedCandidateSHA = //p' "${source_state}")
+      [[ "${reviewed_count}" -eq 1 ]] ||
+        fail "version-3 formal state must contain ReceiptCorrectionReviewedCandidateSHA exactly once"
+      reviewed_candidate="$(sed -n \
+        's/^ReceiptCorrectionReviewedCandidateSHA = //p' "${source_state}")"
+      [[ "${reviewed_candidate}" =~ ^[0-9a-f]{40}$ ]] ||
+        fail "formal receipt-correction reviewed candidate SHA is malformed"
+      git -C "${source_repo}" cat-file -e \
+        "${reviewed_candidate}^{commit}" 2>/dev/null ||
+        fail "formal receipt-correction reviewed candidate commit is unavailable"
+      git -C "${source_repo}" merge-base --is-ancestor \
+        "${reviewed_candidate}" "${source_head}" ||
+        fail "formal receipt-correction reviewed candidate is not an ancestor of HEAD"
+      receipt_correction_resolved_candidate="${reviewed_candidate}"
+      ;;
+  esac
+  git -C "${source_repo}" merge-base --is-ancestor \
+    "${origin_sha}" "${receipt_correction_resolved_candidate}" ||
+    fail "resolved receipt-correction candidate does not descend from the fixed origin"
+  [[ "$(git -C "${source_repo}" rev-parse \
+    "${receipt_correction_resolved_candidate}:${ledger_path}")" == \
+     "$(git -C "${source_repo}" rev-parse "${origin_sha}:${ledger_path}")" ]] ||
+    fail "resolved receipt-correction candidate ledger is not byte-identical to the origin"
+}
+
+assert_model_route_tmp_clean() {
+  local invocation_tmp="$1"
+  local invocation_marker="$2"
+  local label="$3"
+  local -a invocation_entries
+  shopt -s nullglob
+  invocation_entries=("${invocation_tmp}"/*)
+  shopt -u nullglob
+  [[ -f "${invocation_marker}" &&
+     "$(cat "${invocation_marker}")" == "preserve sibling" &&
+     "${#invocation_entries[@]}" -eq 1 &&
+     "${invocation_entries[0]}" == "${invocation_marker}" ]] ||
+    fail "${label} did not preserve a clean sibling TMPDIR"
+}
+
+run_model_route_static() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local invocation_tmp="$3"
+  local invocation_marker="$4"
+  local label="$5"
+  if model_route_public_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" 2>&1)"; then
+    model_route_public_rc=0
+  else
+    model_route_public_rc=$?
+  fi
+  assert_model_route_tmp_clean \
+    "${invocation_tmp}" "${invocation_marker}" "${label}"
+}
+
+run_model_route_transition() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local base_sha="$3"
+  local head_sha="$4"
+  local invocation_tmp="$5"
+  local invocation_marker="$6"
+  local label="$7"
+  if model_route_public_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" \
+    --transition-base "${base_sha}" --transition-head "${head_sha}" \
+    2>&1)"; then
+    model_route_public_rc=0
+  else
+    model_route_public_rc=$?
+  fi
+  assert_model_route_tmp_clean \
+    "${invocation_tmp}" "${invocation_marker}" "${label}"
+}
+
+expect_model_route_static_failure() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local expected_message="$3"
+  local invocation_tmp="$4"
+  local invocation_marker="$5"
+  local label="$6"
+  run_model_route_static "${fixture_root}" "${fixture_cards}" \
+    "${invocation_tmp}" "${invocation_marker}" "${label}"
+  [[ "${model_route_public_rc}" -ne 0 ]] ||
+    fail "${label} unexpectedly passed"
+  assert_contains "${model_route_public_output}" "${expected_message}"
+  receipt_correction_negative_cases=$((receipt_correction_negative_cases + 1))
+}
+
+expect_model_route_transition_failure() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local base_sha="$3"
+  local head_sha="$4"
+  local expected_message="$5"
+  local invocation_tmp="$6"
+  local invocation_marker="$7"
+  local label="$8"
+  run_model_route_transition "${fixture_root}" "${fixture_cards}" \
+    "${base_sha}" "${head_sha}" "${invocation_tmp}" \
+    "${invocation_marker}" "${label}"
+  [[ "${model_route_public_rc}" -ne 0 ]] ||
+    fail "${label} unexpectedly passed"
+  assert_contains "${model_route_public_output}" "${expected_message}"
+  receipt_correction_negative_cases=$((receipt_correction_negative_cases + 1))
+}
+
+write_exact_receipt_correction_ledger() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  local fixture_state="${fixture_root}/${ledger_path}"
+  awk -v candidate_sha="${candidate_sha}" '
+    /^ExecutionStateVersion = / {
+      print "ExecutionStateVersion = 3"
+      next
+    }
+    /^NextTaskCard = / {
+      print "NextTaskCard = VSB-03"
+      next
+    }
+    /^TransitionSequence = / {
+      print "TransitionSequence = 5"
+      next
+    }
+    /^TransitionKind = / {
+      print "TransitionKind = RECEIPT_CORRECTION"
+      next
+    }
+    /^TransitionBaseSHA = / {
+      print "TransitionBaseSHA = " candidate_sha
+      next
+    }
+    { print }
+    /^GovernanceRepairReviewVerdict = / {
+      print "ReceiptCorrectionStatus = PASS"
+      print "ReceiptCorrectionSpecSHA = dc4a105bbe95b1b07fa0e734cec1148eab15279c"
+      print "ReceiptCorrectionOriginReceiptSHA = 0ff410961b0f3865652e54ae46453646ed87f69e"
+      print "ReceiptCorrectionReviewedCandidateSHA = " candidate_sha
+      print "ReceiptCorrectionReviewLevel = L4"
+      print "ReceiptCorrectionReviewRoute = deep_reviewer"
+      print "ReceiptCorrectionReviewEffort = xhigh"
+      print "ReceiptCorrectionReviewMultiplicity = ONE"
+      print "ReceiptCorrectionReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0"
+    }
+  ' "${fixture_state}" > "${fixture_state}.new"
+  mv "${fixture_state}.new" "${fixture_state}"
+}
+
+commit_receipt_correction_ledger() {
+  local fixture_root="$1"
+  local subject="$2"
+  local extra_path="${3:-}"
+  local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  if [[ -n "${extra_path}" ]]; then
+    mkdir -p "${fixture_root}/$(dirname "${extra_path}")"
+    printf 'receipt-extra\n' > "${fixture_root}/${extra_path}"
+    git -C "${fixture_root}" add -- "${extra_path}"
+  fi
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+prepare_receipt_correction_fixture() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  git -C "${fixture_root}" checkout -q --detach "${candidate_sha}"
+  write_exact_receipt_correction_ledger "${fixture_root}" "${candidate_sha}"
+}
+
+set_legal_stop_by_user() {
+  local fixture_state="$1"
+  local base_sha="$2"
+  set_field "${fixture_state}" TaskCardSetStatus STOPPED_BY_USER
+  set_field "${fixture_state}" ActiveTaskCard NONE
+  set_field "${fixture_state}" ReleasedTaskCard NONE
+  set_field "${fixture_state}" NextTaskCard NONE
+  set_field "${fixture_state}" CurrentGateStatus STOPPED_BY_USER
+  set_field "${fixture_state}" CurrentReviewRoute NONE
+  set_field "${fixture_state}" CurrentReviewVerdict NOT_APPLICABLE_USER_STOP
+  set_field "${fixture_state}" TransitionSequence 6
+  set_field "${fixture_state}" TransitionKind STOP_BY_USER
+  set_field "${fixture_state}" TransitionBaseSHA "${base_sha}"
+  set_field "${fixture_state}" VisualImplementation STOPPED_BY_USER
+  set_field "${fixture_state}" UserStopAuthorization EXPLICIT_USER_INSTRUCTION
+}
+
+mutate_exact_receipt_correction_ledger() {
+  local fixture_state="$1"
+  local mutation="$2"
+  case "${mutation}" in
+    reorder)
+      sed -i.bak '/^ReceiptCorrectionStatus = /d' "${fixture_state}"
+      rm "${fixture_state}.bak"
+      insert_field_after "${fixture_state}" ReceiptCorrectionReviewVerdict \
+        ReceiptCorrectionStatus PASS
+      ;;
+    unknown)
+      insert_field_after "${fixture_state}" ReceiptCorrectionStatus \
+        ReceiptCorrectionUnknownField FORBIDDEN
+      ;;
+    origin-byte)
+      set_field "${fixture_state}" FullProductImplementation USER_AUTHORIZED
+      ;;
+    *) fail "unknown exact receipt-correction mutation: ${mutation}" ;;
+  esac
+}
+
+copy_candidate_tree_onto_base() {
+  local fixture_root="$1"
+  local base_sha="$2"
+  local candidate_sha="$3"
+  local subject="$4"
+  local omitted_path="${5:-}"
+  git -C "${fixture_root}" checkout -q --detach "${base_sha}"
+  git -C "${fixture_root}" read-tree --reset -u "${candidate_sha}^{tree}"
+  if [[ -n "${omitted_path}" ]]; then
+    if git -C "${fixture_root}" cat-file -e \
+      "${base_sha}:${omitted_path}" 2>/dev/null; then
+      git -C "${fixture_root}" checkout -q "${base_sha}" -- "${omitted_path}"
+    else
+      git -C "${fixture_root}" rm -q --cached --ignore-unmatch "${omitted_path}"
+      rm -f "${fixture_root}/${omitted_path}"
+    fi
+  fi
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+mutate_receipt_correction_chain() {
+  local fixture_root="$1"
+  local mutation="$2"
+  local candidate_sha="$3"
+  local origin_sha="$4"
+  local ledger_path="$5"
+  git -C "${fixture_root}" checkout -q --detach "${candidate_sha}"
+  case "${mutation}" in
+    omit)
+      copy_candidate_tree_onto_base "${fixture_root}" "${origin_sha}" \
+        "${candidate_sha}" "test: omit correction path" AGENTS.md >/dev/null
+      ;;
+    extra)
+      printf 'extra\n' > "${fixture_root}/docs/engineering/model-route-extra.md"
+      git -C "${fixture_root}" add -- docs/engineering/model-route-extra.md
+      git -C "${fixture_root}" commit -qm "test: extra correction path"
+      ;;
+    empty)
+      git -C "${fixture_root}" commit --allow-empty -qm \
+        "test: empty correction governance commit"
+      ;;
+    merge)
+      git -C "${fixture_root}" switch -q -c correction-chain-side
+      printf '\nside\n' >> "${fixture_root}/AGENTS.md"
+      git -C "${fixture_root}" commit -qam "test: correction chain side"
+      git -C "${fixture_root}" switch -q -c correction-chain-main \
+        "${candidate_sha}"
+      printf '\nmain\n' >> \
+        "${fixture_root}/tests/task-cards/verify-visual-style-baseline-cards.sh"
+      git -C "${fixture_root}" commit -qam "test: correction chain main"
+      git -C "${fixture_root}" merge -q --no-ff correction-chain-side \
+        -m "test: merge correction governance"
+      ;;
+    rename)
+      git -C "${fixture_root}" mv -- AGENTS.md AGENTS.model-route.md
+      git -C "${fixture_root}" commit -qm "test: rename correction path"
+      git -C "${fixture_root}" checkout -q "${candidate_sha}" -- AGENTS.md
+      git -C "${fixture_root}" rm -q -- AGENTS.model-route.md
+      git -C "${fixture_root}" commit -qm "test: restore renamed path"
+      ;;
+    copy)
+      git -C "${fixture_root}" rm -q -- scripts/verify-visual-style-baseline-cards
+      git -C "${fixture_root}" commit -qm "test: delete correction copy target"
+      cp "${fixture_root}/AGENTS.md" \
+        "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+      chmod +x "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+      git -C "${fixture_root}" add -- scripts/verify-visual-style-baseline-cards
+      git -C "${fixture_root}" commit -qm "test: copy correction path"
+      git -C "${fixture_root}" checkout -q "${candidate_sha}" -- \
+        scripts/verify-visual-style-baseline-cards
+      git -C "${fixture_root}" commit -qm "test: restore copied path"
+      ;;
+    low-limit)
+      git -C "${fixture_root}" config diff.renameLimit 1
+      git -C "${fixture_root}" mv -- AGENTS.md AGENTS.low-limit.md
+      git -C "${fixture_root}" mv -- \
+        docs/task-cards/visual-style-baseline/README.md \
+        docs/task-cards/visual-style-baseline/README.low-limit.md
+      printf '\nlow-a\n' >> "${fixture_root}/AGENTS.low-limit.md"
+      printf '\nlow-b\n' >> \
+        "${fixture_root}/docs/task-cards/visual-style-baseline/README.low-limit.md"
+      git -C "${fixture_root}" commit -qam "test: low-limit correction rename"
+      git -C "${fixture_root}" checkout -q "${candidate_sha}" -- AGENTS.md \
+        docs/task-cards/visual-style-baseline/README.md
+      git -C "${fixture_root}" rm -q -- AGENTS.low-limit.md \
+        docs/task-cards/visual-style-baseline/README.low-limit.md
+      git -C "${fixture_root}" commit -qm "test: restore low-limit rename"
+      ;;
+    ledger)
+      printf '\ndrift\n' >> "${fixture_root}/${ledger_path}"
+      git -C "${fixture_root}" commit -qam "test: drift correction ledger"
+      git -C "${fixture_root}" checkout -q "${candidate_sha}" -- "${ledger_path}"
+      git -C "${fixture_root}" commit -qm "test: restore correction ledger"
+      ;;
+    nul)
+      printf '\000' >> "${fixture_root}/AGENTS.md"
+      git -C "${fixture_root}" commit -qam "test: NUL correction governance"
+      ;;
+    newline)
+      printf 'newline\n' > "${fixture_root}/AGENTS.newline"$'\n'path
+      git -C "${fixture_root}" add -- "AGENTS.newline"$'\n'path
+      git -C "${fixture_root}" commit -qm "test: newline correction path"
+      ;;
+    mode)
+      chmod +x "${fixture_root}/AGENTS.md"
+      git -C "${fixture_root}" commit -qam "test: correction mode drift"
+      ;;
+    *) fail "unknown receipt-correction chain mutation: ${mutation}" ;;
+  esac
+}
+
 run_model_gate_routing_contract() {
   local correction_origin_sha="0ff410961b0f3865652e54ae46453646ed87f69e"
   local correction_spec_sha="dc4a105bbe95b1b07fa0e734cec1148eab15279c"
@@ -652,6 +1020,608 @@ EOF
      "${invocation_entries[0]}" == "${invocation_marker}" ]] ||
     fail "contradictory current route negative did not preserve a clean sibling TMPDIR"
   route_card_negative_cases=$((route_card_negative_cases + 1))
+
+  # Cycle B starts only after every Cycle A route/card fixture above is green.
+  # Its first public call is a legal origin-exclusive exact-ten-path G2 whose
+  # ledger is still byte-identical to the failed 0ff receipt.  The assertion is
+  # deliberately the post-GREEN contract: an implementation without the
+  # one-time RECEIPT_CORRECTION branch must reject this positive and produce RED.
+  local correction_fixture_root="${test_tmp_root}/receipt-correction-repo"
+  local correction_fixture_cards=
+  local correction_fixture_state=
+  local correction_candidate_sha=
+  local correction_receipt_sha=
+  local correction_ordinary_receipt_sha
+  local correction_positive_cases=0
+  receipt_correction_negative_cases=0
+  resolve_receipt_correction_candidate "${repo_root}" \
+    "${cards_dir}/execution-state.md" "${correction_origin_sha}" \
+    "${ledger_path}"
+  correction_candidate_sha="${receipt_correction_resolved_candidate}"
+  git clone --shared -q "${repo_root}" "${correction_fixture_root}"
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_candidate_sha}"
+  correction_fixture_cards="${correction_fixture_root}/docs/task-cards/visual-style-baseline"
+  correction_fixture_state="${correction_fixture_cards}/execution-state.md"
+
+  git -C "${correction_fixture_root}" merge-base --is-ancestor \
+    "${correction_origin_sha}" "${correction_candidate_sha}" ||
+    fail "Cycle B candidate does not descend from the fixed correction origin"
+  git -C "${correction_fixture_root}" show \
+    "${correction_origin_sha}:${ledger_path}" > \
+    "${test_tmp_root}/cycle-b-origin-ledger"
+  git -C "${correction_fixture_root}" show \
+    "${correction_candidate_sha}:${ledger_path}" > \
+    "${test_tmp_root}/cycle-b-candidate-ledger"
+  cmp -s "${test_tmp_root}/cycle-b-origin-ledger" \
+    "${test_tmp_root}/cycle-b-candidate-ledger" ||
+    fail "Cycle B G2 ledger is not byte-identical to the fixed origin"
+
+  run_model_route_static "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${invocation_tmp}" \
+    "${invocation_marker}" "legal Cycle B G2/PENDING positive"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "legal Cycle B G2/PENDING candidate was rejected: ${model_route_public_output}"
+  assert_contains "${model_route_public_output}" \
+    "VisualStyleBaselineTaskCardValidation = PASS"
+  assert_contains "${model_route_public_output}" \
+    "ReceiptCorrectionStatus = PENDING"
+  correction_positive_cases=$((correction_positive_cases + 1))
+
+  prepare_receipt_correction_fixture \
+    "${correction_fixture_root}" "${correction_candidate_sha}"
+  correction_receipt_sha="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: exact model-route receipt correction")"
+  assert_commit_parent_count \
+    "${correction_fixture_root}" "${correction_receipt_sha}" 1
+  [[ "$(git -C "${correction_fixture_root}" rev-parse \
+    "${correction_receipt_sha}^")" == "${correction_candidate_sha}" ]] ||
+    fail "legal R2 is not the direct child of G2"
+  [[ "$(git -C "${correction_fixture_root}" diff --name-only \
+    "${correction_candidate_sha}..${correction_receipt_sha}")" == \
+    "${ledger_path}" ]] || fail "legal R2 is not ledger-only"
+  run_model_route_transition "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${correction_candidate_sha}" \
+    "${correction_receipt_sha}" "${invocation_tmp}" \
+    "${invocation_marker}" "legal G2-to-R2 correction positive"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "legal G2-to-R2 correction was rejected: ${model_route_public_output}"
+  assert_contains "${model_route_public_output}" \
+    "VisualStyleBaselineTaskCardValidation = PASS"
+  correction_positive_cases=$((correction_positive_cases + 1))
+
+  run_model_route_static "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${invocation_tmp}" \
+    "${invocation_marker}" "legal version-3 static correction positive"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "legal version-3 static correction was rejected: ${model_route_public_output}"
+  assert_contains "${model_route_public_output}" \
+    "ReceiptCorrectionStatus = PASS"
+  correction_positive_cases=$((correction_positive_cases + 1))
+
+  # A minimal later ordinary transition proves version-3 replay preserves the
+  # correction fields without duplicating the separate Owner-chain suite.
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_receipt_sha}"
+  set_legal_stop_by_user \
+    "${correction_fixture_state}" "${correction_receipt_sha}"
+  correction_ordinary_receipt_sha="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: ordinary version-3 stop after correction")"
+  run_model_route_transition "${correction_fixture_root}" \
+    "${correction_fixture_cards}" "${correction_receipt_sha}" \
+    "${correction_ordinary_receipt_sha}" "${invocation_tmp}" \
+    "${invocation_marker}" "ordinary version-3 correction replay positive"
+  [[ "${model_route_public_rc}" -eq 0 ]] ||
+    fail "ordinary version-3 replay was rejected: ${model_route_public_output}"
+  correction_positive_cases=$((correction_positive_cases + 1))
+
+  local -a correction_fields correction_missing_messages
+  local correction_field correction_field_index bad_correction_receipt
+  correction_fields=(
+    ReceiptCorrectionStatus
+    ReceiptCorrectionSpecSHA
+    ReceiptCorrectionOriginReceiptSHA
+    ReceiptCorrectionReviewedCandidateSHA
+    ReceiptCorrectionReviewLevel
+    ReceiptCorrectionReviewRoute
+    ReceiptCorrectionReviewEffort
+    ReceiptCorrectionReviewMultiplicity
+    ReceiptCorrectionReviewVerdict
+  )
+  correction_missing_messages=(
+    "missing receipt correction field: ReceiptCorrectionStatus"
+    "missing receipt correction field: ReceiptCorrectionSpecSHA"
+    "missing receipt correction field: ReceiptCorrectionOriginReceiptSHA"
+    "missing receipt correction field: ReceiptCorrectionReviewedCandidateSHA"
+    "missing receipt correction field: ReceiptCorrectionReviewLevel"
+    "missing receipt correction field: ReceiptCorrectionReviewRoute"
+    "missing receipt correction field: ReceiptCorrectionReviewEffort"
+    "missing receipt correction field: ReceiptCorrectionReviewMultiplicity"
+    "missing receipt correction field: ReceiptCorrectionReviewVerdict"
+  )
+  for correction_field_index in "${!correction_fields[@]}"; do
+    correction_field="${correction_fields[${correction_field_index}]}"
+    prepare_receipt_correction_fixture \
+      "${correction_fixture_root}" "${correction_candidate_sha}"
+    sed -i.bak "/^${correction_field} = /d" "${correction_fixture_state}"
+    rm "${correction_fixture_state}.bak"
+    bad_correction_receipt="$(commit_receipt_correction_ledger \
+      "${correction_fixture_root}" \
+      "test: correction missing ${correction_field}")"
+    expect_model_route_transition_failure \
+      "${correction_fixture_root}" "${correction_fixture_cards}" \
+      "${correction_candidate_sha}" "${bad_correction_receipt}" \
+      "${correction_missing_messages[${correction_field_index}]}" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "receipt correction missing ${correction_field}"
+
+    prepare_receipt_correction_fixture \
+      "${correction_fixture_root}" "${correction_candidate_sha}"
+    sed -n "/^${correction_field} = /p" "${correction_fixture_state}" >> \
+      "${correction_fixture_state}"
+    bad_correction_receipt="$(commit_receipt_correction_ledger \
+      "${correction_fixture_root}" \
+      "test: correction duplicates ${correction_field}")"
+    expect_model_route_transition_failure \
+      "${correction_fixture_root}" "${correction_fixture_cards}" \
+      "${correction_candidate_sha}" "${bad_correction_receipt}" \
+      "duplicate receipt correction field: ${correction_field}" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "receipt correction duplicate ${correction_field}"
+  done
+
+  local -a correction_route_values correction_route_messages correction_route_labels
+  local correction_route_index
+  correction_route_values=(
+    deep_reviewer+ultra_gatekeeper
+    ultra_gatekeeper
+    deep_reviewer+ultra_gatekeeper
+  )
+  correction_route_messages=(
+    "receipt correction must not use the historical stacked review route"
+    "receipt correction must not claim an unexecuted Ultra review"
+    "fixed receipt correction does not authorize Ultra replacement"
+  )
+  correction_route_labels=(
+    "old stacked correction route"
+    "Ultra route without an allowed recorded reason"
+    "allowed reason with an actual route mismatch"
+  )
+  for correction_route_index in "${!correction_route_values[@]}"; do
+    prepare_receipt_correction_fixture \
+      "${correction_fixture_root}" "${correction_candidate_sha}"
+    set_field "${correction_fixture_state}" ReceiptCorrectionReviewRoute \
+      "${correction_route_values[${correction_route_index}]}"
+    if [[ "${correction_route_index}" -eq 2 ]]; then
+      insert_field_after "${correction_fixture_state}" \
+        ReceiptCorrectionReviewRoute ReceiptCorrectionUltraEscalationReason \
+        DIRECT_USER_INSTRUCTION
+    fi
+    bad_correction_receipt="$(commit_receipt_correction_ledger \
+      "${correction_fixture_root}" \
+      "test: ${correction_route_labels[${correction_route_index}]}")"
+    expect_model_route_transition_failure \
+      "${correction_fixture_root}" "${correction_fixture_cards}" \
+      "${correction_candidate_sha}" "${bad_correction_receipt}" \
+      "${correction_route_messages[${correction_route_index}]}" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "${correction_route_labels[${correction_route_index}]}"
+  done
+
+  # Fixed authority provenance is ancestry plus byte/mode identity, never a
+  # copied final tree.  Each fixture is a real Git repository and is sent to
+  # the public static verifier.
+  local -a absent_authority_bases absent_authority_messages absent_authority_labels
+  local absent_authority_index absent_fixture_root absent_fixture_cards
+  absent_authority_bases=(
+    "${correction_origin_sha}"
+    "${correction_spec_sha}"
+    "${correction_plan_sha}"
+    "${model_route_design_sha}"
+  )
+  absent_authority_messages=(
+    "fixed receipt-correction specification is absent from candidate ancestry"
+    "fixed receipt-correction plan is absent from candidate ancestry"
+    "fixed model-route design is absent from candidate ancestry"
+    "fixed model-route plan is absent from candidate ancestry"
+  )
+  absent_authority_labels=(
+    "copied final tree without correction-spec ancestry"
+    "copied final tree without correction-plan ancestry"
+    "copied final tree without model-route-design ancestry"
+    "copied final tree without model-route-plan ancestry"
+  )
+  for absent_authority_index in "${!absent_authority_bases[@]}"; do
+    absent_fixture_root="${test_tmp_root}/absent-authority-${absent_authority_index}"
+    git clone --shared -q "${repo_root}" "${absent_fixture_root}"
+    copy_candidate_tree_onto_base "${absent_fixture_root}" \
+      "${absent_authority_bases[${absent_authority_index}]}" \
+      "${correction_candidate_sha}" \
+      "test: ${absent_authority_labels[${absent_authority_index}]}" >/dev/null
+    absent_fixture_cards="${absent_fixture_root}/docs/task-cards/visual-style-baseline"
+    expect_model_route_static_failure "${absent_fixture_root}" \
+      "${absent_fixture_cards}" \
+      "${absent_authority_messages[${absent_authority_index}]}" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "${absent_authority_labels[${absent_authority_index}]}"
+  done
+
+  local -a fixed_authority_paths
+  local fixed_authority_index drift_fixture_root drift_fixture_cards
+  fixed_authority_paths=(
+    docs/superpowers/specs/2026-08-13-cognitura-vsb-receipt-correction-design.md
+    docs/superpowers/plans/2026-08-13-cognitura-vsb-receipt-correction.md
+    docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md
+    docs/superpowers/plans/2026-08-13-cognitura-model-gate-routing.md
+  )
+  for fixed_authority_index in "${!fixed_authority_paths[@]}"; do
+    drift_fixture_root="${test_tmp_root}/authority-blob-drift-${fixed_authority_index}"
+    git clone --shared -q "${repo_root}" "${drift_fixture_root}"
+    git -C "${drift_fixture_root}" checkout -q --detach \
+      "${correction_candidate_sha}"
+    printf '\nauthority-drift\n' >> \
+      "${drift_fixture_root}/${fixed_authority_paths[${fixed_authority_index}]}"
+    git -C "${drift_fixture_root}" add -- \
+      "${fixed_authority_paths[${fixed_authority_index}]}"
+    git -C "${drift_fixture_root}" commit -qm \
+      "test: drift fixed authority ${fixed_authority_index}"
+    drift_fixture_cards="${drift_fixture_root}/docs/task-cards/visual-style-baseline"
+    expect_model_route_static_failure "${drift_fixture_root}" \
+      "${drift_fixture_cards}" \
+      "fixed correction authority blob drifted: ${fixed_authority_paths[${fixed_authority_index}]}" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "fixed authority blob drift ${fixed_authority_index}"
+
+    drift_fixture_root="${test_tmp_root}/authority-mode-drift-${fixed_authority_index}"
+    git clone --shared -q "${repo_root}" "${drift_fixture_root}"
+    git -C "${drift_fixture_root}" checkout -q --detach \
+      "${correction_candidate_sha}"
+    chmod +x "${drift_fixture_root}/${fixed_authority_paths[${fixed_authority_index}]}"
+    git -C "${drift_fixture_root}" add -- \
+      "${fixed_authority_paths[${fixed_authority_index}]}"
+    git -C "${drift_fixture_root}" commit -qm \
+      "test: change fixed authority mode ${fixed_authority_index}"
+    drift_fixture_cards="${drift_fixture_root}/docs/task-cards/visual-style-baseline"
+    expect_model_route_static_failure "${drift_fixture_root}" \
+      "${drift_fixture_cards}" \
+      "fixed correction authority mode drifted: ${fixed_authority_paths[${fixed_authority_index}]}" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "fixed authority mode drift ${fixed_authority_index}"
+  done
+
+  # Restoring the tip blob does not erase an intermediate immutable-authority
+  # violation in the origin-exclusive governance chain.
+  drift_fixture_root="${test_tmp_root}/authority-intermediate-drift"
+  git clone --shared -q "${repo_root}" "${drift_fixture_root}"
+  git -C "${drift_fixture_root}" checkout -q --detach \
+    "${correction_candidate_sha}"
+  printf '\nintermediate-authority-drift\n' >> \
+    "${drift_fixture_root}/${fixed_authority_paths[0]}"
+  git -C "${drift_fixture_root}" add -- "${fixed_authority_paths[0]}"
+  git -C "${drift_fixture_root}" commit -qm \
+    "test: drift immutable correction authority"
+  git -C "${drift_fixture_root}" checkout -q \
+    "${correction_candidate_sha}" -- "${fixed_authority_paths[0]}"
+  git -C "${drift_fixture_root}" commit -qm \
+    "test: restore immutable correction authority"
+  drift_fixture_cards="${drift_fixture_root}/docs/task-cards/visual-style-baseline"
+  expect_model_route_static_failure "${drift_fixture_root}" \
+    "${drift_fixture_cards}" \
+    "fixed correction authority changed in an intermediate governance commit: ${fixed_authority_paths[0]}" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "intermediate immutable authority drift restored at tip"
+
+  local -a chain_mutations chain_messages chain_labels
+  local chain_index chain_fixture_root chain_fixture_cards
+  chain_mutations=(omit extra empty merge rename copy low-limit ledger nul newline mode)
+  chain_messages=(
+    "receipt correction chain must have the exact ten-path cumulative WriteSet"
+    "receipt correction chain contains a path outside the exact ten-path WriteSet"
+    "receipt correction governance commit must be non-empty"
+    "receipt correction governance commit must have exactly one parent"
+    "receipt correction governance chain must not rename or copy paths"
+    "receipt correction governance chain must not rename or copy paths"
+    "receipt correction governance chain must not rename or copy paths"
+    "receipt correction governance chain must not change the execution ledger"
+    "receipt correction governance path must not contain NUL bytes"
+    "receipt correction governance path must not contain a newline"
+    "receipt correction governance commit changed path mode"
+  )
+  chain_labels=(
+    "path omission" "extra path" "empty commit" "merge commit"
+    "rename" "copy" "low diff.renameLimit rename" "intermediate ledger drift"
+    "governance NUL" "newline path" "mode drift"
+  )
+  for chain_index in "${!chain_mutations[@]}"; do
+    chain_fixture_root="${test_tmp_root}/chain-${chain_mutations[${chain_index}]}"
+    git clone --shared -q "${repo_root}" "${chain_fixture_root}"
+    mutate_receipt_correction_chain "${chain_fixture_root}" \
+      "${chain_mutations[${chain_index}]}" "${correction_candidate_sha}" \
+      "${correction_origin_sha}" "${ledger_path}"
+    chain_fixture_cards="${chain_fixture_root}/docs/task-cards/visual-style-baseline"
+    expect_model_route_static_failure "${chain_fixture_root}" \
+      "${chain_fixture_cards}" "${chain_messages[${chain_index}]}" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "correction chain ${chain_labels[${chain_index}]}"
+  done
+
+  # Exact version-3 transform values.  The field set above tests cardinality;
+  # this literal table tests each semantic binding independently.
+  local -a correction_value_fields correction_bad_values correction_value_messages
+  local correction_value_index
+  correction_value_fields=(
+    ReceiptCorrectionStatus
+    ReceiptCorrectionSpecSHA
+    ReceiptCorrectionOriginReceiptSHA
+    ReceiptCorrectionReviewedCandidateSHA
+    ReceiptCorrectionReviewLevel
+    ReceiptCorrectionReviewRoute
+    ReceiptCorrectionReviewEffort
+    ReceiptCorrectionReviewMultiplicity
+    ReceiptCorrectionReviewVerdict
+    ExecutionStateVersion
+    NextTaskCard
+    TransitionSequence
+    TransitionKind
+    TransitionBaseSHA
+  )
+  correction_bad_values=(
+    PENDING
+    "${model_route_design_sha}"
+    "${reviewed_vsb01_sha}"
+    "${reviewed_vsb01_sha}"
+    L3
+    main_or_worker
+    high
+    TWO
+    GO_P0_0_P1_0_P2_0
+    2
+    VSB-02
+    4
+    ADVANCE
+    "${correction_origin_sha}"
+  )
+  correction_value_messages=(
+    "ReceiptCorrectionStatus must be PASS"
+    "receipt correction approved spec SHA mismatch"
+    "receipt correction origin SHA mismatch"
+    "receipt correction reviewed candidate SHA mismatch"
+    "receipt correction review level mismatch"
+    "receipt correction review route mismatch"
+    "receipt correction review effort mismatch"
+    "receipt correction review multiplicity mismatch"
+    "receipt correction review verdict mismatch"
+    "RECEIPT_CORRECTION must upgrade ExecutionStateVersion from 2 to 3"
+    "receipt correction NextTaskCard must be VSB-03"
+    "RECEIPT_CORRECTION TransitionSequence must be 5"
+    "receipt transition kind must be RECEIPT_CORRECTION"
+    "receipt TransitionBaseSHA must equal its fixed BASE"
+  )
+  for correction_value_index in "${!correction_value_fields[@]}"; do
+    prepare_receipt_correction_fixture \
+      "${correction_fixture_root}" "${correction_candidate_sha}"
+    set_field "${correction_fixture_state}" \
+      "${correction_value_fields[${correction_value_index}]}" \
+      "${correction_bad_values[${correction_value_index}]}"
+    bad_correction_receipt="$(commit_receipt_correction_ledger \
+      "${correction_fixture_root}" \
+      "test: wrong correction value ${correction_value_index}")"
+    expect_model_route_transition_failure \
+      "${correction_fixture_root}" "${correction_fixture_cards}" \
+      "${correction_candidate_sha}" "${bad_correction_receipt}" \
+      "${correction_value_messages[${correction_value_index}]}" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "wrong correction value ${correction_value_index}"
+  done
+
+  prepare_receipt_correction_fixture \
+    "${correction_fixture_root}" "${correction_candidate_sha}"
+  bad_correction_receipt="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: correction receipt with extra path" \
+    docs/engineering/receipt-correction-extra.md)"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_candidate_sha}" "${bad_correction_receipt}" \
+    "receipt diff must contain only execution-state.md" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "correction receipt with extra path"
+
+  prepare_receipt_correction_fixture \
+    "${correction_fixture_root}" "${correction_candidate_sha}"
+  printf '\000' >> "${correction_fixture_state}"
+  bad_correction_receipt="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: correction receipt containing NUL")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_candidate_sha}" "${bad_correction_receipt}" \
+    "transition ledger must not contain NUL bytes" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "NUL in correction receipt ledger"
+
+  prepare_receipt_correction_fixture \
+    "${correction_fixture_root}" "${correction_candidate_sha}"
+  printf '\n' >> "${correction_fixture_state}"
+  bad_correction_receipt="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: correction receipt newline drift")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_candidate_sha}" "${bad_correction_receipt}" \
+    "RECEIPT_CORRECTION receipt must be the exact approved ledger transform" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "correction receipt newline drift"
+
+  prepare_receipt_correction_fixture \
+    "${correction_fixture_root}" "${correction_candidate_sha}"
+  chmod +x "${correction_fixture_state}"
+  bad_correction_receipt="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: correction receipt ledger mode drift")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_candidate_sha}" "${bad_correction_receipt}" \
+    "RECEIPT_CORRECTION receipt ledger mode must remain canonical" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "correction receipt ledger mode drift"
+
+  local -a exact_transform_mutations exact_transform_labels
+  local exact_transform_index
+  exact_transform_mutations=(reorder unknown origin-byte)
+  exact_transform_labels=(
+    "correction fields reordered"
+    "unknown correction field"
+    "unlisted origin byte changed"
+  )
+  for exact_transform_index in "${!exact_transform_mutations[@]}"; do
+    prepare_receipt_correction_fixture \
+      "${correction_fixture_root}" "${correction_candidate_sha}"
+    mutate_exact_receipt_correction_ledger "${correction_fixture_state}" \
+      "${exact_transform_mutations[${exact_transform_index}]}"
+    bad_correction_receipt="$(commit_receipt_correction_ledger \
+      "${correction_fixture_root}" \
+      "test: ${exact_transform_labels[${exact_transform_index}]}")"
+    expect_model_route_transition_failure \
+      "${correction_fixture_root}" "${correction_fixture_cards}" \
+      "${correction_candidate_sha}" "${bad_correction_receipt}" \
+      "RECEIPT_CORRECTION receipt must be the exact approved ledger transform" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "${exact_transform_labels[${exact_transform_index}]}"
+  done
+
+  # O2 cannot be substituted for R2, and the correction must be direct,
+  # single-parent, terminal, ledger-only, and exactly once.
+  local -a current_route_card_paths
+  local current_route_card_path
+  current_route_card_paths=(
+    docs/task-cards/visual-style-baseline/README.md
+    docs/task-cards/visual-style-baseline/VSB-02-module-default-reading-visual.md
+    docs/task-cards/visual-style-baseline/VSB-03-fixed-visual-acceptance.md
+  )
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_origin_sha}"
+  git -C "${correction_fixture_root}" restore --worktree \
+    --source="${correction_candidate_sha}" -- "${current_route_card_paths[@]}"
+  [[ "$(git -C "${correction_fixture_root}" rev-parse HEAD)" == \
+     "${correction_origin_sha}" ]] ||
+    fail "ordinary O2 negative changed HEAD while adopting current route cards"
+  [[ "$(git -C "${correction_fixture_root}" hash-object \
+    "${correction_fixture_root}/${ledger_path}")" == \
+     "$(git -C "${correction_fixture_root}" rev-parse \
+       "${correction_origin_sha}:${ledger_path}")" ]] ||
+    fail "ordinary O2 negative did not retain the fixed O2 worktree ledger"
+  for current_route_card_path in "${current_route_card_paths[@]}"; do
+    [[ "$(git -C "${correction_fixture_root}" hash-object \
+      "${correction_fixture_root}/${current_route_card_path}")" == \
+       "$(git -C "${correction_fixture_root}" rev-parse \
+         "${correction_candidate_sha}:${current_route_card_path}")" ]] ||
+      fail "ordinary O2 negative did not adopt current candidate card: ${current_route_card_path}"
+  done
+  git -C "${correction_fixture_root}" diff --cached --quiet ||
+    fail "ordinary O2 negative staged current route cards"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${reviewed_vsb01_sha}" "${correction_origin_sha}" \
+    "IN_PROGRESS active, released, or next card mismatch" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "ordinary O2 substituted for receipt correction"
+  git -C "${correction_fixture_root}" restore --worktree \
+    --source=HEAD -- "${current_route_card_paths[@]}"
+  git -C "${correction_fixture_root}" diff --quiet ||
+    fail "ordinary O2 negative left worktree residue after restoring route cards"
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_candidate_sha}"
+  git -C "${correction_fixture_root}" commit --allow-empty -qm \
+    "test: interpose empty commit before correction receipt"
+  local correction_nondirect_receipt
+  write_exact_receipt_correction_ledger \
+    "${correction_fixture_root}" "${correction_candidate_sha}"
+  correction_nondirect_receipt="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: non-direct correction receipt")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_candidate_sha}" "${correction_nondirect_receipt}" \
+    "transition HEAD must be a direct child of transition BASE" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "non-direct correction receipt"
+
+  prepare_receipt_correction_fixture \
+    "${correction_fixture_root}" "${correction_candidate_sha}"
+  local correction_merge_receipt
+  git -C "${correction_fixture_root}" switch -q -c correction-receipt-side
+  commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: correction receipt side" >/dev/null
+  git -C "${correction_fixture_root}" switch -q -c correction-receipt-main \
+    "${correction_candidate_sha}"
+  git -C "${correction_fixture_root}" commit --allow-empty -qm \
+    "test: competing correction receipt parent"
+  git -C "${correction_fixture_root}" merge -q --no-ff \
+    correction-receipt-side -m "test: merge correction receipt"
+  correction_merge_receipt="$(git -C "${correction_fixture_root}" rev-parse HEAD)"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_candidate_sha}" "${correction_merge_receipt}" \
+    "transition HEAD must have exactly one parent" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "merged correction receipt"
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_receipt_sha}"
+  git -C "${correction_fixture_root}" commit --allow-empty -qm \
+    "test: place legal correction receipt below repository tip"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_candidate_sha}" "${correction_receipt_sha}" \
+    "transition HEAD must equal repository HEAD" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "non-tip correction receipt"
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_receipt_sha}"
+  set_field "${correction_fixture_state}" TransitionSequence 6
+  set_field "${correction_fixture_state}" TransitionBaseSHA \
+    "${correction_receipt_sha}"
+  local second_correction_sha
+  second_correction_sha="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: second receipt correction")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_receipt_sha}" "${second_correction_sha}" \
+    "RECEIPT_CORRECTION is allowed exactly once" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "second receipt correction"
+
+  git -C "${correction_fixture_root}" checkout -q --detach \
+    "${correction_receipt_sha}"
+  set_legal_stop_by_user \
+    "${correction_fixture_state}" "${correction_receipt_sha}"
+  set_field "${correction_fixture_state}" ReceiptCorrectionReviewEffort high
+  local mutated_correction_receipt
+  mutated_correction_receipt="$(commit_receipt_correction_ledger \
+    "${correction_fixture_root}" \
+    "test: mutate correction fields after R2")"
+  expect_model_route_transition_failure \
+    "${correction_fixture_root}" "${correction_fixture_cards}" \
+    "${correction_receipt_sha}" "${mutated_correction_receipt}" \
+    "ordinary version-3 transition must preserve ReceiptCorrection fields" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "post-R2 correction-field mutation"
+
+  [[ "${correction_positive_cases}" -eq 4 ]] ||
+    fail "Cycle B positive matrix count drifted from 4"
+  [[ "${receipt_correction_negative_cases}" -eq 72 ]] ||
+    fail "Cycle B negative matrix count drifted from 72"
+  printf '%s\n' \
+    "ReceiptCorrectionContractTests = PASS" \
+    "ReceiptCorrectionPositiveCases = ${correction_positive_cases}" \
+    "ReceiptCorrectionNegativeCases = ${receipt_correction_negative_cases}"
 
   printf '%s\n' "RouteCardContractTests = PASS"
   printf '%s\n' "RouteCardContractPositiveCases = 2"
