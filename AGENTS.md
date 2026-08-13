@@ -119,6 +119,15 @@ work；只有账本记录治理 bootstrap 固定提交零发现 GO 和集合级�
 3. 后续实际落地且通过来源校验的专项设计正文：
    - `Cognitive-Knowledge-System-Construction-Design-1.0`
    - `Cognitive-Knowledge-Atlas-UIUX-Design-1.0`
+   当前视觉样式参考从属于总体设计与高保真交互专项，仅拥有视觉 DNA 与语义 token：
+   ```text
+   VisualStyleReferenceAuthority = docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md
+   VisualStyleReferenceManifest = docs/engineering/cognitura-visual-style-baseline-manifest.yaml
+   VisualStyleReferenceScope = VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY
+   PageArchitectureAuthority = NO
+   InteractionAuthority = NO
+   DashboardLayoutAuthority = NO
+   ```
 4. `raw/` 下三份 Golden Case 原始 DOCX。
 5. `docs/engineering/` 下的工程索引、计划和准入记录；这些文件解释落地状态，不覆盖正式设计。
 6. `docs/task-cards/` 下的执行卡和索引；这些文件固定写集、依赖、验证和 Gate，

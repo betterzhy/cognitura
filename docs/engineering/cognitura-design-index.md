@@ -58,6 +58,15 @@ ModuleDefaultReadingBusinessImplementation = SEE_MODULE_DEFAULT_READING_EXECUTIO
 ModuleDefaultReadingDocumentationGap = DOC-GAP-MDR-001
 HighFidelityDesignManifest =
   docs/engineering/cognitura-high-fidelity-design-manifest.yaml
+VisualStyleReferenceAuthority = docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md
+VisualStyleReferenceManifest = docs/engineering/cognitura-visual-style-baseline-manifest.yaml
+VisualStyleReferenceScope = VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY
+VisualStylePageArchitectureAuthority = NO
+VisualStyleInteractionAuthority = NO
+VisualStyleInformationArchitectureAuthority = NO
+VisualStyleComponentHierarchyAuthority = NO
+VisualStyleCardQuantityAuthority = NO
+VisualStyleDashboardLayoutAuthority = NO
 HighFidelityContractCoverage =
   docs/engineering/cognitura-high-fidelity-contract-coverage.md
 HighFidelityDesignStatus = COMPLETE
@@ -247,6 +256,17 @@ HF-D02 已关闭正交状态与恢复边界，HF-D03 已关闭证据输入合同
 该高保真专项本身未创建或释放 `W1-I00`；后续 bootstrap 已独立完成并关闭 I00。
 当前业务授权保持有效，但 `W1-I03` 在 Visual Style Baseline 期间暂停；I02 独立
 数据库 Gate、正式数据库写入和远程推送仍未授权。
+
+### 8.1 当前视觉样式参考登记
+
+| 工程引用名 | 实际路径 | Manifest | 状态 | 权威边界 |
+|---|---|---|---|---|
+| `Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0` | `docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md` | `docs/engineering/cognitura-visual-style-baseline-manifest.yaml` | `FORMAL_VISUAL_STYLE_BASELINE` | `VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY` |
+
+该参考图和正文从属于总体设计与高保真交互专项。它们不拥有页面架构、信息架构、
+交互、组件层级、卡片数量或 dashboard 布局权威；正式 Reading First 与 Continuous
+Document 合同优先。历史专项正文候选所声明的 `DOC-GAP-HF-001..003` 继续开放，
+不会因视觉参考落地而被补写或关闭。
 
 ## 9. 高保真视觉基础登记
 

@@ -1,0 +1,24 @@
+manifestVersion: 1
+canonicalProjectName: Cognitura
+document:
+  path: docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md
+  version: 1.0
+  mediaType: text/markdown
+  sizeBytes: 11065
+  sha256: 86851e1dede1ac6bdfbfbd1815511d227a22e922f0e76d9ecf7dafeb9d909ae0
+referenceImage:
+  path: docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png
+  mediaType: image/png
+  pixelSize: 1280x853
+  sizeBytes: 867083
+  sha256: a8446ea987f6a1710c3845f837e2776190997b77f81584cf7b667cbfebe2f95f
+scope: VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY
+activationStateAuthority: docs/task-cards/visual-style-baseline/execution-state.md
+activationGate: VSB-G0 GOVERNANCE_AND_REFERENCE
+excludedAuthorities:
+  - PAGE_ARCHITECTURE
+  - INTERACTION
+  - INFORMATION_ARCHITECTURE
+  - COMPONENT_HIERARCHY
+  - CARD_QUANTITY
+  - DASHBOARD_LAYOUT

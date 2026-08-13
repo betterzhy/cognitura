@@ -1,0 +1,121 @@
+#!/bin/bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s --source-jpeg PATH --output-png PATH\n' "$0" >&2
+  exit 64
+}
+
+fail() {
+  printf 'VisualStyleReferenceImport = FAIL: %s\n' "$1" >&2
+  exit 1
+}
+
+[[ "$#" -eq 4 ]] || usage
+[[ "$1" == '--source-jpeg' ]] || usage
+source_jpeg="$2"
+[[ "$3" == '--output-png' ]] || usage
+output_png="$4"
+[[ -n "${source_jpeg}" && -n "${output_png}" ]] || usage
+
+expected_source_hash='812eb50de5b4c7678349bf427977d2917388b70f25f18b6035f55123c7739249'
+expected_output_hash='a8446ea987f6a1710c3845f837e2776190997b77f81584cf7b667cbfebe2f95f'
+expected_source_size='210103'
+expected_output_size='867083'
+
+[[ -f "${source_jpeg}" ]] || fail "source JPEG is missing or not a regular file"
+source_hash="$(shasum -a 256 "${source_jpeg}" | awk '{print $1}')"
+[[ "${source_hash}" == "${expected_source_hash}" ]] || fail "source JPEG SHA-256 mismatch"
+source_size="$(stat -f '%z' "${source_jpeg}")"
+[[ "${source_size}" == "${expected_source_size}" ]] || fail "source JPEG byte size mismatch"
+
+output_dir="$(dirname "${output_png}")"
+mkdir -p "${output_dir}"
+output_dir="$(cd "${output_dir}" && pwd -P)"
+output_png="${output_dir}/$(basename "${output_png}")"
+temporary_png=""
+
+cleanup() {
+  if [[ -n "${temporary_png}" && -e "${temporary_png}" ]]; then
+    rm -f -- "${temporary_png}"
+  fi
+}
+trap cleanup EXIT HUP INT TERM
+
+verify_decoded_equivalence() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+import PIL
+from PIL import Image, ImageChops
+
+source_path, output_path = sys.argv[1:]
+if PIL.__version__ != "12.2.0":
+    raise SystemExit("Pillow version must be exactly 12.2.0")
+with Image.open(source_path) as source:
+    if source.format != "JPEG" or source.size != (1280, 853):
+        raise SystemExit("source image format or dimensions mismatch")
+    source_rgb = source.convert("RGB")
+with Image.open(output_path) as output:
+    output.load()
+    if output.format != "PNG" or output.mode != "RGB" or output.size != (1280, 853):
+        raise SystemExit("output image format, mode, or dimensions mismatch")
+    if ImageChops.difference(source_rgb, output).getbbox() is not None:
+        raise SystemExit("decoded pixels are not equivalent")
+PY
+}
+
+if [[ -e "${output_png}" ]]; then
+  [[ -f "${output_png}" ]] || fail "existing output is not a regular file"
+  existing_hash="$(shasum -a 256 "${output_png}" | awk '{print $1}')"
+  [[ "${existing_hash}" == "${expected_output_hash}" ]] ||
+    fail "existing output SHA-256 does not match the approved reference"
+  [[ "$(stat -f '%z' "${output_png}")" == "${expected_output_size}" ]] ||
+    fail "existing output byte size mismatch"
+  verify_decoded_equivalence "${source_jpeg}" "${output_png}" ||
+    fail "existing output decoded pixels differ from source"
+else
+  temporary_png="$(mktemp "${output_dir}/.Cognitive-Knowledge-Atlas-Dashboard.XXXXXX")"
+  python3 - "${source_jpeg}" "${temporary_png}" <<'PY'
+import sys
+import PIL
+from PIL import Image, ImageChops
+
+source_path, output_path = sys.argv[1:]
+if PIL.__version__ != "12.2.0":
+    raise SystemExit("Pillow version must be exactly 12.2.0")
+with Image.open(source_path) as source:
+    if source.format != "JPEG" or source.size != (1280, 853):
+        raise SystemExit("source image format or dimensions mismatch")
+    source_rgb = source.convert("RGB")
+source_rgb.save(output_path, format="PNG", optimize=False, compress_level=6)
+with Image.open(output_path) as output:
+    output.load()
+    if output.format != "PNG" or output.mode != "RGB" or output.size != (1280, 853):
+        raise SystemExit("output image format, mode, or dimensions mismatch")
+    if ImageChops.difference(source_rgb, output).getbbox() is not None:
+        raise SystemExit("decoded pixels are not equivalent")
+PY
+  temporary_hash="$(shasum -a 256 "${temporary_png}" | awk '{print $1}')"
+  [[ "${temporary_hash}" == "${expected_output_hash}" ]] || fail "generated PNG SHA-256 mismatch"
+  [[ "$(stat -f '%z' "${temporary_png}")" == "${expected_output_size}" ]] ||
+    fail "generated PNG byte size mismatch"
+  mv -n -- "${temporary_png}" "${output_png}"
+  if [[ -e "${temporary_png}" ]]; then
+    rm -f -- "${temporary_png}"
+  fi
+  temporary_png=""
+  [[ -f "${output_png}" ]] || fail "atomic destination move did not produce output"
+  [[ "$(shasum -a 256 "${output_png}" | awk '{print $1}')" == "${expected_output_hash}" ]] ||
+    fail "destination changed during atomic move"
+fi
+
+printf '%s\n' \
+  "SourceSHA256=${expected_source_hash}" \
+  "OutputSHA256=${expected_output_hash}" \
+  'Dimensions=1280x853' \
+  'ColorMode=RGB' \
+  'ConversionTool=Pillow 12.2.0' \
+  'ConversionOperation=RGB_PNG_OPTIMIZE_FALSE_COMPRESS_LEVEL_6' \
+  'PixelEquivalence=PASS' \
+  'VisualStyleReferenceImport=PASS'

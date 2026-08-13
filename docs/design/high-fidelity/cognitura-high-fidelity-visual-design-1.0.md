@@ -337,3 +337,17 @@ HV-D05 ReviewedCandidateSHA = 62da1bc08a932bbfc76769a2add984dcec4160b7
 HV-D05 ReviewStage1 = GO|gpt-5.6-sol/high|P0=0|P1=0|P2=0
 HV-D05 ReviewStage2 = GO|gpt-5.6-sol/high|P0=0|P1=0|P2=0
 ```
+
+## 8. 当前视觉样式权威桥接
+
+```text
+CurrentVisualStyleAuthority=docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md
+CurrentVisualStyleProjection=web/src/styles/**
+LegacyPrototypeTokenRole=HISTORICAL_EVIDENCE_RENDERING_ONLY
+HistoricalHVEvidenceValidity=PRESERVED
+HistoricalHVEvidenceOverwrite=FORBIDDEN
+```
+
+该桥接只把当前视觉 DNA 和语义 token 的权威指向正式 Style Reference；本文件既有
+token、截图、Gate 与固定候选记录保持历史证据含义，不因新基线而重写。页面架构、
+交互与 dashboard 布局不会从参考图获得权威。

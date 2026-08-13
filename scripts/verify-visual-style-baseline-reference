@@ -1,0 +1,419 @@
+#!/bin/bash
+
+set -euo pipefail
+
+usage() {
+  printf 'Usage: %s [--repo-root PATH] [--source-jpeg PATH]\n' "$0" >&2
+  exit 64
+}
+
+fail() {
+  printf 'VisualStyleBaselineReferenceVerification=FAIL: %s\n' "$1" >&2
+  exit 1
+}
+
+script_root="$(cd "$(dirname "$0")/.." && pwd -P)"
+repo_root="${script_root}"
+source_jpeg=""
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --repo-root)
+      [[ "$#" -ge 2 && -n "$2" ]] || usage
+      repo_root="$2"
+      shift 2
+      ;;
+    --source-jpeg)
+      [[ "$#" -ge 2 && -n "$2" ]] || usage
+      source_jpeg="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+[[ -d "${repo_root}" ]] || fail "repository root is missing"
+repo_root="$(cd "${repo_root}" && pwd -P)"
+manifest="${repo_root}/docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
+reference_doc="${repo_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+reference_image="${repo_root}/docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png"
+high_fidelity_doc="${repo_root}/docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md"
+design_index="${repo_root}/docs/engineering/cognitura-design-index.md"
+agents_doc="${repo_root}/AGENTS.md"
+
+for required_file in \
+  "${manifest}" \
+  "${reference_doc}" \
+  "${reference_image}" \
+  "${high_fidelity_doc}" \
+  "${design_index}" \
+  "${agents_doc}"; do
+  [[ -f "${required_file}" ]] || fail "required file is missing: ${required_file#${repo_root}/}"
+done
+
+if [[ -n "${source_jpeg}" ]]; then
+  [[ -f "${source_jpeg}" ]] || fail "source JPEG is missing or not a regular file"
+  source_hash="$(shasum -a 256 "${source_jpeg}" | awk '{print $1}')"
+  [[ "${source_hash}" == '812eb50de5b4c7678349bf427977d2917388b70f25f18b6035f55123c7739249' ]] ||
+    fail "source JPEG SHA-256 mismatch"
+  [[ "$(stat -f '%z' "${source_jpeg}")" == '210103' ]] || fail "source JPEG byte size mismatch"
+fi
+
+python_args=("${repo_root}")
+if [[ -n "${source_jpeg}" ]]; then
+  python_args+=("${source_jpeg}")
+fi
+
+python3 - "${python_args[@]}" <<'PY' || exit $?
+from __future__ import annotations
+
+import hashlib
+import re
+import sys
+from pathlib import Path
+
+import PIL
+from PIL import Image, ImageChops
+
+
+def fail(message: str) -> None:
+    print(f"VisualStyleBaselineReferenceVerification=FAIL: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def require_once(text: str, literal: str, label: str) -> None:
+    if text.count(literal) != 1:
+        fail(f"{label} must appear exactly once")
+
+
+def parse_manifest(path: Path) -> dict[str, object]:
+    top_allowed = {
+        "manifestVersion",
+        "canonicalProjectName",
+        "document",
+        "referenceImage",
+        "scope",
+        "activationStateAuthority",
+        "activationGate",
+        "excludedAuthorities",
+    }
+    nested_allowed = {
+        "document": {"path", "version", "mediaType", "sizeBytes", "sha256"},
+        "referenceImage": {"path", "mediaType", "pixelSize", "sizeBytes", "sha256"},
+    }
+    result: dict[str, object] = {}
+    current: str | None = None
+    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not raw or raw.startswith("#"):
+            continue
+        if raw.startswith("  - "):
+            if current != "excludedAuthorities":
+                fail(f"manifest list item outside excludedAuthorities at line {number}")
+            value = raw[4:]
+            target = result[current]
+            assert isinstance(target, list)
+            if value in target:
+                fail(f"duplicate excluded authority at line {number}")
+            target.append(value)
+            continue
+        if raw.startswith("  "):
+            if current not in nested_allowed:
+                fail(f"unexpected nested manifest field at line {number}")
+            match = re.fullmatch(r"  ([A-Za-z][A-Za-z0-9]*): (.+)", raw)
+            if not match:
+                fail(f"malformed nested manifest field at line {number}")
+            key, value = match.groups()
+            if key not in nested_allowed[current]:
+                fail(f"unknown {current} field: {key}")
+            target = result[current]
+            assert isinstance(target, dict)
+            if key in target:
+                fail(f"duplicate {current} field: {key}")
+            target[key] = value
+            continue
+        match = re.fullmatch(r"([A-Za-z][A-Za-z0-9]*):(.*)", raw)
+        if not match:
+            fail(f"malformed top-level manifest field at line {number}")
+        key, rest = match.groups()
+        if key not in top_allowed:
+            fail(f"unknown top-level manifest field: {key}")
+        if key in result:
+            fail(f"duplicate top-level manifest field: {key}")
+        if key in nested_allowed:
+            if rest:
+                fail(f"{key} must be a mapping")
+            result[key] = {}
+            current = key
+        elif key == "excludedAuthorities":
+            if rest:
+                fail("excludedAuthorities must be a list")
+            result[key] = []
+            current = key
+        else:
+            if not rest.startswith(" ") or len(rest) == 1:
+                fail(f"missing manifest value for {key}")
+            result[key] = rest[1:]
+            current = None
+    if set(result) != top_allowed:
+        fail("manifest top-level key set mismatch")
+    for key, allowed in nested_allowed.items():
+        target = result[key]
+        assert isinstance(target, dict)
+        if set(target) != allowed:
+            fail(f"manifest {key} key set mismatch")
+    return result
+
+
+repo = Path(sys.argv[1]).resolve()
+source = Path(sys.argv[2]).resolve() if len(sys.argv) == 3 else None
+manifest_path = repo / "docs/engineering/cognitura-visual-style-baseline-manifest.yaml"
+document_path = repo / "docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+image_path = repo / "docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png"
+hf_path = repo / "docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md"
+index_path = repo / "docs/engineering/cognitura-design-index.md"
+agents_path = repo / "AGENTS.md"
+
+if PIL.__version__ != "12.2.0":
+    fail("Pillow version must be exactly 12.2.0")
+
+manifest = parse_manifest(manifest_path)
+if manifest["manifestVersion"] != "1":
+    fail("manifestVersion must be 1")
+if manifest["canonicalProjectName"] != "Cognitura":
+    fail("canonicalProjectName mismatch")
+if manifest["scope"] != "VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY":
+    fail("manifest scope mismatch")
+if manifest["activationStateAuthority"] != "docs/task-cards/visual-style-baseline/execution-state.md":
+    fail("activation state authority mismatch")
+if manifest["activationGate"] != "VSB-G0 GOVERNANCE_AND_REFERENCE":
+    fail("activation gate mismatch")
+expected_excluded = [
+    "PAGE_ARCHITECTURE",
+    "INTERACTION",
+    "INFORMATION_ARCHITECTURE",
+    "COMPONENT_HIERARCHY",
+    "CARD_QUANTITY",
+    "DASHBOARD_LAYOUT",
+]
+if manifest["excludedAuthorities"] != expected_excluded:
+    fail("excluded authority set or order mismatch")
+
+document = manifest["document"]
+image = manifest["referenceImage"]
+assert isinstance(document, dict) and isinstance(image, dict)
+expected_document = {
+    "path": "docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md",
+    "version": "1.0",
+    "mediaType": "text/markdown",
+}
+expected_image = {
+    "path": "docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png",
+    "mediaType": "image/png",
+    "pixelSize": "1280x853",
+}
+for key, expected in expected_document.items():
+    if document[key] != expected:
+        fail(f"manifest document {key} mismatch")
+for key, expected in expected_image.items():
+    if image[key] != expected:
+        fail(f"manifest referenceImage {key} mismatch")
+for owner, record in (("document", document), ("referenceImage", image)):
+    size = record["sizeBytes"]
+    digest = record["sha256"]
+    if not isinstance(size, str) or not re.fullmatch(r"[1-9][0-9]*", size):
+        fail(f"manifest {owner} sizeBytes must be a positive decimal")
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        fail(f"manifest {owner} sha256 must be 64 lowercase hexadecimal characters")
+
+if int(document["sizeBytes"]) != document_path.stat().st_size:
+    fail("manifest document size does not match final bytes")
+if document["sha256"] != sha256(document_path):
+    fail("manifest document SHA-256 does not match final bytes")
+if int(image["sizeBytes"]) != image_path.stat().st_size:
+    fail("manifest image size does not match final bytes")
+if image["sha256"] != sha256(image_path):
+    fail("manifest image SHA-256 does not match final bytes")
+if image_path.stat().st_size != 867083:
+    fail("reference PNG byte size mismatch")
+if sha256(image_path) != "a8446ea987f6a1710c3845f837e2776190997b77f81584cf7b667cbfebe2f95f":
+    fail("reference PNG canonical SHA-256 mismatch")
+
+with Image.open(image_path) as reference:
+    reference.load()
+    if reference.format != "PNG" or reference.mode != "RGB" or reference.size != (1280, 853):
+        fail("reference image format, mode, or dimensions mismatch")
+    if source is not None:
+        with Image.open(source) as source_image:
+            if source_image.format != "JPEG" or source_image.size != (1280, 853):
+                fail("source JPEG format or dimensions mismatch")
+            source_rgb = source_image.convert("RGB")
+        if ImageChops.difference(source_rgb, reference).getbbox() is not None:
+            fail("reference PNG decoded pixels differ from approved source JPEG")
+
+document_text = document_path.read_text(encoding="utf-8")
+authority_literals = [
+    "CanonicalProjectName = Cognitura",
+    "HistoricalDocumentName = Cognitive-Knowledge-Atlas-Visual-Style-Reference",
+    "Version = 1.0",
+    "Status = FORMAL_VISUAL_STYLE_BASELINE",
+    "ActivationAuthority = docs/task-cards/visual-style-baseline/execution-state.md",
+    "ActivationGate = VSB-G0 GOVERNANCE_AND_REFERENCE",
+    "ReferencePath = docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png",
+    "ReferenceRole = VISUAL_STYLE_REFERENCE_ONLY",
+    "SourceMediaType = image/jpeg",
+    "SourcePixelSize = 1280x853",
+    "SourceSizeBytes = 210103",
+    "SourceSHA256 = 812eb50de5b4c7678349bf427977d2917388b70f25f18b6035f55123c7739249",
+    "ReferenceMediaType = image/png",
+    "ReferencePixelSize = 1280x853",
+    "ReferenceColorMode = RGB",
+    "ReferenceSizeBytes = 867083",
+    "ReferenceSHA256 = a8446ea987f6a1710c3845f837e2776190997b77f81584cf7b667cbfebe2f95f",
+    "PixelEquivalence = PASS",
+    "ConversionTool = Pillow 12.2.0",
+    "ConversionOperation = RGB_PNG_OPTIMIZE_FALSE_COMPRESS_LEVEL_6",
+    "PageArchitectureAuthority = NO",
+    "InteractionAuthority = NO",
+    "InformationArchitectureAuthority = NO",
+    "ComponentHierarchyAuthority = NO",
+    "CardQuantityAuthority = NO",
+    "DashboardLayoutAuthority = NO",
+]
+for literal in authority_literals:
+    require_once(document_text, literal, f"formal authority literal {literal}")
+
+colors = {
+    "Canvas": "#F7F9FC",
+    "PrimarySurface": "#FFF",
+    "Secondary": "#FAFBFD",
+    "Tertiary": "#F5F7FA",
+    "BorderSubtle": "#E7EAF0",
+    "Default": "#E2E6EC",
+    "Strong": "#D4DAE3",
+    "TextPrimary": "#172033",
+    "TextSecondary": "#475467",
+    "Muted": "#667085",
+    "Subtle": "#98A2B3",
+    "Primary": "#4F67E8",
+    "Hover": "#455BDD",
+    "Active": "#3D50C9",
+    "Soft": "#EEF2FF",
+    "Focus": "#7C6CF2",
+    "FocusSoft": "#F3F0FF",
+    "Success": "#278C68",
+    "SuccessSoft": "#ECF8F3",
+    "Warning": "#C98526",
+    "WarningSoft": "#FFF6E5",
+    "Danger": "#D64F58",
+    "DangerSoft": "#FFF0F1",
+    "Information": "#4385E0",
+    "InfoSoft": "#EEF6FF",
+}
+for role, value in colors.items():
+    require_once(
+        document_text,
+        f"| {role} | `{value}` | `MEASURED_FROM_REFERENCE_PIXELS` |",
+        f"measured color role {role}",
+    )
+
+inferred_roles = [
+    "TypefaceIdentity",
+    "TypeScale",
+    "FontWeight",
+    "SpacingScale",
+    "RadiusScale",
+    "ShadowStyle",
+    "IconStyle",
+    "ControlHeight",
+    "Motion",
+    "Density",
+    "Button",
+    "Badge",
+    "Relation",
+    "ReadingSurface",
+    "CardBudget",
+    "SemanticColorBudget",
+]
+for role in inferred_roles:
+    require_once(document_text, f"| {role} |", f"inferred role {role}")
+    line = next((line for line in document_text.splitlines() if line.startswith(f"| {role} |")), "")
+    if "| `INFERRED` |" not in line:
+        fail(f"{role} must be classified INFERRED")
+
+for literal in [
+    "FormalDesignPriority = FORMAL_DESIGN_OVERRIDES_VISUAL_REFERENCE",
+    "ReadingFirst = REQUIRED",
+    "PrimaryReadingSurface = CONTINUOUS_DOCUMENT",
+    "CardWall = FORBIDDEN",
+    "DashboardReplication = FORBIDDEN",
+    "GenericAISaaSStyling = FORBIDDEN",
+    "PixelMeasuredScope = COLOR_CLUSTER_ONLY",
+    "NonPixelExactClassification = INFERRED",
+]:
+    require_once(document_text, literal, f"style boundary {literal}")
+
+hf_text = hf_path.read_text(encoding="utf-8")
+for literal in [
+    "CurrentVisualStyleAuthority=docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md",
+    "CurrentVisualStyleProjection=web/src/styles/**",
+    "LegacyPrototypeTokenRole=HISTORICAL_EVIDENCE_RENDERING_ONLY",
+    "HistoricalHVEvidenceValidity=PRESERVED",
+    "HistoricalHVEvidenceOverwrite=FORBIDDEN",
+]:
+    require_once(hf_text, literal, f"high-fidelity authority bridge {literal}")
+
+index_text = index_path.read_text(encoding="utf-8")
+for literal in [
+    "VisualStyleReferenceAuthority = docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md",
+    "VisualStyleReferenceManifest = docs/engineering/cognitura-visual-style-baseline-manifest.yaml",
+    "VisualStyleReferenceScope = VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY",
+    "VisualStylePageArchitectureAuthority = NO",
+    "VisualStyleInteractionAuthority = NO",
+    "VisualStyleInformationArchitectureAuthority = NO",
+    "VisualStyleComponentHierarchyAuthority = NO",
+    "VisualStyleCardQuantityAuthority = NO",
+    "VisualStyleDashboardLayoutAuthority = NO",
+    "DOC-GAP-HF-001..003",
+]:
+    if literal not in index_text:
+        fail(f"design index boundary is missing: {literal}")
+
+agents_text = agents_path.read_text(encoding="utf-8")
+for literal in [
+    "VisualStyleReferenceAuthority = docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md",
+    "VisualStyleReferenceManifest = docs/engineering/cognitura-visual-style-baseline-manifest.yaml",
+    "VisualStyleReferenceScope = VISUAL_DNA_AND_SEMANTIC_TOKENS_ONLY",
+    "PageArchitectureAuthority = NO",
+    "InteractionAuthority = NO",
+    "DashboardLayoutAuthority = NO",
+]:
+    require_once(agents_text, literal, f"AGENTS authority boundary {literal}")
+
+print("CanonicalProjectName=Cognitura")
+print("SourceMediaType=image/jpeg")
+print("SourcePixelSize=1280x853")
+print("SourceSizeBytes=210103")
+print("SourceSHA256=812eb50de5b4c7678349bf427977d2917388b70f25f18b6035f55123c7739249")
+print("ReferenceMediaType=image/png")
+print("ReferencePixelSize=1280x853")
+print("ReferenceColorMode=RGB")
+print("ReferenceSizeBytes=867083")
+print("ReferenceSHA256=a8446ea987f6a1710c3845f837e2776190997b77f81584cf7b667cbfebe2f95f")
+print("ReferenceRole=VISUAL_STYLE_REFERENCE_ONLY")
+print("PageArchitectureAuthority=NO")
+print("InteractionAuthority=NO")
+print("DashboardLayoutAuthority=NO")
+print("ManifestPath=docs/engineering/cognitura-visual-style-baseline-manifest.yaml")
+print("PixelEquivalence=PASS" if source is not None else "PixelEquivalence=MANIFEST_VERIFIED")
+print("VisualStyleBaselineReferenceVerification=PASS")
+PY
