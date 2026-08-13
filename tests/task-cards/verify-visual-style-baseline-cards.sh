@@ -6,6 +6,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-visual-style-baseline-cards"
 cards_dir="${repo_root}/docs/task-cards/visual-style-baseline"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-cards.XXXXXX")"
+fixed_lifecycle_fixture_sha="c4d1f4342b16d2110369c4eefea5665edce0614d"
 
 cleanup() {
   rm -rf "${test_tmp_root}"
@@ -16,6 +17,28 @@ fail() {
   printf 'FAIL: %s\n' "$1" >&2
   exit 1
 }
+
+git -C "${repo_root}" cat-file -e "${fixed_lifecycle_fixture_sha}^{commit}" 2>/dev/null ||
+  fail "fixed lifecycle fixture commit is unavailable: ${fixed_lifecycle_fixture_sha}"
+
+fixed_bootstrap_root="${test_tmp_root}/fixed-bootstrap"
+mkdir -p "${fixed_bootstrap_root}"
+git -C "${repo_root}" archive "${fixed_lifecycle_fixture_sha}" \
+  docs/task-cards/visual-style-baseline | tar -x -C "${fixed_bootstrap_root}"
+bootstrap_cards_dir="${fixed_bootstrap_root}/docs/task-cards/visual-style-baseline"
+
+fixed_wave1_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md
+)
 
 assert_contains() {
   local content="$1"
@@ -133,17 +156,14 @@ validation_output="$(
   "${verifier}" \
     --repo-root "${repo_root}" \
     --cards-dir "${cards_dir}"
-)" || fail "canonical Visual Style Baseline bootstrap state was rejected"
+)" || fail "canonical Visual Style Baseline state was rejected"
 assert_contains "${validation_output}" "VisualStyleBaselineTaskCardValidation = PASS"
 assert_contains "${validation_output}" "TaskCardCount = 4"
-assert_contains \
-  "${validation_output}" \
-  "TaskCardSetStatus = USER_AUTHORIZED_AWAITING_GOVERNANCE_REVIEW"
 
 negative_cases=0
 
 missing_state_dir="${test_tmp_root}/missing-state"
-cp -R "${cards_dir}" "${missing_state_dir}"
+cp -R "${bootstrap_cards_dir}" "${missing_state_dir}"
 rm "${missing_state_dir}/execution-state.md"
 expect_failure "${missing_state_dir}" "execution-state.md is missing"
 
@@ -155,13 +175,13 @@ for field in ApprovedSpecSHA FrozenWave1CandidateSHA TaskCardSetStatus ActiveTas
   VSB02GateStatus VSB02ReviewVerdict VSB03CandidateSHA VSB03GateStatus \
   VSB03DeepReviewVerdict VSB03UltraReviewVerdict; do
   missing_field_dir="${test_tmp_root}/missing-${field}"
-  cp -R "${cards_dir}" "${missing_field_dir}"
+  cp -R "${bootstrap_cards_dir}" "${missing_field_dir}"
   sed -i.bak "/^${field} = /d" "${missing_field_dir}/execution-state.md"
   rm "${missing_field_dir}/execution-state.md.bak"
   expect_failure "${missing_field_dir}" "${field} must occur exactly once"
 
   duplicate_field_dir="${test_tmp_root}/duplicate-${field}"
-  cp -R "${cards_dir}" "${duplicate_field_dir}"
+  cp -R "${bootstrap_cards_dir}" "${duplicate_field_dir}"
   value="$(sed -n "s/^${field} = //p" "${duplicate_field_dir}/execution-state.md")"
   printf '%s = %s\n' "${field}" "${value}" >> \
     "${duplicate_field_dir}/execution-state.md"
@@ -169,42 +189,42 @@ for field in ApprovedSpecSHA FrozenWave1CandidateSHA TaskCardSetStatus ActiveTas
 done
 
 fifth_card_dir="${test_tmp_root}/fifth-card"
-cp -R "${cards_dir}" "${fifth_card_dir}"
+cp -R "${bootstrap_cards_dir}" "${fifth_card_dir}"
 cp "${fifth_card_dir}/VSB-03-fixed-visual-acceptance.md" \
   "${fifth_card_dir}/VSB-04-invented.md"
 set_field "${fifth_card_dir}/VSB-04-invented.md" "TaskCardID" "VSB-04"
 expect_failure "${fifth_card_dir}" "actual task card count 5 does not match 4"
 
 unknown_id_dir="${test_tmp_root}/unknown-id"
-cp -R "${cards_dir}" "${unknown_id_dir}"
+cp -R "${bootstrap_cards_dir}" "${unknown_id_dir}"
 set_field "${unknown_id_dir}/VSB-02-module-default-reading-visual.md" "TaskCardID" "VSB-99"
 expect_failure "${unknown_id_dir}" "TaskCardID mismatch"
 
 mutable_status_dir="${test_tmp_root}/mutable-status"
-cp -R "${cards_dir}" "${mutable_status_dir}"
+cp -R "${bootstrap_cards_dir}" "${mutable_status_dir}"
 set_field "${mutable_status_dir}/VSB-01-semantic-tokens.md" "Status" "READY"
 expect_failure "${mutable_status_dir}" "Status must be GOVERNED_BY_EXECUTION_STATE"
 
 card_body_drift_dir="${test_tmp_root}/card-body-drift"
-cp -R "${cards_dir}" "${card_body_drift_dir}"
+cp -R "${bootstrap_cards_dir}" "${card_body_drift_dir}"
 printf '\nunauthorized body drift\n' >> \
   "${card_body_drift_dir}/VSB-01-semantic-tokens.md"
 expect_failure "${card_body_drift_dir}" "card body contract digest mismatch for VSB-01"
 
 wrong_spec_dir="${test_tmp_root}/wrong-spec"
-cp -R "${cards_dir}" "${wrong_spec_dir}"
+cp -R "${bootstrap_cards_dir}" "${wrong_spec_dir}"
 set_field "${wrong_spec_dir}/execution-state.md" "ApprovedSpecSHA" \
   "4e63936c631ab34807e714b90d30415a959bc13d"
 expect_failure "${wrong_spec_dir}" "ApprovedSpecSHA mismatch"
 
 wrong_frozen_dir="${test_tmp_root}/wrong-frozen"
-cp -R "${cards_dir}" "${wrong_frozen_dir}"
+cp -R "${bootstrap_cards_dir}" "${wrong_frozen_dir}"
 set_field "${wrong_frozen_dir}/execution-state.md" "FrozenWave1CandidateSHA" \
   "70eefba5912e6884e4e7e1d6477a65f4091d6590"
 expect_failure "${wrong_frozen_dir}" "FrozenWave1CandidateSHA mismatch"
 
 premature_activation_dir="${test_tmp_root}/premature-activation"
-cp -R "${cards_dir}" "${premature_activation_dir}"
+cp -R "${bootstrap_cards_dir}" "${premature_activation_dir}"
 set_field "${premature_activation_dir}/execution-state.md" "TaskCardSetStatus" "IN_PROGRESS"
 set_field "${premature_activation_dir}/execution-state.md" "ActiveTaskCard" "VSB-00"
 set_field "${premature_activation_dir}/execution-state.md" "ReleasedTaskCard" "VSB-00"
@@ -219,7 +239,7 @@ for receipt_field in VSB00CandidateSHA VSB00GateStatus VSB00ReviewVerdict \
   VSB02GateStatus VSB02ReviewVerdict VSB03CandidateSHA VSB03GateStatus \
   VSB03DeepReviewVerdict VSB03UltraReviewVerdict; do
   overwritten_receipt_dir="${test_tmp_root}/overwritten-${receipt_field}"
-  cp -R "${cards_dir}" "${overwritten_receipt_dir}"
+  cp -R "${bootstrap_cards_dir}" "${overwritten_receipt_dir}"
   set_field "${overwritten_receipt_dir}/execution-state.md" "${receipt_field}" "FORGED"
   expect_failure "${overwritten_receipt_dir}" "bootstrap receipts must remain NONE or NOT_RUN"
 done
@@ -247,7 +267,7 @@ for forbidden_literal in \
   'WriteSet = REMOTE_PUSH'; do
   slug="$(printf '%s' "${forbidden_literal}" | shasum -a 256 | cut -c1-8)"
   forbidden_dir="${test_tmp_root}/forbidden-${slug}"
-  cp -R "${cards_dir}" "${forbidden_dir}"
+  cp -R "${bootstrap_cards_dir}" "${forbidden_dir}"
   printf '%s\n' "${forbidden_literal}" >> \
     "${forbidden_dir}/VSB-02-module-default-reading-visual.md"
   expect_failure "${forbidden_dir}" "card body contract digest mismatch for VSB-02"
@@ -290,15 +310,8 @@ negative_cases=$((negative_cases + 1))
 # execution-state.md.
 transition_repo_root="${test_tmp_root}/transition-repo"
 git clone --shared -q "${repo_root}" "${transition_repo_root}"
-cp \
-  "${repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
-  "${transition_repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md"
-mkdir -p "${transition_repo_root}/docs/task-cards/visual-style-baseline"
-cp -R "${cards_dir}/." \
-  "${transition_repo_root}/docs/task-cards/visual-style-baseline/"
-mkdir -p "${transition_repo_root}/docs/task-cards/wave-1-implementation"
-cp -R "${repo_root}/docs/task-cards/wave-1-implementation/." \
-  "${transition_repo_root}/docs/task-cards/wave-1-implementation/"
+git -C "${transition_repo_root}" checkout -q --detach \
+  "${fixed_lifecycle_fixture_sha}"
 git -C "${transition_repo_root}" add \
   docs/engineering/cognitura-wave-1-design-acceptance.md \
   docs/task-cards/visual-style-baseline \
@@ -308,18 +321,7 @@ git -C "${transition_repo_root}" commit --allow-empty -qm \
 
 transition_cards="${transition_repo_root}/docs/task-cards/visual-style-baseline"
 transition_state="${transition_cards}/execution-state.md"
-wave1_restore_paths=(
-  AGENTS.md
-  README.md
-  docs/design/wave-1/README.md
-  docs/engineering/cognitura-design-index.md
-  docs/engineering/cognitura-wave-1-design-plan.md
-  docs/engineering/cognitura-wave-1-design-acceptance.md
-  docs/engineering/cognitura-wave-1-implementation-plan.md
-  docs/task-cards/wave-1/README.md
-  docs/task-cards/wave-1-implementation/README.md
-  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md
-)
+wave1_restore_paths=("${fixed_wave1_projection_paths[@]}")
 candidate_write_sets=(
   'AGENTS.md
 docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png

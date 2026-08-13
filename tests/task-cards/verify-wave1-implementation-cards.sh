@@ -7,6 +7,7 @@ verifier="${repo_root}/scripts/verify-wave1-implementation-cards"
 cards_dir="${repo_root}/docs/task-cards/wave-1-implementation"
 canonical_cards_dir="${cards_dir}"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-wave1-implementation-cards.XXXXXX")"
+fixed_lifecycle_fixture_sha="c4d1f4342b16d2110369c4eefea5665edce0614d"
 
 cleanup() {
   rm -rf "${test_tmp_root}"
@@ -16,6 +17,34 @@ trap cleanup EXIT
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
   exit 1
+}
+
+git -C "${repo_root}" cat-file -e "${fixed_lifecycle_fixture_sha}^{commit}" 2>/dev/null ||
+  fail "fixed lifecycle fixture commit is unavailable: ${fixed_lifecycle_fixture_sha}"
+
+fixed_suspension_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md
+)
+
+checkout_fixed_suspension_fixture() {
+  local fixture_root="$1"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${fixed_lifecycle_fixture_sha}"
+}
+
+restore_fixed_suspension_projection() {
+  local fixture_root="$1"
+  git -C "${fixture_root}" checkout -q "${fixed_lifecycle_fixture_sha}" -- \
+    "${fixed_suspension_paths[@]}"
 }
 
 assert_contains() {
@@ -145,8 +174,13 @@ validation_output="$(
 assert_contains "${validation_output}" "Wave1ImplementationTaskCardValidation = PASS"
 assert_contains "${validation_output}" "TaskCardCount = 14"
 
+fixed_suspension_root="${test_tmp_root}/fixed-suspension"
+git clone --shared -q "${repo_root}" "${fixed_suspension_root}"
+checkout_fixed_suspension_fixture "${fixed_suspension_root}"
+canonical_cards_dir="${fixed_suspension_root}/docs/task-cards/wave-1-implementation"
+
 ready_i00_dir="${test_tmp_root}/ready-i00"
-make_ready_i00_fixture "${cards_dir}" "${ready_i00_dir}"
+make_ready_i00_fixture "${canonical_cards_dir}" "${ready_i00_dir}"
 ready_i00_output="$("${verifier}" --cards-dir "${ready_i00_dir}")" ||
   fail "valid I00 READY bootstrap state was rejected"
 assert_contains "${ready_i00_output}" "TaskCardSetStatus = READY_FOR_EXECUTION"
@@ -728,32 +762,9 @@ assert_contains "${blocked_output}" "ActiveTaskCard = NONE"
 # below so the pre-feature validator produces the required RED.
 suspended_dir="${test_tmp_root}/suspended"
 cp -R "${canonical_cards_dir}" "${suspended_dir}"
-set_field "${suspended_dir}/README.md" "TaskCardSetStatus" "SUSPENDED_BY_USER"
-set_field "${suspended_dir}/README.md" "ActiveTaskCard" "NONE"
-set_field "${suspended_dir}/README.md" "BusinessImplementation" "USER_AUTHORIZED"
-if grep -q '^SuspendedTaskCard = ' "${suspended_dir}/README.md"; then
-  set_field "${suspended_dir}/README.md" "SuspendedTaskCard" "W1-I03"
-  set_field "${suspended_dir}/README.md" "SuspendedCandidateSHA" \
-    "4e63936c631ab34807e714b90d30415a959bc13d"
-  set_field "${suspended_dir}/README.md" "SuspendedCandidateMutation" "FORBIDDEN"
-else
-  sed -i.bak \
-    '/^TaskCardSetStatus = SUSPENDED_BY_USER$/a\
-SuspendedTaskCard = W1-I03\
-SuspendedCandidateSHA = 4e63936c631ab34807e714b90d30415a959bc13d\
-SuspendedCandidateMutation = FORBIDDEN' \
-    "${suspended_dir}/README.md"
-  rm "${suspended_dir}/README.md.bak"
-fi
-set_field "${suspended_dir}/W1-I03-docx-security-gate.md" "Status" "SUSPENDED_BY_USER"
-set_table_status \
-  "${suspended_dir}/README.md" \
-  "W1-I03" \
-  "READY" \
-  "SUSPENDED_BY_USER"
 suspended_output="$(
   "${verifier}" \
-    --repo-root "${repo_root}" \
+    --repo-root "${fixed_suspension_root}" \
     --cards-dir "${suspended_dir}"
 )" || fail "valid W1-I03 suspension was rejected"
 assert_contains "${suspended_output}" "TaskCardSetStatus = SUSPENDED_BY_USER"
@@ -893,11 +904,9 @@ replace_exact_block() {
   printf '%s' "${rewritten%$'\034'}" > "${file}"
 }
 
-sync_current_acceptance_projection() {
+sync_fixed_suspension_projection() {
   local fixture_root="$1"
-  cp \
-    "${repo_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
-    "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md"
+  checkout_fixed_suspension_fixture "${fixture_root}"
 }
 
 suspension_narrative_paths=(
@@ -946,7 +955,7 @@ ready_narratives=(
 static_narrative_base_root="${test_tmp_root}/static-narrative-base"
 git clone --shared --no-checkout -q "${repo_root}" "${static_narrative_base_root}"
 git -C "${static_narrative_base_root}" checkout -q
-sync_current_acceptance_projection "${static_narrative_base_root}"
+sync_fixed_suspension_projection "${static_narrative_base_root}"
 git -C "${static_narrative_base_root}" add \
   docs/engineering/cognitura-wave-1-design-acceptance.md
 git -C "${static_narrative_base_root}" commit --allow-empty -qm \
@@ -1001,7 +1010,7 @@ done
 
 static_plan_contradictory_row_root="${test_tmp_root}/static-plan-contradictory-row"
 git clone --shared -q "${repo_root}" "${static_plan_contradictory_row_root}"
-sync_current_acceptance_projection "${static_plan_contradictory_row_root}"
+sync_fixed_suspension_projection "${static_plan_contradictory_row_root}"
 printf '%s\n' \
   '| `W1-I03` | DOCX security | `I01` | `READY` |' >> \
   "${static_plan_contradictory_row_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
@@ -1015,7 +1024,7 @@ expect_both_static_verifiers_fail \
 
 static_plan_unexpected_rows_root="${test_tmp_root}/static-plan-unexpected-rows"
 git clone --shared -q "${repo_root}" "${static_plan_unexpected_rows_root}"
-sync_current_acceptance_projection "${static_plan_unexpected_rows_root}"
+sync_fixed_suspension_projection "${static_plan_unexpected_rows_root}"
 printf '%s\n' \
   '| `W1-I03` | DOCX security | `I01` | `QUEUED` |' \
   '| `W1-I03` | altered projection text | `I01` | `NOT_A_REAL_STATE` |' >> \
@@ -1030,7 +1039,7 @@ expect_both_static_verifiers_fail \
 
 static_plan_row_drift_root="${test_tmp_root}/static-plan-row-drift"
 git clone --shared -q "${repo_root}" "${static_plan_row_drift_root}"
-sync_current_acceptance_projection "${static_plan_row_drift_root}"
+sync_fixed_suspension_projection "${static_plan_row_drift_root}"
 set_table_status \
   "${static_plan_row_drift_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
   "W1-I03" \
@@ -1046,7 +1055,7 @@ expect_both_static_verifiers_fail \
 
 static_agents_active_drift_root="${test_tmp_root}/static-agents-active-drift"
 git clone --shared -q "${repo_root}" "${static_agents_active_drift_root}"
-sync_current_acceptance_projection "${static_agents_active_drift_root}"
+sync_fixed_suspension_projection "${static_agents_active_drift_root}"
 set_field "${static_agents_active_drift_root}/AGENTS.md" \
   "ActiveTaskCard" "W1-I03"
 set_field "${static_agents_active_drift_root}/AGENTS.md" \
@@ -1060,7 +1069,7 @@ expect_both_static_verifiers_fail \
 
 static_database_auth_drift_root="${test_tmp_root}/static-database-auth-drift"
 git clone --shared -q "${repo_root}" "${static_database_auth_drift_root}"
-sync_current_acceptance_projection "${static_database_auth_drift_root}"
+sync_fixed_suspension_projection "${static_database_auth_drift_root}"
 set_field "${static_database_auth_drift_root}/AGENTS.md" \
   "FormalDatabaseWrite" "AUTHORIZED"
 git -C "${static_database_auth_drift_root}" add AGENTS.md
@@ -1099,25 +1108,8 @@ suspension_mutation_cases=18
 # eventual restore is an exact ten-path direct-child receipt.
 transition_repo_root="${test_tmp_root}/transition-repo"
 git clone --shared -q "${repo_root}" "${transition_repo_root}"
-transition_paths=(
-  AGENTS.md
-  README.md
-  docs/design/wave-1/README.md
-  docs/engineering/cognitura-design-index.md
-  docs/engineering/cognitura-wave-1-design-plan.md
-  docs/engineering/cognitura-wave-1-design-acceptance.md
-  docs/engineering/cognitura-wave-1-implementation-plan.md
-  docs/task-cards/wave-1/README.md
-  docs/task-cards/wave-1-implementation/README.md
-  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md
-)
-for transition_path in "${transition_paths[@]}"; do
-  mkdir -p "${transition_repo_root}/$(dirname "${transition_path}")"
-  cp "${repo_root}/${transition_path}" "${transition_repo_root}/${transition_path}"
-done
-mkdir -p "${transition_repo_root}/docs/task-cards/visual-style-baseline"
-cp -R "${repo_root}/docs/task-cards/visual-style-baseline/." \
-  "${transition_repo_root}/docs/task-cards/visual-style-baseline/"
+transition_paths=("${fixed_suspension_paths[@]}")
+checkout_fixed_suspension_fixture "${transition_repo_root}"
 transition_state="${transition_repo_root}/docs/task-cards/visual-style-baseline/execution-state.md"
 git -C "${transition_repo_root}" add "${transition_paths[@]}" \
   docs/task-cards/visual-style-baseline
@@ -1668,10 +1660,7 @@ nonancestor_repo_root="${test_tmp_root}/nonancestor-repo"
 git clone --shared -q "${repo_root}" "${nonancestor_repo_root}"
 git -C "${nonancestor_repo_root}" switch -q --detach \
   4e63936c631ab34807e714b90d30415a959bc13d^
-for transition_path in "${transition_paths[@]}"; do
-  mkdir -p "${nonancestor_repo_root}/$(dirname "${transition_path}")"
-  cp "${repo_root}/${transition_path}" "${nonancestor_repo_root}/${transition_path}"
-done
+restore_fixed_suspension_projection "${nonancestor_repo_root}"
 git -C "${nonancestor_repo_root}" add "${transition_paths[@]}"
 git -C "${nonancestor_repo_root}" commit -qm "test: suspend from unrelated history"
 if nonancestor_output="$(
