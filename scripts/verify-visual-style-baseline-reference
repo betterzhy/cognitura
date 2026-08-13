@@ -102,6 +102,16 @@ def require_authority_no(text: str, field: str, label: str) -> None:
         fail(f"{label} must declare exactly one literal {field} = NO and no conflict")
 
 
+def section_between(text: str, start_heading: str, end_heading: str) -> str:
+    start_marker = f"## {start_heading}"
+    end_marker = f"## {end_heading}"
+    if text.count(start_marker) != 1 or text.count(end_marker) != 1:
+        fail(f"section boundary mismatch: {start_heading} -> {end_heading}")
+    start = text.index(start_marker) + len(start_marker)
+    end = text.index(end_marker, start)
+    return text[start:end]
+
+
 def parse_manifest(path: Path) -> dict[str, object]:
     top_allowed = {
         "manifestVersion",
@@ -333,15 +343,42 @@ colors = {
     "Information": "#4385E0",
     "InformationSoft": "#EEF6FF",
 }
-for role, value in colors.items():
-    matches = [line for line in document_text.splitlines() if line.startswith(f"| {role} |")]
-    if len(matches) != 1:
-        fail(f"approved normalized color role {role} must appear exactly once")
-    line = matches[0]
-    if f"`{role} = {value}`" not in line:
+color_section = section_between(
+    document_text,
+    "2. 颜色 Observation 与规范化语义值",
+    "3. Typography 合同",
+)
+color_rows: list[list[str]] = []
+for line in color_section.splitlines():
+    if not line.startswith("|"):
+        continue
+    columns = [column.strip() for column in line.split("|")[1:-1]]
+    if columns and columns[0] in {"Role", "---"}:
+        continue
+    if columns and set(columns[0]) == {"-"}:
+        continue
+    if len(columns) != 6:
+        fail("normalized color table data row must have exactly six columns")
+    color_rows.append(columns)
+if len(color_rows) != 25:
+    fail(f"normalized color table must contain exactly 25 data rows, got {len(color_rows)}")
+parsed_color_roles = [row[0] for row in color_rows]
+if len(set(parsed_color_roles)) != len(parsed_color_roles):
+    fail("normalized color table contains a duplicate role")
+if set(parsed_color_roles) != set(colors):
+    fail("normalized color table role set mismatch")
+for role, observation, normalized, observed_confidence, normalized_confidence, rationale in color_rows:
+    expected_value = colors[role]
+    if not observation or "像素簇" not in observation:
+        fail(f"{role} observation must describe an actual pixel cluster or range")
+    if normalized != f"`{role} = {expected_value}`":
         fail(f"approved normalized color role {role} value mismatch")
-    if "| `MEASURED_FROM_REFERENCE_PIXELS` | `INFERRED` |" not in line:
-        fail(f"{role} must separate measured pixel observation from inferred normalization")
+    if observed_confidence != "`MEASURED_FROM_REFERENCE_PIXELS`":
+        fail(f"{role} observation confidence mismatch")
+    if normalized_confidence != "`INFERRED`":
+        fail(f"{role} normalized token must be INFERRED")
+    if not rationale:
+        fail(f"{role} rationale must not be empty")
 
 inferred_roles = [
     "FontStack",
@@ -455,6 +492,47 @@ for literal in [
     if literal not in document_text:
         fail(f"style boundary is missing: {literal}")
 
+forbidden_rules = {
+    "DashboardLikePanorama",
+    "ThemeCardWall",
+    "CardWallAsPrimaryReading",
+    "PermanentRightSideRelationshipPanel",
+    "RelationshipOnlyGraphPage",
+    "EverythingInsideCards",
+    "PanelInsidePanelInsidePanel",
+    "GlobalGovernanceDashboardInReadingMode",
+    "DenseAlwaysVisibleControls",
+    "GlobalFreeKnowledgeGraph",
+    "InfiniteCanvas",
+    "HugeRoundedCards",
+    "PurpleGradient",
+    "Glassmorphism",
+    "FloatingPillsEverywhere",
+    "OversizedHeroTitles",
+    "ExcessiveEmptyMarketingSpace",
+    "EmojiIconSystem",
+    "RainbowAIGlow",
+    "GradientBorders",
+    "EverySectionInACard",
+    "GenericAISaaSStyling",
+}
+forbidden_section = document_text[document_text.index("## 8. 禁止项与阶段边界"):]
+code_blocks = re.findall(r"```text\n(.*?)\n```", forbidden_section, flags=re.DOTALL)
+if len(code_blocks) != 1:
+    fail("anti-dashboard section must contain exactly one text code block")
+forbidden_lines = [line for line in code_blocks[0].splitlines() if line]
+expected_forbidden_lines = {f"{field} = FORBIDDEN" for field in forbidden_rules}
+if len(forbidden_lines) != len(forbidden_rules):
+    fail(f"anti-dashboard closed set must contain exactly {len(forbidden_rules)} rows")
+if len(set(forbidden_lines)) != len(forbidden_lines):
+    fail("anti-dashboard closed set contains duplicate rows")
+if set(forbidden_lines) != expected_forbidden_lines:
+    fail("anti-dashboard closed set mismatch")
+for field in forbidden_rules:
+    matches = re.findall(rf"^[ \t]*{re.escape(field)}\s*=.*$", document_text, flags=re.MULTILINE)
+    if [match.strip() for match in matches] != [f"{field} = FORBIDDEN"]:
+        fail(f"forbidden fact {field} must appear exactly once with value FORBIDDEN")
+
 hf_text = hf_path.read_text(encoding="utf-8")
 for literal in [
     "CurrentVisualStyleAuthority=docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md",
@@ -511,10 +589,11 @@ print("InteractionAuthority=NO")
 print("DashboardLayoutAuthority=NO")
 print("ManifestPath=docs/engineering/cognitura-visual-style-baseline-manifest.yaml")
 print('ManifestDocumentVersion="1.0"')
-print(f"NormalizedColorRoleCount={len(colors)}")
+print(f"NormalizedColorRoleCount={len(color_rows)}")
 print("NormalizedColorConfidence=INFERRED")
 print("NonColorVisualContract=PASS")
 print("ConditionsResultsProjection=BLOCKED_BY_DOC-GAP-MDR-001")
+print(f"AntiDashboardForbiddenRuleCount={len(forbidden_lines)}")
 print("PixelEquivalence=PASS" if source is not None else "PixelEquivalence=MANIFEST_VERIFIED")
 print("VisualStyleBaselineReferenceVerification=PASS")
 PY

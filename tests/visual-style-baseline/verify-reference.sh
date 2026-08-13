@@ -112,6 +112,7 @@ expect_line "${canonical_output}" 'NormalizedColorRoleCount=25'
 expect_line "${canonical_output}" 'NormalizedColorConfidence=INFERRED'
 expect_line "${canonical_output}" 'NonColorVisualContract=PASS'
 expect_line "${canonical_output}" 'ConditionsResultsProjection=BLOCKED_BY_DOC-GAP-MDR-001'
+expect_line "${canonical_output}" 'AntiDashboardForbiddenRuleCount=22'
 expect_line "${canonical_output}" 'VisualStyleBaselineReferenceVerification=PASS'
 
 # A wrong source hash must be rejected before image decoding.
@@ -219,6 +220,32 @@ rm "${forged_normalized_confidence_root}/docs/design/Cognitive-Knowledge-Atlas-V
 sync_manifest_document_fingerprint "${forged_normalized_confidence_root}"
 expect_failure "${forged_normalized_confidence_root}" 'normalized color token falsely claims pixel precision'
 
+extra_color_role_root="${test_tmp_root}/extra-color-role"
+make_fixture "${extra_color_role_root}"
+sed -i.bak '/^## 3\. Typography 合同$/i\
+| ExperimentalGlow | `#AA77FF` 的装饰性像素簇 | `ExperimentalGlow = #AA77FF` | `MEASURED_FROM_REFERENCE_PIXELS` | `INFERRED` | 未批准的第 26 个角色。 |\
+' "${extra_color_role_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${extra_color_role_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${extra_color_role_root}"
+expect_failure "${extra_color_role_root}" 'extra 26th normalized color role'
+
+duplicate_color_role_root="${test_tmp_root}/duplicate-color-role"
+make_fixture "${duplicate_color_role_root}"
+sed -i.bak '/^## 3\. Typography 合同$/i\
+| CanvasBackground | `#F8F9FB` 的重复像素簇 | `CanvasBackground = #F7F9FC` | `MEASURED_FROM_REFERENCE_PIXELS` | `INFERRED` | 重复角色。 |\
+' "${duplicate_color_role_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${duplicate_color_role_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${duplicate_color_role_root}"
+expect_failure "${duplicate_color_role_root}" 'duplicate normalized color role'
+
+missing_color_role_root="${test_tmp_root}/missing-color-role"
+make_fixture "${missing_color_role_root}"
+sed -i.bak '/^| InformationSoft |/d' \
+  "${missing_color_role_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${missing_color_role_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${missing_color_role_root}"
+expect_failure "${missing_color_role_root}" 'missing normalized color role'
+
 missing_font_stack_root="${test_tmp_root}/missing-font-stack"
 make_fixture "${missing_font_stack_root}"
 sed -i.bak '/"PingFang SC"/d' \
@@ -250,6 +277,61 @@ sed -i.bak 's/Natural Language Statement > Relation Verb > Shape > Direction > E
 rm "${wrong_relation_priority_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
 sync_manifest_document_fingerprint "${wrong_relation_priority_root}"
 expect_failure "${wrong_relation_priority_root}" 'wrong Relation recognition priority'
+
+extra_forbidden_rule_root="${test_tmp_root}/extra-forbidden-rule"
+make_fixture "${extra_forbidden_rule_root}"
+sed -i.bak '/^```$/i\
+UnapprovedParallelVisualRule = FORBIDDEN' \
+  "${extra_forbidden_rule_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+rm "${extra_forbidden_rule_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+sync_manifest_document_fingerprint "${extra_forbidden_rule_root}"
+expect_failure "${extra_forbidden_rule_root}" 'extra parallel anti-dashboard rule'
+
+duplicate_generic_ai_root="${test_tmp_root}/duplicate-generic-ai-rule"
+make_fixture "${duplicate_generic_ai_root}"
+printf 'GenericAISaaSStyling = FORBIDDEN\n' >> \
+  "${duplicate_generic_ai_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+sync_manifest_document_fingerprint "${duplicate_generic_ai_root}"
+expect_failure "${duplicate_generic_ai_root}" 'duplicate GenericAISaaSStyling rule'
+
+for forbidden_field in \
+  DashboardLikePanorama \
+  ThemeCardWall \
+  CardWallAsPrimaryReading \
+  PermanentRightSideRelationshipPanel \
+  RelationshipOnlyGraphPage \
+  EverythingInsideCards \
+  PanelInsidePanelInsidePanel \
+  GlobalGovernanceDashboardInReadingMode \
+  DenseAlwaysVisibleControls \
+  GlobalFreeKnowledgeGraph \
+  InfiniteCanvas \
+  HugeRoundedCards \
+  PurpleGradient \
+  Glassmorphism \
+  FloatingPillsEverywhere \
+  OversizedHeroTitles \
+  ExcessiveEmptyMarketingSpace \
+  EmojiIconSystem \
+  RainbowAIGlow \
+  GradientBorders \
+  EverySectionInACard \
+  GenericAISaaSStyling; do
+  missing_forbidden_root="${test_tmp_root}/missing-${forbidden_field}"
+  make_fixture "${missing_forbidden_root}"
+  sed -i.bak "/^${forbidden_field} = FORBIDDEN$/d" \
+    "${missing_forbidden_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+  rm "${missing_forbidden_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md.bak"
+  sync_manifest_document_fingerprint "${missing_forbidden_root}"
+  expect_failure "${missing_forbidden_root}" "missing forbidden rule ${forbidden_field}"
+
+  conflicting_forbidden_root="${test_tmp_root}/conflicting-${forbidden_field}"
+  make_fixture "${conflicting_forbidden_root}"
+  printf '%s = ALLOWED\n' "${forbidden_field}" >> \
+    "${conflicting_forbidden_root}/docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md"
+  sync_manifest_document_fingerprint "${conflicting_forbidden_root}"
+  expect_failure "${conflicting_forbidden_root}" "conflicting forbidden rule ${forbidden_field}"
+done
 
 dashboard_authority_root="${test_tmp_root}/dashboard-authority"
 make_fixture "${dashboard_authority_root}"
