@@ -3,10 +3,17 @@
 set -euo pipefail
 
 repair_contract_only=0
-if [[ "${1:-}" == --repair-contract-only ]]; then
-  repair_contract_only=1
-  shift
-fi
+model_gate_routing_contract_only=0
+case "${1:-}" in
+  --repair-contract-only)
+    repair_contract_only=1
+    shift
+    ;;
+  --model-gate-routing-contract-only)
+    model_gate_routing_contract_only=1
+    shift
+    ;;
+esac
 if [[ "$#" -ne 0 ]]; then
   printf 'FAIL: unknown test argument: %s\n' "$1" >&2
   exit 2
@@ -16,7 +23,6 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-visual-style-baseline-cards"
 cards_dir="${repo_root}/docs/task-cards/visual-style-baseline"
 test_tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-cards.XXXXXX")"
-fixed_lifecycle_fixture_sha="c4d1f4342b16d2110369c4eefea5665edce0614d"
 
 cleanup() {
   rm -rf "${test_tmp_root}"
@@ -27,28 +33,6 @@ fail() {
   printf 'FAIL: %s\n' "$1" >&2
   exit 1
 }
-
-git -C "${repo_root}" cat-file -e "${fixed_lifecycle_fixture_sha}^{commit}" 2>/dev/null ||
-  fail "fixed lifecycle fixture commit is unavailable: ${fixed_lifecycle_fixture_sha}"
-
-fixed_bootstrap_root="${test_tmp_root}/fixed-bootstrap"
-mkdir -p "${fixed_bootstrap_root}"
-git -C "${repo_root}" archive "${fixed_lifecycle_fixture_sha}" \
-  docs/task-cards/visual-style-baseline | tar -x -C "${fixed_bootstrap_root}"
-bootstrap_cards_dir="${fixed_bootstrap_root}/docs/task-cards/visual-style-baseline"
-
-fixed_wave1_projection_paths=(
-  AGENTS.md
-  README.md
-  docs/design/wave-1/README.md
-  docs/engineering/cognitura-design-index.md
-  docs/engineering/cognitura-wave-1-design-plan.md
-  docs/engineering/cognitura-wave-1-design-acceptance.md
-  docs/engineering/cognitura-wave-1-implementation-plan.md
-  docs/task-cards/wave-1/README.md
-  docs/task-cards/wave-1-implementation/README.md
-  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md
-)
 
 assert_contains() {
   local content="$1"
@@ -188,6 +172,406 @@ expect_clean_early_exit() {
   [[ "${output}" == "${expected_output}" ]] ||
     fail "early verifier exit polluted its diagnostic: ${output}"
 }
+
+model_route_path_bit() {
+  case "$1" in
+    AGENTS.md) printf '1\n' ;;
+    docs/superpowers/plans/2026-08-13-cognitura-model-gate-routing.md)
+      printf '2\n'
+      ;;
+    docs/superpowers/plans/2026-08-13-cognitura-vsb-receipt-correction.md)
+      printf '4\n'
+      ;;
+    docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md)
+      printf '8\n'
+      ;;
+    docs/superpowers/specs/2026-08-13-cognitura-vsb-receipt-correction-design.md)
+      printf '16\n'
+      ;;
+    docs/task-cards/visual-style-baseline/README.md) printf '32\n' ;;
+    docs/task-cards/visual-style-baseline/VSB-02-module-default-reading-visual.md)
+      printf '64\n'
+      ;;
+    docs/task-cards/visual-style-baseline/VSB-03-fixed-visual-acceptance.md)
+      printf '128\n'
+      ;;
+    scripts/verify-visual-style-baseline-cards) printf '256\n' ;;
+    tests/task-cards/verify-visual-style-baseline-cards.sh) printf '512\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+model_route_expected_mode() {
+  case "$1" in
+    scripts/verify-visual-style-baseline-cards|\
+      tests/task-cards/verify-visual-style-baseline-cards.sh)
+      printf '100755\n'
+      ;;
+    *)
+      model_route_path_bit "$1" >/dev/null || return 1
+      printf '100644\n'
+      ;;
+  esac
+}
+
+run_model_gate_routing_contract() {
+  local correction_origin_sha="0ff410961b0f3865652e54ae46453646ed87f69e"
+  local correction_spec_sha="dc4a105bbe95b1b07fa0e734cec1148eab15279c"
+  local correction_plan_sha="f4bd848186a4a4d2d771d0d031340483bfa5de9b"
+  local model_route_design_sha="1199e76a18db1d168c67c328ce7f195f3cdac7d9"
+  local model_route_plan_sha="fac5f50c6a3f1afb743f95f40ac6b7f5e4e888e1"
+  local reviewed_vsb01_sha="108592b757ba50ea6ded7b901bd2b623737a7048"
+  local historical_repair_receipt_sha="e7ed6509b6de95817b8bbc983ab438f0163f6322"
+  local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  local fixture_root="${test_tmp_root}/model-gate-routing-repo"
+  local fixture_cards="${fixture_root}/docs/task-cards/visual-style-baseline"
+  local invocation_tmp="${test_tmp_root}/model-gate-routing-tmp"
+  local invocation_marker="${invocation_tmp}/sibling-marker"
+  local commit parent parent_line path path_bit expected_mode
+  local raw_metadata old_mode new_mode old_blob new_blob raw_status
+  local rename_status rename_source rename_target
+  local chain_file raw_file raw_error rename_file rename_error net_file net_error
+  local chain_path_mask=0 net_path_mask=0 net_path_count=0 commit_path_count
+  local authority_sha authority_path authority_mode fixed_blob tip_blob
+  local origin_ledger candidate_ledger pending_output pending_rc
+  local candidate_vsb02 candidate_vsb03 candidate_vsb03_content
+  local vsb03_old_review vsb03_new_review
+  local historical_root historical_output historical_rc
+  local -a invocation_entries
+
+  mkdir -p "${invocation_tmp}"
+  printf 'preserve sibling\n' > "${invocation_marker}"
+
+  # The completed historical version-1-to-2 GovernanceRepair retains its
+  # original stacked deep+ultra route.  The current migration must not weaken
+  # replay of that immutable receipt.
+  historical_root="${test_tmp_root}/historical-governance-repair"
+  git clone --shared -q "${repo_root}" "${historical_root}"
+  git -C "${historical_root}" checkout -q --detach \
+    "${historical_repair_receipt_sha}"
+  if historical_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${historical_root}" \
+    --cards-dir "${historical_root}/docs/task-cards/visual-style-baseline" \
+    2>&1)"; then
+    historical_rc=0
+  else
+    historical_rc=$?
+  fi
+  [[ "${historical_rc}" -eq 0 ]] ||
+    fail "historical GovernanceRepair replay was rejected: ${historical_output}"
+  assert_contains "${historical_output}" \
+    "GovernanceRepairStatus = PASS"
+  [[ "$(git -C "${historical_root}" show \
+    "${historical_repair_receipt_sha}:${ledger_path}" | \
+    sed -n 's/^GovernanceRepairReviewRoute = //p')" == \
+    deep_reviewer+ultra_gatekeeper ]] ||
+    fail "historical GovernanceRepair route was not preserved"
+
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${model_route_plan_sha}"
+  [[ "$(git -C "${fixture_root}" rev-parse \
+    "${correction_origin_sha}^")" == "${reviewed_vsb01_sha}" ]] ||
+    fail "receipt-correction origin is not the direct child of reviewed VSB-01"
+  [[ "$(git -C "${fixture_root}" diff --name-only \
+    "${reviewed_vsb01_sha}..${correction_origin_sha}")" == "${ledger_path}" ]] ||
+    fail "receipt-correction origin is not the fixed ledger-only receipt"
+
+  set_field "${fixture_cards}/VSB-02-module-default-reading-visual.md" \
+    ReviewRoute deep_reviewer
+  insert_field_after \
+    "${fixture_cards}/VSB-02-module-default-reading-visual.md" \
+    Gate ReviewLevel L3
+  insert_field_after \
+    "${fixture_cards}/VSB-02-module-default-reading-visual.md" \
+    ReviewRoute ReviewEffort xhigh
+  insert_field_after \
+    "${fixture_cards}/VSB-02-module-default-reading-visual.md" \
+    ReviewEffort ReviewMultiplicity ONE
+  insert_field_after \
+    "${fixture_cards}/VSB-02-module-default-reading-visual.md" \
+    ReviewMultiplicity ReviewVerdict GO_P0_0_P1_0_P2_0
+
+  set_field "${fixture_cards}/VSB-03-fixed-visual-acceptance.md" \
+    ReviewRoute deep_reviewer
+  insert_field_after \
+    "${fixture_cards}/VSB-03-fixed-visual-acceptance.md" \
+    Gate ReviewLevel L4
+  insert_field_after \
+    "${fixture_cards}/VSB-03-fixed-visual-acceptance.md" \
+    ReviewRoute ReviewEffort xhigh
+  insert_field_after \
+    "${fixture_cards}/VSB-03-fixed-visual-acceptance.md" \
+    ReviewEffort ReviewMultiplicity ONE
+  insert_field_after \
+    "${fixture_cards}/VSB-03-fixed-visual-acceptance.md" \
+    ReviewMultiplicity UltraRequiredByDefault NO
+  insert_field_after \
+    "${fixture_cards}/VSB-03-fixed-visual-acceptance.md" \
+    UltraRequiredByDefault ReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
+
+  vsb03_old_review=$'同一未变候选依次取得 `deep_reviewer` 与 `ultra_gatekeeper` 零发现 GO。任一 finding\n必须 `RETURN_TO_OWNER`；两阶段 GO 前不得 COMPLETE 或恢复 Wave 1。'
+  vsb03_new_review=$'同一未变候选只执行一次 `L4 / deep_reviewer / xhigh` 固定 SHA 最终门禁。只有主\nAgent 先记录本设计允许的明确升级原因时，`ultra_gatekeeper` 才替代默认门禁；\n不得自动叠加。任一 finding 必须 `RETURN_TO_OWNER`；最终 GO 前不得 `COMPLETE`\n或恢复 Wave 1。'
+  replace_exact_block \
+    "${fixture_cards}/VSB-03-fixed-visual-acceptance.md" \
+    "${vsb03_old_review}" "${vsb03_new_review}" \
+    "VSB-03 single L4 xhigh review narrative"
+
+  sed -i.bak \
+    's#deep_reviewer+ultra_gatekeeper#deep_reviewer / L4 / xhigh / ONE#g' \
+    "${fixture_cards}/README.md"
+  rm "${fixture_cards}/README.md.bak"
+  printf '\n%s\n' \
+    'ModelGateRouting = L3_DEEP_REVIEWER_XHIGH_ONE__L4_DEEP_REVIEWER_XHIGH_ONE' \
+    >> "${fixture_cards}/README.md"
+  printf '\n%s\n' \
+    'ModelGateRoutingFixture = L3_L4_SINGLE_XHIGH' >> "${fixture_root}/AGENTS.md"
+  printf '\n# model-gate-routing fixture production entry\n' >> \
+    "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+  printf '\n# model-gate-routing fixture contract entry\n' >> \
+    "${fixture_root}/tests/task-cards/verify-visual-style-baseline-cards.sh"
+  git -C "${fixture_root}" add -- \
+    AGENTS.md \
+    docs/task-cards/visual-style-baseline/README.md \
+    docs/task-cards/visual-style-baseline/VSB-02-module-default-reading-visual.md \
+    docs/task-cards/visual-style-baseline/VSB-03-fixed-visual-acceptance.md \
+    scripts/verify-visual-style-baseline-cards \
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+  git -C "${fixture_root}" commit -qm \
+    "test: establish single xhigh model routing candidate"
+  model_route_candidate_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+
+  git -C "${fixture_root}" merge-base --is-ancestor \
+    "${correction_origin_sha}" "${model_route_candidate_sha}" ||
+    fail "model-route candidate does not descend from the correction origin"
+  chain_file="${test_tmp_root}/model-route-chain"
+  git -C "${fixture_root}" rev-list --reverse \
+    "${correction_origin_sha}..${model_route_candidate_sha}" > "${chain_file}" ||
+    fail "could not enumerate the model-route governance chain"
+  [[ -s "${chain_file}" ]] ||
+    fail "model-route governance chain must be non-empty"
+
+  while IFS= read -r commit; do
+    parent_line="$(git -C "${fixture_root}" rev-list --parents -n 1 "${commit}")"
+    set -- ${parent_line}
+    [[ "$#" -eq 2 ]] ||
+      fail "model-route governance commit must have exactly one parent: ${commit}"
+    parent="$2"
+    commit_path_count=0
+
+    rename_file="${test_tmp_root}/model-route-rename-${commit}"
+    rename_error="${rename_file}.err"
+    git -C "${fixture_root}" -c diff.renameLimit=0 diff-tree \
+      --no-commit-id -r -M -C --find-copies-harder --name-status -z \
+      "${parent}" "${commit}" > "${rename_file}" 2> "${rename_error}" ||
+      fail "rename/copy inspection failed for model-route commit: ${commit}"
+    [[ ! -s "${rename_error}" ]] ||
+      fail "rename/copy inspection emitted diagnostics for model-route commit: ${commit}"
+    while IFS= read -r -d '' rename_status; do
+      IFS= read -r -d '' rename_source ||
+        fail "truncated model-route name-status record: ${commit}"
+      case "${rename_status}" in
+        R*|C*)
+          IFS= read -r -d '' rename_target ||
+            fail "truncated model-route rename/copy record: ${commit}"
+          fail "model-route governance chain must not rename or copy: ${rename_source} -> ${rename_target}"
+          ;;
+      esac
+    done < "${rename_file}"
+
+    raw_file="${test_tmp_root}/model-route-raw-${commit}"
+    raw_error="${raw_file}.err"
+    git -C "${fixture_root}" diff-tree --no-commit-id -r --raw -z \
+      --no-renames "${parent}" "${commit}" > "${raw_file}" 2> "${raw_error}" ||
+      fail "raw path inspection failed for model-route commit: ${commit}"
+    [[ ! -s "${raw_error}" ]] ||
+      fail "raw path inspection emitted diagnostics for model-route commit: ${commit}"
+    while IFS= read -r -d '' raw_metadata; do
+      IFS= read -r -d '' path ||
+        fail "truncated model-route raw path record: ${commit}"
+      case "${path}" in
+        *$'\n'*) fail "model-route governance path contains a newline" ;;
+      esac
+      [[ "${path}" != "${ledger_path}" ]] ||
+        fail "model-route governance chain changed the execution ledger"
+      path_bit="$(model_route_path_bit "${path}")" ||
+        fail "model-route governance chain changed an extra path: ${path}"
+      expected_mode="$(model_route_expected_mode "${path}")"
+      read -r old_mode new_mode old_blob new_blob raw_status <<< \
+        "${raw_metadata#:}"
+      case "${raw_status}" in
+        A)
+          [[ "${old_mode}" == 000000 && "${new_mode}" == "${expected_mode}" ]] ||
+            fail "model-route added path has an invalid mode: ${path}"
+          ;;
+        M)
+          [[ "${old_mode}" == "${new_mode}" && \
+             "${new_mode}" == "${expected_mode}" ]] ||
+            fail "model-route governance commit changed path mode: ${path}"
+          ;;
+        *)
+          fail "model-route governance commit used invalid status ${raw_status}: ${path}"
+          ;;
+      esac
+      chain_path_mask=$((chain_path_mask | path_bit))
+      commit_path_count=$((commit_path_count + 1))
+    done < "${raw_file}"
+    [[ "${commit_path_count}" -gt 0 ]] ||
+      fail "model-route governance commit must be non-empty: ${commit}"
+  done < "${chain_file}"
+  [[ "${chain_path_mask}" -eq 1023 ]] ||
+    fail "model-route origin-exclusive chain did not touch the exact ten-path set"
+
+  net_file="${test_tmp_root}/model-route-net-paths"
+  net_error="${net_file}.err"
+  git -C "${fixture_root}" diff --no-renames --name-only -z \
+    "${correction_origin_sha}..${model_route_candidate_sha}" \
+    > "${net_file}" 2> "${net_error}" ||
+    fail "could not inspect the model-route cumulative WriteSet"
+  [[ ! -s "${net_error}" ]] ||
+    fail "model-route cumulative WriteSet inspection emitted diagnostics"
+  while IFS= read -r -d '' path; do
+    case "${path}" in
+      *$'\n'*) fail "model-route cumulative path contains a newline" ;;
+    esac
+    path_bit="$(model_route_path_bit "${path}")" ||
+      fail "model-route cumulative WriteSet contains an extra path: ${path}"
+    net_path_mask=$((net_path_mask | path_bit))
+    net_path_count=$((net_path_count + 1))
+  done < "${net_file}"
+  [[ "${net_path_mask}" -eq 1023 && "${net_path_count}" -eq 10 ]] ||
+    fail "model-route candidate must have the exact ten-path WriteSet"
+
+  for authority_sha in \
+    "${correction_spec_sha}" "${correction_plan_sha}" \
+    "${model_route_design_sha}" "${model_route_plan_sha}"; do
+    git -C "${fixture_root}" merge-base --is-ancestor \
+      "${authority_sha}" "${model_route_candidate_sha}" ||
+      fail "fixed authority is absent from model-route candidate ancestry: ${authority_sha}"
+  done
+  while IFS='|' read -r authority_sha authority_path; do
+    authority_mode="$(git -C "${fixture_root}" ls-tree "${authority_sha}" \
+      -- "${authority_path}" | awk '{print $1}')"
+    [[ "${authority_mode}" == 100644 ]] ||
+      fail "fixed model-route authority mode is not 100644: ${authority_path}"
+    [[ "$(git -C "${fixture_root}" ls-tree "${model_route_candidate_sha}" \
+      -- "${authority_path}" | awk '{print $1}')" == 100644 ]] ||
+      fail "model-route candidate authority mode is not 100644: ${authority_path}"
+    fixed_blob="$(git -C "${fixture_root}" rev-parse \
+      "${authority_sha}:${authority_path}")"
+    tip_blob="$(git -C "${fixture_root}" rev-parse \
+      "${model_route_candidate_sha}:${authority_path}")"
+    [[ "${fixed_blob}" == "${tip_blob}" ]] ||
+      fail "fixed model-route authority blob drifted: ${authority_path}"
+  done <<EOF
+${correction_spec_sha}|docs/superpowers/specs/2026-08-13-cognitura-vsb-receipt-correction-design.md
+${correction_plan_sha}|docs/superpowers/plans/2026-08-13-cognitura-vsb-receipt-correction.md
+${model_route_design_sha}|docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md
+${model_route_plan_sha}|docs/superpowers/plans/2026-08-13-cognitura-model-gate-routing.md
+EOF
+
+  origin_ledger="${test_tmp_root}/model-route-origin-ledger"
+  candidate_ledger="${test_tmp_root}/model-route-candidate-ledger"
+  git -C "${fixture_root}" show \
+    "${correction_origin_sha}:${ledger_path}" > "${origin_ledger}"
+  git -C "${fixture_root}" show \
+    "${model_route_candidate_sha}:${ledger_path}" > "${candidate_ledger}"
+  cmp -s "${origin_ledger}" "${candidate_ledger}" ||
+    fail "model-route candidate ledger is not byte-identical to the origin"
+  [[ "$(git -C "${fixture_root}" ls-tree "${model_route_candidate_sha}" \
+    -- "${ledger_path}" | awk '{print $1}')" == 100644 ]] ||
+    fail "model-route candidate ledger mode is not 100644"
+
+  candidate_vsb02="${test_tmp_root}/model-route-candidate-vsb02"
+  candidate_vsb03="${test_tmp_root}/model-route-candidate-vsb03"
+  git -C "${fixture_root}" show \
+    "${model_route_candidate_sha}:docs/task-cards/visual-style-baseline/VSB-02-module-default-reading-visual.md" \
+    > "${candidate_vsb02}"
+  git -C "${fixture_root}" show \
+    "${model_route_candidate_sha}:docs/task-cards/visual-style-baseline/VSB-03-fixed-visual-acceptance.md" \
+    > "${candidate_vsb03}"
+  candidate_vsb03_content="$(cat "${candidate_vsb03}"; printf '\034')"
+  [[ "$(sed -n 's/^ReviewLevel = //p' "${candidate_vsb02}")" == L3 &&
+     "$(sed -n 's/^ReviewRoute = //p' \
+    "${candidate_vsb02}")" == deep_reviewer &&
+     "$(sed -n 's/^ReviewEffort = //p' \
+    "${candidate_vsb02}")" == xhigh &&
+     "$(sed -n 's/^ReviewMultiplicity = //p' \
+    "${candidate_vsb02}")" == ONE &&
+     "$(sed -n 's/^ReviewVerdict = //p' \
+    "${candidate_vsb02}")" == GO_P0_0_P1_0_P2_0 ]] ||
+    fail "legal VSB-02 L3 single-xhigh route fixture is malformed"
+  [[ "$(sed -n 's/^ReviewLevel = //p' "${candidate_vsb03}")" == L4 &&
+     "$(sed -n 's/^ReviewRoute = //p' \
+    "${candidate_vsb03}")" == deep_reviewer &&
+     "$(sed -n 's/^ReviewEffort = //p' \
+    "${candidate_vsb03}")" == xhigh &&
+     "$(sed -n 's/^ReviewMultiplicity = //p' \
+    "${candidate_vsb03}")" == ONE &&
+     "$(sed -n 's/^ReviewVerdict = //p' \
+    "${candidate_vsb03}")" == FINAL_GO_P0_0_P1_0_P2_0 &&
+     "$(sed -n 's/^UltraRequiredByDefault = //p' \
+    "${candidate_vsb03}")" == NO ]] ||
+    fail "legal VSB-03 L4 single-xhigh route fixture is malformed"
+  assert_contains "${candidate_vsb03_content%$'\034'}" \
+    "${vsb03_new_review}"
+  [[ "${candidate_vsb03_content}" != \
+       *'deep_reviewer+ultra_gatekeeper'* &&
+     "${candidate_vsb03_content}" != *'依次取得'* ]] ||
+    fail "committed VSB-03 candidate retained the old stacked review narrative"
+
+  if pending_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" 2>&1)"; then
+    pending_rc=0
+  else
+    pending_rc=$?
+  fi
+  shopt -s nullglob
+  invocation_entries=("${invocation_tmp}"/*)
+  shopt -u nullglob
+  [[ -f "${invocation_marker}" &&
+     "$(cat "${invocation_marker}")" == "preserve sibling" &&
+     "${#invocation_entries[@]}" -eq 1 &&
+     "${invocation_entries[0]}" == "${invocation_marker}" ]] ||
+    fail "model-route verifier did not preserve a clean sibling TMPDIR"
+  [[ "${pending_rc}" -ne 0 ]] ||
+    fail "Cycle A route-card contract unexpectedly passed old production"
+  [[ "${pending_output}" == $'VisualStyleBaselineTaskCardValidation = FAIL\ncard body contract digest mismatch for VSB-02' ]] ||
+    fail "Cycle A RED was not the exact VSB-02 card digest diagnostic: ${pending_output}"
+
+  printf '%s\n' "RouteCardContractCases = 2"
+  printf '%s\n' "${pending_output}" >&2
+  return "${pending_rc}"
+}
+
+if [[ "${model_gate_routing_contract_only}" -eq 1 ]]; then
+  run_model_gate_routing_contract
+  exit 0
+fi
+
+fixed_lifecycle_fixture_sha="c4d1f4342b16d2110369c4eefea5665edce0614d"
+git -C "${repo_root}" cat-file -e \
+  "${fixed_lifecycle_fixture_sha}^{commit}" 2>/dev/null ||
+  fail "fixed lifecycle fixture commit is unavailable: ${fixed_lifecycle_fixture_sha}"
+
+fixed_bootstrap_root="${test_tmp_root}/fixed-bootstrap"
+mkdir -p "${fixed_bootstrap_root}"
+git -C "${repo_root}" archive "${fixed_lifecycle_fixture_sha}" \
+  docs/task-cards/visual-style-baseline | tar -x -C "${fixed_bootstrap_root}"
+bootstrap_cards_dir="${fixed_bootstrap_root}/docs/task-cards/visual-style-baseline"
+
+fixed_wave1_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md
+)
 
 # Required RED: the verifier and governed set do not exist before Task 1.
 [[ -x "${verifier}" ]] || fail "Visual Style Baseline task-card verifier is missing or not executable"
