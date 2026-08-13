@@ -67,6 +67,21 @@ set_field() {
   rm "${file}.bak"
 }
 
+insert_field_after() {
+  local file="$1"
+  local after_field="$2"
+  local new_field="$3"
+  local value="$4"
+  awk -v after_field="${after_field}" -v new_field="${new_field}" \
+    -v value="${value}" '
+      { print }
+      $0 ~ "^" after_field " = " {
+        print new_field " = " value
+      }
+    ' "${file}" > "${file}.new"
+  mv "${file}.new" "${file}"
+}
+
 set_table_status() {
   local file="$1"
   local task_id="$2"
@@ -221,6 +236,16 @@ validation_output="$(
 )" || fail "canonical Visual Style Baseline state was rejected"
 assert_contains "${validation_output}" "VisualStyleBaselineTaskCardValidation = PASS"
 assert_contains "${validation_output}" "TaskCardCount = 4"
+
+# At the real governance candidate G, static validation must distinguish the
+# approved pending repair from an ordinary receipt without mutating the ledger.
+current_governance_repair_output="$(
+  "${verifier}" --repo-root "${repo_root}" --cards-dir "${cards_dir}"
+)" || fail "current governance repair candidate was rejected"
+assert_contains "${current_governance_repair_output}" \
+  "VisualStyleBaselineTaskCardValidation = PASS"
+assert_contains "${current_governance_repair_output}" \
+  "GovernanceRepairStatus = PENDING"
 
 negative_cases=0
 
@@ -522,6 +547,114 @@ expect_transition_failure() {
     fail "${label}: expected '${expected_message}', got: ${output}"
   negative_cases=$((negative_cases + 1))
   cumulative_candidate_negative_cases=$((cumulative_candidate_negative_cases + 1))
+}
+
+expect_repair_transition_failure() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local transition_base_sha="$3"
+  local transition_head_sha="$4"
+  local expected_message="$5"
+  local label="$6"
+  local output
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" \
+    --transition-base "${transition_base_sha}" \
+    --transition-head "${transition_head_sha}" 2>&1)"; then
+    fail "${label} unexpectedly passed"
+  fi
+  assert_contains "${output}" "${expected_message}"
+  negative_cases=$((negative_cases + 1))
+  governance_repair_negative_cases=$((governance_repair_negative_cases + 1))
+}
+
+run_repair_static() {
+  local fixture_root="$1"
+  "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir \
+      "${fixture_root}/docs/task-cards/visual-style-baseline" 2>&1
+}
+
+expect_repair_static_failure() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local label="$3"
+  local output
+  if output="$(run_repair_static "${fixture_root}")"; then
+    fail "${label} unexpectedly passed"
+  fi
+  assert_contains "${output}" "${expected_message}"
+  negative_cases=$((negative_cases + 1))
+  governance_repair_negative_cases=$((governance_repair_negative_cases + 1))
+}
+
+governance_repair_paths='docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
+docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md
+docs/task-cards/visual-style-baseline/README.md
+scripts/verify-visual-style-baseline-cards
+tests/task-cards/verify-visual-style-baseline-cards.sh'
+
+commit_governance_repair_subset() {
+  local fixture_root="$1"
+  local subject="$2"
+  shift 2
+  local repair_path
+  for repair_path in "$@"; do
+    mkdir -p "${fixture_root}/$(dirname "${repair_path}")"
+    if [[ -f "${fixture_root}/${repair_path}" ]]; then
+      printf '\nrepair-marker=%s\n' "${subject}" >> \
+        "${fixture_root}/${repair_path}"
+    else
+      printf 'repair-marker=%s\n' "${subject}" > \
+        "${fixture_root}/${repair_path}"
+    fi
+  done
+  git -C "${fixture_root}" add -- "$@"
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+make_governance_repair_receipt() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  local subject="$3"
+  local override_field="${4:-}"
+  local override_value="${5:-}"
+  local extra_path="${6:-}"
+  local fixture_state="${fixture_root}/docs/task-cards/visual-style-baseline/execution-state.md"
+  set_field "${fixture_state}" ExecutionStateVersion 2
+  insert_field_after "${fixture_state}" GovernanceReviewVerdict \
+    GovernanceRepairStatus PASS
+  insert_field_after "${fixture_state}" GovernanceRepairStatus \
+    GovernanceRepairSpecSHA 2123594540c91341c480f504949315a6abec316c
+  insert_field_after "${fixture_state}" GovernanceRepairSpecSHA \
+    GovernanceRepairOriginReceiptSHA d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a
+  insert_field_after "${fixture_state}" GovernanceRepairOriginReceiptSHA \
+    GovernanceRepairReviewedCandidateSHA "${candidate_sha}"
+  insert_field_after "${fixture_state}" GovernanceRepairReviewedCandidateSHA \
+    GovernanceRepairReviewRoute deep_reviewer+ultra_gatekeeper
+  insert_field_after "${fixture_state}" GovernanceRepairReviewRoute \
+    GovernanceRepairReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" TransitionSequence 3
+  set_field "${fixture_state}" TransitionKind GOVERNANCE_REPAIR
+  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
+  if [[ -n "${override_field}" ]]; then
+    set_field "${fixture_state}" "${override_field}" "${override_value}"
+  fi
+  if [[ -n "${extra_path}" ]]; then
+    mkdir -p "${fixture_root}/$(dirname "${extra_path}")"
+    printf 'unauthorized repair receipt path\n' > \
+      "${fixture_root}/${extra_path}"
+  fi
+  git -C "${fixture_root}" add \
+    docs/task-cards/visual-style-baseline/execution-state.md
+  if [[ -n "${extra_path}" ]]; then
+    git -C "${fixture_root}" add -- "${extra_path}"
+  fi
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
 }
 
 make_wave1_restore_projection() {
@@ -919,6 +1052,349 @@ same_mode_recreated_output="$(run_vsb_transition \
 assert_contains "${same_mode_recreated_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
 cumulative_candidate_positive_cases=$((cumulative_candidate_positive_cases + 1))
+
+# One-time governance repair: use the real fixed origin, Git objects and
+# byte-identical ledger.  G is a linear exact-five-path candidate; R is its
+# ledger-only direct child and the sole VSB-01 release anchor.
+governance_repair_positive_cases=0
+governance_repair_negative_cases=0
+repair_origin_sha=d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a
+repair_reviewed_vsb00_sha=737c053483d1f3d084d5f90d5c36f76b0ae8f5a3
+repair_repo_root="${test_tmp_root}/governance-repair-repo"
+git clone --shared -q "${repo_root}" "${repair_repo_root}"
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+repair_cards="${repair_repo_root}/docs/task-cards/visual-style-baseline"
+repair_state="${repair_cards}/execution-state.md"
+
+repair_round_one_sha="$(commit_governance_repair_subset \
+  "${repair_repo_root}" "test: governance repair authority" \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md)"
+repair_candidate_sha="$(commit_governance_repair_subset \
+  "${repair_repo_root}" "test: governance repair contracts" \
+  docs/task-cards/visual-style-baseline/README.md \
+  scripts/verify-visual-style-baseline-cards \
+  tests/task-cards/verify-visual-style-baseline-cards.sh)"
+assert_commit_parent_count "${repair_repo_root}" "${repair_round_one_sha}" 1
+assert_commit_parent_count "${repair_repo_root}" "${repair_candidate_sha}" 1
+repair_actual_paths="$(git -C "${repair_repo_root}" diff --no-renames \
+  --name-only "${repair_origin_sha}..${repair_candidate_sha}" | LC_ALL=C sort)"
+repair_expected_paths="$(printf '%s\n' "${governance_repair_paths}" | LC_ALL=C sort)"
+[[ "${repair_actual_paths}" == "${repair_expected_paths}" ]] ||
+  fail "positive governance repair fixture lost the exact five-path WriteSet"
+repair_origin_ledger_hash="$(git -C "${repair_repo_root}" show \
+  "${repair_origin_sha}:docs/task-cards/visual-style-baseline/execution-state.md" | \
+  shasum -a 256 | awk '{print $1}')"
+repair_candidate_ledger_hash="$(git -C "${repair_repo_root}" show \
+  "${repair_candidate_sha}:docs/task-cards/visual-style-baseline/execution-state.md" | \
+  shasum -a 256 | awk '{print $1}')"
+[[ "${repair_origin_ledger_hash}" == "${repair_candidate_ledger_hash}" ]] ||
+  fail "positive governance repair fixture changed the origin ledger"
+repair_pending_output="$(run_repair_static "${repair_repo_root}")" ||
+  fail "valid pending governance repair candidate was rejected"
+assert_contains "${repair_pending_output}" \
+  "VisualStyleBaselineTaskCardValidation = PASS"
+assert_contains "${repair_pending_output}" "GovernanceRepairStatus = PENDING"
+governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
+
+# Every governance path is mandatory in the cumulative repair WriteSet.
+repair_paths=(
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md
+  docs/task-cards/visual-style-baseline/README.md
+  scripts/verify-visual-style-baseline-cards
+  tests/task-cards/verify-visual-style-baseline-cards.sh
+)
+for missing_repair_path in "${repair_paths[@]}"; do
+  git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+  included_repair_paths=()
+  for repair_path in "${repair_paths[@]}"; do
+    [[ "${repair_path}" == "${missing_repair_path}" ]] ||
+      included_repair_paths+=("${repair_path}")
+  done
+  commit_governance_repair_subset "${repair_repo_root}" \
+    "test: omit governance path ${missing_repair_path}" \
+    "${included_repair_paths[@]}" >/dev/null
+  expect_repair_static_failure "${repair_repo_root}" \
+    "governance repair chain must have the exact repair WriteSet" \
+    "governance repair missing ${missing_repair_path}"
+done
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+commit_governance_repair_subset "${repair_repo_root}" \
+  "test: governance repair with extra path" \
+  "${repair_paths[@]}" docs/engineering/governance-repair-extra.md >/dev/null
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair chain changed an unauthorized path" \
+  "governance repair containing an extra path"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+set_field "${repair_state}" NextTaskCard VSB-03
+printf '\nrepair-marker=ledger-intermediate\n' >> \
+  "${repair_repo_root}/docs/task-cards/visual-style-baseline/README.md"
+git -C "${repair_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md \
+  docs/task-cards/visual-style-baseline/README.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: change ledger inside governance repair chain"
+git -C "${repair_repo_root}" show \
+  "${repair_origin_sha}:docs/task-cards/visual-style-baseline/execution-state.md" > \
+  "${repair_state}"
+commit_governance_repair_subset "${repair_repo_root}" \
+  "test: restore ledger and finish governance repair" \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
+  scripts/verify-visual-style-baseline-cards \
+  tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
+git -C "${repair_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: record restored origin ledger"
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair chain must preserve the origin ledger bytes" \
+  "governance repair changing and restoring the ledger"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+commit_governance_repair_subset "${repair_repo_root}" \
+  "test: governance repair before empty commit" \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md >/dev/null
+git -C "${repair_repo_root}" commit --allow-empty -qm \
+  "test: empty governance repair round"
+commit_governance_repair_subset "${repair_repo_root}" \
+  "test: finish governance repair after empty commit" \
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
+  docs/task-cards/visual-style-baseline/README.md \
+  scripts/verify-visual-style-baseline-cards \
+  tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair chain commit must not be empty" \
+  "governance repair containing an empty commit"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
+repair_merge_base="$(commit_governance_repair_subset \
+  "${repair_repo_root}" "test: governance repair merge base" \
+  docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md)"
+git -C "${repair_repo_root}" switch -q -c repair-side "${repair_merge_base}"
+commit_governance_repair_subset "${repair_repo_root}" \
+  "test: governance repair side" \
+  docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md >/dev/null
+repair_side_sha="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+git -C "${repair_repo_root}" switch -q -c repair-main "${repair_merge_base}"
+commit_governance_repair_subset "${repair_repo_root}" \
+  "test: governance repair main" \
+  docs/task-cards/visual-style-baseline/README.md >/dev/null
+git -C "${repair_repo_root}" merge -q --no-ff "${repair_side_sha}" \
+  -m "test: merge governance repair rounds"
+commit_governance_repair_subset "${repair_repo_root}" \
+  "test: finish merged governance repair" \
+  scripts/verify-visual-style-baseline-cards \
+  tests/task-cards/verify-visual-style-baseline-cards.sh >/dev/null
+expect_repair_static_failure "${repair_repo_root}" \
+  "governance repair chain commit must have exactly one parent" \
+  "governance repair containing a merge"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_candidate_sha}"
+repair_receipt_sha="$(make_governance_repair_receipt \
+  "${repair_repo_root}" "${repair_candidate_sha}" \
+  "test: record governance repair receipt")"
+repair_transition_output="$("${verifier}" \
+  --repo-root "${repair_repo_root}" --cards-dir "${repair_cards}" \
+  --transition-base "${repair_candidate_sha}" \
+  --transition-head "${repair_receipt_sha}" 2>&1)" ||
+  fail "valid GOVERNANCE_REPAIR transition was rejected: ${repair_transition_output}"
+assert_contains "${repair_transition_output}" \
+  "VisualStyleBaselineTaskCardValidation = PASS"
+repair_static_pass_output="$(run_repair_static "${repair_repo_root}")" ||
+  fail "valid GOVERNANCE_REPAIR receipt failed static validation"
+assert_contains "${repair_static_pass_output}" "GovernanceRepairStatus = PASS"
+governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
+
+repair_negative_fields=(
+  GovernanceRepairSpecSHA
+  GovernanceRepairOriginReceiptSHA
+  TransitionBaseSHA
+  GovernanceRepairReviewedCandidateSHA
+  GovernanceRepairReviewRoute
+  GovernanceRepairReviewRoute
+  GovernanceRepairReviewVerdict
+  CurrentGateStatus
+  TransitionSequence
+  ExecutionStateVersion
+)
+repair_negative_values=(
+  70eefba5912e6884e4e7e1d6477a65f4091d6590
+  c9fe3d6c081f67459e13cbcff010ddb5cdbf1508
+  737c053483d1f3d084d5f90d5c36f76b0ae8f5a3
+  737c053483d1f3d084d5f90d5c36f76b0ae8f5a3
+  ultra_gatekeeper
+  deep_reviewer
+  GO_P0_0_P1_0_P2_0
+  FAIL
+  4
+  3
+)
+repair_negative_messages=(
+  "GOVERNANCE_REPAIR approved spec SHA mismatch"
+  "GOVERNANCE_REPAIR origin SHA mismatch"
+  "TransitionBaseSHA must equal the fixed transition BASE"
+  "GOVERNANCE_REPAIR reviewed candidate SHA mismatch"
+  "GOVERNANCE_REPAIR review route mismatch"
+  "GOVERNANCE_REPAIR review route mismatch"
+  "GOVERNANCE_REPAIR review verdict mismatch"
+  "GOVERNANCE_REPAIR must preserve the failed receipt business state"
+  "GOVERNANCE_REPAIR TransitionSequence must be 3"
+  "GOVERNANCE_REPAIR must upgrade ExecutionStateVersion from 1 to 2"
+)
+for repair_negative_index in "${!repair_negative_fields[@]}"; do
+  git -C "${repair_repo_root}" checkout -q --detach "${repair_candidate_sha}"
+  repair_bad_receipt="$(make_governance_repair_receipt \
+    "${repair_repo_root}" "${repair_candidate_sha}" \
+    "test: invalid governance repair ${repair_negative_index}" \
+    "${repair_negative_fields[${repair_negative_index}]}" \
+    "${repair_negative_values[${repair_negative_index}]}")"
+  expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+    "${repair_candidate_sha}" "${repair_bad_receipt}" \
+    "${repair_negative_messages[${repair_negative_index}]}" \
+    "invalid governance repair field ${repair_negative_index}"
+done
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_candidate_sha}"
+repair_extra_receipt="$(make_governance_repair_receipt \
+  "${repair_repo_root}" "${repair_candidate_sha}" \
+  "test: governance repair receipt with extra diff" "" "" \
+  docs/engineering/governance-repair-receipt-extra.md)"
+expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+  "${repair_candidate_sha}" "${repair_extra_receipt}" \
+  "state transition fixed diff must contain only execution-state.md" \
+  "governance repair receipt with extra path"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_round_one_sha}"
+repair_nontip_receipt="$(make_governance_repair_receipt \
+  "${repair_repo_root}" "${repair_round_one_sha}" \
+  "test: repair receipt from non-final governance candidate")"
+expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+  "${repair_round_one_sha}" "${repair_nontip_receipt}" \
+  "governance repair chain must have the exact repair WriteSet" \
+  "governance repair receipt from a non-final candidate"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_candidate_sha}"
+git -C "${repair_repo_root}" switch -q -c repair-receipt-side
+repair_merge_side="$(make_governance_repair_receipt \
+  "${repair_repo_root}" "${repair_candidate_sha}" \
+  "test: governance repair receipt side")"
+git -C "${repair_repo_root}" switch -q -c repair-receipt-main \
+  "${repair_candidate_sha}"
+git -C "${repair_repo_root}" commit --allow-empty -qm \
+  "test: empty competing repair receipt parent"
+git -C "${repair_repo_root}" merge -q --no-ff "${repair_merge_side}" \
+  -m "test: merge governance repair receipt"
+repair_merge_receipt="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+  "${repair_candidate_sha}" "${repair_merge_receipt}" \
+  "transition HEAD must have exactly one parent" \
+  "merged governance repair receipt"
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_receipt_sha}"
+set_field "${repair_state}" TransitionSequence 4
+set_field "${repair_state}" TransitionBaseSHA "${repair_receipt_sha}"
+git -C "${repair_repo_root}" add \
+  docs/task-cards/visual-style-baseline/execution-state.md
+git -C "${repair_repo_root}" commit -qm \
+  "test: attempt second governance repair"
+second_repair_sha="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+  "${repair_receipt_sha}" "${second_repair_sha}" \
+  "GOVERNANCE_REPAIR is allowed exactly once" \
+  "second governance repair"
+
+# R, never d47 or G, is the legal VSB-01 candidate anchor.  Exercise both a
+# one-commit and a multi-commit exact candidate through the public dispatcher.
+make_vsb01_advance_receipt() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  local subject="$3"
+  local fixture_state="${fixture_root}/docs/task-cards/visual-style-baseline/execution-state.md"
+  set_field "${fixture_state}" CompletedTaskCards VSB-00,VSB-01
+  set_field "${fixture_state}" ActiveTaskCard VSB-02
+  set_field "${fixture_state}" ReleasedTaskCard VSB-02
+  set_field "${fixture_state}" CurrentCandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" CurrentGateStatus VSB-G1_PASS
+  set_field "${fixture_state}" CurrentReviewRoute deep_reviewer
+  set_field "${fixture_state}" CurrentReviewVerdict GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" VSB01CandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" VSB01GateStatus VSB-G1_PASS
+  set_field "${fixture_state}" VSB01ReviewVerdict GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" NextTaskCard VSB-03
+  set_field "${fixture_state}" TransitionSequence 4
+  set_field "${fixture_state}" TransitionKind ADVANCE
+  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
+  git -C "${fixture_root}" add \
+    docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_receipt_sha}"
+write_exact_candidate_paths "${repair_repo_root}" 1 \
+  "single-commit VSB-01 after governance repair"
+printf '%s\n' "${candidate_write_sets[1]}" | \
+  git -C "${repair_repo_root}" add --pathspec-from-file=-
+git -C "${repair_repo_root}" commit -qm \
+  "test: create single-commit VSB-01 candidate after repair"
+repair_vsb01_single_candidate="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+repair_vsb01_single_receipt="$(make_vsb01_advance_receipt \
+  "${repair_repo_root}" "${repair_vsb01_single_candidate}" \
+  "test: advance single-commit VSB-01 after repair")"
+repair_vsb01_single_output="$("${verifier}" \
+  --repo-root "${repair_repo_root}" --cards-dir "${repair_cards}" \
+  --transition-base "${repair_vsb01_single_candidate}" \
+  --transition-head "${repair_vsb01_single_receipt}" 2>&1)" ||
+  fail "single-commit VSB-01 candidate after R was rejected"
+assert_contains "${repair_vsb01_single_output}" \
+  "VisualStyleBaselineTaskCardValidation = PASS"
+governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_receipt_sha}"
+commit_candidate_subset "${repair_repo_root}" \
+  "test: VSB-01 after repair round one" \
+  web/src/styles/tokens.css web/src/styles/typography.css \
+  web/src/styles/surfaces.css >/dev/null
+repair_vsb01_multi_candidate="$(commit_candidate_subset \
+  "${repair_repo_root}" "test: VSB-01 after repair final round" \
+  web/src/styles/cognitive-visual.css web/src/styles/cognitura.css \
+  web/src/styles/style-contract.test.ts scripts/verify-module-default-reading \
+  tests/visual-style-baseline/verify-module-default-reading-toolchain.sh)"
+repair_vsb01_multi_receipt="$(make_vsb01_advance_receipt \
+  "${repair_repo_root}" "${repair_vsb01_multi_candidate}" \
+  "test: advance multi-commit VSB-01 after repair")"
+repair_vsb01_multi_output="$("${verifier}" \
+  --repo-root "${repair_repo_root}" --cards-dir "${repair_cards}" \
+  --transition-base "${repair_vsb01_multi_candidate}" \
+  --transition-head "${repair_vsb01_multi_receipt}" 2>&1)" ||
+  fail "multi-commit VSB-01 candidate after R was rejected"
+assert_contains "${repair_vsb01_multi_output}" \
+  "VisualStyleBaselineTaskCardValidation = PASS"
+governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
+
+git -C "${repair_repo_root}" checkout -q --detach "${repair_receipt_sha}"
+commit_candidate_subset "${repair_repo_root}" \
+  "test: absorb governance path into VSB-01" \
+  docs/task-cards/visual-style-baseline/README.md \
+  web/src/styles/tokens.css >/dev/null
+write_exact_candidate_paths "${repair_repo_root}" 1 \
+  "finish VSB-01 after governance path absorption"
+printf '%s\n' "${candidate_write_sets[1]}" | \
+  git -C "${repair_repo_root}" add --pathspec-from-file=-
+git -C "${repair_repo_root}" commit -qm \
+  "test: finish VSB-01 containing governance path"
+repair_absorbed_candidate="$(git -C "${repair_repo_root}" rev-parse HEAD)"
+repair_absorbed_receipt="$(make_vsb01_advance_receipt \
+  "${repair_repo_root}" "${repair_absorbed_candidate}" \
+  "test: advance VSB-01 containing governance path")"
+expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
+  "${repair_absorbed_candidate}" "${repair_absorbed_receipt}" \
+  "candidate chain commit changed a path outside the Owner WriteSet" \
+  "VSB-01 candidate absorbing a governance repair path"
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 new_mode_path=scripts/import-visual-style-reference
@@ -2540,10 +3016,12 @@ negative_cases=$((negative_cases + 1))
 baseline_transition_cases=22
 round10_parent_binding_transition_cases=3
 round11_merge_transition_cases=3
+governance_repair_transition_cases=3
 transition_cases=$((
   baseline_transition_cases +
   round10_parent_binding_transition_cases +
-  round11_merge_transition_cases
+  round11_merge_transition_cases +
+  governance_repair_transition_cases
 ))
 fixed_base_transition_cases=6
 binary_ledger_cases=1
@@ -2561,5 +3039,7 @@ printf '%s\n' \
   "BinaryLedgerCases = ${binary_ledger_cases}" \
   "CumulativeCandidatePositiveCases = ${cumulative_candidate_positive_cases}" \
   "CumulativeCandidateNegativeCases = ${cumulative_candidate_negative_cases}" \
+  "GovernanceRepairPositiveCases = ${governance_repair_positive_cases}" \
+  "GovernanceRepairNegativeCases = ${governance_repair_negative_cases}" \
   "CrossCardReturnPositiveCases = ${cross_card_return_positive_cases}" \
   "CrossCardReturnNegativeCases = ${cross_card_return_negative_cases}"
