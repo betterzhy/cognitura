@@ -19,13 +19,16 @@ fi
   printf 'ModuleDefaultReadingVerification = FAIL\nexpected Node v24.18.0\n' >&2
   exit 1
 }
-[[ "$(pnpm --dir "${repo_root}/web" --version 2>/dev/null || true)" == "11.17.0" ]] || {
+[[ "$(cd "${repo_root}/web" && pnpm --version 2>/dev/null || true)" == "11.17.0" ]] || {
   printf 'ModuleDefaultReadingVerification = FAIL\nexpected pnpm 11.17.0\n' >&2
   exit 1
 }
 
-pnpm --dir "${repo_root}/web" test
-pnpm --dir "${repo_root}/web" build
+(
+  cd "${repo_root}/web"
+  pnpm test
+  pnpm build
+)
 
 printf '%s\n' \
   "ModuleDefaultReadingVerification = PASS" \

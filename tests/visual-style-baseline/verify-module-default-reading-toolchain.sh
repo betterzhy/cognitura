@@ -33,16 +33,20 @@ EOF
 
 cat >"${fake_bin}/pnpm" <<'EOF'
 #!/bin/bash
-printf '%s\n' "$*" >>"${PNPM_CALL_LOG}"
-if [[ "$#" -eq 1 && "$1" == "--version" ]]; then
-  printf '9.15.9\n'
-  exit 0
-fi
-if [[ "$#" -eq 3 && "$1" == "--dir" && "$2" == "${EXPECTED_WEB_DIR}" && "$3" == "--version" ]]; then
+printf '%s|%s\n' "${PWD}" "$*" >>"${PNPM_CALL_LOG}"
+if [[ "${PWD}" == "${EXPECTED_WEB_DIR}" && "$#" -eq 1 && "$1" == "--version" ]]; then
   printf '11.17.0\n'
   exit 0
 fi
-if [[ "$#" -eq 3 && "$1" == "--dir" && "$2" == "${EXPECTED_WEB_DIR}" && ( "$3" == "test" || "$3" == "build" ) ]]; then
+if [[ "${PWD}" != "${EXPECTED_WEB_DIR}" && "$1" == "--version" ]]; then
+  printf '9.15.9\n'
+  exit 0
+fi
+if [[ "${PWD}" != "${EXPECTED_WEB_DIR}" && "$#" -eq 3 && "$1" == "--dir" && "$2" == "${EXPECTED_WEB_DIR}" && "$3" == "--version" ]]; then
+  printf '9.15.9\n'
+  exit 0
+fi
+if [[ "${PWD}" == "${EXPECTED_WEB_DIR}" && "$#" -eq 1 && ( "$1" == "test" || "$1" == "build" ) ]]; then
   exit 0
 fi
 exit 64
@@ -67,8 +71,19 @@ web_scoped_pnpm_version="$(
     EXPECTED_WEB_DIR="${fixture_root}/web" \
     pnpm --dir "${fixture_root}/web" --version
 )"
-[[ "${web_scoped_pnpm_version}" == "11.17.0" ]] ||
-  fail "fake web-scoped pnpm did not expose the locked version"
+[[ "${web_scoped_pnpm_version}" == "9.15.9" ]] ||
+  fail "fake root --dir probe did not retain the parent version"
+
+web_cwd_pnpm_version="$(
+  cd "${fixture_root}/web"
+  env \
+    PATH="${fake_bin}:/usr/bin:/bin" \
+    PNPM_CALL_LOG="${pnpm_call_log}" \
+    EXPECTED_WEB_DIR="${fixture_root}/web" \
+    pnpm --version
+)"
+[[ "${web_cwd_pnpm_version}" == "11.17.0" ]] ||
+  fail "fake web cwd did not expose the locked pnpm version"
 
 if ! output="$(
   env \
@@ -81,11 +96,12 @@ if ! output="$(
 fi
 
 expected_calls="$(printf '%s\n' \
-  "--version" \
-  "--dir ${fixture_root}/web --version" \
-  "--dir ${fixture_root}/web --version" \
-  "--dir ${fixture_root}/web test" \
-  "--dir ${fixture_root}/web build")"
+  "${repo_root}|--version" \
+  "${repo_root}|--dir ${fixture_root}/web --version" \
+  "${fixture_root}/web|--version" \
+  "${fixture_root}/web|--version" \
+  "${fixture_root}/web|test" \
+  "${fixture_root}/web|build")"
 actual_calls="$(cat "${pnpm_call_log}")"
 [[ "${actual_calls}" == "${expected_calls}" ]] ||
   fail "unexpected pnpm invocation sequence: ${actual_calls}"
@@ -93,5 +109,6 @@ actual_calls="$(cat "${pnpm_call_log}")"
 printf '%s\n' \
   'ModuleDefaultReadingToolchainTests = PASS' \
   "BarePnpmVersion = ${bare_pnpm_version}" \
-  "WebScopedPnpmVersion = ${web_scoped_pnpm_version}" \
+  "RootDirPnpmVersion = ${web_scoped_pnpm_version}" \
+  "WebCwdPnpmVersion = ${web_cwd_pnpm_version}" \
   'PnpmInvocationSequence = PASS'
