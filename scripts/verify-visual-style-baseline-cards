@@ -9,6 +9,10 @@ repo_root="${script_repo_root}"
 cards_dir=""
 transition_base=""
 transition_head=""
+governance_repair_origin_sha="d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a"
+governance_repair_spec_sha="2123594540c91341c480f504949315a6abec316c"
+governance_repair_vsb00_candidate_sha="737c053483d1f3d084d5f90d5c36f76b0ae8f5a3"
+governance_repair_status_output=""
 verifier_tmp_root="$(
   mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-verifier.XXXXXX"
 )"
@@ -99,6 +103,109 @@ state_value_from_file() {
   count="$(grep -c "^${key} = " "${file}" || true)"
   [[ "${count}" -eq 1 ]] || fail "transition ledger: ${key} must occur exactly once"
   sed -n "s/^${key} = //p" "${file}"
+}
+
+governance_repair_fields() {
+  printf '%s\n' \
+    GovernanceRepairStatus GovernanceRepairSpecSHA \
+    GovernanceRepairOriginReceiptSHA GovernanceRepairReviewedCandidateSHA \
+    GovernanceRepairReviewRoute GovernanceRepairReviewVerdict
+}
+
+governance_repair_write_set() {
+  printf '%s\n' \
+    docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
+    docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md \
+    docs/task-cards/visual-style-baseline/README.md \
+    scripts/verify-visual-style-baseline-cards \
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+}
+
+path_is_in_governance_repair_write_set() {
+  local candidate_path="$1"
+  local repair_path
+  while IFS= read -r repair_path; do
+    [[ "${candidate_path}" == "${repair_path}" ]] && return 0
+  done < <(governance_repair_write_set)
+  return 1
+}
+
+validate_governance_repair_chain() {
+  local candidate_sha="$1"
+  local expected_origin="${2:-${governance_repair_origin_sha}}"
+  local previous_sha chain_sha actual_parent changed_paths repair_path
+  local actual_paths expected_paths origin_ledger candidate_ledger
+  local raw_status_file raw_error_file parent_mode child_mode
+  [[ "${expected_origin}" == "${governance_repair_origin_sha}" ]] ||
+    fail "governance repair origin SHA mismatch"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${governance_repair_origin_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "governance repair origin is not an ancestor of the candidate"
+  [[ "${candidate_sha}" != "${governance_repair_origin_sha}" ]] ||
+    fail "fixed governance repair origin is not a valid current receipt"
+  previous_sha="${governance_repair_origin_sha}"
+  while IFS= read -r chain_sha; do
+    [[ -n "${chain_sha}" ]] || continue
+    actual_parent="$(single_parent_of "${chain_sha}" \
+      "governance repair chain commit")"
+    [[ "${actual_parent}" == "${previous_sha}" ]] ||
+      fail "governance repair chain commit must have exactly one parent"
+    changed_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+      "${previous_sha}..${chain_sha}")"
+    [[ -n "${changed_paths}" ]] ||
+      fail "governance repair chain commit must not be empty"
+    raw_status_file="$(mktemp \
+      "${verifier_tmp_root}/repair-raw-status.XXXXXX")"
+    raw_error_file="$(mktemp \
+      "${verifier_tmp_root}/repair-raw-error.XXXXXX")"
+    if ! git -C "${repo_root}" -c diff.renameLimit=0 \
+      diff-tree --no-commit-id -r -M -C --find-copies-harder --name-status \
+      "${previous_sha}" "${chain_sha}" \
+      > "${raw_status_file}" 2> "${raw_error_file}"; then
+      fail "governance repair chain rename and copy inspection failed"
+    fi
+    [[ ! -s "${raw_error_file}" ]] ||
+      fail "governance repair chain rename and copy inspection was degraded"
+    if awk '$1 ~ /^[RC][0-9]+$/ { found = 1 } END { exit !found }' \
+      "${raw_status_file}"; then
+      fail "governance repair chain must not rename or copy paths"
+    fi
+    while IFS= read -r repair_path; do
+      [[ "${repair_path}" != "${ledger_path}" ]] ||
+        fail "governance repair chain must preserve the origin ledger bytes"
+      path_is_in_governance_repair_write_set "${repair_path}" ||
+        fail "governance repair chain changed an unauthorized path"
+      parent_mode="$(git -C "${repo_root}" ls-tree \
+        "${previous_sha}" -- "${repair_path}" | awk '{print $1}')"
+      child_mode="$(git -C "${repo_root}" ls-tree \
+        "${chain_sha}" -- "${repair_path}" | awk '{print $1}')"
+      if [[ -n "${parent_mode}" && -n "${child_mode}" ]]; then
+        [[ "${parent_mode}" == "${child_mode}" ]] ||
+          fail "governance repair chain must preserve file modes"
+      fi
+      case "${child_mode}" in
+        ""|100644|100755) ;;
+        *) fail "governance repair chain must preserve file modes" ;;
+      esac
+    done <<< "${changed_paths}"
+    previous_sha="${chain_sha}"
+  done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+    "${governance_repair_origin_sha}..${candidate_sha}")
+  [[ "${previous_sha}" == "${candidate_sha}" ]] ||
+    fail "governance repair candidate must be the chain tip"
+  actual_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+    "${governance_repair_origin_sha}..${candidate_sha}" | LC_ALL=C sort)"
+  expected_paths="$(governance_repair_write_set | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "governance repair chain must have the exact repair WriteSet"
+  origin_ledger="$(git -C "${repo_root}" rev-parse \
+    "${governance_repair_origin_sha}:${ledger_path}" 2>/dev/null)" ||
+    fail "governance repair origin ledger is missing"
+  candidate_ledger="$(git -C "${repo_root}" rev-parse \
+    "${candidate_sha}:${ledger_path}" 2>/dev/null)" ||
+    fail "governance repair candidate ledger is missing"
+  [[ "${origin_ledger}" == "${candidate_ledger}" ]] ||
+    fail "governance repair chain must preserve the origin ledger bytes"
 }
 
 receipt_fields_for_index() {
@@ -195,7 +302,7 @@ validate_fixed_vsb_tree() {
       --cards-dir "${fixed_checkout}/docs/task-cards/visual-style-baseline" 2>&1
   )"; then
     rm -rf -- "${fixed_checkout}"
-    fail "transition BASE failed full VSB state validation"
+    fail "transition BASE failed full VSB state validation: ${validation_output}"
   fi
   rm -rf -- "${fixed_checkout}"
 }
@@ -486,6 +593,98 @@ commit_is_ledger_only() {
   [[ "${changed_paths}" == "${ledger_path}" ]]
 }
 
+require_governance_repair_state_values() {
+  local file="$1"
+  local candidate_sha="$2"
+  [[ "$(state_value_from_file "${file}" ExecutionStateVersion)" == 2 ]] ||
+    fail "GOVERNANCE_REPAIR must upgrade ExecutionStateVersion from 1 to 2"
+  [[ "$(state_value_from_file "${file}" GovernanceRepairStatus)" == PASS ]] ||
+    fail "GOVERNANCE_REPAIR status must be PASS"
+  [[ "$(state_value_from_file "${file}" GovernanceRepairSpecSHA)" == \
+     "${governance_repair_spec_sha}" ]] ||
+    fail "GOVERNANCE_REPAIR approved spec SHA mismatch"
+  [[ "$(state_value_from_file "${file}" GovernanceRepairOriginReceiptSHA)" == \
+     "${governance_repair_origin_sha}" ]] ||
+    fail "GOVERNANCE_REPAIR origin SHA mismatch"
+  [[ "$(state_value_from_file "${file}" GovernanceRepairReviewedCandidateSHA)" == \
+     "${candidate_sha}" ]] ||
+    fail "GOVERNANCE_REPAIR reviewed candidate SHA mismatch"
+  [[ "$(state_value_from_file "${file}" GovernanceRepairReviewRoute)" == \
+     deep_reviewer+ultra_gatekeeper ]] ||
+    fail "GOVERNANCE_REPAIR review route mismatch"
+  [[ "$(state_value_from_file "${file}" GovernanceRepairReviewVerdict)" == \
+     FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+    fail "GOVERNANCE_REPAIR review verdict mismatch"
+}
+
+require_repair_fields_unchanged_between_files() {
+  local base_file="$1"
+  local head_file="$2"
+  local field
+  while IFS= read -r field; do
+    [[ "$(state_value_from_file "${head_file}" "${field}")" == \
+       "$(state_value_from_file "${base_file}" "${field}")" ]] ||
+      fail "receipt transition must preserve ${field}"
+  done < <(governance_repair_fields)
+}
+
+require_governance_repair_business_state_preserved() {
+  local base_file="$1"
+  local head_file="$2"
+  local preserved_field
+  for preserved_field in \
+    GovernanceBootstrapStatus GovernanceReviewedCandidateSHA GovernanceReviewVerdict \
+    SetAuthorizationStatus SetAuthorizationScope HumanCheckpointRequirement \
+    TaskCardSetStatus ActiveTaskCard ReleasedTaskCard CompletedTaskCards \
+    CurrentCandidateSHA CurrentGateStatus CurrentReviewRoute CurrentReviewVerdict \
+    VSB00CandidateSHA VSB00GateStatus VSB00ReviewRoute VSB00ReviewVerdict \
+    VSB01CandidateSHA VSB01GateStatus VSB01ReviewRoute VSB01ReviewVerdict \
+    VSB02CandidateSHA VSB02GateStatus VSB02ReviewRoute VSB02ReviewVerdict \
+    VSB03CandidateSHA VSB03GateStatus VSB03ReviewRoute \
+    VSB03DeepReviewVerdict VSB03UltraReviewVerdict NextTaskCard \
+    FrozenWave1TaskCard FrozenWave1CandidateSHA HistoricalVisualEvidenceBaselineSHA \
+    VisualImplementation FullProductImplementation UserStopAuthorization \
+    FormalDatabaseWrite RemotePush; do
+    [[ "$(state_value_from_file "${head_file}" "${preserved_field}")" == \
+       "$(state_value_from_file "${base_file}" "${preserved_field}")" ]] ||
+      fail "GOVERNANCE_REPAIR must preserve the failed receipt business state"
+  done
+  [[ "$(state_value_from_file "${head_file}" TaskCardSetStatus)" == IN_PROGRESS &&
+     "$(state_value_from_file "${head_file}" ActiveTaskCard)" == VSB-01 &&
+     "$(state_value_from_file "${head_file}" ReleasedTaskCard)" == VSB-01 &&
+     "$(state_value_from_file "${head_file}" CompletedTaskCards)" == VSB-00 &&
+     "$(state_value_from_file "${head_file}" CurrentCandidateSHA)" == \
+       "${governance_repair_vsb00_candidate_sha}" &&
+     "$(state_value_from_file "${head_file}" VSB00CandidateSHA)" == \
+       "${governance_repair_vsb00_candidate_sha}" &&
+     "$(state_value_from_file "${head_file}" NextTaskCard)" == VSB-02 ]] ||
+    fail "GOVERNANCE_REPAIR must preserve the failed receipt business state"
+}
+
+validate_governance_repair_transition_files() {
+  local pair_base="$1"
+  local pair_head="$2"
+  local base_file="$3"
+  local head_file="$4"
+  local field
+  [[ "$(state_value_from_file "${base_file}" ExecutionStateVersion)" == 1 ]] ||
+    fail "GOVERNANCE_REPAIR is allowed exactly once"
+  for field in $(governance_repair_fields); do
+    [[ "$(grep -c "^${field} = " "${base_file}" || true)" -eq 0 ]] ||
+      fail "GOVERNANCE_REPAIR is allowed exactly once"
+  done
+  validate_governance_repair_chain "${pair_base}"
+  [[ "$(state_value_from_file "${head_file}" TransitionKind)" == GOVERNANCE_REPAIR ]] ||
+    fail "GOVERNANCE_REPAIR transition kind mismatch"
+  [[ "$(state_value_from_file "${head_file}" TransitionBaseSHA)" == "${pair_base}" ]] ||
+    fail "TransitionBaseSHA must equal the fixed transition BASE"
+  [[ "$(state_value_from_file "${base_file}" TransitionSequence)" == 2 &&
+     "$(state_value_from_file "${head_file}" TransitionSequence)" == 3 ]] ||
+    fail "GOVERNANCE_REPAIR TransitionSequence must be 3"
+  require_governance_repair_state_values "${head_file}" "${pair_base}"
+  require_governance_repair_business_state_preserved "${base_file}" "${head_file}"
+}
+
 ledger_receipt_claims_owner_release() {
   local receipt_sha="$1"
   local receipt_parent_sha="$2"
@@ -494,6 +693,9 @@ ledger_receipt_claims_owner_release() {
   transition_kind="$(commit_ledger_field "${receipt_sha}" TransitionKind)"
   case "${transition_kind}" in
     ACTIVATE_SET|ADVANCE|RETURN_TO_OWNER) ;;
+    GOVERNANCE_REPAIR)
+      [[ "${owner_id}" == VSB-01 ]] || return 1
+      ;;
     *) return 1 ;;
   esac
   [[ "$(commit_ledger_field "${receipt_sha}" TransitionBaseSHA)" == \
@@ -657,7 +859,7 @@ validate_parent_receipt_transition_pair() {
   local receipt_index base_active owner_index base_completed head_completed
   local expected_base_prefix expected_head_prefix expected_head_active expected_head_next
   local head_owner return_owner_index failed_owner_index expected_return_prefix expected_return_next
-  [[ "${pair_head}" != d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a ]] ||
+  [[ "${pair_head}" != "${governance_repair_origin_sha}" ]] ||
     fail "fixed governance repair origin is not a valid ordinary VSB receipt"
   [[ "$(single_parent_of "${pair_head}" "candidate-parent ledger receipt")" == "${pair_base}" ]] ||
     fail "receipt HEAD must be the direct child of its BASE"
@@ -679,9 +881,23 @@ validate_parent_receipt_transition_pair() {
     fail "receipt TransitionBaseSHA must equal its fixed BASE"
   base_sequence="$(state_value_from_file "${pair_base_file}" TransitionSequence)"
   head_sequence="$(state_value_from_file "${pair_head_file}" TransitionSequence)"
+  head_kind="$(state_value_from_file "${pair_head_file}" TransitionKind)"
+  if [[ "${head_kind}" == GOVERNANCE_REPAIR &&
+        "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 2 ]]; then
+    fail "GOVERNANCE_REPAIR is allowed exactly once"
+  fi
+  if [[ "${head_kind}" == GOVERNANCE_REPAIR &&
+        "${head_sequence}" != 3 ]]; then
+    fail "GOVERNANCE_REPAIR TransitionSequence must be 3"
+  fi
   [[ "${base_sequence}" =~ ^[0-9]+$ && "${head_sequence}" -eq $((base_sequence + 1)) ]] ||
     fail "receipt TransitionSequence must increment by exactly one"
-  head_kind="$(state_value_from_file "${pair_head_file}" TransitionKind)"
+  if [[ "${head_kind}" == GOVERNANCE_REPAIR ]]; then
+    validate_governance_repair_transition_files \
+      "${pair_base}" "${pair_head}" "${pair_base_file}" "${pair_head_file}"
+    rm -rf -- "${pair_dir}"
+    return 0
+  fi
   for immutable_field in \
     CanonicalProjectName TaskCardSet ExecutionStateVersion ExecutionStateAuthority \
     ApprovedSpecSHA GovernanceReviewRoute SetAuthorizationStatus SetAuthorizationScope \
@@ -691,6 +907,10 @@ validate_parent_receipt_transition_pair() {
        "$(state_value_from_file "${pair_base_file}" "${immutable_field}")" ]] ||
       fail "receipt transition must preserve ${immutable_field}"
   done
+  if [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 2 ]]; then
+    require_repair_fields_unchanged_between_files \
+      "${pair_base_file}" "${pair_head_file}"
+  fi
   if [[ "${head_kind}" != ACTIVATE_SET ]]; then
     for governance_field in GovernanceBootstrapStatus GovernanceReviewedCandidateSHA GovernanceReviewVerdict; do
       [[ "$(state_value_from_file "${pair_head_file}" "${governance_field}")" == \
@@ -873,7 +1093,11 @@ validate_parent_receipt_transition_pair() {
       verify_candidate_write_set "${pair_base}" 3
       verify_candidate_parent_receipt "${pair_base}"
       ;;
-    *) fail "candidate parent receipt kind must be ACTIVATE_SET, ADVANCE, or RETURN_TO_OWNER" ;;
+    GOVERNANCE_REPAIR)
+      validate_governance_repair_transition_files \
+        "${pair_base}" "${pair_head}" "${pair_base_file}" "${pair_head_file}"
+      ;;
+    *) fail "candidate parent receipt kind must be ACTIVATE_SET, ADVANCE, RETURN_TO_OWNER, or GOVERNANCE_REPAIR" ;;
   esac
   rm -rf -- "${pair_dir}"
 }
@@ -917,10 +1141,29 @@ required_state_fields=(
 for field in "${required_state_fields[@]}"; do
   one_field_value "${state_file}" "${field}" execution-state.md >/dev/null
 done
+execution_state_version="$(field_value "${state_file}" ExecutionStateVersion)"
+case "${execution_state_version}" in
+  1)
+    for field in $(governance_repair_fields); do
+      [[ "$(grep -c "^${field} = " "${state_file}" || true)" -eq 0 ]] ||
+        fail "ExecutionStateVersion 1 must not contain governance repair fields"
+    done
+    ;;
+  2)
+    while IFS= read -r field; do
+      one_field_value "${state_file}" "${field}" execution-state.md >/dev/null
+    done < <(governance_repair_fields)
+    ;;
+  *)
+    if [[ "$(field_value "${state_file}" TransitionKind)" == GOVERNANCE_REPAIR ]]; then
+      fail "GOVERNANCE_REPAIR must upgrade ExecutionStateVersion from 1 to 2"
+    fi
+    fail "ExecutionStateVersion mismatch"
+    ;;
+esac
 
 [[ "$(field_value "${state_file}" CanonicalProjectName)" == Cognitura ]] || fail "CanonicalProjectName mismatch"
 [[ "$(field_value "${state_file}" TaskCardSet)" == VISUAL_STYLE_BASELINE ]] || fail "TaskCardSet mismatch"
-[[ "$(field_value "${state_file}" ExecutionStateVersion)" == 1 ]] || fail "ExecutionStateVersion mismatch"
 [[ "$(field_value "${state_file}" ExecutionStateAuthority)" == THIS_DOCUMENT ]] || fail "ExecutionStateAuthority mismatch"
 [[ "$(field_value "${state_file}" ApprovedSpecSHA)" == 70eefba5912e6884e4e7e1d6477a65f4091d6590 ]] || fail "ApprovedSpecSHA mismatch"
 [[ "$(field_value "${state_file}" FrozenWave1TaskCard)" == W1-I03 ]] || fail "FrozenWave1TaskCard mismatch"
@@ -937,6 +1180,13 @@ done
 [[ "$(field_value "${state_file}" VSB01ReviewRoute)" == deep_reviewer ]] || fail "VSB01ReviewRoute mismatch"
 [[ "$(field_value "${state_file}" VSB02ReviewRoute)" == deep_reviewer ]] || fail "VSB02ReviewRoute mismatch"
 [[ "$(field_value "${state_file}" VSB03ReviewRoute)" == deep_reviewer+ultra_gatekeeper ]] || fail "VSB03ReviewRoute mismatch"
+if [[ "${execution_state_version}" == 2 ]]; then
+  require_governance_repair_state_values \
+    "${state_file}" "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)"
+  is_commit_sha "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)" ||
+    fail "GovernanceRepairReviewedCandidateSHA must resolve to a 40-character commit"
+  governance_repair_status_output=PASS
+fi
 
 set_status="$(field_value "${state_file}" TaskCardSetStatus)"
 active="$(field_value "${state_file}" ActiveTaskCard)"
@@ -1049,6 +1299,67 @@ elif [[ "${set_status}" == IN_PROGRESS ]]; then
       [[ "$(grep -c '^Owner = ' "${state_file}" || true)" -eq 0 ]] ||
         fail "Owner is allowed only for RETURN_TO_OWNER"
       ;;
+    GOVERNANCE_REPAIR)
+      static_repair_head="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null)" ||
+        fail "repository HEAD is unavailable"
+      static_repair_parent="$(single_parent_of \
+        "${static_repair_head}" "transition HEAD")"
+      if commit_is_ledger_only \
+          "${static_repair_parent}" "${static_repair_head}"; then
+        validate_parent_receipt_transition_pair \
+          "${static_repair_parent}" "${static_repair_head}" 0
+        static_repair_receipt="${static_repair_head}"
+      else
+        static_repair_candidate="$(field_value \
+          "${state_file}" GovernanceRepairReviewedCandidateSHA)"
+        git -C "${repo_root}" merge-base --is-ancestor \
+          "${static_repair_candidate}" "${static_repair_head}" 2>/dev/null ||
+          fail "GOVERNANCE_REPAIR reviewed candidate is not an ancestor"
+        static_repair_receipt="$(git -C "${repo_root}" rev-list \
+          --reverse --first-parent \
+          "${static_repair_candidate}..${static_repair_head}" | \
+          sed -n '1p')"
+        [[ -n "${static_repair_receipt}" ]] ||
+          fail "GOVERNANCE_REPAIR receipt is missing"
+        [[ "$(single_parent_of "${static_repair_receipt}" \
+            "GOVERNANCE_REPAIR receipt")" == \
+           "${static_repair_candidate}" ]] ||
+          fail "GOVERNANCE_REPAIR receipt must be the direct child of G"
+        validate_parent_receipt_transition_pair \
+          "${static_repair_candidate}" "${static_repair_receipt}" 0
+        static_repair_receipt_file="$(mktemp \
+          "${verifier_tmp_root}/repair-receipt-ledger.XXXXXX")"
+        temporary_paths+=("${static_repair_receipt_file}")
+        git -C "${repo_root}" show \
+          "${static_repair_receipt}:${ledger_path}" > \
+          "${static_repair_receipt_file}" 2>/dev/null ||
+          fail "GOVERNANCE_REPAIR receipt ledger is missing"
+        cmp -s "${static_repair_receipt_file}" "${state_file}" ||
+          fail "GOVERNANCE_REPAIR is allowed exactly once"
+      fi
+      static_repair_origin_file="$(mktemp \
+        "${verifier_tmp_root}/repair-origin-ledger.XXXXXX")"
+      temporary_paths+=("${static_repair_origin_file}")
+      git -C "${repo_root}" show \
+        "${governance_repair_origin_sha}:${ledger_path}" > \
+        "${static_repair_origin_file}" 2>/dev/null ||
+        fail "governance repair origin ledger is missing"
+      require_governance_repair_business_state_preserved \
+        "${static_repair_origin_file}" "${state_file}"
+      [[ "${execution_state_version}" == 2 && "${completed_count}" -eq 1 &&
+         "${active}" == VSB-01 && "${released}" == VSB-01 &&
+         "$(field_value "${state_file}" CurrentCandidateSHA)" == \
+           "${governance_repair_vsb00_candidate_sha}" &&
+         "$(field_value "${state_file}" CurrentGateStatus)" == VSB-G0_PASS &&
+         "$(field_value "${state_file}" CurrentReviewRoute)" == deep_reviewer &&
+         "$(field_value "${state_file}" CurrentReviewVerdict)" == GO_P0_0_P1_0_P2_0 &&
+         "${sequence}" == 3 ]] ||
+        fail "GOVERNANCE_REPAIR static state mismatch"
+      require_governance_repair_state_values \
+        "${state_file}" "$(field_value "${state_file}" TransitionBaseSHA)"
+      [[ "$(grep -c '^Owner = ' "${state_file}" || true)" -eq 0 ]] ||
+        fail "Owner is allowed only for RETURN_TO_OWNER"
+      ;;
     RETURN_TO_OWNER)
       owner="$(one_field_value "${state_file}" Owner execution-state.md)"
       [[ "${owner}" == "${active}" && "${owner}" == "${released}" ]] ||
@@ -1108,6 +1419,11 @@ else
   fail "unsupported TaskCardSetStatus: ${set_status}"
 fi
 
+if [[ "${execution_state_version}" == 2 ]]; then
+  validate_governance_repair_chain \
+    "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)"
+fi
+
 if [[ -z "${transition_base}" ]]; then
   case "${set_status}" in
     STOPPED_BY_USER|FINAL_NO_GO|COMPLETE) validate_terminal_receipt_provenance ;;
@@ -1143,12 +1459,30 @@ if ! "${wave1_verifier}" \
   fail "Wave 1 static suspension validation failed"
 fi
 
+if [[ "${execution_state_version}" == 1 ]]; then
+  repository_head="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null)" ||
+    fail "repository HEAD is unavailable"
+  if git -C "${repo_root}" merge-base --is-ancestor \
+      "${governance_repair_origin_sha}" "${repository_head}" 2>/dev/null &&
+     [[ "${repository_head}" != "${governance_repair_origin_sha}" ]]; then
+    head_ledger_blob="$(git -C "${repo_root}" rev-parse \
+      "${repository_head}:${ledger_path}" 2>/dev/null)" ||
+      fail "governance repair candidate ledger is missing"
+    working_ledger_blob="$(git hash-object "${state_file}")" ||
+      fail "working governance repair ledger cannot be read"
+    if [[ "${working_ledger_blob}" == "${head_ledger_blob}" ]]; then
+      validate_governance_repair_chain "${repository_head}"
+      governance_repair_status_output=PENDING
+    fi
+  fi
+fi
+
 if [[ -n "${transition_base}" ]]; then
   resolved_base="$(git -C "${repo_root}" rev-parse --verify "${transition_base}^{commit}" 2>/dev/null)" ||
     fail "transition BASE is not a commit"
   resolved_head="$(git -C "${repo_root}" rev-parse --verify "${transition_head}^{commit}" 2>/dev/null)" ||
     fail "transition HEAD is not a commit"
-  [[ "${resolved_head}" != d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a ]] ||
+  [[ "${resolved_head}" != "${governance_repair_origin_sha}" ]] ||
     fail "fixed governance repair origin is not a valid ordinary VSB receipt"
   [[ "$(single_parent_of "${resolved_head}" "transition HEAD")" == "${resolved_base}" ]] ||
     fail "transition HEAD must be the direct child of BASE"
@@ -1183,6 +1517,18 @@ if [[ -n "${transition_base}" ]]; then
   [[ "${base_sequence}" =~ ^[0-9]+$ && "${head_sequence}" -eq $((base_sequence + 1)) ]] ||
     fail "TransitionSequence must increment by exactly one"
   head_kind="$(state_value_from_file "${head_ledger_file}" TransitionKind)"
+  if [[ "${head_kind}" == GOVERNANCE_REPAIR ]]; then
+    validate_governance_repair_transition_files \
+      "${resolved_base}" "${resolved_head}" \
+      "${base_ledger_file}" "${head_ledger_file}"
+    printf '%s\n' \
+      'VisualStyleBaselineTaskCardValidation = PASS' \
+      'TaskCardCount = 4' \
+      "TaskCardSetStatus = ${set_status}" \
+      "ActiveTaskCard = ${active}" \
+      'GovernanceRepairStatus = PASS'
+    exit 0
+  fi
   validate_fixed_vsb_tree "${resolved_base}"
   immutable_transition_fields=(
     CanonicalProjectName TaskCardSet ExecutionStateVersion ExecutionStateAuthority
@@ -1195,6 +1541,10 @@ if [[ -n "${transition_base}" ]]; then
        "$(state_value_from_file "${base_ledger_file}" "${immutable_field}")" ]] ||
       fail "state transition must preserve ${immutable_field}"
   done
+  if [[ "$(state_value_from_file "${base_ledger_file}" ExecutionStateVersion)" == 2 ]]; then
+    require_repair_fields_unchanged_between_files \
+      "${base_ledger_file}" "${head_ledger_file}"
+  fi
   if [[ "${head_kind}" != ACTIVATE_SET ]]; then
     for governance_field in GovernanceBootstrapStatus GovernanceReviewedCandidateSHA GovernanceReviewVerdict; do
       [[ "$(state_value_from_file "${head_ledger_file}" "${governance_field}")" == \
@@ -1394,3 +1744,7 @@ printf '%s\n' \
   'TaskCardCount = 4' \
   "TaskCardSetStatus = ${set_status}" \
   "ActiveTaskCard = ${active}"
+if [[ -n "${governance_repair_status_output}" ]]; then
+  printf 'GovernanceRepairStatus = %s\n' \
+    "${governance_repair_status_output}"
+fi

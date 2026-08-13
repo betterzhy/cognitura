@@ -2,6 +2,16 @@
 
 set -euo pipefail
 
+repair_contract_only=0
+if [[ "${1:-}" == --repair-contract-only ]]; then
+  repair_contract_only=1
+  shift
+fi
+if [[ "$#" -ne 0 ]]; then
+  printf 'FAIL: unknown test argument: %s\n' "$1" >&2
+  exit 2
+fi
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 verifier="${repo_root}/scripts/verify-visual-style-baseline-cards"
 cards_dir="${repo_root}/docs/task-cards/visual-style-baseline"
@@ -44,7 +54,7 @@ assert_contains() {
   local content="$1"
   local expected="$2"
   [[ "${content}" == *"${expected}"* ]] ||
-    fail "validation output is missing: ${expected}"
+    fail "validation output is missing '${expected}', got: ${content}"
 }
 
 assert_commit_parent_count() {
@@ -229,6 +239,8 @@ shopt -u nullglob
   fail "NUL early failure left temporary entries outside the sibling marker"
 registered_temporary_cleanup_cases=1
 
+negative_cases=0
+if [[ "${repair_contract_only}" -eq 0 ]]; then
 validation_output="$(
   "${verifier}" \
     --repo-root "${repo_root}" \
@@ -246,8 +258,6 @@ assert_contains "${current_governance_repair_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
 assert_contains "${current_governance_repair_output}" \
   "GovernanceRepairStatus = PENDING"
-
-negative_cases=0
 
 missing_state_dir="${test_tmp_root}/missing-state"
 cp -R "${bootstrap_cards_dir}" "${missing_state_dir}"
@@ -391,6 +401,7 @@ wave1_projection_output="$(
 )" && fail "VSB in progress unexpectedly accepted restored Wave 1"
 assert_contains "${wave1_projection_output}" "VSB in progress requires exact W1-I03 suspension"
 negative_cases=$((negative_cases + 1))
+fi
 
 # Real Git state transitions: candidate commits may contain business files, but
 # every release/rollback/complete receipt is a direct child that changes only
@@ -616,6 +627,20 @@ commit_governance_repair_subset() {
   git -C "${fixture_root}" rev-parse HEAD
 }
 
+commit_current_governance_repair_subset() {
+  local fixture_root="$1"
+  local subject="$2"
+  shift 2
+  local repair_path
+  for repair_path in "$@"; do
+    mkdir -p "${fixture_root}/$(dirname "${repair_path}")"
+    cp -p "${repo_root}/${repair_path}" "${fixture_root}/${repair_path}"
+  done
+  git -C "${fixture_root}" add -- "$@"
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
 make_governance_repair_receipt() {
   local fixture_root="$1"
   local candidate_sha="$2"
@@ -785,6 +810,7 @@ prepare_return_to_owner() {
   printf '%s\n' "Owner = ${owner}" >> "${transition_state}"
 }
 
+if [[ "${repair_contract_only}" -eq 0 ]]; then
 printf '%s\n' 'fixed governance review input' > \
   "${transition_cards}/governance-review-input.md"
 git -C "${transition_repo_root}" add \
@@ -1052,6 +1078,7 @@ same_mode_recreated_output="$(run_vsb_transition \
 assert_contains "${same_mode_recreated_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
 cumulative_candidate_positive_cases=$((cumulative_candidate_positive_cases + 1))
+fi
 
 # One-time governance repair: use the real fixed origin, Git objects and
 # byte-identical ledger.  G is a linear exact-five-path candidate; R is its
@@ -1062,15 +1089,16 @@ repair_origin_sha=d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a
 repair_reviewed_vsb00_sha=737c053483d1f3d084d5f90d5c36f76b0ae8f5a3
 repair_repo_root="${test_tmp_root}/governance-repair-repo"
 git clone --shared -q "${repo_root}" "${repair_repo_root}"
+git -C "${repair_repo_root}" config advice.detachedHead false
 git -C "${repair_repo_root}" checkout -q --detach "${repair_origin_sha}"
 repair_cards="${repair_repo_root}/docs/task-cards/visual-style-baseline"
 repair_state="${repair_cards}/execution-state.md"
 
-repair_round_one_sha="$(commit_governance_repair_subset \
+repair_round_one_sha="$(commit_current_governance_repair_subset \
   "${repair_repo_root}" "test: governance repair authority" \
   docs/superpowers/specs/2026-08-13-cognitura-vsb-governance-repair-design.md \
   docs/superpowers/plans/2026-08-13-cognitura-vsb-governance-repair.md)"
-repair_candidate_sha="$(commit_governance_repair_subset \
+repair_candidate_sha="$(commit_current_governance_repair_subset \
   "${repair_repo_root}" "test: governance repair contracts" \
   docs/task-cards/visual-style-baseline/README.md \
   scripts/verify-visual-style-baseline-cards \
@@ -1236,7 +1264,7 @@ repair_negative_values=(
 repair_negative_messages=(
   "GOVERNANCE_REPAIR approved spec SHA mismatch"
   "GOVERNANCE_REPAIR origin SHA mismatch"
-  "TransitionBaseSHA must equal the fixed transition BASE"
+  "receipt TransitionBaseSHA must equal its fixed BASE"
   "GOVERNANCE_REPAIR reviewed candidate SHA mismatch"
   "GOVERNANCE_REPAIR review route mismatch"
   "GOVERNANCE_REPAIR review route mismatch"
@@ -1265,7 +1293,7 @@ repair_extra_receipt="$(make_governance_repair_receipt \
   docs/engineering/governance-repair-receipt-extra.md)"
 expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
   "${repair_candidate_sha}" "${repair_extra_receipt}" \
-  "state transition fixed diff must contain only execution-state.md" \
+  "receipt diff must contain only execution-state.md" \
   "governance repair receipt with extra path"
 
 git -C "${repair_repo_root}" checkout -q --detach "${repair_round_one_sha}"
@@ -1349,7 +1377,7 @@ repair_vsb01_single_output="$("${verifier}" \
   --repo-root "${repair_repo_root}" --cards-dir "${repair_cards}" \
   --transition-base "${repair_vsb01_single_candidate}" \
   --transition-head "${repair_vsb01_single_receipt}" 2>&1)" ||
-  fail "single-commit VSB-01 candidate after R was rejected"
+  fail "single-commit VSB-01 candidate after R was rejected: ${repair_vsb01_single_output}"
 assert_contains "${repair_vsb01_single_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
 governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
@@ -1371,7 +1399,7 @@ repair_vsb01_multi_output="$("${verifier}" \
   --repo-root "${repair_repo_root}" --cards-dir "${repair_cards}" \
   --transition-base "${repair_vsb01_multi_candidate}" \
   --transition-head "${repair_vsb01_multi_receipt}" 2>&1)" ||
-  fail "multi-commit VSB-01 candidate after R was rejected"
+  fail "multi-commit VSB-01 candidate after R was rejected: ${repair_vsb01_multi_output}"
 assert_contains "${repair_vsb01_multi_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
 governance_repair_positive_cases=$((governance_repair_positive_cases + 1))
@@ -1395,6 +1423,14 @@ expect_repair_transition_failure "${repair_repo_root}" "${repair_cards}" \
   "${repair_absorbed_candidate}" "${repair_absorbed_receipt}" \
   "candidate chain commit changed a path outside the Owner WriteSet" \
   "VSB-01 candidate absorbing a governance repair path"
+
+if [[ "${repair_contract_only}" -eq 1 ]]; then
+  printf '%s\n' \
+    "GovernanceRepairContractTests = PASS" \
+    "GovernanceRepairPositiveCases = ${governance_repair_positive_cases}" \
+    "GovernanceRepairNegativeCases = ${governance_repair_negative_cases}"
+  exit 0
+fi
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 new_mode_path=scripts/import-visual-style-reference
