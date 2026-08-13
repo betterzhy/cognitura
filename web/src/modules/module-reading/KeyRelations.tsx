@@ -1,8 +1,20 @@
-import { isRelationType, type RendererInput } from "./model";
+import {
+  isRelationType,
+  type RelationType,
+  type RendererInput,
+} from "./model";
 
 export interface KeyRelationsProps {
   readonly input: RendererInput;
 }
+
+const relationVerbByType = {
+  DEPENDS_ON: "依赖于",
+  EXPLAINS: "解释",
+  CONTRASTS_WITH: "对照于",
+  APPLIES_TO: "适用于",
+  IMPACTS: "影响",
+} satisfies Readonly<Record<RelationType, string>>;
 
 export function KeyRelations({ input }: KeyRelationsProps) {
   if (input.relations.length === 0) {
@@ -26,19 +38,38 @@ export function KeyRelations({ input }: KeyRelationsProps) {
   });
 
   return (
-    <section data-reading-section="relations">
-      <ul aria-label="Key relations">
+    <section className="key-relations" data-reading-section="relations">
+      <h2 className="cka-type-major-section">局部关系</h2>
+      <ul aria-label="局部关系">
         {resolvedRelations.map(({ relation, sourceNode, targetNode }) => (
           <li
+            className="cka-relation-statement"
             data-relation-id={relation.relationId}
             data-relation-type={relation.type}
             data-source-node-ref={relation.sourceNodeRef}
             data-target-node-ref={relation.targetNodeRef}
             key={relation.relationId}
           >
-            <span data-relation-part="source">{sourceNode.label}</span>
-            <span data-relation-part="type">{relation.type}</span>
-            <span data-relation-part="target">{targetNode.label}</span>
+            <span
+              className="cka-relation-endpoint"
+              data-relation-part="source"
+            >
+              {sourceNode.label}
+            </span>
+            <span className="cka-relation-verb" data-relation-part="type">
+              {relationVerbByType[relation.type]}
+            </span>
+            <span
+              aria-hidden="true"
+              className="cka-relation-direction"
+              data-relation-part="direction"
+            />
+            <span
+              className="cka-relation-endpoint"
+              data-relation-part="target"
+            >
+              {targetNode.label}
+            </span>
           </li>
         ))}
       </ul>

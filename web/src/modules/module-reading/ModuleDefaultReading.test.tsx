@@ -8,6 +8,13 @@ import type {
   RendererRelation,
 } from "./model";
 import { ModuleDefaultReading } from "./ModuleDefaultReading";
+import moduleDefaultReadingCss from "./module-default-reading.css?raw";
+
+const nodeFsModule = "node:fs";
+const { readFileSync } = await import(nodeFsModule);
+const moduleDefaultReadingStyles =
+  moduleDefaultReadingCss ||
+  readFileSync("src/modules/module-reading/module-default-reading.css", "utf8");
 
 const module = cognitiveModuleFixture as unknown as CognitiveModule;
 
@@ -67,21 +74,22 @@ const expectedSectionOrder = [
 ] as const;
 
 function assertExactComposition(main: HTMLElement) {
-  const questions = within(main).getByRole("list", { name: "Core questions" });
+  const questions = within(main).getByRole("list", { name: "核心问题" });
   const conclusion = within(main).getByRole("region", {
-    name: "Core conclusion",
+    name: "核心结论",
   });
   const spine = within(main).getByRole("list", {
-    name: "Primary cognitive spine",
+    name: "认知主线",
   });
-  const stageChain = within(main).getByRole("list", { name: "Stage chain" });
+  const stageChain = within(main).getByRole("list", { name: "机制路径" });
   const boundaries = within(main).getByRole("list", {
-    name: "Critical boundaries",
+    name: "边界与例外",
   });
   const elements = within(main).getByRole("list", {
-    name: "Knowledge elements",
+    name: "关键知识",
   });
-  const relations = within(main).getByRole("list", { name: "Key relations" });
+  const relations = within(main).getByRole("list", { name: "局部关系" });
+  const sourceSection = within(main).getByRole("region", { name: "来源锚点" });
   const sourceEntry = within(main).getByRole("button", {
     name: `查看 ${rendererInput.sourceRefs.length} 条来源证据`,
   });
@@ -115,9 +123,9 @@ function assertExactComposition(main: HTMLElement) {
       .getAllByRole("listitem")
       .map((item) => [item.dataset.nodeId, item.textContent]),
   ).toEqual(
-    rendererInput.nodes.map((node) => [
+    rendererInput.nodes.map((node, index) => [
       node.nodeId,
-      `${node.label}${node.summary}`,
+      `${index + 1}${node.label}${node.summary}`,
     ]),
   );
   expect(
@@ -160,7 +168,8 @@ function assertExactComposition(main: HTMLElement) {
       relation.sourceNodeRef,
       relation.targetNodeRef,
       nodeById.get(relation.sourceNodeRef)?.label,
-      relation.type,
+      "依赖于",
+      "",
       nodeById.get(relation.targetNodeRef)?.label,
     ]),
   );
@@ -168,6 +177,8 @@ function assertExactComposition(main: HTMLElement) {
     "data-source-refs",
     JSON.stringify(rendererInput.sourceRefs),
   );
+  expect(sourceSection).toHaveAttribute("data-reading-section", "source-entry");
+  expect(sourceEntry).not.toHaveAttribute("data-reading-section");
 
   const sectionOrder = Array.from(
     main.querySelectorAll("[data-reading-section]"),
@@ -176,6 +187,7 @@ function assertExactComposition(main: HTMLElement) {
   expect(sectionOrder).toEqual(expectedSectionOrder);
   expect(new Set(sectionOrder).size).toBe(sectionOrder.length);
   expect(main.textContent).not.toContain("evidence.mvcc");
+  expect(main.textContent).not.toContain("DEPENDS_ON");
 }
 
 function renderedMainClone() {
@@ -208,7 +220,81 @@ describe("ModuleDefaultReading", () => {
     render(<ModuleDefaultReading module={module} rendererInput={rendererInput} />);
 
     expect(screen.getAllByRole("main")).toHaveLength(1);
-    assertExactComposition(screen.getByRole("main", { name: "MVCC" }));
+    const main = screen.getByRole("main", { name: "MVCC" });
+    assertExactComposition(main);
+    expect(main).toHaveClass(
+      "module-default-reading",
+      "cka-visual-root",
+      "cka-reading-surface",
+    );
+    expect(main).toHaveAttribute("data-reading-flow", "continuous-document");
+    expect(within(main).getByRole("heading", { level: 1 })).toHaveClass(
+      "cka-type-object-title",
+    );
+    expect(
+      main.querySelector('[data-primary-visual-projection="true"]'),
+    ).toHaveClass(
+      "module-default-reading__primary-projection",
+      "cka-projection-surface",
+    );
+    expect(screen.getByText("认知模块", { exact: true })).toHaveClass(
+      "module-default-reading__eyebrow",
+    );
+    expect(
+      main.querySelectorAll(
+        "aside, [role='complementary'], .dashboard, [data-dashboard], .card-wall, [data-card-wall]",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("consumes the production style authority without parallel theme values", () => {
+    const requiredAuthority = [
+      '../../styles/cognitura.css',
+      "--reading-column-width",
+      "--surface-reading",
+      "--surface-projection",
+      "--border-subtle",
+      "--text-primary",
+      "--text-secondary",
+      "--color-primary",
+      "--color-warning",
+      "--color-info",
+      "--radius-lg",
+    ];
+
+    requiredAuthority.forEach((token) =>
+      expect(moduleDefaultReadingStyles).toContain(token),
+    );
+    expect(moduleDefaultReadingStyles).toMatch(/@media\s*\(max-width:/);
+    expect(moduleDefaultReadingStyles).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(moduleDefaultReadingStyles).not.toMatch(/\b(?:rgb|hsl)a?\(/i);
+    expect(moduleDefaultReadingStyles).not.toMatch(/gradient\s*\(/i);
+    expect(moduleDefaultReadingStyles).toMatch(
+      /\.module-default-reading__eyebrow\s*\{[^}]*color:\s*var\(--color-focus\)/s,
+    );
+    expect(moduleDefaultReadingStyles).not.toContain("cka-status-focus");
+    expect(moduleDefaultReadingStyles).not.toContain("data-relation-strength");
+    expect(moduleDefaultReadingStyles).not.toMatch(
+      /\.key-relations[^{}]*\{[^}]*(?:--color-focus|--color-focus-soft)/s,
+    );
+    expect(moduleDefaultReadingStyles).toContain(
+      "width: min(100%, var(--projection-width))",
+    );
+    expect(moduleDefaultReadingStyles).toContain(
+      ".module-default-reading > :not(.module-default-reading__primary-projection)",
+    );
+    expect(moduleDefaultReadingStyles).toContain(
+      "width: min(100%, var(--reading-column-width))",
+    );
+    expect(moduleDefaultReadingStyles).not.toContain("100vw");
+    expect(moduleDefaultReadingStyles).toMatch(/max-width:\s*64rem/);
+    expect(moduleDefaultReadingStyles).toMatch(/max-width:\s*48rem/);
+    expect(moduleDefaultReadingStyles).toContain("overflow-x: hidden");
+    expect(moduleDefaultReadingStyles).not.toMatch(
+      /\.key-relations[^{}]*(?::first-child|:nth-child)/,
+    );
+    expect(moduleDefaultReadingStyles).not.toContain("ui-serif");
+    expect(moduleDefaultReadingStyles).not.toContain("Georgia");
   });
 
   it("keeps deletion, duplication, and reordering mutations RED", () => {

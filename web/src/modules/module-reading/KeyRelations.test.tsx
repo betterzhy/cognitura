@@ -7,6 +7,7 @@ import type {
   RendererInput,
   RendererRelation,
 } from "./model";
+import { relationTypes } from "./model";
 import { KeyRelations } from "./KeyRelations";
 
 const sourceRef = "evidence.mvcc";
@@ -230,11 +231,33 @@ const rendererInputWithTwoRelations: RendererInput = {
   interactionHints: ["SHOW_SOURCE"],
 };
 
+const expectedRelationVerbs = {
+  DEPENDS_ON: "依赖于",
+  EXPLAINS: "解释",
+  CONTRASTS_WITH: "对照于",
+  APPLIES_TO: "适用于",
+  IMPACTS: "影响",
+} as const;
+
+function relationVisualSemantics(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>("[data-relation-id]"),
+    (item) => ({
+      className: item.className,
+      relationId: item.dataset.relationId,
+      relationStrength: item.dataset.relationStrength,
+      visibleStatement: item.textContent,
+    }),
+  ).sort((left, right) =>
+    (left.relationId ?? "").localeCompare(right.relationId ?? ""),
+  );
+}
+
 describe("KeyRelations", () => {
   it("projects identity, type, direction, and canonical endpoint labels", () => {
     const input = rendererInputWithTwoRelations;
     render(<KeyRelations input={input} />);
-    const relationList = screen.getByRole("list", { name: "Key relations" });
+    const relationList = screen.getByRole("list", { name: "局部关系" });
     const relationItems = within(relationList).getAllByRole("listitem");
     const nodeById = new Map(input.nodes.map((node) => [node.nodeId, node]));
 
@@ -280,14 +303,83 @@ describe("KeyRelations", () => {
     ).toEqual(
       input.relations.map((item) => [
         nodeById.get(item.sourceNodeRef)?.label,
-        item.type,
+        expectedRelationVerbs[item.type],
+        "",
         nodeById.get(item.targetNodeRef)?.label,
       ]),
     );
     relationItems.forEach((item, index) => {
       expect(item).not.toHaveTextContent(input.relations[index].sourceNodeRef);
       expect(item).not.toHaveTextContent(input.relations[index].targetNodeRef);
+      expect(item).toHaveClass("cka-relation-statement");
+      expect(
+        item.querySelector('[data-relation-part="source"]'),
+      ).toHaveClass("cka-relation-endpoint");
+      expect(item.querySelector('[data-relation-part="type"]')).toHaveClass(
+        "cka-relation-verb",
+      );
+      expect(
+        item.querySelector('[data-relation-part="direction"]'),
+      ).toHaveClass("cka-relation-direction");
+      expect(
+        item.querySelector('[data-relation-part="target"]'),
+      ).toHaveClass("cka-relation-endpoint");
+      expect(item).not.toHaveAttribute("data-relation-strength");
+      expect(item).not.toHaveClass("cka-status-focus");
+      expect(item.textContent).not.toContain(input.relations[index].type);
+      expect(item.textContent).not.toMatch(/\b[A-Z]+_[A-Z_]+\b/);
     });
+    expect(relationItems).toHaveLength(2);
+  });
+
+  it("maps every formal relation type to an exhaustive natural-language verb", () => {
+    expect(Object.keys(expectedRelationVerbs)).toEqual(relationTypes);
+
+    relationTypes.forEach((type) => {
+      const input: RendererInput = {
+        ...rendererInputWithTwoRelations,
+        relations: [
+          {
+            ...rendererInputWithTwoRelations.relations[0],
+            relationId: `renderer-relation.${type.toLowerCase()}`,
+            type,
+          },
+        ],
+      };
+      const { container, unmount } = render(<KeyRelations input={input} />);
+      const typeLabel = within(container).getByText(expectedRelationVerbs[type], {
+        exact: true,
+      });
+
+      expect(typeLabel).toHaveAttribute("data-relation-part", "type");
+      expect(typeLabel).not.toHaveTextContent(type);
+      expect(typeLabel.textContent).not.toMatch(/_/);
+      unmount();
+    });
+  });
+
+  it("keeps every relation neutral and stable when the input order changes", () => {
+    const { container, rerender } = render(
+      <KeyRelations input={rendererInputWithTwoRelations} />,
+    );
+    const originalSemantics = relationVisualSemantics(container);
+
+    expect(
+      container.querySelectorAll(
+        ".cka-status-focus, [data-relation-strength='focused'], [data-relation-strength='weak']",
+      ),
+    ).toHaveLength(0);
+
+    rerender(
+      <KeyRelations
+        input={{
+          ...rendererInputWithTwoRelations,
+          relations: [...rendererInputWithTwoRelations.relations].reverse(),
+        }}
+      />,
+    );
+
+    expect(relationVisualSemantics(container)).toEqual(originalSemantics);
   });
 
   it("fails closed when a relation endpoint is missing", () => {

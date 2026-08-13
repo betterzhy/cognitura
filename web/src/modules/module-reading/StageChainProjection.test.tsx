@@ -42,13 +42,17 @@ describe("StageChainProjection", () => {
     const { container } = render(
       <StageChainProjection moduleRef="module.mvcc" input={rendererInput} />,
     );
-    const stageChain = screen.getByRole("list", { name: "Stage chain" });
+    const stageChain = screen.getByRole("list", { name: "机制路径" });
 
     expect(
       within(stageChain)
         .getAllByRole("listitem")
         .map((item) => item.textContent),
-    ).toEqual(rendererInput.nodes.map((node) => `${node.label}${node.summary}`));
+    ).toEqual(
+      rendererInput.nodes.map(
+        (node, index) => `${index + 1}${node.label}${node.summary}`,
+      ),
+    );
     expect(
       within(stageChain)
         .getAllByRole("listitem")
@@ -59,6 +63,21 @@ describe("StageChainProjection", () => {
         node.getAttribute("data-reading-section"),
       ),
     ).toEqual(["stage-chain"]);
+    expect(container.firstElementChild).toHaveClass("stage-chain-projection");
+    expect(container.firstElementChild).not.toHaveClass("cka-projection-surface");
+    expect(
+      screen.getByRole("heading", { name: rendererInput.title, level: 2 }),
+    ).toHaveClass("cka-type-major-section");
+    expect(screen.getByText(rendererInput.summary)).toHaveClass(
+      "stage-chain-projection__summary",
+    );
+    expect(
+      within(stageChain)
+        .getAllByRole("listitem")
+        .map((item) =>
+          item.querySelector(".stage-chain-projection__number")?.textContent,
+        ),
+    ).toEqual(["1", "2"]);
   });
 
   it("fails closed when the module reference does not match", () => {

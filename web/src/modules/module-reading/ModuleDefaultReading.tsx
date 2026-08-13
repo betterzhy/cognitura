@@ -130,10 +130,20 @@ export function ModuleDefaultReading({
   validateFormalRelations(module, rendererInput);
 
   return (
-    <main aria-label={module.title} className="module-default-reading">
-      <h1>{module.title}</h1>
+    <main
+      aria-label={module.title}
+      className="module-default-reading cka-visual-root cka-reading-surface"
+      data-reading-flow="continuous-document"
+    >
+      <header className="module-default-reading__identity">
+        <p className="module-default-reading__eyebrow">认知模块</p>
+        <h1 className="cka-type-object-title">{module.title}</h1>
+      </header>
       <ModuleNarrative projection={narrative} />
-      <div data-primary-visual-projection="true">
+      <div
+        className="module-default-reading__primary-projection cka-projection-surface"
+        data-primary-visual-projection="true"
+      >
         <StageChainProjection moduleRef={module.artifactId} input={rendererInput} />
       </div>
       <ModuleClosure

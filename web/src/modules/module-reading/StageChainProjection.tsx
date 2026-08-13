@@ -17,12 +17,28 @@ export function StageChainProjection({
   }
 
   return (
-    <section data-reading-section="stage-chain">
-      <ol aria-label="Stage chain">
-        {input.nodes.map((node) => (
+    <section
+      className="stage-chain-projection"
+      data-reading-section="stage-chain"
+    >
+      <header className="stage-chain-projection__header">
+        <p className="stage-chain-projection__label">机制路径</p>
+        <h2 className="cka-type-major-section">{input.title}</h2>
+        <p className="stage-chain-projection__summary">{input.summary}</p>
+      </header>
+      <ol aria-label="机制路径">
+        {input.nodes.map((node, index) => (
           <li data-node-id={node.nodeId} key={node.nodeId}>
-            <strong>{node.label}</strong>
-            <span>{node.summary}</span>
+            <span
+              aria-hidden="true"
+              className="stage-chain-projection__number"
+            >
+              {index + 1}
+            </span>
+            <span className="stage-chain-projection__content">
+              <strong>{node.label}</strong>
+              <span>{node.summary}</span>
+            </span>
           </li>
         ))}
       </ol>

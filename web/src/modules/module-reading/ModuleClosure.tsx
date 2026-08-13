@@ -8,9 +8,12 @@ export interface ModuleClosureProps {
 export function ModuleClosure({ boundaries, elements }: ModuleClosureProps) {
   return (
     <>
-      <section data-reading-section="boundaries">
-        <h2>Critical boundaries</h2>
-        <ul aria-label="Critical boundaries">
+      <section
+        className="module-closure__boundaries cka-semantic-boundary"
+        data-reading-section="boundaries"
+      >
+        <h2 className="cka-type-major-section">边界与例外</h2>
+        <ul aria-label="边界与例外">
           {boundaries.map((boundary) => (
             <li
               data-boundary-id={boundary.boundaryId}
@@ -22,9 +25,12 @@ export function ModuleClosure({ boundaries, elements }: ModuleClosureProps) {
         </ul>
       </section>
 
-      <section data-reading-section="elements">
-        <h2>Knowledge elements</h2>
-        <ul aria-label="Knowledge elements">
+      <section
+        className="module-closure__elements"
+        data-reading-section="elements"
+      >
+        <h2 className="cka-type-major-section">关键知识</h2>
+        <ul aria-label="关键知识">
           {elements.map((element) => (
             <li data-element-id={element.artifactId} key={element.artifactId}>
               <strong>{element.title}</strong>

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { SourceEntry } from "./SourceEntry";
@@ -7,6 +7,7 @@ describe("SourceEntry", () => {
   it("projects a focusable, closed source entry without exposing source IDs", () => {
     const sourceRefs = ["evidence.mvcc"];
     const { container } = render(<SourceEntry sourceRefs={sourceRefs} />);
+    const section = screen.getByRole("region", { name: "来源锚点" });
     const button = screen.getByRole("button", {
       name: "查看 1 条来源证据",
     });
@@ -16,7 +17,13 @@ describe("SourceEntry", () => {
       "data-source-refs",
       JSON.stringify(sourceRefs),
     );
-    expect(button).toHaveAttribute("data-reading-section", "source-entry");
+    expect(section).toHaveAttribute("data-reading-section", "source-entry");
+    expect(section).toHaveClass("module-source-entry");
+    expect(button).not.toHaveAttribute("data-reading-section");
+    expect(button).toHaveClass("module-source-entry__action", "cka-focusable");
+    expect(section).toHaveTextContent("来源锚点");
+    expect(section).toHaveTextContent("关键结论可回到正式来源核验。");
+    expect(within(section).getAllByRole("button")).toHaveLength(1);
     expect(
       container.querySelectorAll('[data-reading-section="source-entry"]'),
     ).toHaveLength(1);

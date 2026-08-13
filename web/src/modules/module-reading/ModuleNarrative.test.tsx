@@ -31,12 +31,12 @@ const projection: ModuleNarrativeProjection = {
 describe("ModuleNarrative", () => {
   it("renders questions, conclusion, and spine in canonical order", () => {
     const { container } = render(<ModuleNarrative projection={projection} />);
-    const questions = screen.getByRole("list", { name: "Core questions" });
+    const questions = screen.getByRole("list", { name: "核心问题" });
     const conclusion = screen.getByRole("region", {
-      name: "Core conclusion",
+      name: "核心结论",
     });
     const spine = screen.getByRole("list", {
-      name: "Primary cognitive spine",
+      name: "认知主线",
     });
 
     expect(
@@ -65,5 +65,21 @@ describe("ModuleNarrative", () => {
         (section) => section.getAttribute("data-reading-section"),
       ),
     ).toEqual(["core-questions", "core-conclusion", "primary-spine"]);
+    expect(
+      container.querySelector('[data-reading-section="core-questions"]'),
+    ).toHaveClass("module-narrative__questions");
+    expect(conclusion).toHaveClass(
+      "module-narrative__conclusion",
+    );
+    expect(conclusion).not.toHaveClass("cka-subtle-band");
+    expect(
+      container.querySelector('[data-reading-section="primary-spine"]'),
+    ).toHaveClass("module-narrative__spine");
+    screen.getAllByRole("heading", { level: 2 }).forEach((heading) =>
+      expect(heading).toHaveClass("cka-type-major-section"),
+    );
+    expect(container.querySelectorAll(".cka-projection-surface")).toHaveLength(
+      0,
+    );
   });
 });

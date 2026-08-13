@@ -58,9 +58,9 @@ describe("ModuleClosure", () => {
     expect(projection.criticalBoundaries).toBe(
       moduleClosureSource.criticalBoundaries,
     );
-    const elements = screen.getByRole("list", { name: "Knowledge elements" });
+    const elements = screen.getByRole("list", { name: "关键知识" });
     const boundaries = screen.getByRole("list", {
-      name: "Critical boundaries",
+      name: "边界与例外",
     });
 
     expect(
@@ -94,5 +94,17 @@ describe("ModuleClosure", () => {
     expect(
       screen.queryByRole("heading", { name: /Conditions|Results/ }),
     ).toBeNull();
+    expect(
+      container.querySelector('[data-reading-section="boundaries"]'),
+    ).toHaveClass("module-closure__boundaries", "cka-semantic-boundary");
+    expect(
+      container.querySelector('[data-reading-section="elements"]'),
+    ).toHaveClass("module-closure__elements");
+    expect(container.querySelectorAll(".cka-projection-surface")).toHaveLength(
+      0,
+    );
+    screen.getAllByRole("heading", { level: 2 }).forEach((heading) =>
+      expect(heading).toHaveClass("cka-type-major-section"),
+    );
   });
 });
