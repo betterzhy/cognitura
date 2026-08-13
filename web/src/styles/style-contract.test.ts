@@ -121,7 +121,81 @@ const normalizeSelector = (selector: string) =>
 
 type ParsedStyleSheet = {
   imports: string[];
-  rules: Array<{ selector: string; body: string }>;
+  rules: Array<{ selector: string; body: string; declarations: ParsedDeclaration[] }>;
+};
+
+type ParsedDeclaration = { property: string; value: string };
+
+const parseActiveDeclarations = (body: string): ParsedDeclaration[] => {
+  const declarations: ParsedDeclaration[] = [];
+  let cursor = 0;
+
+  while (cursor < body.length) {
+    while (/\s/.test(body[cursor] ?? "")) cursor += 1;
+    if (cursor >= body.length) break;
+
+    const propertyStart = cursor;
+    while (cursor < body.length && body[cursor] !== ":") {
+      if (';{}()"\''.includes(body[cursor])) throw new Error("invalid CSS declaration property");
+      cursor += 1;
+    }
+    if (cursor >= body.length) throw new Error("unterminated CSS declaration");
+
+    const property = body.slice(propertyStart, cursor).trim();
+    if (!/^(?:--[a-z0-9-]+|[a-z][a-z0-9-]*)$/.test(property)) {
+      throw new Error(`invalid CSS declaration property: ${property}`);
+    }
+    cursor += 1;
+
+    const valueStart = cursor;
+    let quote: '"' | "'" | null = null;
+    let parenthesesDepth = 0;
+    while (cursor < body.length) {
+      const character = body[cursor];
+      const nextCharacter = body[cursor + 1];
+
+      if (quote !== null) {
+        if (character === "\\" && nextCharacter !== undefined) {
+          cursor += 2;
+          continue;
+        }
+        if (character === quote) quote = null;
+        cursor += 1;
+        continue;
+      }
+
+      if (character === '"' || character === "'") {
+        quote = character;
+        cursor += 1;
+        continue;
+      }
+      if (character === "(") {
+        parenthesesDepth += 1;
+        cursor += 1;
+        continue;
+      }
+      if (character === ")") {
+        if (parenthesesDepth === 0) throw new Error("unmatched CSS parenthesis");
+        parenthesesDepth -= 1;
+        cursor += 1;
+        continue;
+      }
+      if (character === "{" || character === "}") throw new Error("invalid CSS declaration value");
+      if (character === ";" && parenthesesDepth === 0) break;
+      cursor += 1;
+    }
+
+    if (quote !== null) throw new Error("unterminated CSS string");
+    if (parenthesesDepth !== 0) throw new Error("unterminated CSS parentheses");
+    if (cursor >= body.length) throw new Error("unterminated CSS declaration");
+
+    const value = normalizeValue(body.slice(valueStart, cursor));
+    if (value.length === 0) throw new Error(`empty CSS declaration value: ${property}`);
+    declarations.push({ property, value });
+    cursor += 1;
+  }
+
+  return declarations;
 };
 
 const findOutsideString = (css: string, start: number, targets: string[]) => {
@@ -172,7 +246,8 @@ const parseActiveStyleSheet = (activeCss: string): ParsedStyleSheet => {
     if (closingBrace < 0) throw new Error(`unterminated CSS rule: ${selector}`);
     if (activeCss[closingBrace] === "{") throw new Error(`nested CSS rule: ${selector}`);
 
-    rules.push({ selector, body: activeCss.slice(openingBrace + 1, closingBrace) });
+    const body = activeCss.slice(openingBrace + 1, closingBrace);
+    rules.push({ selector, body, declarations: parseActiveDeclarations(body) });
     cursor = closingBrace + 1;
   }
 
@@ -209,6 +284,24 @@ const parseClosedStyleSet = (candidateStyles: StyleSet) => {
     if (JSON.stringify(parsed[file].imports) !== JSON.stringify(expectedImportsByFile[file])) {
       throw new Error(`CSS import set is not closed: ${file}`);
     }
+    if (
+      JSON.stringify(Object.keys(expectedDeclarationsByFile[file])) !==
+      JSON.stringify(approvedSelectorsByFile[file])
+    ) {
+      throw new Error(`declaration authority is not closed: ${file}`);
+    }
+    for (const rule of parsed[file].rules) {
+      const properties = rule.declarations.map(({ property }) => property);
+      if (new Set(properties).size !== properties.length) {
+        throw new Error(`duplicate CSS declaration: ${file} ${rule.selector}`);
+      }
+      if (
+        JSON.stringify(rule.declarations) !==
+        JSON.stringify(expectedDeclarationsByFile[file][rule.selector])
+      ) {
+        throw new Error(`CSS declarations differ from authority: ${file} ${rule.selector}`);
+      }
+    }
   }
 
   return { activeStyles, parsed };
@@ -216,12 +309,15 @@ const parseClosedStyleSet = (candidateStyles: StyleSet) => {
 
 const styleContractAccepts = (candidateStyles: StyleSet) => {
   try {
-    const { activeStyles } = parseClosedStyleSet(candidateStyles);
-    const candidateDeclarations = Object.entries(activeStyles).flatMap(([file, css]) =>
-      [...css.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map(
-        ([, name, value]) => ({ file, name, value: normalizeValue(value) }),
+    const { parsed } = parseClosedStyleSet(candidateStyles);
+    const allDeclarations = Object.entries(parsed).flatMap(([file, sheet]) =>
+      sheet.rules.flatMap(({ declarations }) =>
+        declarations.map(({ property, value }) => ({ file, property, value })),
       ),
     );
+    const candidateDeclarations = allDeclarations
+      .filter(({ property }) => property.startsWith("--"))
+      .map(({ file, property, value }) => ({ file, name: property, value }));
     if (candidateDeclarations.length !== Object.keys(expectedTokens).length) return false;
     if (new Set(candidateDeclarations.map(({ name }) => name)).size !== candidateDeclarations.length) {
       return false;
@@ -235,9 +331,11 @@ const styleContractAccepts = (candidateStyles: StyleSet) => {
       return false;
     }
 
-    const allActiveCss = Object.values(activeStyles).join("\n");
+    const activeDeclarations = allDeclarations
+      .map(({ property, value }) => `${property}: ${value}`)
+      .join("\n");
     return !/--[^:;{}]*(?:blue-|purple-card|green-box|gradient|glass|card-wall)|url\s*\(\s*["']?(?:https?:)?\/\/|backdrop-filter|(?:repeating-)?(?:linear|radial|conic)-gradient|\bglow\b/i.test(
-      allActiveCss,
+      activeDeclarations,
     );
   } catch {
     return false;
@@ -323,6 +421,155 @@ const expectedTokens: Record<string, string> = {
   "--motion-easing": "ease-out",
 };
 
+const expectedDeclarationsByFile: Record<StyleFile, Record<string, ParsedDeclaration[]>> = {
+  "tokens.css": {
+    ":root": [
+      { property: "color-scheme", value: "light" },
+      ...Object.entries(expectedTokens).map(([property, value]) => ({ property, value })),
+    ],
+  },
+  "typography.css": {
+    ".cka-visual-root": [
+      { property: "color", value: "var(--text-primary)" },
+      { property: "font-family", value: "var(--font-interface)" },
+      { property: "font-size", value: "var(--type-reading-size)" },
+      { property: "line-height", value: "var(--type-reading-line-height)" },
+      { property: "text-rendering", value: "optimizeLegibility" },
+    ],
+    ".cka-type-page-title": [
+      { property: "font-size", value: "var(--type-page-title-size)" },
+      { property: "line-height", value: "var(--type-page-title-line-height)" },
+      { property: "font-weight", value: "var(--font-weight-bold)" },
+    ],
+    ".cka-type-object-title": [
+      { property: "font-size", value: "var(--type-object-title-size)" },
+      { property: "line-height", value: "var(--type-object-title-line-height)" },
+      { property: "font-weight", value: "var(--font-weight-semibold)" },
+    ],
+    ".cka-type-major-section": [
+      { property: "font-size", value: "var(--type-major-section-size)" },
+      { property: "line-height", value: "var(--type-major-section-line-height)" },
+      { property: "font-weight", value: "var(--font-weight-semibold)" },
+    ],
+    ".cka-type-cognitive-section": [
+      { property: "font-size", value: "var(--type-cognitive-section-size)" },
+      { property: "line-height", value: "var(--type-cognitive-section-line-height)" },
+      { property: "font-weight", value: "var(--font-weight-semibold)" },
+    ],
+    ".cka-type-reading": [
+      { property: "font-size", value: "var(--type-reading-size)" },
+      { property: "line-height", value: "var(--type-reading-line-height)" },
+      { property: "font-weight", value: "var(--font-weight-regular)" },
+    ],
+    ".cka-type-ui": [
+      { property: "font-size", value: "var(--type-ui-size)" },
+      { property: "line-height", value: "var(--type-ui-line-height)" },
+    ],
+    ".cka-type-metadata": [
+      { property: "font-size", value: "var(--type-metadata-size)" },
+      { property: "line-height", value: "var(--type-metadata-line-height)" },
+    ],
+    ".cka-type-caption": [
+      { property: "font-size", value: "var(--type-caption-size)" },
+      { property: "line-height", value: "var(--type-caption-line-height)" },
+    ],
+  },
+  "surfaces.css": {
+    ".cka-canvas": [
+      { property: "min-block-size", value: "100%" },
+      { property: "background", value: "var(--color-canvas)" },
+    ],
+    ".cka-reading-surface": [
+      { property: "box-sizing", value: "border-box" },
+      { property: "inline-size", value: "min(100%, var(--reading-column-width))" },
+      { property: "margin-inline", value: "auto" },
+      { property: "background", value: "var(--surface-reading)" },
+      { property: "box-shadow", value: "none" },
+    ],
+    ".cka-projection-surface": [
+      { property: "box-sizing", value: "border-box" },
+      { property: "inline-size", value: "min(100%, var(--projection-width))" },
+      { property: "border", value: "1px solid var(--border-subtle)" },
+      { property: "border-radius", value: "var(--radius-lg)" },
+      { property: "background", value: "var(--surface-projection)" },
+      { property: "box-shadow", value: "var(--shadow-xs)" },
+    ],
+    ".cka-subtle-band": [
+      { property: "border-block", value: "1px solid var(--border-subtle)" },
+      { property: "background", value: "var(--surface-subtle)" },
+    ],
+    ".cka-semantic-boundary": [
+      { property: "border-inline-start", value: "3px solid var(--color-warning)" },
+      { property: "border-radius", value: "var(--radius-sm)" },
+      { property: "background", value: "var(--color-warning-soft)" },
+      { property: "padding", value: "var(--space-4)" },
+    ],
+  },
+  "cognitive-visual.css": {
+    ".cka-focusable:focus, .cka-focusable:focus-visible": [
+      {
+        property: "outline",
+        value: "var(--focus-ring-width) solid var(--focus-ring-color)",
+      },
+      { property: "outline-offset", value: "var(--focus-ring-offset)" },
+    ],
+    ".cka-relation-statement": [
+      { property: "display", value: "grid" },
+      {
+        property: "grid-template-columns",
+        value: "minmax(0, 1fr) auto minmax(0, 1fr)",
+      },
+      { property: "align-items", value: "center" },
+      { property: "color", value: "var(--text-secondary)" },
+    ],
+    ".cka-relation-verb": [
+      { property: "color", value: "var(--color-primary)" },
+      { property: "font-weight", value: "var(--font-weight-semibold)" },
+    ],
+    ".cka-relation-direction": [
+      { property: "position", value: "relative" },
+      { property: "min-inline-size", value: "var(--space-12)" },
+      { property: "border-block-start", value: "1.5px solid currentColor" },
+    ],
+    ".cka-relation-direction::after": [
+      { property: "position", value: "absolute" },
+      { property: "inset-block-start", value: "-4px" },
+      { property: "inset-inline-end", value: "0" },
+      { property: "inline-size", value: "6px" },
+      { property: "block-size", value: "6px" },
+      { property: "border", value: "solid currentColor" },
+      { property: "border-width", value: "0 1.5px 1.5px 0" },
+      { property: "content", value: '""' },
+      { property: "transform", value: "rotate(-45deg)" },
+    ],
+    ".cka-relation-endpoint": [
+      { property: "min-inline-size", value: "0" },
+      { property: "color", value: "var(--text-primary)" },
+    ],
+    '.cka-relation-statement[data-relation-strength="weak"] .cka-relation-direction': [
+      { property: "border-block-start-style", value: "dashed" },
+      { property: "opacity", value: "0.64" },
+    ],
+    ".cka-status-confirmed": [
+      { property: "color", value: "var(--color-success)" },
+      { property: "background", value: "var(--color-success-soft)" },
+    ],
+    ".cka-status-focus": [
+      { property: "color", value: "var(--color-focus)" },
+      { property: "background", value: "var(--color-focus-soft)" },
+    ],
+    ".cka-status-warning": [
+      { property: "color", value: "var(--color-warning)" },
+      { property: "background", value: "var(--color-warning-soft)" },
+    ],
+    ".cka-status-conflict": [
+      { property: "color", value: "var(--color-danger)" },
+      { property: "background", value: "var(--color-danger-soft)" },
+    ],
+  },
+  "cognitura.css": {},
+};
+
 const expectedNormalizedColorTokens = [
   "--color-canvas",
   "--surface-reading",
@@ -351,25 +598,169 @@ const expectedNormalizedColorTokens = [
   "--color-info-soft",
 ];
 
-const normalizeValue = (value: string) =>
-  value.trim().replace(/\s+/g, " ").replace(/#[0-9A-F]{6}/g, (hex) => hex.toLowerCase());
+const normalizeValue = (value: string) => {
+  let normalized = "";
+  let quote: '"' | "'" | null = null;
+  let pendingSpace = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    const nextCharacter = value[index + 1];
+
+    if (quote !== null) {
+      normalized += character;
+      if (character === "\\" && nextCharacter !== undefined) {
+        normalized += nextCharacter;
+        index += 1;
+      } else if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      if (pendingSpace && normalized.length > 0) normalized += " ";
+      pendingSpace = false;
+      quote = character;
+      normalized += character;
+      continue;
+    }
+
+    if (/\s/.test(character)) {
+      pendingSpace = true;
+      continue;
+    }
+
+    if (pendingSpace && normalized.length > 0) normalized += " ";
+    pendingSpace = false;
+
+    const hex = value.slice(index).match(/^#[0-9A-F]{6}\b/);
+    if (hex) {
+      normalized += hex[0].toLowerCase();
+      index += hex[0].length - 1;
+    } else {
+      normalized += character;
+    }
+  }
+
+  if (quote !== null) throw new Error("unterminated CSS string");
+  return normalized;
+};
 
 const { activeStyles: activeCssByFile, parsed: parsedCssByFile } = parseClosedStyleSet(styles);
 
-const declarations = Object.entries(activeCssByFile).flatMap(([file, css]) =>
-  [...css.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map(
-    ([, name, value]) => ({ file, name, value: normalizeValue(value) }),
+const declarations = Object.entries(parsedCssByFile).flatMap(([file, sheet]) =>
+  sheet.rules.flatMap(({ declarations: ruleDeclarations }) =>
+    ruleDeclarations
+      .filter(({ property }) => property.startsWith("--"))
+      .map(({ property, value }) => ({ file, name: property, value })),
   ),
 );
 
 const blockFor = (css: string, selector: string) => {
-  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`));
-  expect(match, `missing CSS rule for ${selector}`).not.toBeNull();
-  return match?.[1] ?? "";
+  const normalizedSelector = normalizeSelector(selector);
+  const matches = parseActiveStyleSheet(css).rules.filter(
+    ({ selector: candidateSelector }) =>
+      candidateSelector === normalizedSelector ||
+      candidateSelector.split(", ").includes(normalizedSelector),
+  );
+  expect(matches, `missing or duplicate CSS rule for ${selector}`).toHaveLength(1);
+  return matches[0]?.body ?? "";
 };
 
 describe("Cognitura semantic style contract", () => {
+  it("rejects token-shaped text inside a declaration string", () => {
+    const tokenText = Object.entries(expectedTokens)
+      .map(([name, value]) => `${name}: ${value};`)
+      .join("\\a ");
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "tokens.css": `:root { content: '${tokenText}'; }`,
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects duplicate, unknown, missing, and drifting declarations in approved blocks", () => {
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "surfaces.css": surfacesCss.replace(
+          "  box-shadow: none;",
+          "  box-shadow: none;\n  box-shadow: var(--shadow-md);",
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "surfaces.css": surfacesCss.replace(
+          "  box-shadow: none;",
+          "  box-shadow: none;\n  filter: none;",
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "surfaces.css": surfacesCss.replace("  box-shadow: none;\n", ""),
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "surfaces.css": surfacesCss.replace(
+          "  background: var(--surface-reading);",
+          "  background: var(--surface-projection);",
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "tokens.css": tokensCss.replace("color-scheme: light;", "color-scheme: light dark;"),
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "tokens.css": tokensCss.replace(
+          "color-scheme: light;",
+          "color-scheme: light-dark(light, dark);",
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "cognitive-visual.css": cognitiveVisualCss.replace(
+          "  border-block-start: 1.5px solid currentColor;",
+          "  border-block-start: 1.5px solid currentColor;\n  border-block-start: 8px dotted currentColor;",
+        ),
+      }),
+    ).toBe(false);
+  });
+
+  it("parses declaration strings, escapes, parentheses, and semicolons structurally", () => {
+    expect(
+      parseActiveDeclarations(
+        'content: "semi;paren ( and  \\"quote\\" )"; background: rgb(1 2 3 / calc(50% + 1%));',
+      ),
+    ).toEqual([
+      { property: "content", value: '"semi;paren ( and  \\"quote\\" )"' },
+      { property: "background", value: "rgb(1 2 3 / calc(50% + 1%))" },
+    ]);
+    expect(() => parseActiveDeclarations('content: "unterminated;')).toThrow(
+      "unterminated CSS string",
+    );
+    expect(() => parseActiveDeclarations("color: rgb(1 2 3 / 50%;")).toThrow(
+      "unterminated CSS parentheses",
+    );
+    expect(() => parseActiveStyleSheet(".rule { color: red;")).toThrow(
+      "unterminated CSS rule",
+    );
+  });
+
   it("rejects declarations and selectors hidden inside CSS comments", () => {
     expect(styleContractAccepts(styles)).toBe(true);
     expect(
