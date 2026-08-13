@@ -179,6 +179,8 @@ early_exit_cases=2
 registered_cleanup_tmp="${test_tmp_root}/registered-cleanup"
 registered_cleanup_cards="${test_tmp_root}/registered-cleanup-cards"
 mkdir -p "${registered_cleanup_tmp}"
+registered_cleanup_marker="${registered_cleanup_tmp}/sibling-marker"
+printf 'preserve sibling\n' > "${registered_cleanup_marker}"
 cp -R "${bootstrap_cards_dir}" "${registered_cleanup_cards}"
 printf '\0' >> "${registered_cleanup_cards}/execution-state.md"
 if registered_cleanup_output="$(
@@ -196,11 +198,20 @@ fi
   fail "NUL ledger cleanup polluted its diagnostic: ${registered_cleanup_output}"
 shopt -s nullglob
 registered_cleanup_leaks=(
-  "${registered_cleanup_tmp}"/cognitura-vsb-nul-free.*
+  "${registered_cleanup_tmp}"/cognitura-vsb-verifier.*
 )
 shopt -u nullglob
 [[ "${#registered_cleanup_leaks[@]}" -eq 0 ]] ||
-  fail "VSB verifier leaked a registered temporary path"
+  fail "VSB verifier leaked its invocation root after NUL early failure"
+[[ -f "${registered_cleanup_marker}" &&
+   "$(cat "${registered_cleanup_marker}")" == "preserve sibling" ]] ||
+  fail "VSB verifier removed or changed a sibling during NUL early failure"
+shopt -s nullglob
+registered_cleanup_entries=("${registered_cleanup_tmp}"/*)
+shopt -u nullglob
+[[ "${#registered_cleanup_entries[@]}" -eq 1 &&
+   "${registered_cleanup_entries[0]}" == "${registered_cleanup_marker}" ]] ||
+  fail "NUL early failure left temporary entries outside the sibling marker"
 registered_temporary_cleanup_cases=1
 
 validation_output="$(
@@ -832,6 +843,8 @@ cumulative_candidate_positive_cases=$((cumulative_candidate_positive_cases + 1))
 
 cumulative_cleanup_tmp="${test_tmp_root}/cumulative-cleanup"
 mkdir -p "${cumulative_cleanup_tmp}"
+cumulative_cleanup_marker="${cumulative_cleanup_tmp}/sibling-marker"
+printf 'preserve sibling\n' > "${cumulative_cleanup_marker}"
 TMPDIR="${cumulative_cleanup_tmp}" "${verifier}" \
   --repo-root "${transition_repo_root}" \
   --cards-dir "${transition_cards}" \
@@ -841,8 +854,10 @@ TMPDIR="${cumulative_cleanup_tmp}" "${verifier}" \
 shopt -s nullglob
 cumulative_cleanup_leaks=("${cumulative_cleanup_tmp}"/*)
 shopt -u nullglob
-[[ "${#cumulative_cleanup_leaks[@]}" -eq 0 ]] ||
-  fail "cumulative candidate replay leaked outside its invocation temp root"
+[[ "${#cumulative_cleanup_leaks[@]}" -eq 1 &&
+   "${cumulative_cleanup_leaks[0]}" == "${cumulative_cleanup_marker}" &&
+   "$(cat "${cumulative_cleanup_marker}")" == "preserve sibling" ]] ||
+  fail "cumulative replay leaked temporary entries or changed its sibling marker"
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 missing_cumulative_tip="$(commit_candidate_subset \
@@ -876,6 +891,132 @@ mode_drift_receipt="$(make_vsb00_advance_receipt \
 expect_transition_failure "${mode_drift_tip}" "${mode_drift_receipt}" \
   "candidate chain commit must preserve existing file modes" \
   "candidate containing hidden file-mode drift"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+same_mode_recreated_path=AGENTS.md
+git -C "${transition_repo_root}" rm -q -- "${same_mode_recreated_path}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: delete Owner path before same-mode recreation"
+git -C "${transition_repo_root}" show \
+  "${activation_sha}:${same_mode_recreated_path}" > \
+  "${transition_repo_root}/${same_mode_recreated_path}"
+git -C "${transition_repo_root}" add -- "${same_mode_recreated_path}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: recreate Owner path with the release mode"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "candidate completing WriteSet after same-mode recreation"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: complete same-mode recreated candidate"
+same_mode_recreated_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+same_mode_recreated_receipt="$(make_vsb00_advance_receipt \
+  "${same_mode_recreated_tip}" \
+  "test: advance same-mode recreated candidate")"
+same_mode_recreated_output="$(run_vsb_transition \
+  "${same_mode_recreated_tip}" "${same_mode_recreated_receipt}")" ||
+  fail "legal same-mode delete-and-recreate candidate was rejected: ${same_mode_recreated_output}"
+assert_contains "${same_mode_recreated_output}" \
+  "VisualStyleBaselineTaskCardValidation = PASS"
+cumulative_candidate_positive_cases=$((cumulative_candidate_positive_cases + 1))
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+new_mode_path=scripts/import-visual-style-reference
+printf 'first creation\n' > "${transition_repo_root}/${new_mode_path}"
+git -C "${transition_repo_root}" add -- "${new_mode_path}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: create new Owner path with initial mode"
+git -C "${transition_repo_root}" rm -q -- "${new_mode_path}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: delete newly created Owner path"
+printf 'recreated with different mode\n' > \
+  "${transition_repo_root}/${new_mode_path}"
+chmod +x "${transition_repo_root}/${new_mode_path}"
+git -C "${transition_repo_root}" add -- "${new_mode_path}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: recreate new Owner path with different mode"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "candidate completing WriteSet after new-path mode drift"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: complete candidate after new-path mode drift"
+new_mode_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+new_mode_receipt="$(make_vsb00_advance_receipt \
+  "${new_mode_tip}" "test: advance new-path mode-drift candidate")"
+expect_transition_failure "${new_mode_tip}" "${new_mode_receipt}" \
+  "candidate chain commit must preserve candidate file modes" \
+  "candidate recreating a new Owner path with a different mode"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+rename_source=AGENTS.md
+rename_target=scripts/import-visual-style-reference
+git -C "${transition_repo_root}" mv -f -- \
+  "${rename_source}" "${rename_target}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: rename one Owner path onto another"
+git -C "${transition_repo_root}" show \
+  "${activation_sha}:${rename_source}" > \
+  "${transition_repo_root}/${rename_source}"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "candidate rebuilding an Owner path after rename"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: rebuild renamed Owner source and complete candidate"
+owner_rename_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+owner_rename_receipt="$(make_vsb00_advance_receipt \
+  "${owner_rename_tip}" "test: advance Owner-rename candidate")"
+expect_transition_failure "${owner_rename_tip}" "${owner_rename_receipt}" \
+  "candidate chain commit must not rename or copy paths" \
+  "candidate renaming between Owner paths then rebuilding the source"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+copy_target=scripts/import-visual-style-reference
+copy_source=server/pom.xml
+cp "${transition_repo_root}/${copy_source}" \
+  "${transition_repo_root}/${copy_target}"
+git -C "${transition_repo_root}" add -- "${copy_target}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: copy existing source onto Owner target"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "candidate completing Owner WriteSet after copy"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: complete candidate containing copied Owner target"
+owner_copy_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+owner_copy_receipt="$(make_vsb00_advance_receipt \
+  "${owner_copy_tip}" "test: advance Owner-copy candidate")"
+expect_transition_failure "${owner_copy_tip}" "${owner_copy_receipt}" \
+  "candidate chain commit must not rename or copy paths" \
+  "candidate copying an existing source onto an Owner target"
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+recreated_mode_path=AGENTS.md
+git -C "${transition_repo_root}" rm -q -- "${recreated_mode_path}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: delete Owner path before mode-changing recreation"
+git -C "${transition_repo_root}" show \
+  "${activation_sha}:${recreated_mode_path}" > \
+  "${transition_repo_root}/${recreated_mode_path}"
+chmod +x "${transition_repo_root}/${recreated_mode_path}"
+git -C "${transition_repo_root}" add -- "${recreated_mode_path}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: recreate Owner path with a different mode"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "candidate completing WriteSet after mode-changing recreation"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: complete candidate after mode-changing recreation"
+recreated_mode_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+recreated_mode_receipt="$(make_vsb00_advance_receipt \
+  "${recreated_mode_tip}" "test: advance recreated-mode candidate")"
+expect_transition_failure "${recreated_mode_tip}" \
+  "${recreated_mode_receipt}" \
+  "candidate chain commit must preserve release file modes" \
+  "candidate deleting then recreating an Owner path with a different mode"
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 extra_candidate_path=docs/design/visual-style-baseline-fixtures/temporary-extra.txt
@@ -953,7 +1094,7 @@ rename_chain_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
 rename_chain_receipt="$(make_vsb00_advance_receipt \
   "${rename_chain_tip}" "test: advance rename-containing candidate")"
 expect_transition_failure "${rename_chain_tip}" "${rename_chain_receipt}" \
-  "candidate chain commit changed a path outside the Owner WriteSet" \
+  "candidate chain commit must not rename or copy paths" \
   "candidate containing a rename"
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"

@@ -542,6 +542,11 @@ validate_candidate_chain_commit() {
     "${parent_sha}..${child_sha}")"
   [[ -n "${changed_paths}" ]] ||
     fail "candidate chain commit must not be empty"
+  if git -C "${repo_root}" diff-tree --no-commit-id -r -M -C \
+    --find-copies-harder --name-status "${parent_sha}" "${child_sha}" | \
+    awk '$1 ~ /^[RC][0-9]+$/ { found = 1 } END { exit !found }'; then
+    fail "candidate chain commit must not rename or copy paths"
+  fi
   while IFS= read -r candidate_path; do
     [[ "${candidate_path}" != "${ledger_path}" ]] ||
       fail "candidate chain must not modify the execution ledger"
@@ -560,6 +565,40 @@ validate_candidate_chain_commit() {
       *) fail "candidate chain commit must preserve existing file modes" ;;
     esac
   done <<< "${changed_paths}"
+}
+
+validate_candidate_mode_history() {
+  local candidate_sha="$1"
+  local owner_index="$2"
+  local release_sha="$3"
+  local owner_path release_mode expected_mode current_mode chain_sha mode_error
+  while IFS= read -r owner_path; do
+    release_mode="$(git -C "${repo_root}" ls-tree \
+      "${release_sha}" -- "${owner_path}" | awk '{print $1}')"
+    expected_mode="${release_mode}"
+    if [[ -n "${release_mode}" ]]; then
+      mode_error="candidate chain commit must preserve release file modes"
+    else
+      mode_error="candidate chain commit must preserve candidate file modes"
+    fi
+    while IFS= read -r chain_sha; do
+      [[ -n "${chain_sha}" ]] || continue
+      current_mode="$(git -C "${repo_root}" ls-tree \
+        "${chain_sha}" -- "${owner_path}" | awk '{print $1}')"
+      [[ -n "${current_mode}" ]] || continue
+      if [[ -z "${expected_mode}" ]]; then
+        expected_mode="${current_mode}"
+      else
+        [[ "${current_mode}" == "${expected_mode}" ]] ||
+          fail "${mode_error}"
+      fi
+    done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+      "${release_sha}..${candidate_sha}")
+    current_mode="$(git -C "${repo_root}" ls-tree \
+      "${candidate_sha}" -- "${owner_path}" | awk '{print $1}')"
+    [[ -n "${expected_mode}" && "${current_mode}" == "${expected_mode}" ]] ||
+      fail "${mode_error}"
+  done <<< "${expected_write_sets[${owner_index}]}"
 }
 
 validate_linear_cumulative_candidate() {
@@ -586,6 +625,8 @@ validate_linear_cumulative_candidate() {
     "${expected_write_sets[${owner_index}]}" | LC_ALL=C sort)"
   [[ "${actual_paths}" == "${expected_paths}" ]] ||
     fail "candidate cumulative diff must equal the exact Owner WriteSet"
+  validate_candidate_mode_history \
+    "${candidate_sha}" "${owner_index}" "${release_sha}"
   verified_candidate_sha="${candidate_sha}"
   verified_candidate_owner_index="${owner_index}"
   verified_candidate_release_sha="${release_sha}"
