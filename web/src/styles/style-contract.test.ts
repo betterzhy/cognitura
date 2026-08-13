@@ -741,6 +741,27 @@ describe("Cognitura semantic style contract", () => {
     ).toBe(false);
   });
 
+  it("rejects declaration order changes in token and semantic role blocks", () => {
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "tokens.css": tokensCss.replace(
+          "  --color-canvas: #f7f9fc;\n  --surface-reading: #ffffff;",
+          "  --surface-reading: #ffffff;\n  --color-canvas: #f7f9fc;",
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      styleContractAccepts({
+        ...styles,
+        "surfaces.css": surfacesCss.replace(
+          "  margin-inline: auto;\n  background: var(--surface-reading);",
+          "  background: var(--surface-reading);\n  margin-inline: auto;",
+        ),
+      }),
+    ).toBe(false);
+  });
+
   it("parses declaration strings, escapes, parentheses, and semicolons structurally", () => {
     expect(
       parseActiveDeclarations(
