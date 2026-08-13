@@ -534,6 +534,7 @@ validate_candidate_chain_commit() {
   local parent_sha="$2"
   local child_sha="$3"
   local actual_parent changed_paths candidate_path parent_mode child_mode
+  local raw_status_file raw_error_file
   actual_parent="$(single_parent_of "${child_sha}" \
     "candidate chain commit")"
   [[ "${actual_parent}" == "${parent_sha}" ]] ||
@@ -542,9 +543,20 @@ validate_candidate_chain_commit() {
     "${parent_sha}..${child_sha}")"
   [[ -n "${changed_paths}" ]] ||
     fail "candidate chain commit must not be empty"
-  if git -C "${repo_root}" diff-tree --no-commit-id -r -M -C \
-    --find-copies-harder --name-status "${parent_sha}" "${child_sha}" | \
-    awk '$1 ~ /^[RC][0-9]+$/ { found = 1 } END { exit !found }'; then
+  raw_status_file="$(mktemp \
+    "${verifier_tmp_root}/candidate-raw-status.XXXXXX")"
+  raw_error_file="$(mktemp \
+    "${verifier_tmp_root}/candidate-raw-error.XXXXXX")"
+  if ! git -C "${repo_root}" -c diff.renameLimit=0 \
+    diff-tree --no-commit-id -r -M -C --find-copies-harder --name-status \
+    "${parent_sha}" "${child_sha}" \
+    > "${raw_status_file}" 2> "${raw_error_file}"; then
+    fail "candidate chain rename and copy inspection failed"
+  fi
+  [[ ! -s "${raw_error_file}" ]] ||
+    fail "candidate chain rename and copy inspection was degraded"
+  if awk '$1 ~ /^[RC][0-9]+$/ { found = 1 } END { exit !found }' \
+    "${raw_status_file}"; then
     fail "candidate chain commit must not rename or copy paths"
   fi
   while IFS= read -r candidate_path; do

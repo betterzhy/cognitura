@@ -993,6 +993,59 @@ expect_transition_failure "${owner_copy_tip}" "${owner_copy_receipt}" \
   "candidate copying an existing source onto an Owner target"
 
 git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
+low_limit_source_a=AGENTS.md
+low_limit_source_b=docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md
+low_limit_target_a=scripts/import-visual-style-reference
+low_limit_target_b=scripts/verify-visual-style-baseline-reference
+low_limit_parent="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+git -C "${transition_repo_root}" mv -- \
+  "${low_limit_source_a}" "${low_limit_target_a}"
+git -C "${transition_repo_root}" mv -- \
+  "${low_limit_source_b}" "${low_limit_target_b}"
+printf '\nmodified after low-limit rename A\n' >> \
+  "${transition_repo_root}/${low_limit_target_a}"
+printf '\nmodified after low-limit rename B\n' >> \
+  "${transition_repo_root}/${low_limit_target_b}"
+git -C "${transition_repo_root}" add -- \
+  "${low_limit_target_a}" "${low_limit_target_b}"
+git -C "${transition_repo_root}" commit -qm \
+  "test: rename Owner paths under a low detection limit"
+low_limit_rename_sha="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+git -C "${transition_repo_root}" config diff.renameLimit 1
+low_limit_status_file="${test_tmp_root}/low-limit-status"
+low_limit_error_file="${test_tmp_root}/low-limit-error"
+git -C "${transition_repo_root}" diff-tree --no-commit-id -r -M -C \
+  --find-copies-harder --name-status \
+  "${low_limit_parent}" "${low_limit_rename_sha}" \
+  > "${low_limit_status_file}" 2> "${low_limit_error_file}" ||
+  fail "low-limit rename fixture could not inspect its raw Git status"
+if grep -Eq '^[RC][0-9]+' "${low_limit_status_file}"; then
+  fail "low-limit rename fixture did not degrade rename detection"
+fi
+grep -q 'exhaustive rename detection was skipped' "${low_limit_error_file}" ||
+  fail "low-limit rename fixture did not emit the expected degradation warning"
+git -C "${transition_repo_root}" show \
+  "${activation_sha}:${low_limit_source_a}" > \
+  "${transition_repo_root}/${low_limit_source_a}"
+git -C "${transition_repo_root}" show \
+  "${activation_sha}:${low_limit_source_b}" > \
+  "${transition_repo_root}/${low_limit_source_b}"
+write_exact_candidate_paths "${transition_repo_root}" 0 \
+  "candidate completing WriteSet after low-limit renames"
+printf '%s\n' "${candidate_write_sets[0]}" | \
+  git -C "${transition_repo_root}" add --pathspec-from-file=-
+git -C "${transition_repo_root}" commit -qm \
+  "test: rebuild low-limit rename sources and complete candidate"
+low_limit_rename_tip="$(git -C "${transition_repo_root}" rev-parse HEAD)"
+low_limit_rename_receipt="$(make_vsb00_advance_receipt \
+  "${low_limit_rename_tip}" "test: advance low-limit rename candidate")"
+expect_transition_failure "${low_limit_rename_tip}" \
+  "${low_limit_rename_receipt}" \
+  "candidate chain commit must not rename or copy paths" \
+  "candidate hiding Owner renames behind a low diff.renameLimit"
+git -C "${transition_repo_root}" config --unset diff.renameLimit
+
+git -C "${transition_repo_root}" switch -q --detach "${activation_sha}"
 recreated_mode_path=AGENTS.md
 git -C "${transition_repo_root}" rm -q -- "${recreated_mode_path}"
 git -C "${transition_repo_root}" commit -qm \
