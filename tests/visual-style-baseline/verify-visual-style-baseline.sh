@@ -281,7 +281,7 @@ for freeze_mutation in historical-evidence frozen-w1-production; do
     fail "freeze mutation unexpectedly passed: ${freeze_mutation}"
   fi
   [[ "${freeze_output}" == *"${freeze_expected}"* ]] ||
-    fail "freeze mutation failed without exact diagnostic: ${freeze_mutation}"
+    fail "freeze mutation failed without exact diagnostic: ${freeze_mutation}; got: ${freeze_output}"
   negative_cases=$((negative_cases + 1))
 done
 
@@ -481,7 +481,53 @@ fi
   fail "Chrome binary override failed without exact diagnostic"
 negative_cases=$((negative_cases + 1))
 
+historical_identity_repo="${runtime_root}/historical-identity-repo"
+git clone --shared --quiet "${repo_root}" "${historical_identity_repo}"
+git -C "${historical_identity_repo}" config user.name "Cognitura Test"
+git -C "${historical_identity_repo}" config user.email "test@cognitura.invalid"
+replacement_tree="$(git -C "${historical_identity_repo}" rev-parse HEAD^{tree})"
+replacement_snapshot="$(printf '%s\n' 'test: replace historical HV snapshot' | \
+  git -C "${historical_identity_repo}" commit-tree "${replacement_tree}" \
+    -p 98d5f89731626c0ead69de46255ba4d433d03c86)"
+git -C "${historical_identity_repo}" replace \
+  "${historical_hv_snapshot_sha}" "${replacement_snapshot}"
+historical_identity_output=""
+if historical_identity_output="$(env PATH="${locked_toolchain_path}" \
+    "${repo_root}/scripts/verify-visual-style-baseline" \
+    --repo-root "${historical_identity_repo}" 2>&1)"; then
+  fail "replaced historical HV snapshot unexpectedly passed"
+fi
+[[ "${historical_identity_output}" == \
+   *'fixed historical HV replay snapshot identity mismatch'* ]] ||
+  fail "replaced historical HV snapshot failed without identity diagnostic"
+negative_cases=$((negative_cases + 1))
+
+git -C "${historical_identity_repo}" replace -d \
+  "${historical_hv_snapshot_sha}" >/dev/null
+replacement_blob="$(printf '#!/bin/bash\nexit 0\n' | \
+  git -C "${historical_identity_repo}" hash-object -w --stdin)"
+git -C "${historical_identity_repo}" replace \
+  73c1b62e643d3808c16ccab89aefb13e3646502b "${replacement_blob}"
+historical_blob_output=""
+if historical_blob_output="$(env PATH="${locked_toolchain_path}" \
+    "${repo_root}/scripts/verify-visual-style-baseline" \
+    --repo-root "${historical_identity_repo}" 2>&1)"; then
+  fail "replaced historical HV verifier blob unexpectedly passed"
+fi
+[[ "${historical_blob_output}" == \
+   *'fixed historical HV replay key blob or mode mismatch'* ]] ||
+  fail "replaced historical HV verifier failed without key-blob diagnostic"
+negative_cases=$((negative_cases + 1))
+
 imported_function_sentinel="${runtime_root}/imported-function-executed"
+historical_replay_repo="${runtime_root}/historical-replay-repo"
+git clone --shared --quiet "${repo_root}" "${historical_replay_repo}"
+printf '%s\n' \
+  '#!/bin/bash' \
+  "printf 'executed\\n' > '${runtime_root}/current-hv-verifier-executed'" \
+  'exit 0' > \
+  "${historical_replay_repo}/scripts/verify-high-fidelity-visual"
+chmod 755 "${historical_replay_repo}/scripts/verify-high-fidelity-visual"
 historical_replay_output="$( (
   export VSB_IMPORTED_FUNCTION_SENTINEL="${imported_function_sentinel}"
   cd() {
@@ -498,11 +544,14 @@ historical_replay_output="$( (
   }
   export -f cd exec git
   env PATH="${locked_toolchain_path}" \
-    "${repo_root}/scripts/verify-visual-style-baseline" --repo-root "${repo_root}"
+    "${repo_root}/scripts/verify-visual-style-baseline" \
+      --repo-root "${historical_replay_repo}"
 ) )"
 [[ ! -e "${imported_function_sentinel}" ]] ||
   fail "fixed visual verification imported an exported shell function"
 negative_cases=$((negative_cases + 1))
+[[ ! -e "${runtime_root}/current-hv-verifier-executed" ]] ||
+  fail "fixed visual verification executed the current-tree HV verifier"
 [[ "${historical_replay_output}" == \
    *'HistoricalHVReplaySHA = 77d8c1e780f5cc4d209a56baff349135a3c04ee8'* ]] ||
   fail "fixed visual verifier did not bind the historical HV replay SHA"
@@ -512,8 +561,8 @@ negative_cases=$((negative_cases + 1))
    *'HistoricalHVCurrentTreeVerifier = NOT_RUN'* ]] ||
   fail "fixed visual verifier did not exclude the current-tree HV verifier"
 
-[[ "${negative_cases}" -eq 48 ]] ||
-  fail "visual browser negative matrix count drifted from 48"
+[[ "${negative_cases}" -eq 50 ]] ||
+  fail "visual browser negative matrix count drifted from 50"
 
 printf '%s\n' \
   'VisualStyleBaselineBrowserContractTests = PASS' \
