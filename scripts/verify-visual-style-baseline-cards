@@ -79,6 +79,75 @@ require_exact_block_once() {
   [[ "${suffix}" != *"${expected}"* ]] || fail "${failure_message}"
 }
 
+require_exact_line_block_once() {
+  local file="$1"
+  local expected="$2"
+  local failure_message="$3"
+  local expected_file
+  expected_file="$(mktemp "${verifier_tmp_root}/expected-line-block.XXXXXX")"
+  printf '%s\n' "${expected}" > "${expected_file}" ||
+    fail "${failure_message}"
+  LC_ALL=C awk '
+    NR == FNR {
+      expected[++expected_count] = $0
+      next
+    }
+    {
+      actual[FNR] = $0
+      actual_count = FNR
+    }
+    END {
+      match_count = 0
+      for (start = 1; start <= actual_count - expected_count + 1; start++) {
+        matches = 1
+        for (offset = 1; offset <= expected_count; offset++) {
+          if (actual[start + offset - 1] != expected[offset]) {
+            matches = 0
+            break
+          }
+        }
+        if (matches == 1) {
+          match_count++
+        }
+      }
+      exit(match_count == 1 ? 0 : 1)
+    }
+  ' "${expected_file}" "${file}" || fail "${failure_message}"
+}
+
+fixed_string_occurrence_count() {
+  local file="$1"
+  local literal="$2"
+  (LC_ALL=C grep -F -o -- "${literal}" "${file}" || true) | \
+    wc -l | tr -d ' '
+}
+
+validate_chrome_authority_migration_readme_file() {
+  local file="$1"
+  local label="$2"
+  local block_failure="$3"
+  local chrome_readme_versions
+  require_exact_line_block_once "${file}" \
+    "${expected_chrome_authority_migration_section}" "${block_failure}"
+  [[ "$(fixed_string_occurrence_count \
+       "${file}" 'Chrome Authority Migration')" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" 'ce2a3ca466cc4df2ff077017f1ddb03cb285416f')" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" '7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d')" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" '151.0.7922.109')" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" '151.0.7922.138')" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" 'CHROME_AUTHORITY_MIGRATION')" -eq 1 ]] ||
+    fail "${label}: contradictory Chrome authority migration prose"
+  chrome_readme_versions="$(grep -Eo '151\.0\.7922\.[0-9]+' \
+    "${file}" | LC_ALL=C sort)"
+  [[ "${chrome_readme_versions}" == $'151.0.7922.109\n151.0.7922.138' ]] ||
+    fail "${label}: stale Chrome authority migration version"
+}
+
 sha256_stream() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 | awk '{print $1}'
@@ -1206,22 +1275,8 @@ if [[ "${model_route_schema_current}" -eq 1 ]]; then
 fi
 
 expected_chrome_authority_migration_section=$'当前 Chrome Authority Migration 由\n[`2026-08-14-cognitura-vsb-chrome-authority-migration-design.md`](../../superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md)\n及其实施计划\n[`2026-08-14-cognitura-vsb-chrome-authority-migration.md`](../../superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md)\n统一约束，固定 Authority SHA 为 `ce2a3ca466cc4df2ff077017f1ddb03cb285416f`，\n固定 origin 为 `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`。它只允许将 Chrome\n`151.0.7922.109` 精确迁移到 `151.0.7922.138`；G4 从 origin 起的累计\nWriteSet 必须精确为以下六路径：\n\n```text\ndocs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md\ndocs/superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md\ndocs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md\ndocs/task-cards/visual-style-baseline/README.md\nscripts/verify-visual-style-baseline-cards\ntests/task-cards/verify-visual-style-baseline-cards.sh\n```\n\n只有已完整重放并通过 `L3 / deep_reviewer / xhigh / ONE` 零 finding 审查的\nG4，才允许以 ledger-only 直接子提交 R4 记录唯一\n`CHROME_AUTHORITY_MIGRATION`；完整验证的 R4 才是新的 VSB-03 release\nanchor。G4、原 origin 和未完整重放的 receipt 都不是 Owner release anchor，\n也不会改变 VSB-03 当前 `L4 / deep_reviewer / xhigh / ONE` 的单次最终门禁。'
-require_exact_block_once "${index_file}" \
-  "${expected_chrome_authority_migration_section}" \
-  "README.md: Chrome authority migration block mismatch"
-[[ "$(grep -F -c 'Chrome Authority Migration' "${index_file}" || true)" -eq 1 &&
-   "$(grep -F -c 'ce2a3ca466cc4df2ff077017f1ddb03cb285416f' \
-     "${index_file}" || true)" -eq 1 &&
-   "$(grep -F -c '7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d' \
-     "${index_file}" || true)" -eq 1 &&
-   "$(grep -F -c '151.0.7922.109' "${index_file}" || true)" -eq 1 &&
-   "$(grep -F -c '151.0.7922.138' "${index_file}" || true)" -eq 1 &&
-   "$(grep -F -c 'CHROME_AUTHORITY_MIGRATION' "${index_file}" || true)" -eq 1 ]] ||
-  fail "README.md: contradictory Chrome authority migration prose"
-chrome_readme_versions="$(grep -Eo '151\.0\.7922\.[0-9]+' \
-  "${index_file}" | LC_ALL=C sort)"
-[[ "${chrome_readme_versions}" == $'151.0.7922.109\n151.0.7922.138' ]] ||
-  fail "README.md: stale Chrome authority migration version"
+validate_chrome_authority_migration_readme_file "${index_file}" \
+  README.md "README.md: Chrome authority migration block mismatch"
 
 shopt -s nullglob
 actual_cards=("${cards_dir}"/VSB-*.md)
@@ -1907,8 +1962,8 @@ validate_chrome_authority_migration_readme_at_commit() {
     fail "committed Chrome authority migration README is unavailable"
   require_nul_free_file "${committed_readme}" \
     "committed Chrome authority migration README block mismatch"
-  require_exact_block_once "${committed_readme}" \
-    "${expected_chrome_authority_migration_section}" \
+  validate_chrome_authority_migration_readme_file "${committed_readme}" \
+    "committed Chrome authority migration README" \
     "committed Chrome authority migration README block mismatch"
 }
 
@@ -2176,7 +2231,11 @@ require_canonical_chrome_authority_migration_block() {
   expected_block="$(write_expected_chrome_authority_migration_block \
     "${candidate_sha}")"
   anchored_block=$'VerifierRecoveryReviewVerdict = GO_P0_0_P1_0_P2_0\n'"${expected_block}"
-  require_exact_block_once "${file}" "${anchored_block}" \
+  [[ "$(grep -F -x -c \
+       'VerifierRecoveryReviewVerdict = GO_P0_0_P1_0_P2_0' \
+       "${file}" || true)" -eq 1 ]] ||
+    fail "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block"
+  require_exact_line_block_once "${file}" "${anchored_block}" \
     "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block"
   [[ "$(grep -c '^ChromeAuthorityMigration' "${file}" || true)" -eq 11 ]] ||
     fail "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block"

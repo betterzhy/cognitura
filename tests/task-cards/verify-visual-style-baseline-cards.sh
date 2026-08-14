@@ -3064,6 +3064,35 @@ run_chrome_authority_migration_contract() {
   git -C "${fixture_root}" restore --worktree -- \
     docs/task-cards/visual-style-baseline/README.md
 
+  for mutation in stale contradictory; do
+    git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+    case "${mutation}" in
+      stale)
+        printf '%s\n' \
+          '<!-- stale Chrome authority 151.0.7922.139 -->' >> \
+          "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+        ;;
+      contradictory)
+        printf '%s\n' \
+          '<!-- duplicate CHROME_AUTHORITY_MIGRATION claim -->' >> \
+          "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+        ;;
+    esac
+    git -C "${fixture_root}" add -- \
+      docs/task-cards/visual-style-baseline/README.md
+    git -C "${fixture_root}" commit -qm \
+      "test: commit ${mutation} Chrome migration README prose"
+    cp "${repo_root}/docs/task-cards/visual-style-baseline/README.md" \
+      "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+    expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+      "committed Chrome authority migration README: ${mutation} Chrome authority migration" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "pending G4 committed ${mutation} README masked by working tree"
+    negative_cases=$((negative_cases + 1))
+    git -C "${fixture_root}" restore --worktree -- \
+      docs/task-cards/visual-style-baseline/README.md
+  done
+
   local fixture_state="${fixture_root}/${ledger_path}"
   local r4_sha vsb03_candidate_sha vsb03_complete_sha later_sha bad_sha
   local field value field_index mutation bad_root side_sha main_sha
@@ -3438,6 +3467,37 @@ run_chrome_authority_migration_contract() {
     negative_cases=$((negative_cases + 1))
   done
 
+  for mutation in midline_anchor_relocated final_verdict_suffix; do
+    git -C "${fixture_root}" checkout -q --detach "${r4_sha}"
+    set_legal_stop_by_user "${fixture_state}" "${r4_sha}"
+    set_field "${fixture_state}" TransitionSequence 11
+    case "${mutation}" in
+      midline_anchor_relocated)
+        perl -0pi -e \
+          'if (s/(^ChromeAuthorityMigrationStatus = PASS\n.*?^ChromeAuthorityMigrationReviewVerdict = GO_P0_0_P1_0_P2_0\n)//ms) { my $block = $1; s/(^RemotePush = NOT_AUTHORIZED\n)/$1MidLineVerifierRecoveryReviewVerdict = GO_P0_0_P1_0_P2_0\n$block/m or die "missing mid-line anchor relocation target\n" } else { die "missing Chrome migration block\n" }' \
+          "${fixture_state}"
+        ;;
+      final_verdict_suffix)
+        perl -0pi -e \
+          's/^ChromeAuthorityMigrationReviewVerdict = GO_P0_0_P1_0_P2_0$/ChromeAuthorityMigrationReviewVerdict = GO_P0_0_P1_0_P2_0_FORBIDDEN_SUFFIX/m or die "missing Chrome migration verdict\n"' \
+          "${fixture_state}"
+        ;;
+    esac
+    bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+      "test: ordinary version-5 ${mutation} Chrome migration block")"
+    expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+      "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "ordinary version-5 ${mutation} Chrome migration block" \
+      "${r4_sha}" "${bad_sha}"
+    negative_cases=$((negative_cases + 1))
+    expect_chrome_migration_static_failure "${fixture_root}" "${fixture_cards}" \
+      "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "static ordinary version-5 ${mutation} Chrome migration history"
+    negative_cases=$((negative_cases + 1))
+  done
+
   local alternate_root="${test_tmp_root}/chrome-authority-alternate-commit"
   local alternate_cards="${alternate_root}/docs/task-cards/visual-style-baseline"
   local alternate_authority_sha alternate_g4_sha
@@ -3709,8 +3769,8 @@ run_chrome_authority_migration_contract() {
 
   [[ "${positive_cases}" -eq 9 ]] ||
     fail "Chrome authority migration positive matrix count drifted from 9"
-  [[ "${negative_cases}" -eq 75 ]] ||
-    fail "Chrome authority migration negative matrix count drifted from 75"
+  [[ "${negative_cases}" -eq 81 ]] ||
+    fail "Chrome authority migration negative matrix count drifted from 81"
   printf '%s\n' \
     "ChromeAuthorityMigrationPositiveCases = ${positive_cases}" \
     "ChromeAuthorityMigrationNegativeCases = ${negative_cases}" \
