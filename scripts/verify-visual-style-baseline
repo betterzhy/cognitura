@@ -158,9 +158,7 @@ governed_expected_mode() {
   case "$1" in
     scripts/import-visual-style-reference|\
     scripts/verify-visual-style-baseline-reference|\
-    tests/visual-style-baseline/verify-reference.sh|\
     scripts/verify-module-default-reading|\
-    tests/visual-style-baseline/verify-module-default-reading-toolchain.sh|\
     scripts/capture-visual-style-baseline|\
     scripts/verify-visual-style-baseline|\
     tests/visual-style-baseline/verify-visual-style-baseline.sh)
