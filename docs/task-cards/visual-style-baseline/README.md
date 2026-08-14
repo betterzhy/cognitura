@@ -81,15 +81,17 @@ anchor。Stage A 中实际 `scripts/capture-visual-style-baseline` 必须在 ori
 及其实施计划
 [`2026-08-15-cognitura-vsb-historical-hv-replay-repair.md`](../../superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md)
 统一约束。`2690ab9e6d0318c63deb56f86bc0b923ae845c04` 保留为 immutable
-`NO_GO / P1=1` VSB-03 candidate；它不得 amend、重写或复用旧 verdict。
+VSB-03 `NO_GO` candidate（`P1=1`）；它不得 amend、重写或复用旧 verdict。
 历史 HV Gate 只从固定 Git snapshot
 `77d8c1e780f5cc4d209a56baff349135a3c04ee8` 的完整归档重放，当前树
 `scripts/verify-high-fidelity-visual` 不构成历史重放。
 
-repair Authority 结构绑定为：`2690ab9...` 后第一个同时包含上述设计、实施计划和
-本次修订后的 2026-08-12 VSB 计划最终字节的提交。该提交固定后，README、生产
-verifier 与测试再记录其 literal 40-hex SHA；Authority 三个文档 blob/mode 随后
-保持不变。最终 repair candidate 从 `2690ab9...` 起累计 WriteSet 精确为：
+repair Authority 固定为
+`244b89d68ae29f08fd9c019ed530db87098e763b`；它是 `2690ab9...` 后第一个
+包含上述设计、实施计划和本次修订后的 2026-08-12 VSB 计划最终字节的完整
+Authority 提交。生产 verifier 与测试必须字面绑定该 40-hex SHA；Authority 三个
+文档 blob/mode 随后保持不变。最终 repair candidate 从 `2690ab9...` 起累计
+WriteSet 精确为：
 
 ```text
 docs/superpowers/specs/2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md
@@ -103,8 +105,9 @@ tests/visual-style-baseline/verify-visual-style-baseline.sh
 ```
 
 其余十个原 VSB-03 Owner 路径必须与 `2690ab9...` byte/mode identical。
-同一个 fixed repair SHA 依次取得 `L3 / deep_reviewer / xhigh / ONE` 治理 GO
-和 `L4 / deep_reviewer / xhigh / ONE` 最终 GO；Ultra 保持 `NOT_RUN`。之后只允许
+同一个 fixed repair SHA 先接受 `L3 / deep_reviewer / xhigh / ONE` 治理审查，
+再接受 `L4 / deep_reviewer / xhigh / ONE` 最终审查；两次均须 GO，Ultra 保持
+`NOT_RUN`。之后只允许
 version 5、sequence 11、ledger-only 直接子提交记录 `COMPLETE`，不新增 G5、R5、
 version 6、correction block 或通用 replay API。Wave 1 restore、数据库写入和 remote
 push 均不属于该 exact-eight candidate 或终局 receipt。

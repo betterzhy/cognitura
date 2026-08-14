@@ -33,6 +33,11 @@ chrome_authority_migration_rejected_candidate_sha="4a62647fdb8226cc5c0527c48f552
 chrome_authority_migration_rejected_successor_authority_sha="a2d22c2e8218413d26f7d8940a9ea5564e59b7f0"
 chrome_authority_migration_rejected_successor_candidate_sha="b0b77e878fd468f38d40ddd702c96ea8e7446658"
 chrome_authority_migration_origin_ledger_blob="c71491023294207babda7ed7a2fa47d515495b31"
+historical_hv_repair_origin_sha="2690ab9e6d0318c63deb56f86bc0b923ae845c04"
+historical_hv_repair_authority_sha="244b89d68ae29f08fd9c019ed530db87098e763b"
+historical_hv_snapshot_sha="77d8c1e780f5cc4d209a56baff349135a3c04ee8"
+historical_hv_snapshot_parent_sha="98d5f89731626c0ead69de46255ba4d433d03c86"
+historical_hv_snapshot_tree_sha="476bc02272b2e0c4f8f6eb4565e9dcf08369f762"
 chrome_capture_source_path="scripts/capture-visual-style-baseline"
 governance_repair_status_output=""
 receipt_correction_status_output=""
@@ -568,6 +573,21 @@ validate_chrome_authority_migration_readme_file() {
     "${file}" | LC_ALL=C sort)"
   [[ "${chrome_readme_versions}" == $'151.0.7922.109\n151.0.7922.138' ]] ||
     fail "${label}: stale Chrome authority migration version"
+}
+
+validate_historical_hv_repair_readme_file() {
+  local file="$1"
+  local label="$2"
+  require_exact_line_block_once "${file}" \
+    "${expected_historical_hv_repair_section}" \
+    "${label}: historical HV repair Authority block mismatch"
+  [[ "$(fixed_string_occurrence_count \
+       "${file}" "${historical_hv_repair_origin_sha}")" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" "${historical_hv_repair_authority_sha}")" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" "${historical_hv_snapshot_sha}")" -eq 1 ]] ||
+    fail "${label}: contradictory historical HV repair prose"
 }
 
 sha256_stream() {
@@ -1762,6 +1782,18 @@ expected_chrome_authority_migration_section=$'当前 Chrome Authority Migration 
 if [[ "${chrome_authority_migration_schema_current}" -eq 1 ]]; then
   validate_chrome_authority_migration_readme_file "${index_file}" \
     README.md "README.md: Chrome authority migration block mismatch"
+fi
+
+expected_historical_hv_repair_section=$'当前 terminal historical HV replay repair 由\n[`2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md`](../../superpowers/specs/2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md)\n及其实施计划\n[`2026-08-15-cognitura-vsb-historical-hv-replay-repair.md`](../../superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md)\n统一约束。`2690ab9e6d0318c63deb56f86bc0b923ae845c04` 保留为 immutable\nVSB-03 `NO_GO` candidate（`P1=1`）；它不得 amend、重写或复用旧 verdict。\n历史 HV Gate 只从固定 Git snapshot\n`77d8c1e780f5cc4d209a56baff349135a3c04ee8` 的完整归档重放，当前树\n`scripts/verify-high-fidelity-visual` 不构成历史重放。\n\nrepair Authority 固定为\n`244b89d68ae29f08fd9c019ed530db87098e763b`；它是 `2690ab9...` 后第一个\n包含上述设计、实施计划和本次修订后的 2026-08-12 VSB 计划最终字节的完整\nAuthority 提交。生产 verifier 与测试必须字面绑定该 40-hex SHA；Authority 三个\n文档 blob/mode 随后保持不变。最终 repair candidate 从 `2690ab9...` 起累计\nWriteSet 精确为：\n\n```text\ndocs/superpowers/specs/2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md\ndocs/superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md\ndocs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md\ndocs/task-cards/visual-style-baseline/README.md\nscripts/verify-visual-style-baseline-cards\ntests/task-cards/verify-visual-style-baseline-cards.sh\nscripts/verify-visual-style-baseline\ntests/visual-style-baseline/verify-visual-style-baseline.sh\n```\n\n其余十个原 VSB-03 Owner 路径必须与 `2690ab9...` byte/mode identical。\n同一个 fixed repair SHA 先接受 `L3 / deep_reviewer / xhigh / ONE` 治理审查，\n再接受 `L4 / deep_reviewer / xhigh / ONE` 最终审查；两次均须 GO，Ultra 保持\n`NOT_RUN`。之后只允许\nversion 5、sequence 11、ledger-only 直接子提交记录 `COMPLETE`，不新增 G5、R5、\nversion 6、correction block 或通用 replay API。Wave 1 restore、数据库写入和 remote\npush 均不属于该 exact-eight candidate 或终局 receipt。'
+historical_hv_repair_schema_current=0
+if git -C "${repo_root}" merge-base --is-ancestor \
+    "${historical_hv_repair_authority_sha}" "${initial_repository_head}" \
+    2>/dev/null ||
+   grep -Fq '当前 terminal historical HV replay repair 由' "${index_file}"; then
+  historical_hv_repair_schema_current=1
+fi
+if [[ "${historical_hv_repair_schema_current}" -eq 1 ]]; then
+  validate_historical_hv_repair_readme_file "${index_file}" README.md
 fi
 
 shopt -s nullglob
@@ -3103,6 +3135,253 @@ validate_latest_nonterminal_receipt_static() {
   esac
 }
 
+historical_hv_repair_write_set() {
+  printf '%s\n' \
+    docs/superpowers/specs/2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md \
+    docs/superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md \
+    docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md \
+    docs/task-cards/visual-style-baseline/README.md \
+    scripts/verify-visual-style-baseline-cards \
+    tests/task-cards/verify-visual-style-baseline-cards.sh \
+    scripts/verify-visual-style-baseline \
+    tests/visual-style-baseline/verify-visual-style-baseline.sh
+}
+
+historical_hv_repair_authority_paths() {
+  printf '%s\n' \
+    docs/superpowers/specs/2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md \
+    docs/superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md \
+    docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
+}
+
+historical_hv_frozen_owner_paths() {
+  printf '%s\n' \
+    scripts/capture-visual-style-baseline \
+    tests/visual-style-baseline/browser-probe.html \
+    tests/visual-style-baseline/browser-runtime-guard.js \
+    tests/visual-style-baseline/reference-comparison.html \
+    docs/design/visual-style-baseline/evidence/README.md \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1440x1100.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1280x960.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1024x900.png \
+    docs/design/visual-style-baseline/evidence/reference-comparison.png \
+    docs/engineering/cognitura-visual-style-baseline-acceptance.md
+}
+
+historical_hv_repair_expected_mode() {
+  case "$1" in
+    scripts/verify-visual-style-baseline-cards|\
+    tests/task-cards/verify-visual-style-baseline-cards.sh|\
+    scripts/verify-visual-style-baseline|\
+    tests/visual-style-baseline/verify-visual-style-baseline.sh)
+      printf '100755\n'
+      ;;
+    docs/superpowers/specs/2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md|\
+    docs/superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md|\
+    docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md|\
+    docs/task-cards/visual-style-baseline/README.md)
+      printf '100644\n'
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+validate_historical_hv_snapshot_identity() {
+  local actual_parent actual_tree entry
+  git -C "${repo_root}" cat-file -e \
+    "${historical_hv_snapshot_sha}^{commit}" 2>/dev/null ||
+    fail "fixed historical HV replay snapshot is unavailable"
+  actual_parent="$(single_parent_of \
+    "${historical_hv_snapshot_sha}" "fixed historical HV replay snapshot")"
+  actual_tree="$(git -C "${repo_root}" rev-parse \
+    "${historical_hv_snapshot_sha}^{tree}" 2>/dev/null)" ||
+    fail "fixed historical HV replay snapshot tree is unavailable"
+  [[ "${actual_parent}" == "${historical_hv_snapshot_parent_sha}" &&
+     "${actual_tree}" == "${historical_hv_snapshot_tree_sha}" ]] ||
+    fail "fixed historical HV replay snapshot identity mismatch"
+  for entry in \
+    '100755 73c1b62e643d3808c16ccab89aefb13e3646502b scripts/verify-high-fidelity-visual' \
+    '100644 3b9dbe8c3241671ed2070446d3781b1453239f07 AGENTS.md' \
+    '100644 d0b85366e8eaee7771afdb95436e1a7e28aa75ae docs/engineering/cognitura-design-index.md'; do
+    set -- ${entry}
+    [[ "$(git -C "${repo_root}" ls-tree \
+         "${historical_hv_snapshot_sha}" -- "$3" | \
+         awk '{print $1 " " $3}')" == "$1 $2" ]] ||
+      fail "fixed historical HV replay snapshot key blob or mode mismatch"
+  done
+}
+
+validate_historical_hv_repair_readme_at_commit() {
+  local commit_sha="$1"
+  local committed_readme
+  committed_readme="$(mktemp \
+    "${verifier_tmp_root}/historical-hv-readme.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${commit_sha}:docs/task-cards/visual-style-baseline/README.md" > \
+    "${committed_readme}" 2>/dev/null ||
+    fail "committed historical HV repair README is unavailable"
+  require_nul_free_file "${committed_readme}" \
+    "historical HV repair path must not contain NUL bytes"
+  validate_historical_hv_repair_readme_file \
+    "${committed_readme}" "committed historical HV repair README"
+}
+
+validate_historical_hv_repair_chain() {
+  local candidate_sha="$1"
+  local origin_ledger previous_sha chain_sha actual_parent
+  local status_file error_file status_token status_path status_target
+  local path path_count expected_mode chain_mode content_file
+  local actual_paths expected_paths authority_path authority_blob chain_blob
+  local origin_wave1_index origin_wave1_card chain_wave1_index chain_wave1_card
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${historical_hv_repair_origin_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "historical HV repair candidate must descend the fixed failed candidate"
+  [[ "${candidate_sha}" != "${historical_hv_repair_origin_sha}" ]] ||
+    fail "fixed historical HV repair origin is immutable NO_GO evidence"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${historical_hv_repair_authority_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "historical HV repair candidate must descend the fixed Authority"
+  validate_historical_hv_snapshot_identity
+  origin_ledger="$(git -C "${repo_root}" rev-parse \
+    "${historical_hv_repair_origin_sha}:${ledger_path}" 2>/dev/null)" ||
+    fail "historical HV repair origin ledger is unavailable"
+  origin_wave1_index="$(git -C "${repo_root}" rev-parse \
+    "${historical_hv_repair_origin_sha}:docs/task-cards/wave-1-implementation/README.md")" ||
+    fail "historical HV repair frozen Wave1 index is unavailable"
+  origin_wave1_card="$(git -C "${repo_root}" rev-parse \
+    "${historical_hv_repair_origin_sha}:docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md")" ||
+    fail "historical HV repair frozen Wave1 card is unavailable"
+  previous_sha="${historical_hv_repair_origin_sha}"
+  while IFS= read -r chain_sha; do
+    [[ -n "${chain_sha}" ]] || continue
+    actual_parent="$(single_parent_of \
+      "${chain_sha}" "historical HV repair chain commit")"
+    [[ "${actual_parent}" == "${previous_sha}" ]] ||
+      fail "historical HV repair chain must be linear"
+    status_file="$(mktemp "${verifier_tmp_root}/historical-hv-status.XXXXXX")"
+    error_file="$(mktemp "${verifier_tmp_root}/historical-hv-error.XXXXXX")"
+    if ! git -C "${repo_root}" -c diff.renameLimit=0 diff-tree \
+      --no-commit-id -r -M -C --find-copies-harder --name-status -z \
+      "${previous_sha}" "${chain_sha}" > "${status_file}" 2> "${error_file}"; then
+      fail "historical HV repair rename and copy inspection failed"
+    fi
+    [[ ! -s "${error_file}" ]] ||
+      fail "historical HV repair rename and copy inspection failed"
+    while IFS= read -r -d '' status_token; do
+      IFS= read -r -d '' status_path ||
+        fail "historical HV repair path inspection failed"
+      case "${status_token}" in
+        R*|C*)
+          IFS= read -r -d '' status_target ||
+            fail "historical HV repair path inspection failed"
+          fail "historical HV repair chain must not rename or copy paths"
+          ;;
+      esac
+    done < "${status_file}"
+    path_count=0
+    while IFS= read -r -d '' path; do
+      path_count=$((path_count + 1))
+      [[ "${path}" != "${ledger_path}" ]] ||
+        fail "historical HV repair chain must preserve the execution ledger"
+      expected_mode="$(historical_hv_repair_expected_mode "${path}")" ||
+        fail "historical HV repair chain changed a path outside the exact eight-path WriteSet"
+      chain_mode="$(git -C "${repo_root}" ls-tree \
+        "${chain_sha}" -- "${path}" | awk '{print $1}')"
+      [[ "${chain_mode}" == "${expected_mode}" ]] ||
+        fail "historical HV repair path mode drifted"
+      content_file="$(mktemp \
+        "${verifier_tmp_root}/historical-hv-content.XXXXXX")"
+      git -C "${repo_root}" show \
+        "${chain_sha}:${path}" > "${content_file}" 2>/dev/null ||
+        fail "historical HV repair path blob is unavailable"
+      require_nul_free_file "${content_file}" \
+        "historical HV repair path must not contain NUL bytes"
+    done < <(git -C "${repo_root}" diff --no-renames --name-only -z \
+      "${previous_sha}..${chain_sha}")
+    [[ "${path_count}" -gt 0 ]] ||
+      fail "historical HV repair chain commit must not be empty"
+    [[ "$(git -C "${repo_root}" rev-parse \
+         "${chain_sha}:${ledger_path}" 2>/dev/null)" == "${origin_ledger}" ]] ||
+      fail "historical HV repair chain must preserve the execution ledger"
+    chain_wave1_index="$(git -C "${repo_root}" rev-parse \
+      "${chain_sha}:docs/task-cards/wave-1-implementation/README.md" 2>/dev/null)" ||
+      fail "historical HV repair chain must preserve frozen Wave1"
+    chain_wave1_card="$(git -C "${repo_root}" rev-parse \
+      "${chain_sha}:docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md" 2>/dev/null)" ||
+      fail "historical HV repair chain must preserve frozen Wave1"
+    [[ "${chain_wave1_index}" == "${origin_wave1_index}" &&
+       "${chain_wave1_card}" == "${origin_wave1_card}" ]] ||
+      fail "historical HV repair chain must preserve frozen Wave1"
+    if git -C "${repo_root}" merge-base --is-ancestor \
+        "${historical_hv_repair_authority_sha}" "${chain_sha}" 2>/dev/null; then
+      while IFS= read -r authority_path; do
+        authority_blob="$(git -C "${repo_root}" rev-parse \
+          "${historical_hv_repair_authority_sha}:${authority_path}" 2>/dev/null)" ||
+          fail "fixed historical HV repair Authority blob is unavailable"
+        chain_blob="$(git -C "${repo_root}" rev-parse \
+          "${chain_sha}:${authority_path}" 2>/dev/null)" ||
+          fail "fixed historical HV repair Authority blob or mode drifted"
+        chain_mode="$(git -C "${repo_root}" ls-tree \
+          "${chain_sha}" -- "${authority_path}" | awk '{print $1}')"
+        [[ "${chain_blob}" == "${authority_blob}" &&
+           "${chain_mode}" == 100644 ]] ||
+          fail "fixed historical HV repair Authority blob or mode drifted"
+      done < <(historical_hv_repair_authority_paths)
+    fi
+    previous_sha="${chain_sha}"
+  done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+    "${historical_hv_repair_origin_sha}..${candidate_sha}")
+  [[ "${previous_sha}" == "${candidate_sha}" ]] ||
+    fail "historical HV repair chain must be linear"
+  actual_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+    "${historical_hv_repair_origin_sha}..${candidate_sha}" | LC_ALL=C sort)"
+  expected_paths="$(historical_hv_repair_write_set | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "historical HV repair cumulative diff must equal the exact eight-path WriteSet"
+  validate_historical_hv_repair_readme_at_commit "${candidate_sha}"
+}
+
+validate_historical_hv_repair_candidate() {
+  local candidate_sha="$1"
+  local path origin_blob candidate_blob origin_mode candidate_mode
+  validate_historical_hv_repair_chain "${candidate_sha}"
+  validate_linear_cumulative_candidate \
+    "${historical_hv_repair_origin_sha}" 3
+  while IFS= read -r path; do
+    origin_blob="$(git -C "${repo_root}" rev-parse \
+      "${historical_hv_repair_origin_sha}:${path}" 2>/dev/null)" ||
+      fail "historical HV repair frozen Owner path is unavailable"
+    candidate_blob="$(git -C "${repo_root}" rev-parse \
+      "${candidate_sha}:${path}" 2>/dev/null)" ||
+      fail "historical HV repair must preserve the ten frozen Owner paths"
+    origin_mode="$(git -C "${repo_root}" ls-tree \
+      "${historical_hv_repair_origin_sha}" -- "${path}" | awk '{print $1}')"
+    candidate_mode="$(git -C "${repo_root}" ls-tree \
+      "${candidate_sha}" -- "${path}" | awk '{print $1}')"
+    [[ "${origin_blob}" == "${candidate_blob}" &&
+       "${origin_mode}" == "${candidate_mode}" ]] ||
+      fail "historical HV repair must preserve the ten frozen Owner paths"
+  done < <(historical_hv_frozen_owner_paths)
+  for path in \
+      scripts/verify-visual-style-baseline \
+      tests/visual-style-baseline/verify-visual-style-baseline.sh; do
+    origin_blob="$(git -C "${repo_root}" rev-parse \
+      "${historical_hv_repair_origin_sha}:${path}" 2>/dev/null)" ||
+      fail "historical HV repair original verifier path is unavailable"
+    candidate_blob="$(git -C "${repo_root}" rev-parse \
+      "${candidate_sha}:${path}" 2>/dev/null)" ||
+      fail "historical HV repair verifier path is unavailable"
+    candidate_mode="$(git -C "${repo_root}" ls-tree \
+      "${candidate_sha}" -- "${path}" | awk '{print $1}')"
+    [[ "${candidate_blob}" != "${origin_blob}" &&
+       "${candidate_mode}" == 100755 ]] ||
+      fail "historical HV repair must replace both verifier paths in mode 100755"
+  done
+  verified_candidate_sha="${candidate_sha}"
+  verified_candidate_owner_index=3
+  verified_candidate_release_sha="${historical_hv_repair_origin_sha}"
+}
+
 validate_candidate_mode_history() {
   local candidate_sha="$1"
   local owner_index="$2"
@@ -3172,7 +3451,21 @@ validate_linear_cumulative_candidate() {
 }
 
 verify_candidate_write_set() {
-  validate_linear_cumulative_candidate "$1" "$2"
+  local candidate_sha="$1"
+  local owner_index="$2"
+  if [[ "${owner_index}" -eq 3 &&
+        "${candidate_sha}" == "${historical_hv_repair_origin_sha}" ]]; then
+    fail "fixed historical HV repair origin is immutable NO_GO evidence"
+  fi
+  if [[ "${owner_index}" -eq 3 ]] &&
+     git -C "${repo_root}" merge-base --is-ancestor \
+       "${historical_hv_repair_origin_sha}" "${candidate_sha}" 2>/dev/null &&
+     git -C "${repo_root}" merge-base --is-ancestor \
+       "${historical_hv_repair_authority_sha}" "${candidate_sha}" 2>/dev/null; then
+    validate_historical_hv_repair_candidate "${candidate_sha}"
+  else
+    validate_linear_cumulative_candidate "${candidate_sha}" "${owner_index}"
+  fi
 }
 
 validate_parent_receipt_transition_pair() {
@@ -3211,6 +3504,31 @@ validate_parent_receipt_transition_pair() {
   base_sequence="$(state_value_from_file "${pair_base_file}" TransitionSequence)"
   head_sequence="$(state_value_from_file "${pair_head_file}" TransitionSequence)"
   head_kind="$(state_value_from_file "${pair_head_file}" TransitionKind)"
+  if [[ "${head_kind}" == COMPLETE &&
+        "${pair_base}" == "${historical_hv_repair_origin_sha}" ]]; then
+    fail "fixed historical HV repair origin is immutable NO_GO evidence"
+  fi
+  if [[ "${head_kind}" == COMPLETE ]] &&
+     git -C "${repo_root}" merge-base --is-ancestor \
+       "${historical_hv_repair_origin_sha}" "${pair_base}" 2>/dev/null &&
+     git -C "${repo_root}" merge-base --is-ancestor \
+       "${historical_hv_repair_authority_sha}" "${pair_base}" 2>/dev/null; then
+    [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 5 &&
+       "$(state_value_from_file "${pair_head_file}" ExecutionStateVersion)" == 5 ]] ||
+      fail "historical HV repair COMPLETE must preserve execution-state version 5"
+    [[ "${base_sequence}" == 10 && "${head_sequence}" == 11 ]] ||
+      fail "historical HV repair COMPLETE must advance sequence 10 to 11"
+    [[ "$(state_value_from_file "${pair_head_file}" CurrentReviewRoute)" == deep_reviewer &&
+       "$(state_value_from_file "${pair_head_file}" VSB03ReviewRoute)" == deep_reviewer ]] ||
+      fail "historical HV repair COMPLETE requires deep_reviewer xhigh ONE"
+    [[ "$(state_value_from_file "${pair_head_file}" CurrentReviewVerdict)" == \
+         FINAL_GO_P0_0_P1_0_P2_0 &&
+       "$(state_value_from_file "${pair_head_file}" VSB03DeepReviewVerdict)" == \
+         FINAL_GO_P0_0_P1_0_P2_0 ]] ||
+      fail "historical HV repair COMPLETE requires both zero-finding reviews"
+    [[ "$(state_value_from_file "${pair_head_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
+      fail "historical HV repair COMPLETE requires Ultra NOT_RUN"
+  fi
   if [[ "${head_kind}" == CHROME_AUTHORITY_MIGRATION ]]; then
     chrome_migration_intent=1
   elif [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 4 ]]; then

@@ -4272,10 +4272,93 @@ run_chrome_authority_migration_contract() {
     "ChromeAuthorityMigrationContractTests = PASS"
 }
 
+write_historical_hv_complete_state() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  local fixture_state="${fixture_root}/docs/task-cards/visual-style-baseline/execution-state.md"
+  git -C "${fixture_root}" checkout -q --detach "${candidate_sha}"
+  git -C "${fixture_root}" show \
+    "${candidate_sha}:docs/task-cards/visual-style-baseline/execution-state.md" > \
+    "${fixture_state}"
+  set_field "${fixture_state}" TaskCardSetStatus COMPLETE
+  set_field "${fixture_state}" ActiveTaskCard NONE
+  set_field "${fixture_state}" ReleasedTaskCard NONE
+  set_field "${fixture_state}" CompletedTaskCards VSB-00,VSB-01,VSB-02,VSB-03
+  set_field "${fixture_state}" CurrentCandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" CurrentGateStatus VSB-G3_PASS
+  set_field "${fixture_state}" CurrentReviewRoute deep_reviewer
+  set_field "${fixture_state}" CurrentReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" VSB03CandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" VSB03GateStatus VSB-G3_PASS
+  set_field "${fixture_state}" VSB03ReviewRoute deep_reviewer
+  set_field "${fixture_state}" VSB03DeepReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" VSB03UltraReviewVerdict NOT_RUN
+  set_field "${fixture_state}" TransitionSequence 11
+  set_field "${fixture_state}" TransitionKind COMPLETE
+  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
+  set_field "${fixture_state}" VisualImplementation COMPLETE
+}
+
+make_historical_hv_complete_receipt() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  write_historical_hv_complete_state "${fixture_root}" "${candidate_sha}"
+  git -C "${fixture_root}" add -- \
+    docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${fixture_root}" commit -qm "test: complete historical HV replay repair"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+expect_historical_hv_repair_transition_failure() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local candidate_sha="$3"
+  local receipt_sha="$4"
+  local expected="$5"
+  local invocation_tmp="$6"
+  local invocation_marker="$7"
+  local label="$8"
+  local output
+  if output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+      --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" \
+      --transition-base "${candidate_sha}" \
+      --transition-head "${receipt_sha}" 2>&1)"; then
+    fail "${label} unexpectedly passed"
+  fi
+  assert_contains "${output}" "${expected}"
+  [[ -f "${invocation_marker}" ]] ||
+    fail "${label} removed the sibling marker"
+  [[ -z "$(find "${invocation_tmp}" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
+    fail "${label} left invocation residue"
+}
+
+expect_historical_hv_repair_static_failure() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local expected="$3"
+  local invocation_tmp="$4"
+  local invocation_marker="$5"
+  local label="$6"
+  local output
+  if output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+      --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" 2>&1)"; then
+    fail "${label} unexpectedly passed"
+  fi
+  assert_contains "${output}" "${expected}"
+  [[ -f "${invocation_marker}" ]] ||
+    fail "${label} removed the sibling marker"
+  [[ -z "$(find "${invocation_tmp}" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
+    fail "${label} left invocation residue"
+}
+
 run_historical_hv_replay_repair_contract() {
   local repair_origin_sha=2690ab9e6d0318c63deb56f86bc0b923ae845c04
-  local source_head fixture_root fixture_cards fixture_state
+  local repair_authority_sha=244b89d68ae29f08fd9c019ed530db87098e763b
+  local historical_hv_snapshot_sha=77d8c1e780f5cc4d209a56baff349135a3c04ee8
+  local fixture_root fixture_cards fixture_state
   local governance_sha candidate_sha receipt_sha output actual_paths expected_paths
+  local bad_root bad_cards bad_state bad_candidate bad_receipt
+  local side_sha synthetic_tree synthetic_sha origin_parent
   local invocation_tmp invocation_marker
   local positive_cases=0 negative_cases=0
   local path
@@ -4295,7 +4378,6 @@ run_historical_hv_replay_repair_contract() {
   )
   repair_paths=("${governance_paths[@]}" "${product_paths[@]}")
 
-  source_head="$(git -C "${repo_root}" rev-parse HEAD)"
   fixture_root="${test_tmp_root}/historical-hv-repair"
   fixture_cards="${fixture_root}/docs/task-cards/visual-style-baseline"
   fixture_state="${fixture_cards}/execution-state.md"
@@ -4304,33 +4386,39 @@ run_historical_hv_replay_repair_contract() {
 
   git -C "${repo_root}" cat-file -e "${repair_origin_sha}^{commit}" ||
     fail "fixed historical HV repair origin is unavailable"
+  git -C "${repo_root}" cat-file -e "${repair_authority_sha}^{commit}" ||
+    fail "fixed historical HV repair Authority is unavailable"
+  git -C "${repo_root}" cat-file -e "${historical_hv_snapshot_sha}^{commit}" ||
+    fail "fixed historical HV replay snapshot is unavailable"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${repair_origin_sha}" "${repair_authority_sha}" ||
+    fail "fixed historical HV repair Authority must descend the failed candidate"
   git clone --shared -q "${repo_root}" "${fixture_root}"
   git -C "${fixture_root}" config advice.detachedHead false
   git -C "${fixture_root}" config user.name "Cognitura Test"
   git -C "${fixture_root}" config user.email "test@cognitura.invalid"
-  git -C "${fixture_root}" checkout -q --detach "${repair_origin_sha}"
+  git -C "${fixture_root}" checkout -q --detach "${repair_authority_sha}"
 
-  for path in "${governance_paths[0]}" "${governance_paths[1]}"; do
-    mkdir -p "${fixture_root}/$(dirname "${path}")"
-    git -C "${repo_root}" show "${source_head}:${path}" > "${fixture_root}/${path}"
+  for path in "${governance_paths[3]}" "${governance_paths[4]}" \
+      "${governance_paths[5]}"; do
+    cp "${repo_root}/${path}" "${fixture_root}/${path}"
   done
-  printf '\nHistoricalHVReplayRepairFixture = AUTHORITY\n' >> \
-    "${fixture_root}/${governance_paths[2]}"
-  printf '\nHistoricalHVReplayRepairFixture = AUTHORITY\n' >> \
-    "${fixture_root}/${governance_paths[3]}"
-  printf '\n# historical HV repair production fixture\n' >> \
+  printf '\n# historical HV task-card production fixture\n' >> \
     "${fixture_root}/${governance_paths[4]}"
-  printf '\n# historical HV repair contract fixture\n' >> \
-    "${fixture_root}/${governance_paths[5]}"
-  git -C "${fixture_root}" add -- "${governance_paths[@]}"
-  git -C "${fixture_root}" commit -qm "test: historical HV repair authority"
+  git -C "${fixture_root}" add -- \
+    "${governance_paths[3]}" "${governance_paths[4]}" "${governance_paths[5]}"
+  if ! git -C "${fixture_root}" diff --cached --quiet; then
+    git -C "${fixture_root}" commit -qm "test: historical HV repair governance"
+  fi
   governance_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
-  assert_commit_parent_count "${fixture_root}" "${governance_sha}" 1
+  git -C "${fixture_root}" merge-base --is-ancestor \
+    "${repair_authority_sha}" "${governance_sha}" ||
+    fail "repair governance fixture must descend the fixed Authority"
 
-  printf '\n# historical HV replay repair fixture\n' >> \
-    "${fixture_root}/${product_paths[0]}"
-  printf '\n# historical HV replay repair fixture\n' >> \
-    "${fixture_root}/${product_paths[1]}"
+  for path in "${product_paths[@]}"; do
+    cp "${repo_root}/${path}" "${fixture_root}/${path}"
+    printf '\n# historical HV replay repair fixture\n' >> "${fixture_root}/${path}"
+  done
   git -C "${fixture_root}" add -- "${product_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: historical HV replay repair candidate"
   candidate_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
@@ -4342,34 +4430,15 @@ run_historical_hv_replay_repair_contract() {
     "${repair_origin_sha}..${candidate_sha}" | LC_ALL=C sort)"
   expected_paths="$(printf '%s\n' "${repair_paths[@]}" | LC_ALL=C sort)"
   [[ "${actual_paths}" == "${expected_paths}" ]] ||
-    fail "historical HV fixture must have exact eight-path cumulative WriteSet"
+    fail "historical HV fixture must have exact eight-path cumulative WriteSet; got: ${actual_paths}"
   [[ "$(git -C "${fixture_root}" rev-parse \
        "${repair_origin_sha}:docs/task-cards/visual-style-baseline/execution-state.md")" == \
      "$(git -C "${fixture_root}" rev-parse \
        "${candidate_sha}:docs/task-cards/visual-style-baseline/execution-state.md")" ]] ||
     fail "historical HV repair candidate must preserve the execution ledger"
 
-  set_field "${fixture_state}" TaskCardSetStatus COMPLETE
-  set_field "${fixture_state}" ActiveTaskCard NONE
-  set_field "${fixture_state}" ReleasedTaskCard NONE
-  set_field "${fixture_state}" CompletedTaskCards VSB-00,VSB-01,VSB-02,VSB-03
-  set_field "${fixture_state}" CurrentCandidateSHA "${candidate_sha}"
-  set_field "${fixture_state}" CurrentGateStatus VSB-G3_PASS
-  set_field "${fixture_state}" CurrentReviewRoute deep_reviewer
-  set_field "${fixture_state}" CurrentReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
-  set_field "${fixture_state}" VSB03CandidateSHA "${candidate_sha}"
-  set_field "${fixture_state}" VSB03GateStatus VSB-G3_PASS
-  set_field "${fixture_state}" VSB03ReviewRoute deep_reviewer
-  set_field "${fixture_state}" VSB03DeepReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
-  set_field "${fixture_state}" VSB03UltraReviewVerdict NOT_RUN
-  set_field "${fixture_state}" TransitionSequence 11
-  set_field "${fixture_state}" TransitionKind COMPLETE
-  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
-  set_field "${fixture_state}" VisualImplementation COMPLETE
-  git -C "${fixture_root}" add -- \
-    docs/task-cards/visual-style-baseline/execution-state.md
-  git -C "${fixture_root}" commit -qm "test: complete historical HV replay repair"
-  receipt_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  receipt_sha="$(make_historical_hv_complete_receipt \
+    "${fixture_root}" "${candidate_sha}")"
   assert_commit_parent_count "${fixture_root}" "${receipt_sha}" 1
   [[ "$(git -C "${fixture_root}" diff --name-only \
        "${candidate_sha}..${receipt_sha}")" == \
@@ -4390,11 +4459,236 @@ run_historical_hv_replay_repair_contract() {
     fail "legal historical HV terminal static replay was rejected: ${output}"
   fi
   positive_cases=$((positive_cases + 1))
+
+  bad_root="${test_tmp_root}/historical-hv-repair-bad"
+  bad_cards="${bad_root}/docs/task-cards/visual-style-baseline"
+  bad_state="${bad_cards}/execution-state.md"
+  git clone --shared -q "${fixture_root}" "${bad_root}"
+  git -C "${bad_root}" config advice.detachedHead false
+  git -C "${bad_root}" config user.name "Cognitura Test"
+  git -C "${bad_root}" config user.email "test@cognitura.invalid"
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  git -C "${bad_root}" commit -q --allow-empty -m "test: empty repair commit"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair chain commit must not be empty" \
+    "${invocation_tmp}" "${invocation_marker}" "empty repair commit"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf 'outside\n' > "${bad_root}/historical-hv-outside.txt"
+  git -C "${bad_root}" add -- historical-hv-outside.txt
+  git -C "${bad_root}" commit -qm "test: add repair ninth path"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair chain changed a path outside the exact eight-path WriteSet" \
+    "${invocation_tmp}" "${invocation_marker}" "repair ninth path"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf '\nledger drift\n' >> "${bad_state}"
+  git -C "${bad_root}" commit -qam "test: drift repair ledger"
+  git -C "${bad_root}" restore --source="${candidate_sha}" -- "${bad_state#${bad_root}/}"
+  git -C "${bad_root}" commit -qam "test: restore repair ledger"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "CHROME_AUTHORITY_MIGRATION is allowed exactly once" \
+    "${invocation_tmp}" "${invocation_marker}" "restored ledger drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf '\nWave1 drift\n' >> \
+    "${bad_root}/docs/task-cards/wave-1-implementation/README.md"
+  git -C "${bad_root}" commit -qam "test: drift frozen Wave1"
+  git -C "${bad_root}" restore --source="${candidate_sha}" -- \
+    docs/task-cards/wave-1-implementation/README.md
+  git -C "${bad_root}" commit -qam "test: restore frozen Wave1"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair chain changed a path outside the exact eight-path WriteSet" \
+    "${invocation_tmp}" "${invocation_marker}" "restored Wave1 drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf '\nAuthority drift\n' >> "${bad_root}/${governance_paths[2]}"
+  git -C "${bad_root}" commit -qam "test: drift repair Authority"
+  git -C "${bad_root}" restore --source="${candidate_sha}" -- \
+    "${governance_paths[2]}"
+  git -C "${bad_root}" commit -qam "test: restore repair Authority"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "fixed historical HV repair Authority blob or mode drifted" \
+    "${invocation_tmp}" "${invocation_marker}" "restored Authority drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  chmod +x "${bad_root}/${governance_paths[2]}"
+  git -C "${bad_root}" add -- "${governance_paths[2]}"
+  git -C "${bad_root}" commit -qm "test: drift repair Authority mode"
+  chmod -x "${bad_root}/${governance_paths[2]}"
+  git -C "${bad_root}" add -- "${governance_paths[2]}"
+  git -C "${bad_root}" commit -qm "test: restore repair Authority mode"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair path mode drifted" \
+    "${invocation_tmp}" "${invocation_marker}" "restored Authority mode drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf '\0' >> "${bad_root}/${governance_paths[3]}"
+  git -C "${bad_root}" add -- "${governance_paths[3]}"
+  git -C "${bad_root}" commit -qm "test: add repair NUL"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "README.md must not contain NUL bytes" \
+    "${invocation_tmp}" "${invocation_marker}" "repair NUL"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  git -C "${bad_root}" mv scripts/verify-visual-style-baseline \
+    scripts/verify-visual-style-baseline-renamed
+  git -C "${bad_root}" commit -qm "test: rename repair path"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair chain must not rename or copy paths" \
+    "${invocation_tmp}" "${invocation_marker}" "repair rename"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf '\nowner drift\n' >> \
+    "${bad_root}/docs/design/visual-style-baseline/evidence/README.md"
+  git -C "${bad_root}" commit -qam "test: drift frozen Owner path"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair chain changed a path outside the exact eight-path WriteSet" \
+    "${invocation_tmp}" "${invocation_marker}" "frozen Owner drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${repair_origin_sha}"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${repair_origin_sha}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${repair_origin_sha}" "${bad_receipt}" \
+    "fixed historical HV repair origin is immutable NO_GO evidence" \
+    "${invocation_tmp}" "${invocation_marker}" "reused failed candidate"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  write_historical_hv_complete_state "${bad_root}" "${candidate_sha}"
+  set_field "${bad_state}" TransitionSequence 12
+  git -C "${bad_root}" add -- docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${bad_root}" commit -qm "test: wrong repair sequence"
+  bad_receipt="$(git -C "${bad_root}" rev-parse HEAD)"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${bad_receipt}" \
+    "TransitionSequence must increment by exactly one" \
+    "${invocation_tmp}" "${invocation_marker}" "wrong repair sequence"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  write_historical_hv_complete_state "${bad_root}" "${candidate_sha}"
+  set_field "${bad_state}" ExecutionStateVersion 6
+  git -C "${bad_root}" add -- docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${bad_root}" commit -qm "test: invent repair version six"
+  bad_receipt="$(git -C "${bad_root}" rev-parse HEAD)"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${bad_receipt}" \
+    "ExecutionStateVersion mismatch" \
+    "${invocation_tmp}" "${invocation_marker}" "repair version six"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  write_historical_hv_complete_state "${bad_root}" "${candidate_sha}"
+  set_field "${bad_state}" VSB03ReviewRoute deep_reviewer+ultra_gatekeeper
+  git -C "${bad_root}" add -- docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${bad_root}" commit -qm "test: stack repair final route"
+  bad_receipt="$(git -C "${bad_root}" rev-parse HEAD)"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${bad_receipt}" \
+    "current VSB-03 completion must use one deep_reviewer xhigh final gate" \
+    "${invocation_tmp}" "${invocation_marker}" "stacked repair route"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  write_historical_hv_complete_state "${bad_root}" "${candidate_sha}"
+  set_field "${bad_state}" VSB03UltraReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
+  git -C "${bad_root}" add -- docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${bad_root}" commit -qm "test: execute repair Ultra"
+  bad_receipt="$(git -C "${bad_root}" rev-parse HEAD)"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${bad_receipt}" \
+    "current VSB-03 completion must leave Ultra verdict NOT_RUN" \
+    "${invocation_tmp}" "${invocation_marker}" "repair Ultra execution"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  write_historical_hv_complete_state "${bad_root}" "${candidate_sha}"
+  set_field "${bad_state}" VSB03DeepReviewVerdict NOT_RUN
+  git -C "${bad_root}" add -- docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${bad_root}" commit -qm "test: omit repair review"
+  bad_receipt="$(git -C "${bad_root}" rev-parse HEAD)"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${bad_receipt}" \
+    "VSB03 deep review must be final zero-finding GO" \
+    "${invocation_tmp}" "${invocation_marker}" "missing repair review"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  write_historical_hv_complete_state "${bad_root}" "${candidate_sha}"
+  printf 'extra\n' > "${bad_root}/repair-receipt-extra.txt"
+  git -C "${bad_root}" add -- \
+    docs/task-cards/visual-style-baseline/execution-state.md repair-receipt-extra.txt
+  git -C "${bad_root}" commit -qm "test: add repair receipt path"
+  bad_receipt="$(git -C "${bad_root}" rev-parse HEAD)"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${bad_receipt}" \
+    "state transition fixed diff must contain only execution-state.md" \
+    "${invocation_tmp}" "${invocation_marker}" "extra repair receipt path"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  git -C "${bad_root}" commit -q --allow-empty -m "test: interpose repair receipt parent"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "$(git -C "${bad_root}" rev-parse HEAD)")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${bad_receipt}" \
+    "transition HEAD must be the direct child of BASE" \
+    "${invocation_tmp}" "${invocation_marker}" "non-direct repair receipt"
+  negative_cases=$((negative_cases + 1))
+
   [[ -f "${invocation_marker}" ]] ||
     fail "historical HV repair verifier removed the sibling marker"
   [[ -z "$(find "${invocation_tmp}" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
     fail "historical HV repair verifier left invocation residue"
-  [[ "${positive_cases}" -eq 2 && "${negative_cases}" -eq 0 ]] ||
+  [[ "${positive_cases}" -eq 2 && "${negative_cases}" -eq 17 ]] ||
     fail "historical HV repair focused case counts drifted"
   printf '%s\n' \
     "HistoricalHVReplayRepairPositiveCases = ${positive_cases}" \
