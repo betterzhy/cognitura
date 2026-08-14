@@ -10,6 +10,7 @@ governance_repair_pending_contract_only=0
 historical_failed_receipt_contract_only=0
 verifier_recovery_contract_only=0
 chrome_authority_migration_contract_only=0
+chrome_capture_source_contract_only=0
 case "${1:-}" in
   --repair-contract-only)
     repair_contract_only=1
@@ -48,6 +49,10 @@ case "${1:-}" in
     ;;
   --chrome-authority-migration-contract-only)
     chrome_authority_migration_contract_only=1
+    shift
+    ;;
+  --chrome-capture-source-contract-only)
+    chrome_capture_source_contract_only=1
     shift
     ;;
 esac
@@ -1411,7 +1416,11 @@ commit_model_route_owner_candidate() {
   local owner_path
   while IFS= read -r owner_path; do
     mkdir -p "${fixture_root}/$(dirname "${owner_path}")"
-    if [[ -f "${fixture_root}/${owner_path}" ]]; then
+    if [[ "${owner_path}" == scripts/capture-visual-style-baseline ]]; then
+      write_canonical_chrome_capture_source \
+        "${fixture_root}/${owner_path}" \
+        "${fixture_root}/candidate-capture-sentinel"
+    elif [[ -f "${fixture_root}/${owner_path}" ]]; then
       printf '\nmodel-route-owner-fixture:%s\n' "${owner_path}" >> \
         "${fixture_root}/${owner_path}"
     else
@@ -2877,9 +2886,179 @@ expect_chrome_migration_static_failure() {
     "${expected_message}" "${invocation_tmp}" "${invocation_marker}" "${label}"
 }
 
+write_canonical_chrome_capture_source() {
+  local source_file="$1"
+  local sentinel_file="$2"
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    '' \
+    'set -euo pipefail' \
+    '' \
+    'usage() {' \
+    '  exit 2' \
+    '}' \
+    '' \
+    'fail() {' \
+    '  exit 1' \
+    '}' \
+    '' \
+    '[[ -z "${CHROME_BIN:-}" ]] || fail "CHROME_BIN override is forbidden"' \
+    '' \
+    'repo_root=""' \
+    'output_dir=""' \
+    'replace_existing=0' \
+    'while [[ "$#" -gt 0 ]]; do' \
+    '  case "$1" in' \
+    '    --repo-root)' \
+    '      [[ "$#" -ge 2 ]] || usage' \
+    '      repo_root="$2"' \
+    '      shift 2' \
+    '      ;;' \
+    '    --output-dir)' \
+    '      [[ "$#" -ge 2 ]] || usage' \
+    '      output_dir="$2"' \
+    '      shift 2' \
+    '      ;;' \
+    '    --replace-existing)' \
+    '      replace_existing=1' \
+    '      shift' \
+    '      ;;' \
+    '    *) usage ;;' \
+    '  esac' \
+    'done' \
+    '' \
+    "printf 'EXECUTED\\n' > '${sentinel_file}'" \
+    '' \
+    "readonly VSB_FIXED_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'" \
+    'VSB_CHROME_VERSION="$("${VSB_FIXED_CHROME}" --version | sed '\''s/[[:space:]]*$//'\'')"' \
+    '[[ "${VSB_CHROME_VERSION}" == '\''Google Chrome 151.0.7922.138'\'' ]] ||' \
+    '  fail "fixed Chrome version mismatch"' > "${source_file}"
+}
+
+run_chrome_capture_source_public() {
+  local source_file="$1"
+  local invocation_tmp="$2"
+  local invocation_marker="$3"
+  chrome_capture_source_output=""
+  chrome_capture_source_rc=0
+  if chrome_capture_source_output="$(
+    TMPDIR="${invocation_tmp}" "${verifier}" \
+      --chrome-capture-source-contract "${source_file}" 2>&1
+  )"; then
+    chrome_capture_source_rc=0
+  else
+    chrome_capture_source_rc=$?
+  fi
+  [[ -f "${invocation_marker}" &&
+     "$(cat "${invocation_marker}")" == 'preserve sibling' ]] ||
+    fail "Chrome capture source checker changed its TMPDIR sibling"
+  shopt -s nullglob
+  local invocation_entries=("${invocation_tmp}"/*)
+  shopt -u nullglob
+  [[ "${#invocation_entries[@]}" -eq 1 &&
+     "${invocation_entries[0]}" == "${invocation_marker}" ]] ||
+    fail "Chrome capture source checker leaked TMPDIR entries"
+}
+
+expect_chrome_capture_source_failure() {
+  local source_file="$1"
+  local expected_message="$2"
+  local label="$3"
+  local invocation_tmp="$4"
+  local invocation_marker="$5"
+  run_chrome_capture_source_public \
+    "${source_file}" "${invocation_tmp}" "${invocation_marker}"
+  [[ "${chrome_capture_source_rc}" -ne 0 ]] ||
+    fail "${label} unexpectedly passed"
+  assert_contains "${chrome_capture_source_output}" "${expected_message}"
+}
+
+run_chrome_capture_source_contract() {
+  local fixture_dir="${test_tmp_root}/chrome-capture-source-contract"
+  local legal_source="${fixture_dir}/capture-legal"
+  local mutated_source="${fixture_dir}/capture-mutated"
+  local sentinel_file="${fixture_dir}/fake-browser-invoked"
+  local invocation_tmp="${fixture_dir}/tmp"
+  local invocation_marker="${invocation_tmp}/sibling-marker"
+  local mutation
+  local positive_cases=0 negative_cases=0
+  mkdir -p "${fixture_dir}" "${invocation_tmp}"
+  printf '%s\n' 'preserve sibling' > "${invocation_marker}"
+  write_canonical_chrome_capture_source "${legal_source}" "${sentinel_file}"
+
+  run_chrome_capture_source_public \
+    "${legal_source}" "${invocation_tmp}" "${invocation_marker}"
+  [[ "${chrome_capture_source_rc}" -eq 0 ]] ||
+    fail "canonical Chrome capture source was rejected: ${chrome_capture_source_output}"
+  assert_contains "${chrome_capture_source_output}" \
+    'ChromeCaptureSourceContract = PASS'
+  [[ ! -e "${sentinel_file}" ]] ||
+    fail "Chrome capture source checker executed the supplied source"
+  positive_cases=$((positive_cases + 1))
+
+  for mutation in override environment path-lookup fallback fake-path leading-space; do
+    cp "${legal_source}" "${mutated_source}"
+    case "${mutation}" in
+      override)
+        perl -0pi -e \
+          's/    \*\) usage ;;/    --chrome-bin) shift 2 ;;\n    *) usage ;;/' \
+          "${mutated_source}"
+        expected_message='Chrome capture source CLI contract mismatch'
+        ;;
+      environment)
+        perl -0pi -e \
+          's@readonly VSB_FIXED_CHROME='"'"'/Applications/Google Chrome[.]app/Contents/MacOS/Google Chrome'"'"'@readonly VSB_FIXED_CHROME="\${CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"@' \
+          "${mutated_source}"
+        expected_message='Chrome capture source fixed executable contract mismatch'
+        ;;
+      path-lookup)
+        perl -0pi -e \
+          's@readonly VSB_FIXED_CHROME=.*@readonly VSB_FIXED_CHROME="\$(command -v google-chrome)"@' \
+          "${mutated_source}"
+        expected_message='Chrome capture source executable discovery is forbidden'
+        ;;
+      fallback)
+        perl -0pi -e \
+          's@readonly VSB_FIXED_CHROME=.*@readonly VSB_FIXED_CHROME='"'"'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'"'"'; [[ -x "\${VSB_FIXED_CHROME}" ]] || readonly VSB_FIXED_CHROME='"'"'/usr/bin/google-chrome'"'"'@' \
+          "${mutated_source}"
+        expected_message='Chrome capture source fallback is forbidden'
+        ;;
+      fake-path)
+        perl -0pi -e \
+          's@^VSB_CHROME_VERSION=.*$@ALT_BROWSER=/tmp/fake-google-chrome\nVSB_CHROME_VERSION="\$("\${ALT_BROWSER}" --version | sed '"'"'s/[[:space:]]*\$//'"'"')"@m' \
+          "${mutated_source}"
+        expected_message='Chrome capture source alternate executable is forbidden'
+        ;;
+      leading-space)
+        perl -0pi -e \
+          's@^VSB_CHROME_VERSION=.*$@VSB_CHROME_VERSION="\$("\${VSB_FIXED_CHROME}" --version | xargs)"@m' \
+          "${mutated_source}"
+        expected_message='Chrome capture source version normalization mismatch'
+        ;;
+    esac
+    expect_chrome_capture_source_failure \
+      "${mutated_source}" "${expected_message}" "${mutation} mutation" \
+      "${invocation_tmp}" "${invocation_marker}"
+    [[ ! -e "${sentinel_file}" ]] ||
+      fail "Chrome capture source negative executed the fake browser sentinel"
+    negative_cases=$((negative_cases + 1))
+  done
+
+  [[ "${positive_cases}" -eq 1 ]] ||
+    fail "Chrome capture source positive matrix count drifted from 1"
+  [[ "${negative_cases}" -eq 6 ]] ||
+    fail "Chrome capture source negative matrix count drifted from 6"
+  printf '%s\n' \
+    "ChromeCaptureSourcePositiveCases = ${positive_cases}" \
+    "ChromeCaptureSourceNegativeCases = ${negative_cases}" \
+    'ChromeCaptureSourceContractTests = PASS'
+}
+
 run_chrome_authority_migration_contract() {
-  local migration_authority_sha="ce2a3ca466cc4df2ff077017f1ddb03cb285416f"
+  local migration_authority_sha="a2d22c2e8218413d26f7d8940a9ea5564e59b7f0"
   local migration_origin_sha="7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d"
+  local rejected_authority_sha="ce2a3ca466cc4df2ff077017f1ddb03cb285416f"
+  local rejected_candidate_sha="4a62647fdb8226cc5c0527c48f552ef553ff146e"
   local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
   local fixture_root="${test_tmp_root}/chrome-authority-migration-repo"
   local fixture_cards="${fixture_root}/docs/task-cards/visual-style-baseline"
@@ -2891,6 +3070,7 @@ run_chrome_authority_migration_contract() {
   local origin_ledger="${test_tmp_root}/chrome-authority-origin-ledger"
   local head_ledger="${test_tmp_root}/chrome-authority-head-ledger"
   local output status_before status_after commit parent path mode expected_mode authority_path
+  local expected_chain_count
   local governance_one_sha g4_sha
   local positive_cases=0 negative_cases=0
   local -a authority_paths governance_paths approved_paths
@@ -2907,9 +3087,17 @@ run_chrome_authority_migration_contract() {
   )
   approved_paths=("${authority_paths[@]}" "${governance_paths[@]}")
 
+  run_chrome_capture_source_contract
+
   [[ "$(git -C "${repo_root}" rev-parse "${migration_authority_sha}^")" == \
-     "${migration_origin_sha}" ]] ||
-    fail "fixed Chrome migration Authority must be the direct child of its origin"
+     "${rejected_candidate_sha}" ]] ||
+    fail "successor Chrome migration Authority must be the direct child of the rejected candidate"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${rejected_authority_sha}" "${rejected_candidate_sha}" ||
+    fail "rejected Chrome migration Authority is absent from predecessor ancestry"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${migration_origin_sha}" "${rejected_authority_sha}" ||
+    fail "rejected Chrome migration Authority does not descend the fixed origin"
 
   git clone --shared -q "${repo_root}" "${fixture_root}"
   git -C "${fixture_root}" checkout -q --detach "${migration_origin_sha}"
@@ -2954,10 +3142,23 @@ run_chrome_authority_migration_contract() {
 
   git -C "${fixture_root}" rev-list --first-parent --reverse \
     "${migration_origin_sha}..${g4_sha}" > "${chain_file}"
-  [[ "$(wc -l < "${chain_file}" | tr -d ' ')" == 3 ]] ||
-    fail "legal G4 fixture must contain the Authority and two later governance commits"
+  if git -C "${fixture_root}" cat-file -e \
+      "${migration_origin_sha}:scripts/capture-visual-style-baseline" 2>/dev/null; then
+    fail "Chrome migration origin unexpectedly contains the VSB-03 capture path"
+  fi
+  expected_chain_count=$((
+    $(git -C "${repo_root}" rev-list --first-parent --count \
+      "${migration_origin_sha}..${migration_authority_sha}") + 2
+  ))
+  [[ "$(wc -l < "${chain_file}" | tr -d ' ')" == \
+     "${expected_chain_count}" ]] ||
+    fail "legal G4 fixture must retain predecessor history, successor Authority, and two later governance commits"
   while IFS= read -r commit; do
     assert_commit_parent_count "${fixture_root}" "${commit}" 1
+    if git -C "${fixture_root}" cat-file -e \
+        "${commit}:scripts/capture-visual-style-baseline" 2>/dev/null; then
+      fail "Chrome migration governance commit unexpectedly contains the VSB-03 capture path"
+    fi
     git -C "${fixture_root}" diff-tree --no-commit-id -r --name-only \
       "${commit}^" "${commit}" > "${actual_paths_file}"
     [[ -s "${actual_paths_file}" ]] ||
@@ -3025,6 +3226,8 @@ run_chrome_authority_migration_contract() {
     fail "legal G4 fixture changed the HEAD execution ledger"
   cmp -s "${origin_ledger}" "${fixture_root}/${ledger_path}" ||
     fail "legal G4 fixture changed the working execution ledger"
+  [[ ! -e "${fixture_root}/scripts/capture-visual-style-baseline" ]] ||
+    fail "legal G4 working tree unexpectedly contains the VSB-03 capture path"
   [[ "${governance_one_sha}" == "$(git -C "${fixture_root}" rev-parse "${g4_sha}^")" ]] ||
     fail "legal G4 fixture governance commits are not a direct linear chain"
 
@@ -3047,7 +3250,7 @@ run_chrome_authority_migration_contract() {
 
   git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
   perl -0pi -e \
-    's/G4，才允许以 ledger-only/G4 才允许以 ledger-only/' \
+    's/append-only successor/append only successor/' \
     "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
   git -C "${fixture_root}" add -- \
     docs/task-cards/visual-style-baseline/README.md
@@ -3095,6 +3298,7 @@ run_chrome_authority_migration_contract() {
 
   local fixture_state="${fixture_root}/${ledger_path}"
   local r4_sha vsb03_candidate_sha vsb03_complete_sha later_sha bad_sha
+  local invalid_capture_candidate_sha invalid_capture_receipt_sha
   local field value field_index mutation bad_root side_sha main_sha
   local -a migration_fields migration_bad_values migration_bad_messages
 
@@ -3108,6 +3312,10 @@ run_chrome_authority_migration_contract() {
     fail "legal R4 must be the direct child of reviewed G4"
   [[ "$(git -C "${fixture_root}" diff --name-only "${g4_sha}" "${r4_sha}")" == \
      "${ledger_path}" ]] || fail "legal R4 must be ledger-only"
+  if git -C "${fixture_root}" cat-file -e \
+      "${r4_sha}:scripts/capture-visual-style-baseline" 2>/dev/null; then
+    fail "legal R4 unexpectedly contains the VSB-03 capture path"
+  fi
   run_chrome_migration_public "${fixture_root}" "${fixture_cards}" \
     "${invocation_tmp}" "${invocation_marker}" "legal explicit G4-to-R4 migration" \
     "${g4_sha}" "${r4_sha}"
@@ -3145,6 +3353,30 @@ run_chrome_authority_migration_contract() {
   [[ "${chrome_migration_public_rc}" -eq 0 ]] ||
     fail "version-5 VSB-03 release-anchor static replay was rejected: ${chrome_migration_public_output}"
   positive_cases=$((positive_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${r4_sha}"
+  invalid_capture_candidate_sha="$(commit_model_route_owner_candidate \
+    "${fixture_root}" "test: VSB-03 candidate with candidate-bound capture source" \
+    model_route_vsb03_write_set)"
+  perl -0pi -e \
+    's@/Applications/Google Chrome[.]app/Contents/MacOS/Google Chrome@/tmp/fake-google-chrome@' \
+    "${fixture_root}/scripts/capture-visual-style-baseline"
+  git -C "${fixture_root}" add -- scripts/capture-visual-style-baseline
+  git -C "${fixture_root}" commit -qm \
+    "test: mutate candidate-bound Chrome capture source"
+  invalid_capture_candidate_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  set_vsb03_complete_receipt "${fixture_state}" \
+    "${invalid_capture_candidate_sha}" deep_reviewer \
+    FINAL_GO_P0_0_P1_0_P2_0 NOT_RUN
+  set_field "${fixture_state}" TransitionSequence 11
+  invalid_capture_receipt_sha="$(commit_chrome_authority_migration_ledger \
+    "${fixture_root}" "test: reject invalid candidate-bound capture source")"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "Chrome capture source fixed executable contract mismatch" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "candidate-bound invalid Chrome capture source" \
+    "${invalid_capture_candidate_sha}" "${invalid_capture_receipt_sha}"
+  negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" checkout -q --detach "${vsb03_candidate_sha}"
   set_vsb03_final_no_go_receipt "${fixture_state}" "${vsb03_candidate_sha}" \
@@ -3502,7 +3734,7 @@ run_chrome_authority_migration_contract() {
   local alternate_cards="${alternate_root}/docs/task-cards/visual-style-baseline"
   local alternate_authority_sha alternate_g4_sha
   git clone --shared -q "${repo_root}" "${alternate_root}"
-  git -C "${alternate_root}" checkout -q --detach "${migration_origin_sha}"
+  git -C "${alternate_root}" checkout -q --detach "${rejected_candidate_sha}"
   git -C "${alternate_root}" checkout -q "${migration_authority_sha}" -- \
     "${authority_paths[@]}"
   git -C "${alternate_root}" commit -qm \
@@ -3511,8 +3743,8 @@ run_chrome_authority_migration_contract() {
   [[ "${alternate_authority_sha}" != "${migration_authority_sha}" ]] ||
     fail "alternate Authority fixture unexpectedly reproduced the fixed commit"
   [[ "$(git -C "${alternate_root}" rev-parse "${alternate_authority_sha}^")" == \
-     "${migration_origin_sha}" ]] ||
-    fail "alternate Authority fixture must directly descend the fixed origin"
+     "${rejected_candidate_sha}" ]] ||
+    fail "alternate Authority fixture must directly descend the rejected candidate"
   for authority_path in "${authority_paths[@]}"; do
     [[ "$(git -C "${alternate_root}" rev-parse \
       "${alternate_authority_sha}:${authority_path}")" == \
@@ -3558,7 +3790,7 @@ run_chrome_authority_migration_contract() {
   cmp -s "${expected_paths_file}" "${actual_paths_file}" ||
     fail "alternate same-blob G4 must retain the exact six-path cumulative WriteSet"
   expect_chrome_migration_static_failure "${alternate_root}" "${alternate_cards}" \
-    "Chrome authority migration HEAD must descend the fixed Authority SHA" \
+    "Chrome authority migration HEAD must descend the successor Authority SHA" \
     "${invocation_tmp}" "${invocation_marker}" \
     "alternate same-blob Authority ancestry"
   negative_cases=$((negative_cases + 1))
@@ -3672,7 +3904,11 @@ run_chrome_authority_migration_contract() {
     "hidden introduce-then-restore governance NUL"
   negative_cases=$((negative_cases + 1))
 
-  git -C "${bad_root}" checkout -q --detach "${governance_one_sha}"
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  git -C "${bad_root}" checkout -q "${migration_origin_sha}" -- \
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+  git -C "${bad_root}" commit -qm \
+    "test: restore Chrome contract test to origin blob"
   expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
     "Chrome authority migration cumulative WriteSet must equal the exact six paths" \
     "${invocation_tmp}" "${invocation_marker}" "incomplete G4 WriteSet"
@@ -3769,8 +4005,8 @@ run_chrome_authority_migration_contract() {
 
   [[ "${positive_cases}" -eq 9 ]] ||
     fail "Chrome authority migration positive matrix count drifted from 9"
-  [[ "${negative_cases}" -eq 81 ]] ||
-    fail "Chrome authority migration negative matrix count drifted from 81"
+  [[ "${negative_cases}" -eq 82 ]] ||
+    fail "Chrome authority migration negative matrix count drifted from 82"
   printf '%s\n' \
     "ChromeAuthorityMigrationPositiveCases = ${positive_cases}" \
     "ChromeAuthorityMigrationNegativeCases = ${negative_cases}" \
@@ -3779,6 +4015,11 @@ run_chrome_authority_migration_contract() {
 
 if [[ "${chrome_authority_migration_contract_only}" -eq 1 ]]; then
   run_chrome_authority_migration_contract
+  exit 0
+fi
+
+if [[ "${chrome_capture_source_contract_only}" -eq 1 ]]; then
+  run_chrome_capture_source_contract
   exit 0
 fi
 
@@ -3891,7 +4132,7 @@ fixed_wave1_projection_paths=(
 [[ -d "${cards_dir}" ]] || fail "Visual Style Baseline task-card set is missing"
 
 expect_clean_early_exit 2 \
-  'Usage: scripts/verify-visual-style-baseline-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA]'
+  'Usage: scripts/verify-visual-style-baseline-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA] | scripts/verify-visual-style-baseline-cards --chrome-capture-source-contract FILE'
 missing_cards_dir="${test_tmp_root}/missing-cards-dir"
 expect_clean_early_exit 1 \
   $'VisualStyleBaselineTaskCardValidation = FAIL\ncards directory does not exist: '"${missing_cards_dir}" \
@@ -4228,6 +4469,11 @@ write_exact_candidate_paths() {
       printf '%s\n' "${marker}" > "${fixture_root}/${candidate_path}"
     fi
   done <<< "${candidate_write_sets[${owner_index}]}"
+  if [[ "${owner_index}" -eq 3 ]]; then
+    write_canonical_chrome_capture_source \
+      "${fixture_root}/scripts/capture-visual-style-baseline" \
+      "${fixture_root}/candidate-capture-sentinel"
+  fi
 }
 
 commit_candidate_subset() {

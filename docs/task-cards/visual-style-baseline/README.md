@@ -40,12 +40,16 @@ Active、Released、Completed 或 READY 事实。
 仍是 immutable invalid receipt evidence，不是普通 PASS 或 release anchor；只有完整验证的
 ledger-only R3 才能成为新的 VSB-02 anchor。恢复不改变当前模型路由、finding、数据库或 push 边界。
 
-当前 Chrome Authority Migration 由
+当前 Chrome Authority Migration 的 append-only successor 由
 [`2026-08-14-cognitura-vsb-chrome-authority-migration-design.md`](../../superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md)
 及其实施计划
 [`2026-08-14-cognitura-vsb-chrome-authority-migration.md`](../../superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md)
-统一约束，固定 Authority SHA 为 `ce2a3ca466cc4df2ff077017f1ddb03cb285416f`，
-固定 origin 为 `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`。它只允许将 Chrome
+统一约束，固定 successor Authority SHA 为
+`a2d22c2e8218413d26f7d8940a9ea5564e59b7f0`。被拒绝的 predecessor
+Authority `ce2a3ca466cc4df2ff077017f1ddb03cb285416f` 及其固定候选
+`4a62647fdb8226cc5c0527c48f552ef553ff146e` 保留为 immutable
+`NO_GO / P1=1` 证据；两者都不是当前 Authority、G4 或 R4 base。固定 origin 为
+`7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`。该 successor 只允许将 Chrome
 `151.0.7922.109` 精确迁移到 `151.0.7922.138`；G4 从 origin 起的累计
 WriteSet 必须精确为以下六路径：
 
@@ -58,11 +62,16 @@ scripts/verify-visual-style-baseline-cards
 tests/task-cards/verify-visual-style-baseline-cards.sh
 ```
 
-只有已完整重放并通过 `L3 / deep_reviewer / xhigh / ONE` 零 finding 审查的
-G4，才允许以 ledger-only 直接子提交 R4 记录唯一
+只有从 successor Authority 下降、已完整重放并通过
+`L3 / deep_reviewer / xhigh / ONE` 零 finding 审查的 G4，才允许以
+ledger-only 直接子提交 R4 记录唯一
 `CHROME_AUTHORITY_MIGRATION`；完整验证的 R4 才是新的 VSB-03 release
-anchor。G4、原 origin 和未完整重放的 receipt 都不是 Owner release anchor，
-也不会改变 VSB-03 当前 `L4 / deep_reviewer / xhigh / ONE` 的单次最终门禁。
+anchor。Stage A 中实际 `scripts/capture-visual-style-baseline` 必须在 origin、
+每个治理提交、G4、工作树和 R4 均不存在，只通过公共只读 source-contract checker
+验证临时 canonical fixture；Stage B 的精确十二路径 VSB-03 候选一旦包含该路径，
+必须校验 candidate Git blob，禁止 skip 或改验工作树副本。G4、原 origin 和未完整
+重放的 receipt 都不是 Owner release anchor，也不会改变 VSB-03 当前
+`L4 / deep_reviewer / xhigh / ONE` 的单次最终门禁。
 
 当前模型路由 Authority 是
 [`2026-08-13-cognitura-model-gate-routing-design.md`](../../superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md)

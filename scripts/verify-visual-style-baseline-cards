@@ -9,6 +9,8 @@ repo_root="${script_repo_root}"
 cards_dir=""
 transition_base=""
 transition_head=""
+chrome_capture_source_contract=""
+standard_cli_mode=0
 governance_repair_origin_sha="d47c8c7bd7355947b5e8e1de6c264d80c2e27c9a"
 governance_repair_spec_sha="2123594540c91341c480f504949315a6abec316c"
 governance_repair_vsb00_candidate_sha="737c053483d1f3d084d5f90d5c36f76b0ae8f5a3"
@@ -21,9 +23,12 @@ receipt_correction_reviewed_vsb01_sha="108592b757ba50ea6ded7b901bd2b623737a7048"
 verifier_recovery_spec_sha="5799d873791694f7e4cb4a2dbe65c8fa27495beb"
 verifier_recovery_origin_sha="9904d3deb87e4a3e2820c5a12463929916057c36"
 verifier_recovery_failed_candidate_sha="b16f867bfb951bf969ac8c4a8697c8b8913325bd"
-chrome_authority_migration_spec_sha="ce2a3ca466cc4df2ff077017f1ddb03cb285416f"
+chrome_authority_migration_spec_sha="a2d22c2e8218413d26f7d8940a9ea5564e59b7f0"
 chrome_authority_migration_origin_sha="7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d"
+chrome_authority_migration_rejected_authority_sha="ce2a3ca466cc4df2ff077017f1ddb03cb285416f"
+chrome_authority_migration_rejected_candidate_sha="4a62647fdb8226cc5c0527c48f552ef553ff146e"
 chrome_authority_migration_origin_ledger_blob="c71491023294207babda7ed7a2fa47d515495b31"
+chrome_capture_source_path="scripts/capture-visual-style-baseline"
 governance_repair_status_output=""
 receipt_correction_status_output=""
 verifier_recovery_status_output=""
@@ -43,7 +48,7 @@ trap cleanup_temporary_paths EXIT
 
 usage() {
   printf '%s\n' \
-    'Usage: scripts/verify-visual-style-baseline-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA]' >&2
+    'Usage: scripts/verify-visual-style-baseline-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA] | scripts/verify-visual-style-baseline-cards --chrome-capture-source-contract FILE' >&2
   exit 2
 }
 
@@ -122,6 +127,85 @@ fixed_string_occurrence_count() {
     wc -l | tr -d ' '
 }
 
+validate_chrome_capture_source_contract() {
+  local source_file="$1"
+  local cli_block env_rejection fixed_declaration version_assignment version_check
+  [[ -f "${source_file}" && ! -L "${source_file}" ]] ||
+    fail "Chrome capture source must be one regular file"
+  require_nul_free_file "${source_file}" \
+    "Chrome capture source must not contain NUL bytes"
+  [[ "$(sed -n '1p' "${source_file}")" == '#!/usr/bin/env bash' ]] ||
+    fail "Chrome capture source must be Bash"
+  /bin/bash -n "${source_file}" >/dev/null 2>&1 ||
+    fail "Chrome capture source must be valid Bash"
+
+  if grep -Eiq \
+      '(command[[:space:]]+-v|type[[:space:]]+-[a-zA-Z]*p|which[[:space:]]+).*(chrome|chromium|browser)' \
+      "${source_file}"; then
+    fail "Chrome capture source executable discovery is forbidden"
+  fi
+  if grep -Eq \
+      '(\|\||else|elif).*(VSB_FIXED_CHROME|google-chrome|chromium|browser executable)' \
+      "${source_file}"; then
+    fail "Chrome capture source fallback is forbidden"
+  fi
+  if (grep -E \
+        '(^|\$\(|;|&&|\|\|)[[:space:]]*"?\$\{[^}]+\}"?[[:space:]]+--(version|headless|screenshot|dump-dom)' \
+        "${source_file}" || true) | \
+       grep -Fv '"${VSB_FIXED_CHROME}"' | grep -q .; then
+    fail "Chrome capture source alternate executable is forbidden"
+  fi
+  if grep -Eq \
+      '(^|;|&&|\|\|)[[:space:]]*"?/(Applications|usr|opt|tmp)/[^[:space:]]+[[:space:]]+--(version|headless|screenshot|dump-dom)' \
+      "${source_file}"; then
+    fail "Chrome capture source alternate executable is forbidden"
+  fi
+
+  env_rejection='[[ -z "${CHROME_BIN:-}" ]] || fail "CHROME_BIN override is forbidden"'
+  [[ "$(grep -F -x -c "${env_rejection}" "${source_file}" || true)" -eq 1 ]] ||
+    fail "Chrome capture source CHROME_BIN rejection mismatch"
+
+  fixed_declaration="readonly VSB_FIXED_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'"
+  [[ "$(grep -F -x -c "${fixed_declaration}" "${source_file}" || true)" -eq 1 &&
+     "$(grep -c '^\(readonly[[:space:]]\+\)\?VSB_FIXED_CHROME=' \
+       "${source_file}" || true)" -eq 1 &&
+     "$(fixed_string_occurrence_count "${source_file}" \
+       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')" -eq 1 ]] ||
+    fail "Chrome capture source fixed executable contract mismatch"
+
+  version_assignment='VSB_CHROME_VERSION="$("${VSB_FIXED_CHROME}" --version | sed '\''s/[[:space:]]*$//'\'')"'
+  [[ "$(grep -F -x -c "${version_assignment}" "${source_file}" || true)" -eq 1 ]] ||
+    fail "Chrome capture source version normalization mismatch"
+  version_check='[[ "${VSB_CHROME_VERSION}" == '\''Google Chrome 151.0.7922.138'\'' ]] ||'
+  [[ "$(grep -F -x -c "${version_check}" "${source_file}" || true)" -eq 1 &&
+     "$(fixed_string_occurrence_count "${source_file}" \
+       'Google Chrome 151.0.7922.138')" -eq 1 ]] ||
+    fail "Chrome capture source version contract mismatch"
+
+  cli_block='while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --repo-root)
+      [[ "$#" -ge 2 ]] || usage
+      repo_root="$2"
+      shift 2
+      ;;
+    --output-dir)
+      [[ "$#" -ge 2 ]] || usage
+      output_dir="$2"
+      shift 2
+      ;;
+    --replace-existing)
+      replace_existing=1
+      shift
+      ;;
+    *) usage ;;
+  esac
+done'
+  require_exact_line_block_once "${source_file}" "${cli_block}" \
+    "Chrome capture source CLI contract mismatch"
+
+}
+
 validate_chrome_authority_migration_readme_file() {
   local file="$1"
   local label="$2"
@@ -132,7 +216,11 @@ validate_chrome_authority_migration_readme_file() {
   [[ "$(fixed_string_occurrence_count \
        "${file}" 'Chrome Authority Migration')" -eq 1 &&
      "$(fixed_string_occurrence_count \
+       "${file}" 'a2d22c2e8218413d26f7d8940a9ea5564e59b7f0')" -eq 1 &&
+     "$(fixed_string_occurrence_count \
        "${file}" 'ce2a3ca466cc4df2ff077017f1ddb03cb285416f')" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" '4a62647fdb8226cc5c0527c48f552ef553ff146e')" -eq 1 &&
      "$(fixed_string_occurrence_count \
        "${file}" '7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d')" -eq 1 &&
      "$(fixed_string_occurrence_count \
@@ -140,7 +228,9 @@ validate_chrome_authority_migration_readme_file() {
      "$(fixed_string_occurrence_count \
        "${file}" '151.0.7922.138')" -eq 1 &&
      "$(fixed_string_occurrence_count \
-       "${file}" 'CHROME_AUTHORITY_MIGRATION')" -eq 1 ]] ||
+       "${file}" 'CHROME_AUTHORITY_MIGRATION')" -eq 1 &&
+     "$(fixed_string_occurrence_count \
+       "${file}" 'NO_GO / P1=1')" -eq 1 ]] ||
     fail "${label}: contradictory Chrome authority migration prose"
   chrome_readme_versions="$(grep -Eo '151\.0\.7922\.[0-9]+' \
     "${file}" | LC_ALL=C sort)"
@@ -1102,27 +1192,43 @@ while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --repo-root)
       [[ "$#" -ge 2 ]] || usage
+      standard_cli_mode=1
       repo_root="$2"
       shift 2
       ;;
     --cards-dir)
       [[ "$#" -ge 2 ]] || usage
+      standard_cli_mode=1
       cards_dir="$2"
       shift 2
       ;;
     --transition-base)
       [[ "$#" -ge 2 ]] || usage
+      standard_cli_mode=1
       transition_base="$2"
       shift 2
       ;;
     --transition-head)
       [[ "$#" -ge 2 ]] || usage
+      standard_cli_mode=1
       transition_head="$2"
+      shift 2
+      ;;
+    --chrome-capture-source-contract)
+      [[ "$#" -ge 2 && -z "${chrome_capture_source_contract}" ]] || usage
+      chrome_capture_source_contract="$2"
       shift 2
       ;;
     *) usage ;;
   esac
 done
+
+if [[ -n "${chrome_capture_source_contract}" ]]; then
+  [[ "${standard_cli_mode}" -eq 0 ]] || usage
+  validate_chrome_capture_source_contract "${chrome_capture_source_contract}"
+  printf '%s\n' 'ChromeCaptureSourceContract = PASS'
+  exit 0
+fi
 
 [[ -n "${cards_dir}" ]] || usage
 [[ -d "${repo_root}" ]] || fail "repo root does not exist: ${repo_root}"
@@ -1197,7 +1303,7 @@ if git -C "${repo_root}" merge-base --is-ancestor \
   chrome_authority_migration_head_current=1
 fi
 if grep -Eq \
-    '(Chrome Authority Migration|2026-08-14-cognitura-vsb-chrome-authority-migration|ce2a3ca466cc4df2ff077017f1ddb03cb285416f|151[.]0[.]7922[.]138|CHROME_AUTHORITY_MIGRATION)' \
+    '(Chrome Authority Migration|2026-08-14-cognitura-vsb-chrome-authority-migration|a2d22c2e8218413d26f7d8940a9ea5564e59b7f0|ce2a3ca466cc4df2ff077017f1ddb03cb285416f|4a62647fdb8226cc5c0527c48f552ef553ff146e|151[.]0[.]7922[.]138|CHROME_AUTHORITY_MIGRATION)' \
     "${index_file}"; then
   chrome_authority_migration_marker_current=1
 fi
@@ -1292,7 +1398,7 @@ if [[ "${model_route_schema_current}" -eq 1 ]]; then
   fi
 fi
 
-expected_chrome_authority_migration_section=$'当前 Chrome Authority Migration 由\n[`2026-08-14-cognitura-vsb-chrome-authority-migration-design.md`](../../superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md)\n及其实施计划\n[`2026-08-14-cognitura-vsb-chrome-authority-migration.md`](../../superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md)\n统一约束，固定 Authority SHA 为 `ce2a3ca466cc4df2ff077017f1ddb03cb285416f`，\n固定 origin 为 `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`。它只允许将 Chrome\n`151.0.7922.109` 精确迁移到 `151.0.7922.138`；G4 从 origin 起的累计\nWriteSet 必须精确为以下六路径：\n\n```text\ndocs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md\ndocs/superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md\ndocs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md\ndocs/task-cards/visual-style-baseline/README.md\nscripts/verify-visual-style-baseline-cards\ntests/task-cards/verify-visual-style-baseline-cards.sh\n```\n\n只有已完整重放并通过 `L3 / deep_reviewer / xhigh / ONE` 零 finding 审查的\nG4，才允许以 ledger-only 直接子提交 R4 记录唯一\n`CHROME_AUTHORITY_MIGRATION`；完整验证的 R4 才是新的 VSB-03 release\nanchor。G4、原 origin 和未完整重放的 receipt 都不是 Owner release anchor，\n也不会改变 VSB-03 当前 `L4 / deep_reviewer / xhigh / ONE` 的单次最终门禁。'
+expected_chrome_authority_migration_section=$'当前 Chrome Authority Migration 的 append-only successor 由\n[`2026-08-14-cognitura-vsb-chrome-authority-migration-design.md`](../../superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md)\n及其实施计划\n[`2026-08-14-cognitura-vsb-chrome-authority-migration.md`](../../superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md)\n统一约束，固定 successor Authority SHA 为\n`a2d22c2e8218413d26f7d8940a9ea5564e59b7f0`。被拒绝的 predecessor\nAuthority `ce2a3ca466cc4df2ff077017f1ddb03cb285416f` 及其固定候选\n`4a62647fdb8226cc5c0527c48f552ef553ff146e` 保留为 immutable\n`NO_GO / P1=1` 证据；两者都不是当前 Authority、G4 或 R4 base。固定 origin 为\n`7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`。该 successor 只允许将 Chrome\n`151.0.7922.109` 精确迁移到 `151.0.7922.138`；G4 从 origin 起的累计\nWriteSet 必须精确为以下六路径：\n\n```text\ndocs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md\ndocs/superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md\ndocs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md\ndocs/task-cards/visual-style-baseline/README.md\nscripts/verify-visual-style-baseline-cards\ntests/task-cards/verify-visual-style-baseline-cards.sh\n```\n\n只有从 successor Authority 下降、已完整重放并通过\n`L3 / deep_reviewer / xhigh / ONE` 零 finding 审查的 G4，才允许以\nledger-only 直接子提交 R4 记录唯一\n`CHROME_AUTHORITY_MIGRATION`；完整验证的 R4 才是新的 VSB-03 release\nanchor。Stage A 中实际 `scripts/capture-visual-style-baseline` 必须在 origin、\n每个治理提交、G4、工作树和 R4 均不存在，只通过公共只读 source-contract checker\n验证临时 canonical fixture；Stage B 的精确十二路径 VSB-03 候选一旦包含该路径，\n必须校验 candidate Git blob，禁止 skip 或改验工作树副本。G4、原 origin 和未完整\n重放的 receipt 都不是 Owner release anchor，也不会改变 VSB-03 当前\n`L4 / deep_reviewer / xhigh / ONE` 的单次最终门禁。'
 if [[ "${chrome_authority_migration_schema_current}" -eq 1 ]]; then
   validate_chrome_authority_migration_readme_file "${index_file}" \
     README.md "README.md: Chrome authority migration block mismatch"
@@ -1951,6 +2057,27 @@ path_is_chrome_authority_migration_authority() {
   esac
 }
 
+require_chrome_capture_path_absent_at_commit() {
+  local commit_sha="$1"
+  local label="$2"
+  if git -C "${repo_root}" cat-file -e \
+      "${commit_sha}:${chrome_capture_source_path}" 2>/dev/null; then
+    fail "${label} must not contain scripts/capture-visual-style-baseline"
+  fi
+}
+
+validate_candidate_chrome_capture_source() {
+  local candidate_sha="$1"
+  local candidate_source
+  candidate_source="$(mktemp \
+    "${verifier_tmp_root}/candidate-chrome-capture-source.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${candidate_sha}:${chrome_capture_source_path}" > \
+    "${candidate_source}" 2>/dev/null ||
+    fail "VSB-03 candidate capture source is missing"
+  validate_chrome_capture_source_contract "${candidate_source}"
+}
+
 validate_chrome_authority_migration_plan_at_commit() {
   local commit_sha="$1"
   local plan_file target_count old_count trailing_count
@@ -1993,6 +2120,7 @@ validate_chrome_authority_migration_chain() {
   local status_file error_file status_token status_path status_target
   local migration_path expected_mode chain_mode content_file chain_ledger
   local actual_paths expected_paths authority_path authority_blob chain_blob
+  local successor_parent
   origin_ledger="$(git -C "${repo_root}" rev-parse \
     "${chrome_authority_migration_origin_sha}:${ledger_path}" 2>/dev/null)" ||
     fail "Chrome authority migration origin ledger mismatch"
@@ -2002,10 +2130,32 @@ validate_chrome_authority_migration_chain() {
     "${chrome_authority_migration_origin_sha}" "${candidate_sha}" 2>/dev/null ||
     fail "Chrome authority migration HEAD must descend the fixed origin"
   git -C "${repo_root}" merge-base --is-ancestor \
+    "${chrome_authority_migration_rejected_authority_sha}" \
+    "${candidate_sha}" 2>/dev/null ||
+    fail "Chrome authority migration HEAD must retain the rejected Authority"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${chrome_authority_migration_rejected_candidate_sha}" \
+    "${candidate_sha}" 2>/dev/null ||
+    fail "Chrome authority migration HEAD must retain the rejected candidate"
+  git -C "${repo_root}" merge-base --is-ancestor \
     "${chrome_authority_migration_spec_sha}" "${candidate_sha}" 2>/dev/null ||
-    fail "Chrome authority migration HEAD must descend the fixed Authority SHA"
+    fail "Chrome authority migration HEAD must descend the successor Authority SHA"
+  [[ "${candidate_sha}" != \
+       "${chrome_authority_migration_rejected_authority_sha}" &&
+     "${candidate_sha}" != \
+       "${chrome_authority_migration_rejected_candidate_sha}" ]] ||
+    fail "rejected Chrome migration predecessor cannot be current G4 or R4 base"
+  successor_parent="$(single_parent_of \
+    "${chrome_authority_migration_spec_sha}" \
+    "successor Chrome migration Authority")"
+  [[ "${successor_parent}" == \
+       "${chrome_authority_migration_rejected_candidate_sha}" ]] ||
+    fail "successor Chrome migration Authority must directly follow the rejected candidate"
   [[ "${candidate_sha}" != "${chrome_authority_migration_origin_sha}" ]] ||
     fail "Chrome authority migration cumulative WriteSet must equal the exact six paths"
+  require_chrome_capture_path_absent_at_commit \
+    "${chrome_authority_migration_origin_sha}" \
+    "Chrome authority migration origin"
 
   previous_sha="${chrome_authority_migration_origin_sha}"
   while IFS= read -r chain_sha; do
@@ -2069,6 +2219,8 @@ validate_chrome_authority_migration_chain() {
       fail "Chrome authority migration governance chain must not change the execution ledger"
     [[ "${chain_ledger}" == "${origin_ledger}" ]] ||
       fail "Chrome authority migration governance chain must not change the execution ledger"
+    require_chrome_capture_path_absent_at_commit \
+      "${chain_sha}" "Chrome authority migration governance commit"
     if git -C "${repo_root}" merge-base --is-ancestor \
         "${chrome_authority_migration_spec_sha}" "${chain_sha}" 2>/dev/null; then
       validate_chrome_authority_migration_plan_at_commit "${chain_sha}"
@@ -2119,6 +2271,8 @@ validate_chrome_authority_migration_pending_head() {
   [[ "${origin_blob}" == "${head_blob}" && \
      "${head_blob}" == "${working_blob}" ]] ||
     fail "pending G4 must preserve the fixed origin ledger bytes"
+  [[ ! -e "${repo_root}/${chrome_capture_source_path}" ]] ||
+    fail "pending G4 working tree must not contain scripts/capture-visual-style-baseline"
   while IFS= read -r field; do
     [[ "$(grep -c "^${field} = " "${state_file}" || true)" -eq 0 ]] ||
       fail "pending G4 ledger must not contain Chrome authority migration fields"
@@ -2285,6 +2439,10 @@ validate_chrome_authority_migration_transition_files() {
     [[ "$(grep -c "^${field} = " "${base_file}" || true)" -eq 0 ]] ||
       fail "CHROME_AUTHORITY_MIGRATION is allowed exactly once"
   done < <(chrome_authority_migration_fields)
+  require_chrome_capture_path_absent_at_commit \
+    "${pair_base}" "successor G4"
+  require_chrome_capture_path_absent_at_commit \
+    "${pair_head}" "R4"
   validate_chrome_authority_migration_chain "${pair_base}"
   validate_chrome_authority_migration_readme_at_commit "${pair_head}"
   require_chrome_authority_migration_state_values "${head_file}" "${pair_base}"
@@ -2627,6 +2785,9 @@ validate_linear_cumulative_candidate() {
     fail "candidate cumulative diff must equal the exact Owner WriteSet"
   validate_candidate_mode_history \
     "${candidate_sha}" "${owner_index}" "${release_sha}"
+  if [[ "${owner_index}" -eq 3 ]]; then
+    validate_candidate_chrome_capture_source "${candidate_sha}"
+  fi
   verified_candidate_sha="${candidate_sha}"
   verified_candidate_owner_index="${owner_index}"
   verified_candidate_release_sha="${release_sha}"
