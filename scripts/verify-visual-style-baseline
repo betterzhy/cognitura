@@ -66,28 +66,42 @@ owner_files() {
 
 validate_candidate_tree() {
   local inspected_candidate="$1"
-  local candidate_parent candidate_file actual_files expected_files raw_status
+  local release_receipt candidate_file actual_files expected_files raw_status
+  local chain_commit commit_parent commit_file
   git -C "${repo_root}" rev-parse --verify "${inspected_candidate}^{commit}" >/dev/null 2>&1 ||
     fail "candidate SHA must resolve to a commit"
   git -C "${repo_root}" merge-base --is-ancestor "${inspected_candidate}" HEAD ||
     fail "candidate SHA must be an ancestor of HEAD"
-  candidate_parent="$(git -C "${repo_root}" rev-parse "${inspected_candidate}^")"
-  [[ "$(git -C "${repo_root}" show -s --format='%P' "${inspected_candidate}" | wc -w | tr -d ' ')" -eq 1 ]] ||
-    fail "candidate must have exactly one parent"
-  [[ "$(git -C "${repo_root}" show "${candidate_parent}:docs/task-cards/visual-style-baseline/execution-state.md" | sed -n 's/^ChromeAuthorityMigrationStatus = //p')" == PASS ]] ||
+  release_receipt="$(git -C "${repo_root}" rev-list --first-parent -n 1 \
+    "${inspected_candidate}" -- \
+    docs/task-cards/visual-style-baseline/execution-state.md)"
+  [[ -n "${release_receipt}" ]] || fail "candidate release receipt is missing"
+  [[ "$(git -C "${repo_root}" show "${release_receipt}:docs/task-cards/visual-style-baseline/execution-state.md" | sed -n 's/^ChromeAuthorityMigrationStatus = //p')" == PASS ]] ||
     fail "candidate parent must be the validated R4 release anchor"
-  [[ "$(git -C "${repo_root}" show "${candidate_parent}:docs/task-cards/visual-style-baseline/execution-state.md" | sed -n 's/^ExecutionStateVersion = //p')" == 5 ]] ||
+  [[ "$(git -C "${repo_root}" show "${release_receipt}:docs/task-cards/visual-style-baseline/execution-state.md" | sed -n 's/^ExecutionStateVersion = //p')" == 5 ]] ||
     fail "candidate parent must use execution-state version 5"
 
   expected_files="$(owner_files)"
-  actual_files="$(git -C "${repo_root}" diff --name-only "${candidate_parent}..${inspected_candidate}" | LC_ALL=C sort)"
+  actual_files="$(git -C "${repo_root}" diff --name-only "${release_receipt}..${inspected_candidate}" | LC_ALL=C sort)"
   [[ "${actual_files}" == "$(printf '%s\n' "${expected_files}" | LC_ALL=C sort)" ]] ||
     fail "candidate must have the exact twelve-path VSB-03 WriteSet"
-  raw_status="$(git -C "${repo_root}" diff-tree --no-commit-id --name-status -r \
-    -M -C --find-copies-harder "${candidate_parent}" "${inspected_candidate}")"
-  [[ -n "${raw_status}" ]] || fail "candidate commit must be non-empty"
-  [[ -z "$(printf '%s\n' "${raw_status}" | awk '$1 ~ /^[RC]/{print}')" ]] ||
-    fail "candidate must not rename or copy paths"
+  while IFS= read -r chain_commit; do
+    [[ -n "${chain_commit}" ]] || continue
+    [[ "$(git -C "${repo_root}" show -s --format='%P' "${chain_commit}" | wc -w | tr -d ' ')" -eq 1 ]] ||
+      fail "candidate chain commits must have exactly one parent"
+    commit_parent="$(git -C "${repo_root}" rev-parse "${chain_commit}^")"
+    raw_status="$(git -C "${repo_root}" diff-tree --no-commit-id --name-status -r \
+      -M -C --find-copies-harder "${commit_parent}" "${chain_commit}")"
+    [[ -n "${raw_status}" ]] || fail "candidate chain commits must be non-empty"
+    [[ -z "$(printf '%s\n' "${raw_status}" | awk '$1 ~ /^[RC]/{print}')" ]] ||
+      fail "candidate chain must not rename or copy paths"
+    while IFS= read -r commit_file; do
+      [[ -n "${commit_file}" ]] || continue
+      printf '%s\n' "${expected_files}" | grep -Fqx -- "${commit_file}" ||
+        fail "candidate chain changed a path outside the exact VSB-03 WriteSet"
+    done < <(git -C "${repo_root}" diff --name-only "${commit_parent}..${chain_commit}")
+  done < <(git -C "${repo_root}" rev-list --reverse \
+    "${release_receipt}..${inspected_candidate}")
 
   while IFS= read -r candidate_file; do
     [[ -n "${candidate_file}" ]] || continue
@@ -103,13 +117,15 @@ validate_candidate_tree() {
 materialize_capture_pair() {
   local inspected_candidate="$1"
   local pair_root="$2"
-  local candidate_parent g4_sha capture_mode verifier_mode
-  candidate_parent="$(git -C "${repo_root}" rev-parse "${inspected_candidate}^")"
+  local release_receipt g4_sha capture_mode verifier_mode
+  release_receipt="$(git -C "${repo_root}" rev-list --first-parent -n 1 \
+    "${inspected_candidate}" -- \
+    docs/task-cards/visual-style-baseline/execution-state.md)"
   g4_sha="$(git -C "${repo_root}" show \
-    "${candidate_parent}:docs/task-cards/visual-style-baseline/execution-state.md" |
+    "${release_receipt}:docs/task-cards/visual-style-baseline/execution-state.md" |
     sed -n 's/^ChromeAuthorityMigrationReviewedCandidateSHA = //p')"
   [[ "${g4_sha}" =~ ^[0-9a-f]{40}$ ]] || fail "R4 reviewed G4 SHA mismatch"
-  git -C "${repo_root}" merge-base --is-ancestor "${g4_sha}" "${candidate_parent}" ||
+  git -C "${repo_root}" merge-base --is-ancestor "${g4_sha}" "${release_receipt}" ||
     fail "R4 reviewed G4 must be an ancestor of the candidate"
   capture_mode="$(git -C "${repo_root}" ls-tree "${inspected_candidate}" -- \
     scripts/capture-visual-style-baseline | awk '{print $1}')"
@@ -237,6 +253,17 @@ git -C "${repo_root}" diff --quiet \
   docs/task-cards/wave-1-implementation/README.md \
   docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md ||
   fail "frozen W1-I03 governance paths changed"
+git -C "${repo_root}" diff --quiet \
+  4e63936c631ab34807e714b90d30415a959bc13d..HEAD -- \
+  server/src/main/java/io/cognitura/source/docx/security/DocxSecurityGate.java \
+  server/src/main/java/io/cognitura/source/docx/security/DocxPackageLimits.java \
+  server/src/main/java/io/cognitura/source/docx/security/DocxRelationshipClassifier.java \
+  server/src/main/java/io/cognitura/source/docx/security/DocxSecurityViolation.java \
+  server/src/main/java/io/cognitura/source/docx/security/SafeDocxPackage.java \
+  server/src/test/java/io/cognitura/source/docx/security/DocxSecurityGateTest.java \
+  server/src/test/java/io/cognitura/source/docx/security/ExternalRelationshipIsolationTest.java \
+  server/src/test/resources/docx/security ||
+  fail "frozen W1-I03 production tree changed"
 
 capture_runner="${repo_root}/scripts/capture-visual-style-baseline"
 if [[ -n "${candidate_sha}" ]]; then
