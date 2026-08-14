@@ -4391,7 +4391,7 @@ fixed_wave1_projection_paths=(
 [[ -d "${cards_dir}" ]] || fail "Visual Style Baseline task-card set is missing"
 
 expect_clean_early_exit 2 \
-  'Usage: scripts/verify-visual-style-baseline-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA] | scripts/verify-visual-style-baseline-cards --chrome-capture-source-contract FILE'
+  'Usage: scripts/verify-visual-style-baseline-cards [--repo-root PATH] --cards-dir PATH [--transition-base SHA --transition-head SHA] | scripts/verify-visual-style-baseline-cards --chrome-capture-source-contract FILE | scripts/verify-visual-style-baseline-cards --chrome-fixed-capture --repo-root PATH --output-dir PATH [--replace-existing]'
 missing_cards_dir="${test_tmp_root}/missing-cards-dir"
 expect_clean_early_exit 1 \
   $'VisualStyleBaselineTaskCardValidation = FAIL\ncards directory does not exist: '"${missing_cards_dir}" \
