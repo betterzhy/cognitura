@@ -30,6 +30,27 @@ capture_source="${repo_root}/scripts/capture-visual-style-baseline"
 task_card_verifier="${repo_root}/scripts/verify-visual-style-baseline-cards"
 "${task_card_verifier}" --chrome-capture-source-contract "${capture_source}" >/dev/null
 
+historical_hv_snapshot_sha=77d8c1e780f5cc4d209a56baff349135a3c04ee8
+[[ "$(git -C "${repo_root}" rev-parse \
+     "${historical_hv_snapshot_sha}^{tree}")" == \
+   476bc02272b2e0c4f8f6eb4565e9dcf08369f762 ]] ||
+  fail "fixed historical HV replay tree drifted"
+[[ "$(git -C "${repo_root}" rev-parse \
+     "${historical_hv_snapshot_sha}^")" == \
+   98d5f89731626c0ead69de46255ba4d433d03c86 ]] ||
+  fail "fixed historical HV replay parent drifted"
+[[ "$(git -C "${repo_root}" ls-tree "${historical_hv_snapshot_sha}" -- \
+     scripts/verify-high-fidelity-visual)" == \
+   $'100755 blob 73c1b62e643d3808c16ccab89aefb13e3646502b\tscripts/verify-high-fidelity-visual' ]] ||
+  fail "fixed historical HV verifier identity drifted"
+[[ "$(git -C "${repo_root}" ls-tree "${historical_hv_snapshot_sha}" -- AGENTS.md)" == \
+   $'100644 blob 3b9dbe8c3241671ed2070446d3781b1453239f07\tAGENTS.md' ]] ||
+  fail "fixed historical HV AGENTS identity drifted"
+[[ "$(git -C "${repo_root}" ls-tree "${historical_hv_snapshot_sha}" -- \
+     docs/engineering/cognitura-design-index.md)" == \
+   $'100644 blob d0b85366e8eaee7771afdb95436e1a7e28aa75ae\tdocs/engineering/cognitura-design-index.md' ]] ||
+  fail "fixed historical HV design-index identity drifted"
+
 negative_cases=0
 expect_source_failure() {
   local fixture_file="$1"
@@ -109,7 +130,8 @@ negative_cases=$((negative_cases + 1))
 candidate_binding_repo="${runtime_root}/candidate-binding-repo"
 candidate_binding_sentinel="${runtime_root}/mutable-tool-was-executed"
 git clone --shared --quiet "${repo_root}" "${candidate_binding_repo}"
-git -C "${candidate_binding_repo}" checkout --quiet --detach "$(git -C "${repo_root}" rev-parse HEAD)"
+git -C "${candidate_binding_repo}" checkout --quiet --detach \
+  2690ab9e6d0318c63deb56f86bc0b923ae845c04
 printf '%s\n' \
   '#!/bin/bash' \
   'set -euo pipefail' \
@@ -460,7 +482,7 @@ fi
 negative_cases=$((negative_cases + 1))
 
 imported_function_sentinel="${runtime_root}/imported-function-executed"
-(
+historical_replay_output="$( (
   export VSB_IMPORTED_FUNCTION_SENTINEL="${imported_function_sentinel}"
   cd() {
     printf 'cd\n' >> "${VSB_IMPORTED_FUNCTION_SENTINEL}"
@@ -477,10 +499,18 @@ imported_function_sentinel="${runtime_root}/imported-function-executed"
   export -f cd exec git
   env PATH="${locked_toolchain_path}" \
     "${repo_root}/scripts/verify-visual-style-baseline" --repo-root "${repo_root}"
-)
+) )"
 [[ ! -e "${imported_function_sentinel}" ]] ||
   fail "fixed visual verification imported an exported shell function"
 negative_cases=$((negative_cases + 1))
+[[ "${historical_replay_output}" == \
+   *'HistoricalHVReplaySHA = 77d8c1e780f5cc4d209a56baff349135a3c04ee8'* ]] ||
+  fail "fixed visual verifier did not bind the historical HV replay SHA"
+[[ "${historical_replay_output}" == *'HistoricalHVReplay = PASS'* ]] ||
+  fail "fixed visual verifier did not replay the historical HV Gate"
+[[ "${historical_replay_output}" == \
+   *'HistoricalHVCurrentTreeVerifier = NOT_RUN'* ]] ||
+  fail "fixed visual verifier did not exclude the current-tree HV verifier"
 
 [[ "${negative_cases}" -eq 48 ]] ||
   fail "visual browser negative matrix count drifted from 48"
