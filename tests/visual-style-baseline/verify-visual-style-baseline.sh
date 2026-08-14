@@ -72,6 +72,25 @@ grep -Fq 'paths.some((path) => path === null || !path.startsWith("/__assets/"))'
 
 locked_toolchain_path='/Users/yuzhuangzhuang/.npm/_npx/4aa47c519def57bc/node_modules/.bin:/Users/yuzhuangzhuang/.npm/_npx/acaf29b40d536b0e/node_modules/.bin:/opt/homebrew/opt/python@3.11/libexec/bin:/usr/bin:/bin:/usr/sbin:/sbin'
 
+sanitization_sentinel="${runtime_root}/startup-function-bypass"
+(
+  export VSB_IMPORTED_FUNCTION_SENTINEL="${sanitization_sentinel}"
+  cd() {
+    printf 'cd\n' >> "${VSB_IMPORTED_FUNCTION_SENTINEL}"
+    builtin cd "$@"
+  }
+  unset() { :; }
+  builtin() { :; }
+  compgen() { :; }
+  export -f cd unset builtin compgen
+  env PATH="${locked_toolchain_path}" \
+    "${repo_root}/scripts/verify-visual-style-baseline" \
+    --repo-root "${runtime_root}/missing-repository" >/dev/null 2>&1 || true
+)
+[[ ! -e "${sanitization_sentinel}" ]] ||
+  fail "startup sanitization was bypassed by imported shell functions"
+negative_cases=$((negative_cases + 1))
+
 candidate_binding_repo="${runtime_root}/candidate-binding-repo"
 candidate_binding_sentinel="${runtime_root}/mutable-tool-was-executed"
 git clone --shared --quiet "${repo_root}" "${candidate_binding_repo}"
@@ -92,22 +111,76 @@ fi
   fail "candidate identity binding ran after a mutable governed tool"
 negative_cases=$((negative_cases + 1))
 
+git -C "${candidate_binding_repo}" restore --worktree --source=HEAD -- \
+  scripts/verify-module-default-reading
+for candidate_bound_path in \
+    scripts/capture-visual-style-baseline \
+    scripts/verify-visual-style-baseline \
+    tests/visual-style-baseline/browser-probe.html \
+    tests/visual-style-baseline/browser-runtime-guard.js \
+    tests/visual-style-baseline/reference-comparison.html; do
+  git -C "${candidate_binding_repo}" restore --worktree --source=HEAD -- \
+    scripts/capture-visual-style-baseline \
+    scripts/verify-visual-style-baseline \
+    tests/visual-style-baseline/browser-probe.html \
+    tests/visual-style-baseline/browser-runtime-guard.js \
+    tests/visual-style-baseline/reference-comparison.html
+  printf '\n# candidate-bound mutation\n' >> \
+    "${candidate_binding_repo}/${candidate_bound_path}"
+  candidate_binding_output=""
+  if candidate_binding_output="$(env PATH="${locked_toolchain_path}" \
+      "${repo_root}/scripts/verify-visual-style-baseline" \
+      --repo-root "${candidate_binding_repo}" \
+      --candidate-sha "$(git -C "${candidate_binding_repo}" rev-parse HEAD)" 2>&1)"; then
+    fail "candidate-bound path mutation unexpectedly passed: ${candidate_bound_path}"
+  fi
+  [[ "${candidate_binding_output}" == *"working tree differs from candidate: ${candidate_bound_path}"* ]] ||
+    fail "candidate-bound path mutation failed without identity diagnostic: ${candidate_bound_path}"
+  negative_cases=$((negative_cases + 1))
+done
+
 closed_set_repo="${runtime_root}/closed-set-repo"
 git clone --shared --quiet "${repo_root}" "${closed_set_repo}"
 git -C "${closed_set_repo}" checkout --quiet --detach "$(git -C "${repo_root}" rev-parse HEAD)"
 closed_set_manifest="${closed_set_repo}/docs/design/visual-style-baseline/evidence/README.md"
 closed_set_acceptance="${closed_set_repo}/docs/engineering/cognitura-visual-style-baseline-acceptance.md"
 for closed_set_mutation in \
+    evidence-png-missing \
+    evidence-png-dimensions \
+    evidence-png-byte \
+    manifest-sha-mismatch \
     manifest-unknown-field \
     acceptance-authorized-database \
     manifest-real-dom-fail \
     manifest-request-count-drift \
     acceptance-duplicate-fail \
-    acceptance-missing-field; do
+    acceptance-missing-field \
+    acceptance-full-product-pass; do
   git -C "${closed_set_repo}" restore --worktree --source=HEAD -- \
     docs/design/visual-style-baseline/evidence/README.md \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1440x1100.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1280x960.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1024x900.png \
+    docs/design/visual-style-baseline/evidence/reference-comparison.png \
     docs/engineering/cognitura-visual-style-baseline-acceptance.md
   case "${closed_set_mutation}" in
+    evidence-png-missing)
+      find "${closed_set_repo}/docs/design/visual-style-baseline/evidence/module-default-reading-1024x900.png" -delete
+      ;;
+    evidence-png-dimensions)
+      python3 - "${closed_set_repo}/docs/design/visual-style-baseline/evidence/module-default-reading-1280x960.png" <<'PY'
+from PIL import Image
+import sys
+Image.new("RGB", (1, 1), "white").save(sys.argv[1])
+PY
+      ;;
+    evidence-png-byte)
+      printf 'x' >> "${closed_set_repo}/docs/design/visual-style-baseline/evidence/module-default-reading-1440x1100.png"
+      ;;
+    manifest-sha-mismatch)
+      perl -0pi -e 's/bf753320352d7c9aab7bc7c40d9f8b40e1f649c174684695e77d1f3223e65ab0/0000000000000000000000000000000000000000000000000000000000000000/' \
+        "${closed_set_manifest}"
+      ;;
     manifest-unknown-field)
       printf '\nRemotePush = AUTHORIZED\n' >> "${closed_set_manifest}"
       ;;
@@ -128,6 +201,10 @@ for closed_set_mutation in \
     acceptance-missing-field)
       perl -0pi -e 's/^NoDashboardRegression = PASS\n//m' "${closed_set_acceptance}"
       ;;
+    acceptance-full-product-pass)
+      perl -0pi -e 's/ImplementationValidation = NOT_CLAIMED_FOR_FULL_PRODUCT_PAGE/ImplementationValidation = PASS/' \
+        "${closed_set_acceptance}"
+      ;;
   esac
   closed_set_output=""
   if closed_set_output="$(env PATH="${locked_toolchain_path}" \
@@ -139,6 +216,182 @@ for closed_set_mutation in \
     fail "closed-set mutation did not fail through the public verifier: ${closed_set_mutation}"
   negative_cases=$((negative_cases + 1))
 done
+
+for freeze_mutation in historical-evidence frozen-w1-production; do
+  freeze_repo="${runtime_root}/${freeze_mutation}-repo"
+  git clone --shared --quiet "${repo_root}" "${freeze_repo}"
+  git -C "${freeze_repo}" checkout --quiet --detach "$(git -C "${repo_root}" rev-parse HEAD)"
+  git -C "${freeze_repo}" config user.name 'Cognitura VSB Contract'
+  git -C "${freeze_repo}" config user.email 'vsb-contract@example.invalid'
+  case "${freeze_mutation}" in
+    historical-evidence)
+      printf 'x' >> \
+        "${freeze_repo}/docs/design/high-fidelity/evidence/module-source-verification-desktop.png"
+      freeze_expected='historical visual evidence changed'
+      ;;
+    frozen-w1-production)
+      printf '\n// forbidden frozen-tree mutation\n' >> \
+        "${freeze_repo}/server/src/main/java/io/cognitura/source/docx/security/DocxPackageLimits.java"
+      freeze_expected='frozen W1-I03 production tree changed'
+      ;;
+  esac
+  git -C "${freeze_repo}" add --all
+  git -C "${freeze_repo}" commit -qm "test: ${freeze_mutation}"
+  freeze_output=""
+  if freeze_output="$(env PATH="${locked_toolchain_path}" \
+      "${repo_root}/scripts/verify-visual-style-baseline" \
+      --repo-root "${freeze_repo}" 2>&1)"; then
+    fail "freeze mutation unexpectedly passed: ${freeze_mutation}"
+  fi
+  [[ "${freeze_output}" == *"${freeze_expected}"* ]] ||
+    fail "freeze mutation failed without exact diagnostic: ${freeze_mutation}"
+  negative_cases=$((negative_cases + 1))
+done
+
+browser_mutation_repo="${runtime_root}/browser-mutation-repo"
+browser_mutation_tmp="${runtime_root}/browser-mutation-tmp"
+git clone --shared --quiet "${repo_root}" "${browser_mutation_repo}"
+git -C "${browser_mutation_repo}" checkout --quiet --detach "$(git -C "${repo_root}" rev-parse HEAD)"
+if [[ -d "${repo_root}/web/node_modules" ]]; then
+  ln -s "${repo_root}/web/node_modules" "${browser_mutation_repo}/web/node_modules"
+fi
+mkdir -p "${browser_mutation_tmp}"
+
+inject_probe_mutation() {
+  local probe_file="$1"
+  local mutation_code="$2"
+  python3 - "${probe_file}" "${mutation_code}" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+mutation = sys.argv[2]
+source = path.read_text(encoding="utf-8")
+marker = "            await waitForReady(doc);\n"
+if source.count(marker) != 1:
+    raise SystemExit("probe mutation marker mismatch")
+path.write_text(source.replace(marker, marker + "            " + mutation + "\n", 1), encoding="utf-8")
+PY
+}
+
+for browser_mutation in \
+    body-font-14 \
+    body-line-height-low \
+    focus-outline-missing \
+    horizontal-overflow \
+    primary-projection-zero \
+    primary-projection-two \
+    complementary-region \
+    dashboard-selector \
+    nested-semantic-surface \
+    raw-relation-type \
+    visible-source-id \
+    conditions-heading \
+    spoofed-primary-count \
+    forbidden-runtime-api \
+    runtime-guard-failure \
+    csp-violation \
+    unexpected-http-request \
+    visual-ready-missing \
+    comparison-ready-missing; do
+  git -C "${browser_mutation_repo}" restore --worktree --source=HEAD -- \
+    tests/visual-style-baseline/browser-probe.html \
+    tests/visual-style-baseline/browser-runtime-guard.js \
+    tests/visual-style-baseline/reference-comparison.html
+  browser_probe="${browser_mutation_repo}/tests/visual-style-baseline/browser-probe.html"
+  case "${browser_mutation}" in
+    body-font-14)
+      inject_probe_mutation "${browser_probe}" 'doc.querySelector("[data-reading-section=core-conclusion] p").style.fontSize = "14px";'
+      ;;
+    body-line-height-low)
+      inject_probe_mutation "${browser_probe}" 'doc.querySelector("[data-reading-section=core-conclusion] p").style.lineHeight = "26px";'
+      ;;
+    focus-outline-missing)
+      inject_probe_mutation "${browser_probe}" 'doc.querySelector("[data-reading-section=source-entry] button").style.outline = "none";'
+      ;;
+    horizontal-overflow)
+      inject_probe_mutation "${browser_probe}" 'doc.querySelector(".module-default-reading").style.minWidth = "2000px";'
+      ;;
+    primary-projection-zero)
+      inject_probe_mutation "${browser_probe}" 'doc.querySelector("[data-primary-visual-projection=true]").removeAttribute("data-primary-visual-projection");'
+      ;;
+    primary-projection-two)
+      inject_probe_mutation "${browser_probe}" 'doc.body.append(doc.querySelector("[data-primary-visual-projection=true]").cloneNode(true));'
+      ;;
+    complementary-region)
+      inject_probe_mutation "${browser_probe}" 'doc.body.append(doc.createElement("aside"));'
+      ;;
+    dashboard-selector)
+      inject_probe_mutation "${browser_probe}" 'doc.querySelector(".module-default-reading").classList.add("dashboard-shell");'
+      ;;
+    nested-semantic-surface)
+      inject_probe_mutation "${browser_probe}" 'const nested = doc.createElement("div"); nested.className = "cka-projection-surface"; doc.querySelector(".cka-projection-surface").append(nested);'
+      ;;
+    raw-relation-type)
+      inject_probe_mutation "${browser_probe}" 'const relation = doc.querySelector("li[data-relation-type]"); relation.querySelector("[data-relation-part=type]").textContent = relation.dataset.relationType;'
+      ;;
+    visible-source-id)
+      inject_probe_mutation "${browser_probe}" 'doc.querySelector("[data-source-refs]").insertAdjacentText("afterend", JSON.parse(doc.querySelector("[data-source-refs]").dataset.sourceRefs)[0]);'
+      ;;
+    conditions-heading)
+      inject_probe_mutation "${browser_probe}" 'const heading = doc.createElement("h2"); heading.textContent = "Conditions"; doc.body.append(heading);'
+      ;;
+    spoofed-primary-count)
+      inject_probe_mutation "${browser_probe}" 'doc.body.dataset.probePrimaryProjectionCount = "1"; doc.querySelector("[data-primary-visual-projection=true]").removeAttribute("data-primary-visual-projection");'
+      ;;
+    forbidden-runtime-api)
+      inject_probe_mutation "${browser_probe}" 'try { win.fetch("/forbidden-runtime"); } catch (_error) {}'
+      ;;
+    runtime-guard-failure)
+      inject_probe_mutation "${browser_probe}" 'if (win.__vsbRuntimeUsage) win.__vsbRuntimeUsage.guardInstallStatus = "FAIL";'
+      ;;
+    csp-violation)
+      inject_probe_mutation "${browser_probe}" 'if (win.__vsbRuntimeUsage) win.__vsbRuntimeUsage.cspViolationCount = 1;'
+      ;;
+    unexpected-http-request)
+      inject_probe_mutation "${browser_probe}" 'const image = doc.createElement("img"); image.src = "/unexpected-network-path"; doc.body.append(image);'
+      ;;
+    visual-ready-missing)
+      perl -0pi -e 's/dataset\.visualReferenceReady === "true"/dataset.visualReferenceReady === "never"/' \
+        "${browser_probe}"
+      ;;
+    comparison-ready-missing)
+      perl -0pi -e 's/dataset\.comparisonReady = "true"/dataset.comparisonReady = "never"/' \
+        "${browser_mutation_repo}/tests/visual-style-baseline/reference-comparison.html"
+      ;;
+  esac
+  browser_output_dir="${runtime_root}/browser-output-${browser_mutation}"
+  browser_output=""
+  if browser_output="$(env -i \
+      HOME="${HOME}" \
+      TMPDIR="${browser_mutation_tmp}" \
+      PATH="${locked_toolchain_path}" \
+      LANG="${LANG:-C}" \
+      "${browser_mutation_repo}/scripts/capture-visual-style-baseline" \
+      --repo-root "${browser_mutation_repo}" \
+      --output-dir "${browser_output_dir}" 2>&1)"; then
+    fail "browser mutation unexpectedly passed: ${browser_mutation}"
+  fi
+  [[ "${browser_output}" == *'VisualStyleBaselineTaskCardValidation = FAIL'* ]] ||
+    fail "browser mutation did not fail through the fixed capture verifier: ${browser_mutation}"
+  negative_cases=$((negative_cases + 1))
+done
+
+chrome_override_output=""
+if chrome_override_output="$(env -i \
+    HOME="${HOME}" \
+    TMPDIR="${browser_mutation_tmp}" \
+    PATH="${locked_toolchain_path}" \
+    LANG="${LANG:-C}" \
+    CHROME_BIN=/bin/false \
+    "${browser_mutation_repo}/scripts/capture-visual-style-baseline" \
+    --repo-root "${browser_mutation_repo}" \
+    --output-dir "${runtime_root}/browser-output-override" 2>&1)"; then
+  fail "Chrome binary override unexpectedly passed"
+fi
+[[ "${chrome_override_output}" == *'Chrome browser executable override is forbidden'* ]] ||
+  fail "Chrome binary override failed without exact diagnostic"
+negative_cases=$((negative_cases + 1))
 
 imported_function_sentinel="${runtime_root}/imported-function-executed"
 (

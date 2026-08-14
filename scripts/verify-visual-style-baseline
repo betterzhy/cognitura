@@ -1,13 +1,11 @@
 #!/bin/bash
+/usr/bin/env -i \
+  HOME="${HOME:-/tmp}" \
+  TMPDIR="${TMPDIR:-/tmp}" \
+  PATH="${PATH:-/usr/bin:/bin:/usr/sbin:/sbin}" \
+  LANG="${LANG:-C}" \
+  /bin/bash -s -- "$@" <<'VSB_SANITIZED_PAYLOAD'
 set -euo pipefail
-
-# This fixed-candidate verifier is invoked from an ambient user shell. Remove
-# every imported function before resolving paths or executing governed tools.
-unset -f cd exec command builtin compgen unset 2>/dev/null || true
-while IFS= read -r vsb_imported_function; do
-  builtin unset -f -- "${vsb_imported_function}"
-done < <(compgen -A function)
-unset vsb_imported_function
 
 repo_root=""
 candidate_sha=""
@@ -416,21 +414,6 @@ acceptance_file="${repo_root}/docs/engineering/cognitura-visual-style-baseline-a
 validate_evidence_contract "${evidence_dir}" "${manifest_file}"
 validate_acceptance_contract "${acceptance_file}"
 
-[[ "$(node --version)" == v24.18.0 ]] || fail "expected Node v24.18.0"
-[[ "$(pnpm --dir "${repo_root}/web" --version)" == 11.17.0 ]] ||
-  fail "expected pnpm 11.17.0"
-python3 -c 'from PIL import __version__; assert __version__ == "12.2.0"' ||
-  fail "expected Pillow 12.2.0"
-
-"${repo_root}/scripts/verify-visual-style-baseline-reference" --repo-root "${repo_root}" >/dev/null
-"${task_card_verifier}" \
-  --repo-root "${repo_root}" \
-  --cards-dir "${repo_root}/docs/task-cards/visual-style-baseline" >/dev/null
-"${repo_root}/scripts/verify-wave1-implementation-cards" \
-  --repo-root "${repo_root}" \
-  --cards-dir "${repo_root}/docs/task-cards/wave-1-implementation" >/dev/null
-"${repo_root}/scripts/verify-module-default-reading" >/dev/null
-
 git -C "${repo_root}" diff --quiet \
   70eefba5912e6884e4e7e1d6477a65f4091d6590..HEAD -- \
   docs/design/high-fidelity/evidence || fail "historical visual evidence changed"
@@ -450,6 +433,21 @@ git -C "${repo_root}" diff --quiet \
   server/src/test/java/io/cognitura/source/docx/security/ExternalRelationshipIsolationTest.java \
   server/src/test/resources/docx/security ||
   fail "frozen W1-I03 production tree changed"
+
+[[ "$(node --version)" == v24.18.0 ]] || fail "expected Node v24.18.0"
+[[ "$(pnpm --dir "${repo_root}/web" --version)" == 11.17.0 ]] ||
+  fail "expected pnpm 11.17.0"
+python3 -c 'from PIL import __version__; assert __version__ == "12.2.0"' ||
+  fail "expected Pillow 12.2.0"
+
+"${repo_root}/scripts/verify-visual-style-baseline-reference" --repo-root "${repo_root}" >/dev/null
+"${task_card_verifier}" \
+  --repo-root "${repo_root}" \
+  --cards-dir "${repo_root}/docs/task-cards/visual-style-baseline" >/dev/null
+"${repo_root}/scripts/verify-wave1-implementation-cards" \
+  --repo-root "${repo_root}" \
+  --cards-dir "${repo_root}/docs/task-cards/wave-1-implementation" >/dev/null
+"${repo_root}/scripts/verify-module-default-reading" >/dev/null
 
 fresh_dir="${runtime_root}/fresh-evidence"
 env -i \
@@ -475,3 +473,4 @@ printf '%s\n' \
   'VisualAcceptance = PASS' \
   'HistoricalEvidence = UNCHANGED' \
   'FrozenWave1 = UNCHANGED'
+VSB_SANITIZED_PAYLOAD
