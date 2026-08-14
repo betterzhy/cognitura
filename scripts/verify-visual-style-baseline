@@ -1,6 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+# This fixed-candidate verifier is invoked from an ambient user shell. Remove
+# every imported function before resolving paths or executing governed tools.
+unset -f cd exec command builtin compgen unset 2>/dev/null || true
+while IFS= read -r vsb_imported_function; do
+  builtin unset -f -- "${vsb_imported_function}"
+done < <(compgen -A function)
+unset vsb_imported_function
+
 repo_root=""
 candidate_sha=""
 runtime_root=""
@@ -27,11 +35,42 @@ sha256_file() {
   shasum -a 256 "$1" | awk '{print $1}'
 }
 
-require_line() {
+require_exact_text_block() {
   local source_file="$1"
-  local expected_line="$2"
-  [[ "$(grep -Fxc -- "${expected_line}" "${source_file}" || true)" -eq 1 ]] ||
-    fail "required line mismatch in ${source_file#"${repo_root}/"}: ${expected_line}"
+  local expected_block="$2"
+  local label="$3"
+  local expected_file actual_file
+  expected_file="${runtime_root}/${label}.expected"
+  actual_file="${runtime_root}/${label}.actual"
+  [[ "$(grep -Fxc -- '```text' "${source_file}" || true)" -eq 1 ]] ||
+    fail "${label} must contain exactly one text block"
+  awk '
+    $0 == "```text" { capture = 1; next }
+    capture && $0 == "```" { closed = 1; exit }
+    capture { print }
+    END { if (!capture || !closed) exit 1 }
+  ' "${source_file}" > "${actual_file}" || fail "${label} text block is not closed"
+  printf '%s\n' "${expected_block}" > "${expected_file}"
+  cmp -s "${expected_file}" "${actual_file}" || fail "${label} text block mismatch"
+}
+
+require_exact_evidence_table() {
+  local source_file="$1"
+  local expected_table="$2"
+  local expected_file actual_file
+  expected_file="${runtime_root}/evidence-table.expected"
+  actual_file="${runtime_root}/evidence-table.actual"
+  [[ "$(grep -Fxc -- '| File | Viewport | Bytes | SHA-256 | Capture command | Real DOM probe | Computed style | Runtime guard | Comparison ready | Allowed requests | Freshness |' "${source_file}" || true)" -eq 1 ]] ||
+    fail "evidence manifest table header mismatch"
+  [[ "$(grep -c '^|' "${source_file}" || true)" -eq 6 ]] ||
+    fail "evidence manifest table must be a four-row closed set"
+  awk '
+    $0 == "| File | Viewport | Bytes | SHA-256 | Capture command | Real DOM probe | Computed style | Runtime guard | Comparison ready | Allowed requests | Freshness |" { capture = 1 }
+    capture && $0 == "" { exit }
+    capture { print }
+  ' "${source_file}" > "${actual_file}"
+  printf '%s\n' "${expected_table}" > "${expected_file}"
+  cmp -s "${expected_file}" "${actual_file}" || fail "evidence manifest table mismatch"
 }
 
 require_png_dimensions() {
@@ -64,9 +103,79 @@ owner_files() {
     docs/engineering/cognitura-visual-style-baseline-acceptance.md
 }
 
+governed_exclusive_files() {
+  printf '%s\n' \
+    docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png \
+    docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md \
+    docs/design/high-fidelity/cognitura-high-fidelity-visual-design-1.0.md \
+    docs/engineering/cognitura-visual-style-baseline-manifest.yaml \
+    scripts/import-visual-style-reference \
+    scripts/verify-visual-style-baseline-reference \
+    tests/visual-style-baseline/verify-reference.sh \
+    web/src/styles/tokens.css \
+    web/src/styles/typography.css \
+    web/src/styles/surfaces.css \
+    web/src/styles/cognitive-visual.css \
+    web/src/styles/cognitura.css \
+    web/src/styles/style-contract.test.ts \
+    scripts/verify-module-default-reading \
+    tests/visual-style-baseline/verify-module-default-reading-toolchain.sh \
+    web/src/modules/module-reading/ModuleDefaultReading.tsx \
+    web/src/modules/module-reading/ModuleDefaultReading.test.tsx \
+    web/src/modules/module-reading/ModuleNarrative.tsx \
+    web/src/modules/module-reading/ModuleNarrative.test.tsx \
+    web/src/modules/module-reading/StageChainProjection.tsx \
+    web/src/modules/module-reading/StageChainProjection.test.tsx \
+    web/src/modules/module-reading/ModuleClosure.tsx \
+    web/src/modules/module-reading/ModuleClosure.test.tsx \
+    web/src/modules/module-reading/KeyRelations.tsx \
+    web/src/modules/module-reading/KeyRelations.test.tsx \
+    web/src/modules/module-reading/SourceEntry.tsx \
+    web/src/modules/module-reading/SourceEntry.test.tsx \
+    web/src/modules/module-reading/module-default-reading.css \
+    web/vite.config.mjs \
+    web/visual-reference.html \
+    web/src/visual-reference/main.tsx \
+    web/src/visual-reference/VisualReference.tsx \
+    web/src/visual-reference/VisualReference.test.tsx \
+    web/src/visual-reference/module-default-reading.fixture.ts \
+    web/src/visual-reference/visual-reference.css \
+    scripts/capture-visual-style-baseline \
+    scripts/verify-visual-style-baseline \
+    tests/visual-style-baseline/browser-probe.html \
+    tests/visual-style-baseline/browser-runtime-guard.js \
+    tests/visual-style-baseline/reference-comparison.html \
+    tests/visual-style-baseline/verify-visual-style-baseline.sh \
+    docs/design/visual-style-baseline/evidence/README.md \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1440x1100.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1280x960.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1024x900.png \
+    docs/design/visual-style-baseline/evidence/reference-comparison.png \
+    docs/engineering/cognitura-visual-style-baseline-acceptance.md
+}
+
+governed_expected_mode() {
+  case "$1" in
+    scripts/import-visual-style-reference|\
+    scripts/verify-visual-style-baseline-reference|\
+    tests/visual-style-baseline/verify-reference.sh|\
+    scripts/verify-module-default-reading|\
+    tests/visual-style-baseline/verify-module-default-reading-toolchain.sh|\
+    scripts/capture-visual-style-baseline|\
+    scripts/verify-visual-style-baseline|\
+    tests/visual-style-baseline/verify-visual-style-baseline.sh)
+      printf '%s\n' 100755
+      ;;
+    *)
+      printf '%s\n' 100644
+      ;;
+  esac
+}
+
 validate_candidate_tree() {
   local inspected_candidate="$1"
   local release_receipt candidate_file actual_files expected_files raw_status
+  local candidate_mode expected_mode
   local chain_commit commit_parent commit_file
   git -C "${repo_root}" rev-parse --verify "${inspected_candidate}^{commit}" >/dev/null 2>&1 ||
     fail "candidate SHA must resolve to a commit"
@@ -107,9 +216,20 @@ validate_candidate_tree() {
     [[ -n "${candidate_file}" ]] || continue
     git -C "${repo_root}" cat-file -e "${inspected_candidate}:${candidate_file}" 2>/dev/null ||
       fail "candidate is missing ${candidate_file}"
+  done <<< "${expected_files}"
+
+  while IFS= read -r candidate_file; do
+    [[ -n "${candidate_file}" ]] || continue
+    git -C "${repo_root}" cat-file -e "${inspected_candidate}:${candidate_file}" 2>/dev/null ||
+      fail "candidate is missing governed path: ${candidate_file}"
+    candidate_mode="$(git -C "${repo_root}" ls-tree "${inspected_candidate}" -- \
+      "${candidate_file}" | awk '{print $1}')"
+    expected_mode="$(governed_expected_mode "${candidate_file}")"
+    [[ "${candidate_mode}" == "${expected_mode}" ]] ||
+      fail "candidate governed mode mismatch: ${candidate_file}"
     git -C "${repo_root}" diff --quiet "${inspected_candidate}" -- "${candidate_file}" ||
       fail "working tree differs from candidate: ${candidate_file}"
-  done <<< "${expected_files}"
+  done < <(governed_exclusive_files)
   [[ -z "$(git -C "${repo_root}" diff --cached --name-only)" ]] ||
     fail "candidate verification forbids staged changes"
 }
@@ -142,6 +262,14 @@ materialize_capture_pair() {
     "${pair_root}/verify-visual-style-baseline-cards"
   chmod 755 "${pair_root}/capture-visual-style-baseline" \
     "${pair_root}/verify-visual-style-baseline-cards"
+  [[ "$(git hash-object "${pair_root}/capture-visual-style-baseline")" == \
+     "$(git -C "${repo_root}" rev-parse \
+       "${inspected_candidate}:scripts/capture-visual-style-baseline")" ]] ||
+    fail "materialized capture wrapper blob mismatch"
+  [[ "$(git hash-object "${pair_root}/verify-visual-style-baseline-cards")" == \
+     "$(git -C "${repo_root}" rev-parse \
+       "${g4_sha}:scripts/verify-visual-style-baseline-cards")" ]] ||
+    fail "materialized G4 verifier blob mismatch"
   "${pair_root}/verify-visual-style-baseline-cards" \
     --chrome-capture-source-contract \
     "${pair_root}/capture-visual-style-baseline" >/dev/null
@@ -151,17 +279,31 @@ validate_evidence_contract() {
   local evidence_dir="$1"
   local manifest_file="$2"
   local capture_file capture_name width height capture_sha capture_bytes
-  require_line "${manifest_file}" 'CanonicalProjectName = Cognitura'
-  require_line "${manifest_file}" 'EvidenceSet = VISUAL_STYLE_BASELINE_VSB_03'
-  require_line "${manifest_file}" 'EvidenceStatus = FIXED_CANDIDATE'
-  require_line "${manifest_file}" 'CandidateSHA = SEE_VISUAL_STYLE_BASELINE_EXECUTION_STATE_AFTER_FIXED_REVIEW'
-  require_line "${manifest_file}" 'CaptureInputSHA = efc763966d64fc808e9098bec52566edb7d15dc3'
-  require_line "${manifest_file}" 'ReferenceSHA256 = a8446ea987f6a1710c3845f837e2776190997b77f81584cf7b667cbfebe2f95f'
-  require_line "${manifest_file}" 'Node = 24.18.0'
-  require_line "${manifest_file}" 'pnpm = 11.17.0'
-  require_line "${manifest_file}" 'Chrome = Google Chrome 151.0.7922.138'
-  require_line "${manifest_file}" 'CaptureToolBinding = FIXED_CANDIDATE_TREE'
-  require_line "${manifest_file}" 'HistoricalEvidenceOverwrite = FORBIDDEN'
+  local expected_fields expected_table
+  expected_fields='CanonicalProjectName = Cognitura
+EvidenceSet = VISUAL_STYLE_BASELINE_VSB_03
+EvidenceStatus = FIXED_CANDIDATE
+CandidateSHA = SEE_VISUAL_STYLE_BASELINE_EXECUTION_STATE_AFTER_FIXED_REVIEW
+CaptureInputSHA = efc763966d64fc808e9098bec52566edb7d15dc3
+ReferenceSHA256 = a8446ea987f6a1710c3845f837e2776190997b77f81584cf7b667cbfebe2f95f
+Node = 24.18.0
+pnpm = 11.17.0
+Chrome = Google Chrome 151.0.7922.138
+CaptureToolBinding = FIXED_CANDIDATE_TREE
+ProbeInput = tests/visual-style-baseline/browser-probe.html
+RuntimeGuardInput = tests/visual-style-baseline/browser-runtime-guard.js
+ComparisonInput = tests/visual-style-baseline/reference-comparison.html
+HistoricalEvidenceOverwrite = FORBIDDEN'
+  expected_table='| File | Viewport | Bytes | SHA-256 | Capture command | Real DOM probe | Computed style | Runtime guard | Comparison ready | Allowed requests | Freshness |
+|---|---:|---:|---|---|---|---|---|---|---:|---|
+| module-default-reading-1440x1100.png | 1440x1100 | 113892 | bf753320352d7c9aab7bc7c40d9f8b40e1f649c174684695e77d1f3223e65ab0 | fixed `.138` capture | PASS | PASS | PASS | PASS | 62 | PASS |
+| module-default-reading-1280x960.png | 1280x960 | 88891 | a2fd1fbf5623fe8e2e28dc23317d3d6064102873bc2a050251657ca9d8b992fb | fixed `.138` capture | PASS | PASS | PASS | PASS | 62 | PASS |
+| module-default-reading-1024x900.png | 1024x900 | 86766 | bc7ddbb666f6475ee1e114f76a79bd0920bd4ca94744aa559f9c5edb115c01ef | fixed `.138` capture | PASS | PASS | PASS | PASS | 62 | PASS |
+| reference-comparison.png | 2560x1100 | 943719 | 46db84298c34a072ac6c48e079d4a48961b875a0ec8810b25075e1b3abe20b53 | fixed `.138` comparison | PASS | PASS | PASS | PASS | 62 | PASS |'
+  [[ "$(grep -Ec '^[A-Za-z][A-Za-z0-9]* = ' "${manifest_file}" || true)" -eq 14 ]] ||
+    fail "evidence manifest field set mismatch"
+  require_exact_text_block "${manifest_file}" "${expected_fields}" "evidence-manifest"
+  require_exact_evidence_table "${manifest_file}" "${expected_table}"
 
   for capture_name in \
       module-default-reading-1440x1100.png:1440:1100 \
@@ -185,30 +327,46 @@ validate_evidence_contract() {
 
 validate_acceptance_contract() {
   local acceptance_file="$1"
-  local required_field
-  require_line "${acceptance_file}" 'CanonicalProjectName = Cognitura'
-  require_line "${acceptance_file}" 'AcceptanceKind = VISUAL_STYLE_BASELINE'
-  for required_field in \
-    SameProductFamily SameVisualCalmness SameSurfaceCharacter \
-    SameBorderCharacter SameBluePurpleFamily SameTypographyDensity \
-    SameIconCharacter SameRefinementLevel SameSemanticColorRestraint \
-    NewPageIsSubstantiallyMoreReadingFirst SameProductVisualFamilyWithReference \
-    ReadingFirst InteractiveCognitiveDocument ContinuousDocumentFlow \
-    ZeroInteractionReading CardAndContainerRestraint VisualPrimitiveDensity \
-    InteractionExposureRestraint TypographyHierarchy ColorSemanticConsistency \
-    RelationSemanticExpression NoDashboardRegression NoCardWallRegression \
-    NoAISaaSTemplateDrift NoFormalDesignAuthorityViolation VisualStyleBaseline
-  do
-    require_line "${acceptance_file}" "${required_field} = PASS"
-  done
-  require_line "${acceptance_file}" \
-    'ModuleDefaultReadingVisualImplementation = PASS_WITHIN_EXISTING_CANONICAL_PROJECTION'
-  require_line "${acceptance_file}" \
-    'FullModuleDefaultReadingBusinessAcceptance = BLOCKED_BY_DOC_GAP_MDR_001'
-  require_line "${acceptance_file}" \
-    'ImplementationValidation = NOT_CLAIMED_FOR_FULL_PRODUCT_PAGE'
-  require_line "${acceptance_file}" 'FormalDatabaseWrite = NOT_AUTHORIZED'
-  require_line "${acceptance_file}" 'RemotePush = NOT_AUTHORIZED'
+  local expected_fields
+  expected_fields='CanonicalProjectName = Cognitura
+AcceptanceKind = VISUAL_STYLE_BASELINE
+Authority = docs/design/Cognitive-Knowledge-Atlas-Visual-Style-Reference-1.0.md
+Evidence = docs/design/visual-style-baseline/evidence/README.md
+FixedCandidateSHA = SEE_VISUAL_STYLE_BASELINE_EXECUTION_STATE_AFTER_FIXED_REVIEW
+SameProductFamily = PASS
+SameVisualCalmness = PASS
+SameSurfaceCharacter = PASS
+SameBorderCharacter = PASS
+SameBluePurpleFamily = PASS
+SameTypographyDensity = PASS
+SameIconCharacter = PASS
+SameRefinementLevel = PASS
+SameSemanticColorRestraint = PASS
+NewPageIsSubstantiallyMoreReadingFirst = PASS
+SameProductVisualFamilyWithReference = PASS
+ReadingFirst = PASS
+InteractiveCognitiveDocument = PASS
+ContinuousDocumentFlow = PASS
+ZeroInteractionReading = PASS
+CardAndContainerRestraint = PASS
+VisualPrimitiveDensity = PASS
+InteractionExposureRestraint = PASS
+TypographyHierarchy = PASS
+ColorSemanticConsistency = PASS
+RelationSemanticExpression = PASS
+NoDashboardRegression = PASS
+NoCardWallRegression = PASS
+NoAISaaSTemplateDrift = PASS
+NoFormalDesignAuthorityViolation = PASS
+VisualStyleBaseline = PASS
+ModuleDefaultReadingVisualImplementation = PASS_WITHIN_EXISTING_CANONICAL_PROJECTION
+FullModuleDefaultReadingBusinessAcceptance = BLOCKED_BY_DOC_GAP_MDR_001
+ImplementationValidation = NOT_CLAIMED_FOR_FULL_PRODUCT_PAGE
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED'
+  [[ "$(grep -Ec '^[A-Za-z][A-Za-z0-9]* = ' "${acceptance_file}" || true)" -eq 36 ]] ||
+    fail "visual acceptance field set mismatch"
+  require_exact_text_block "${acceptance_file}" "${expected_fields}" "visual-acceptance"
 }
 
 while [[ "$#" -gt 0 ]]; do
@@ -230,6 +388,24 @@ done
 repo_root="$(cd "${repo_root}" && pwd -P)"
 runtime_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-fixed.XXXXXX")"
 
+capture_runner="${repo_root}/scripts/capture-visual-style-baseline"
+task_card_verifier="${repo_root}/scripts/verify-visual-style-baseline-cards"
+if [[ -n "${candidate_sha}" ]]; then
+  validate_candidate_tree "${candidate_sha}"
+  materialize_capture_pair "${candidate_sha}" "${runtime_root}/scripts"
+  capture_runner="${runtime_root}/scripts/capture-visual-style-baseline"
+  task_card_verifier="${runtime_root}/scripts/verify-visual-style-baseline-cards"
+else
+  "${task_card_verifier}" \
+    --chrome-capture-source-contract "${capture_runner}" >/dev/null
+fi
+
+evidence_dir="${repo_root}/docs/design/visual-style-baseline/evidence"
+manifest_file="${evidence_dir}/README.md"
+acceptance_file="${repo_root}/docs/engineering/cognitura-visual-style-baseline-acceptance.md"
+validate_evidence_contract "${evidence_dir}" "${manifest_file}"
+validate_acceptance_contract "${acceptance_file}"
+
 [[ "$(node --version)" == v24.18.0 ]] || fail "expected Node v24.18.0"
 [[ "$(pnpm --dir "${repo_root}/web" --version)" == 11.17.0 ]] ||
   fail "expected pnpm 11.17.0"
@@ -237,7 +413,7 @@ python3 -c 'from PIL import __version__; assert __version__ == "12.2.0"' ||
   fail "expected Pillow 12.2.0"
 
 "${repo_root}/scripts/verify-visual-style-baseline-reference" --repo-root "${repo_root}" >/dev/null
-"${repo_root}/scripts/verify-visual-style-baseline-cards" \
+"${task_card_verifier}" \
   --repo-root "${repo_root}" \
   --cards-dir "${repo_root}/docs/task-cards/visual-style-baseline" >/dev/null
 "${repo_root}/scripts/verify-wave1-implementation-cards" \
@@ -265,26 +441,14 @@ git -C "${repo_root}" diff --quiet \
   server/src/test/resources/docx/security ||
   fail "frozen W1-I03 production tree changed"
 
-capture_runner="${repo_root}/scripts/capture-visual-style-baseline"
-if [[ -n "${candidate_sha}" ]]; then
-  validate_candidate_tree "${candidate_sha}"
-  materialize_capture_pair "${candidate_sha}" "${runtime_root}/scripts"
-  capture_runner="${runtime_root}/scripts/capture-visual-style-baseline"
-else
-  "${repo_root}/scripts/verify-visual-style-baseline-cards" \
-    --chrome-capture-source-contract "${capture_runner}" >/dev/null
-fi
-
 fresh_dir="${runtime_root}/fresh-evidence"
-env -u BASH_ENV -u ENV -u CHROME_BIN -u GOOGLE_CHROME_BIN \
-  -u PUPPETEER_EXECUTABLE_PATH \
+env -i \
+  HOME="${HOME}" \
+  TMPDIR="${TMPDIR:-/tmp}" \
+  PATH="${PATH}" \
+  LANG="${LANG:-C}" \
   "${capture_runner}" --repo-root "${repo_root}" --output-dir "${fresh_dir}"
 
-evidence_dir="${repo_root}/docs/design/visual-style-baseline/evidence"
-manifest_file="${evidence_dir}/README.md"
-acceptance_file="${repo_root}/docs/engineering/cognitura-visual-style-baseline-acceptance.md"
-validate_evidence_contract "${evidence_dir}" "${manifest_file}"
-validate_acceptance_contract "${acceptance_file}"
 for fresh_file in "${fresh_dir}"/*.png; do
   committed_file="${evidence_dir}/$(basename "${fresh_file}")"
   cmp -s "${fresh_file}" "${committed_file}" ||
