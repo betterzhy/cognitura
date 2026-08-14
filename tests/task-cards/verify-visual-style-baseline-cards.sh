@@ -9,6 +9,7 @@ current_pending_contract_only=0
 governance_repair_pending_contract_only=0
 historical_failed_receipt_contract_only=0
 verifier_recovery_contract_only=0
+chrome_authority_migration_contract_only=0
 case "${1:-}" in
   --repair-contract-only)
     repair_contract_only=1
@@ -43,6 +44,10 @@ case "${1:-}" in
     ;;
   --verifier-recovery-contract-only)
     verifier_recovery_contract_only=1
+    shift
+    ;;
+  --chrome-authority-migration-contract-only)
+    chrome_authority_migration_contract_only=1
     shift
     ;;
 esac
@@ -2752,6 +2757,723 @@ EOF
   printf '%s\n' "RouteCardContractCases = $((2 + route_card_negative_cases))"
   return 0
 }
+
+write_exact_chrome_authority_migration_ledger() {
+  local fixture_root="$1"
+  local authority_sha="$2"
+  local origin_sha="$3"
+  local candidate_sha="$4"
+  local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  local fixture_state="${fixture_root}/${ledger_path}"
+  awk -v authority_sha="${authority_sha}" -v origin_sha="${origin_sha}" \
+    -v candidate_sha="${candidate_sha}" '
+    /^ExecutionStateVersion = / {
+      print "ExecutionStateVersion = 5"
+      next
+    }
+    /^TransitionSequence = / {
+      print "TransitionSequence = 10"
+      next
+    }
+    /^TransitionKind = / {
+      print "TransitionKind = CHROME_AUTHORITY_MIGRATION"
+      next
+    }
+    /^TransitionBaseSHA = / {
+      print "TransitionBaseSHA = " candidate_sha
+      next
+    }
+    { print }
+    /^VerifierRecoveryReviewVerdict = / {
+      print "ChromeAuthorityMigrationStatus = PASS"
+      print "ChromeAuthorityMigrationSpecSHA = " authority_sha
+      print "ChromeAuthorityMigrationOriginReceiptSHA = " origin_sha
+      print "ChromeAuthorityMigrationReviewedCandidateSHA = " candidate_sha
+      print "ChromeAuthorityMigrationPreviousVersion = 151.0.7922.109"
+      print "ChromeAuthorityMigrationTargetVersion = 151.0.7922.138"
+      print "ChromeAuthorityMigrationReviewLevel = L3"
+      print "ChromeAuthorityMigrationReviewRoute = deep_reviewer"
+      print "ChromeAuthorityMigrationReviewEffort = xhigh"
+      print "ChromeAuthorityMigrationReviewMultiplicity = ONE"
+      print "ChromeAuthorityMigrationReviewVerdict = GO_P0_0_P1_0_P2_0"
+    }
+  ' "${fixture_state}" > "${fixture_state}.new"
+  mv "${fixture_state}.new" "${fixture_state}"
+}
+
+commit_chrome_authority_migration_ledger() {
+  local fixture_root="$1"
+  local subject="$2"
+  local extra_path="${3:-}"
+  local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  if [[ -n "${extra_path}" ]]; then
+    mkdir -p "${fixture_root}/$(dirname "${extra_path}")"
+    printf '%s\n' "Chrome migration receipt extra path" > \
+      "${fixture_root}/${extra_path}"
+    git -C "${fixture_root}" add -- "${extra_path}"
+  fi
+  git -C "${fixture_root}" commit -qm "${subject}"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+run_chrome_migration_public() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local invocation_tmp="$3"
+  local invocation_marker="$4"
+  local label="$5"
+  local base_sha="${6:-}"
+  local head_sha="${7:-}"
+  local status_before status_after
+  status_before="$(git -C "${fixture_root}" status --porcelain=v1)"
+  if [[ -n "${base_sha}" ]]; then
+    if chrome_migration_public_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+      --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" \
+      --transition-base "${base_sha}" --transition-head "${head_sha}" 2>&1)"; then
+      chrome_migration_public_rc=0
+    else
+      chrome_migration_public_rc=$?
+    fi
+  else
+    if chrome_migration_public_output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+      --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" 2>&1)"; then
+      chrome_migration_public_rc=0
+    else
+      chrome_migration_public_rc=$?
+    fi
+  fi
+  status_after="$(git -C "${fixture_root}" status --porcelain=v1)"
+  [[ "${status_after}" == "${status_before}" ]] ||
+    fail "${label} left Git worktree residue"
+  assert_model_route_tmp_clean "${invocation_tmp}" "${invocation_marker}" "${label}"
+}
+
+expect_chrome_migration_failure() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local expected_message="$3"
+  local invocation_tmp="$4"
+  local invocation_marker="$5"
+  local label="$6"
+  local base_sha="${7:-}"
+  local head_sha="${8:-}"
+  run_chrome_migration_public "${fixture_root}" "${fixture_cards}" \
+    "${invocation_tmp}" "${invocation_marker}" "${label}" \
+    "${base_sha}" "${head_sha}"
+  [[ "${chrome_migration_public_rc}" -ne 0 ]] ||
+    fail "${label} unexpectedly passed"
+  assert_contains "${chrome_migration_public_output}" "${expected_message}"
+}
+
+run_chrome_authority_migration_contract() {
+  local migration_authority_sha="ce2a3ca466cc4df2ff077017f1ddb03cb285416f"
+  local migration_origin_sha="7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d"
+  local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  local fixture_root="${test_tmp_root}/chrome-authority-migration-repo"
+  local fixture_cards="${fixture_root}/docs/task-cards/visual-style-baseline"
+  local invocation_tmp="${test_tmp_root}/chrome-authority-migration-tmp"
+  local invocation_marker="${invocation_tmp}/sibling-marker"
+  local expected_paths_file="${test_tmp_root}/chrome-authority-expected-paths"
+  local actual_paths_file="${test_tmp_root}/chrome-authority-actual-paths"
+  local chain_file="${test_tmp_root}/chrome-authority-chain"
+  local origin_ledger="${test_tmp_root}/chrome-authority-origin-ledger"
+  local head_ledger="${test_tmp_root}/chrome-authority-head-ledger"
+  local output status_before status_after commit parent path mode authority_path
+  local governance_one_sha g4_sha
+  local positive_cases=0 negative_cases=0
+  local -a authority_paths governance_paths approved_paths
+
+  authority_paths=(
+    docs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md
+    docs/superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md
+    docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
+  )
+  governance_paths=(
+    docs/task-cards/visual-style-baseline/README.md
+    scripts/verify-visual-style-baseline-cards
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+  )
+  approved_paths=("${authority_paths[@]}" "${governance_paths[@]}")
+
+  [[ "$(git -C "${repo_root}" rev-parse "${migration_authority_sha}^")" == \
+     "${migration_origin_sha}" ]] ||
+    fail "fixed Chrome migration Authority must be the direct child of its origin"
+
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${migration_origin_sha}"
+  git -C "${fixture_root}" checkout -q --detach "${migration_authority_sha}"
+
+  cp "${repo_root}/docs/task-cards/visual-style-baseline/README.md" \
+    "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+  cp "${repo_root}/scripts/verify-visual-style-baseline-cards" \
+    "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+  if git -C "${fixture_root}" diff --quiet -- \
+    docs/task-cards/visual-style-baseline/README.md; then
+    perl -0pi -e \
+      's/\A/<!-- Chrome authority migration fixture README projection -->\n/' \
+      "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+  fi
+  if git -C "${fixture_root}" diff --quiet -- \
+    scripts/verify-visual-style-baseline-cards; then
+    perl -0pi -e \
+      's/\A(#![^\n]*\n)/$1# Chrome authority migration fixture verifier projection\n/' \
+      "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+  fi
+  git -C "${fixture_root}" add -- \
+    docs/task-cards/visual-style-baseline/README.md \
+    scripts/verify-visual-style-baseline-cards
+  git -C "${fixture_root}" commit -qm \
+    "test: project Chrome authority governance support"
+  governance_one_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+
+  cp "${repo_root}/tests/task-cards/verify-visual-style-baseline-cards.sh" \
+    "${fixture_root}/tests/task-cards/verify-visual-style-baseline-cards.sh"
+  if git -C "${fixture_root}" diff --quiet -- \
+    tests/task-cards/verify-visual-style-baseline-cards.sh; then
+    perl -0pi -e \
+      's/\A(#![^\n]*\n)/$1# Chrome authority migration fixture test projection\n/' \
+      "${fixture_root}/tests/task-cards/verify-visual-style-baseline-cards.sh"
+  fi
+  git -C "${fixture_root}" add -- \
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+  git -C "${fixture_root}" commit -qm \
+    "test: project Chrome authority migration contract"
+  g4_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+
+  git -C "${fixture_root}" rev-list --first-parent --reverse \
+    "${migration_origin_sha}..${g4_sha}" > "${chain_file}"
+  [[ "$(wc -l < "${chain_file}" | tr -d ' ')" == 3 ]] ||
+    fail "legal G4 fixture must contain the Authority and two later governance commits"
+  while IFS= read -r commit; do
+    assert_commit_parent_count "${fixture_root}" "${commit}" 1
+    git -C "${fixture_root}" diff-tree --no-commit-id -r --name-only \
+      "${commit}^" "${commit}" > "${actual_paths_file}"
+    [[ -s "${actual_paths_file}" ]] ||
+      fail "Chrome migration governance commit must change a non-empty subset"
+    while IFS= read -r path; do
+      case " ${approved_paths[*]} " in
+        *" ${path} "*) ;;
+        *) fail "Chrome migration governance commit changed outside path: ${path}" ;;
+      esac
+    done < "${actual_paths_file}"
+    if git -C "${fixture_root}" -c diff.renameLimit=0 diff-tree \
+      --no-commit-id -r -M -C --find-copies-harder --name-status \
+      "${commit}^" "${commit}" | LC_ALL=C grep -Eq '^[RC][0-9]'; then
+      fail "Chrome migration governance fixture must not rename or copy paths"
+    fi
+  done < "${chain_file}"
+
+  printf '%s\n' "${approved_paths[@]}" | LC_ALL=C sort > "${expected_paths_file}"
+  git -C "${fixture_root}" diff --name-only \
+    "${migration_origin_sha}" "${g4_sha}" | LC_ALL=C sort > "${actual_paths_file}"
+  cmp -s "${expected_paths_file}" "${actual_paths_file}" ||
+    fail "legal G4 fixture must have the exact six-path cumulative WriteSet"
+
+  for path in "${approved_paths[@]}"; do
+    mode="$(git -C "${fixture_root}" ls-tree "${g4_sha}" -- "${path}" | awk '{print $1}')"
+    case "${path}" in
+      scripts/verify-visual-style-baseline-cards|tests/task-cards/verify-visual-style-baseline-cards.sh)
+        [[ "${mode}" == 100755 ]] ||
+          fail "Chrome migration governance fixture executable mode is not canonical: ${path}"
+        ;;
+      *)
+        [[ "${mode}" == 100644 ]] ||
+          fail "Chrome migration governance fixture document mode is not canonical: ${path}"
+        ;;
+    esac
+    git -C "${fixture_root}" cat-file blob "${g4_sha}:${path}" | \
+      perl -0777 -ne 'exit(index($_, chr(0)) >= 0 ? 1 : 0)' ||
+      fail "Chrome migration governance fixture path contains NUL: ${path}"
+  done
+  for authority_path in "${authority_paths[@]}"; do
+    [[ "$(git -C "${fixture_root}" rev-parse \
+      "${migration_authority_sha}:${authority_path}")" == \
+       "$(git -C "${fixture_root}" rev-parse "${g4_sha}:${authority_path}")" ]] ||
+      fail "fixed Chrome migration Authority blob drifted: ${authority_path}"
+  done
+
+  git -C "${fixture_root}" show \
+    "${migration_origin_sha}:${ledger_path}" > "${origin_ledger}"
+  git -C "${fixture_root}" show "${g4_sha}:${ledger_path}" > "${head_ledger}"
+  cmp -s "${origin_ledger}" "${head_ledger}" ||
+    fail "legal G4 fixture changed the HEAD execution ledger"
+  cmp -s "${origin_ledger}" "${fixture_root}/${ledger_path}" ||
+    fail "legal G4 fixture changed the working execution ledger"
+  [[ "${governance_one_sha}" == "$(git -C "${fixture_root}" rev-parse "${g4_sha}^")" ]] ||
+    fail "legal G4 fixture governance commits are not a direct linear chain"
+
+  mkdir -p "${invocation_tmp}"
+  printf '%s\n' "preserve sibling" > "${invocation_marker}"
+  status_before="$(git -C "${fixture_root}" status --porcelain=v1)"
+  if ! output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+    --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" 2>&1)"; then
+    fail "legal G4 pending was rejected: ${output}"
+  fi
+  assert_contains "${output}" "VisualStyleBaselineTaskCardValidation = PASS"
+  assert_contains "${output}" "ChromeAuthorityMigrationStatus = PENDING"
+  status_after="$(git -C "${fixture_root}" status --porcelain=v1)"
+  [[ "${status_after}" == "${status_before}" ]] ||
+    fail "legal G4 pending verifier call left Git worktree residue"
+  [[ "$(find "${invocation_tmp}" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')" == 1 &&
+     "$(cat "${invocation_marker}")" == "preserve sibling" ]] ||
+    fail "legal G4 pending verifier call leaked TMPDIR entries or changed its sibling"
+  positive_cases=$((positive_cases + 1))
+
+  local fixture_state="${fixture_root}/${ledger_path}"
+  local r4_sha vsb03_candidate_sha vsb03_complete_sha later_sha bad_sha
+  local field value field_index mutation bad_root side_sha main_sha
+  local -a migration_fields migration_bad_values migration_bad_messages
+
+  git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+  write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+    "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+  r4_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: exact Chrome authority migration receipt")"
+  assert_commit_parent_count "${fixture_root}" "${r4_sha}" 1
+  [[ "$(git -C "${fixture_root}" rev-parse "${r4_sha}^")" == "${g4_sha}" ]] ||
+    fail "legal R4 must be the direct child of reviewed G4"
+  [[ "$(git -C "${fixture_root}" diff --name-only "${g4_sha}" "${r4_sha}")" == \
+     "${ledger_path}" ]] || fail "legal R4 must be ledger-only"
+  run_chrome_migration_public "${fixture_root}" "${fixture_cards}" \
+    "${invocation_tmp}" "${invocation_marker}" "legal explicit G4-to-R4 migration" \
+    "${g4_sha}" "${r4_sha}"
+  [[ "${chrome_migration_public_rc}" -eq 0 ]] ||
+    fail "legal explicit G4-to-R4 migration was rejected: ${chrome_migration_public_output}"
+  assert_contains "${chrome_migration_public_output}" \
+    "ChromeAuthorityMigrationStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  run_chrome_migration_public "${fixture_root}" "${fixture_cards}" \
+    "${invocation_tmp}" "${invocation_marker}" "legal static version-5 migration"
+  [[ "${chrome_migration_public_rc}" -eq 0 ]] ||
+    fail "legal static version-5 migration was rejected: ${chrome_migration_public_output}"
+  assert_contains "${chrome_migration_public_output}" \
+    "ChromeAuthorityMigrationStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  vsb03_candidate_sha="$(commit_model_route_owner_candidate "${fixture_root}" \
+    "test: VSB-03 candidate from R4 release anchor" model_route_vsb03_write_set)"
+  set_vsb03_complete_receipt "${fixture_state}" "${vsb03_candidate_sha}" \
+    deep_reviewer FINAL_GO_P0_0_P1_0_P2_0 NOT_RUN
+  set_field "${fixture_state}" TransitionSequence 11
+  vsb03_complete_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: complete VSB-03 from R4 release anchor")"
+  run_chrome_migration_public "${fixture_root}" "${fixture_cards}" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "version-5 VSB-03 release-anchor explicit replay" \
+    "${vsb03_candidate_sha}" "${vsb03_complete_sha}"
+  [[ "${chrome_migration_public_rc}" -eq 0 ]] ||
+    fail "version-5 VSB-03 release-anchor transition was rejected: ${chrome_migration_public_output}"
+  positive_cases=$((positive_cases + 1))
+  run_chrome_migration_public "${fixture_root}" "${fixture_cards}" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "version-5 VSB-03 release-anchor static replay"
+  [[ "${chrome_migration_public_rc}" -eq 0 ]] ||
+    fail "version-5 VSB-03 release-anchor static replay was rejected: ${chrome_migration_public_output}"
+  positive_cases=$((positive_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${r4_sha}"
+  set_legal_stop_by_user "${fixture_state}" "${r4_sha}"
+  set_field "${fixture_state}" TransitionSequence 11
+  later_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: ordinary version-5 receipt preserves Chrome migration block")"
+  run_chrome_migration_public "${fixture_root}" "${fixture_cards}" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "ordinary version-5 explicit preservation" "${r4_sha}" "${later_sha}"
+  [[ "${chrome_migration_public_rc}" -eq 0 ]] ||
+    fail "ordinary version-5 preserving transition was rejected: ${chrome_migration_public_output}"
+  positive_cases=$((positive_cases + 1))
+  run_chrome_migration_public "${fixture_root}" "${fixture_cards}" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "ordinary version-5 static preservation"
+  [[ "${chrome_migration_public_rc}" -eq 0 ]] ||
+    fail "ordinary version-5 preserving static replay was rejected: ${chrome_migration_public_output}"
+  positive_cases=$((positive_cases + 1))
+
+  migration_fields=(
+    ChromeAuthorityMigrationStatus
+    ChromeAuthorityMigrationSpecSHA
+    ChromeAuthorityMigrationOriginReceiptSHA
+    ChromeAuthorityMigrationReviewedCandidateSHA
+    ChromeAuthorityMigrationPreviousVersion
+    ChromeAuthorityMigrationTargetVersion
+    ChromeAuthorityMigrationReviewLevel
+    ChromeAuthorityMigrationReviewRoute
+    ChromeAuthorityMigrationReviewEffort
+    ChromeAuthorityMigrationReviewMultiplicity
+    ChromeAuthorityMigrationReviewVerdict
+  )
+  for field in "${migration_fields[@]}"; do
+    git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+    write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+      "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+    sed -i.bak "/^${field} = /d" "${fixture_state}"
+    rm "${fixture_state}.bak"
+    bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+      "test: omit ${field} from R4")"
+    expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+      "${field} must occur exactly once" "${invocation_tmp}" \
+      "${invocation_marker}" "missing ${field}" "${g4_sha}" "${bad_sha}"
+    negative_cases=$((negative_cases + 1))
+
+    git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+    write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+      "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+    value="$(sed -n "s/^${field} = //p" "${fixture_state}")"
+    printf '%s = %s\n' "${field}" "${value}" >> "${fixture_state}"
+    bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+      "test: duplicate ${field} in R4")"
+    expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+      "${field} must occur exactly once" "${invocation_tmp}" \
+      "${invocation_marker}" "duplicate ${field}" "${g4_sha}" "${bad_sha}"
+    negative_cases=$((negative_cases + 1))
+  done
+
+  migration_bad_values=(
+    PENDING
+    "${migration_origin_sha}"
+    "${migration_authority_sha}"
+    "${migration_origin_sha}"
+    151.0.7922.138
+    151.0.7922.109
+    L4
+    main_or_worker
+    high
+    TWO
+    FINDING_P0_0_P1_1_P2_0
+  )
+  migration_bad_messages=(
+    "ChromeAuthorityMigrationStatus must be PASS"
+    "Chrome authority migration approved spec SHA mismatch"
+    "Chrome authority migration origin SHA mismatch"
+    "Chrome authority migration reviewed candidate SHA mismatch"
+    "Chrome authority migration previous version mismatch"
+    "Chrome authority migration target version mismatch"
+    "Chrome authority migration review level mismatch"
+    "Chrome authority migration review route mismatch"
+    "Chrome authority migration review effort mismatch"
+    "Chrome authority migration review multiplicity mismatch"
+    "Chrome authority migration review verdict mismatch"
+  )
+  for field_index in "${!migration_fields[@]}"; do
+    git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+    write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+      "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+    set_field "${fixture_state}" "${migration_fields[${field_index}]}" \
+      "${migration_bad_values[${field_index}]}"
+    bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+      "test: wrong ${migration_fields[${field_index}]} in R4")"
+    expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+      "${migration_bad_messages[${field_index}]}" "${invocation_tmp}" \
+      "${invocation_marker}" "wrong ${migration_fields[${field_index}]}" \
+      "${g4_sha}" "${bad_sha}"
+    negative_cases=$((negative_cases + 1))
+  done
+
+  for mutation in reorder unknown; do
+    git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+    write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+      "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+    case "${mutation}" in
+      reorder)
+        sed -i.bak '/^ChromeAuthorityMigrationStatus = /d' "${fixture_state}"
+        rm "${fixture_state}.bak"
+        insert_field_after "${fixture_state}" ChromeAuthorityMigrationReviewVerdict \
+          ChromeAuthorityMigrationStatus PASS
+        ;;
+      unknown)
+        insert_field_after "${fixture_state}" ChromeAuthorityMigrationStatus \
+          ChromeAuthorityMigrationUnknownField FORBIDDEN
+        ;;
+    esac
+    bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+      "test: ${mutation} Chrome migration block")"
+    expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+      "CHROME_AUTHORITY_MIGRATION receipt must be the exact approved ledger transform" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "${mutation} Chrome migration block" "${g4_sha}" "${bad_sha}"
+    negative_cases=$((negative_cases + 1))
+  done
+
+  git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+  write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+    "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+  bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: R4 with an extra path" docs/engineering/chrome-r4-extra.md)"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "Chrome authority migration receipt diff must contain only execution-state.md" \
+    "${invocation_tmp}" "${invocation_marker}" "R4 extra path" \
+    "${g4_sha}" "${bad_sha}"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+  git -C "${fixture_root}" commit --allow-empty -qm \
+    "test: interpose a commit before R4"
+  write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+    "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+  bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: non-direct R4")"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "transition HEAD must be a direct child of transition BASE" \
+    "${invocation_tmp}" "${invocation_marker}" "non-direct R4" \
+    "${g4_sha}" "${bad_sha}"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+  git -C "${fixture_root}" switch -q -C chrome-r4-side
+  write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+    "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+  side_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: R4 side parent")"
+  git -C "${fixture_root}" switch -q -C chrome-r4-main "${g4_sha}"
+  perl -0pi -e 's/\z/\n<!-- merge parent -->\n/' \
+    "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+  git -C "${fixture_root}" add -- docs/task-cards/visual-style-baseline/README.md
+  git -C "${fixture_root}" commit -qm "test: R4 competing parent"
+  git -C "${fixture_root}" merge -q --no-ff "${side_sha}" \
+    -m "test: merged R4"
+  bad_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "transition HEAD must have exactly one parent" "${invocation_tmp}" \
+    "${invocation_marker}" "merge R4" "${g4_sha}" "${bad_sha}"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+  write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+    "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+  printf '\000' >> "${fixture_state}"
+  bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: R4 ledger containing NUL")"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "transition ledger must not contain NUL bytes" "${invocation_tmp}" \
+    "${invocation_marker}" "R4 ledger NUL" "${g4_sha}" "${bad_sha}"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+  write_exact_chrome_authority_migration_ledger "${fixture_root}" \
+    "${migration_authority_sha}" "${migration_origin_sha}" "${g4_sha}"
+  chmod +x "${fixture_state}"
+  bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: R4 ledger mode drift")"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "CHROME_AUTHORITY_MIGRATION receipt ledger mode must remain canonical" \
+    "${invocation_tmp}" "${invocation_marker}" "R4 ledger mode drift" \
+    "${g4_sha}" "${bad_sha}"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${r4_sha}"
+  set_field "${fixture_state}" TransitionSequence 11
+  set_field "${fixture_state}" TransitionKind CHROME_AUTHORITY_MIGRATION
+  set_field "${fixture_state}" TransitionBaseSHA "${r4_sha}"
+  bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: forbidden second Chrome authority migration")"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "CHROME_AUTHORITY_MIGRATION is allowed exactly once" \
+    "${invocation_tmp}" "${invocation_marker}" "second Chrome migration" \
+    "${r4_sha}" "${bad_sha}"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${r4_sha}"
+  set_legal_stop_by_user "${fixture_state}" "${r4_sha}"
+  set_field "${fixture_state}" TransitionSequence 11
+  set_field "${fixture_state}" ChromeAuthorityMigrationReviewEffort high
+  bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+    "test: mutate Chrome migration block after R4")"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "ordinary version-5 transition must preserve ChromeAuthorityMigration fields" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "post-R4 Chrome migration block mutation" "${r4_sha}" "${bad_sha}"
+  negative_cases=$((negative_cases + 1))
+
+  bad_root="${test_tmp_root}/chrome-authority-bad-governance"
+  git clone --shared -q "${fixture_root}" "${bad_root}"
+  local bad_cards="${bad_root}/docs/task-cards/visual-style-baseline"
+  local bad_state="${bad_root}/${ledger_path}"
+  local bad_tree bad_ancestry_sha replacement_tree replacement_sha origin_parent
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  git -C "${bad_root}" commit --allow-empty -qm \
+    "test: empty Chrome governance commit"
+  bad_sha="$(git -C "${bad_root}" rev-parse HEAD)"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration governance commit must change a non-empty subset" \
+    "${invocation_tmp}" "${invocation_marker}" "empty G4 commit"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  printf '%s\n' outside > "${bad_root}/docs/engineering/chrome-migration-outside.md"
+  git -C "${bad_root}" add -- docs/engineering/chrome-migration-outside.md
+  git -C "${bad_root}" commit -qm "test: outside-path Chrome governance"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration governance commit changed an outside path" \
+    "${invocation_tmp}" "${invocation_marker}" "outside-path G4 commit"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  printf '\nintermediate ledger drift\n' >> "${bad_state}"
+  git -C "${bad_root}" add -- "${ledger_path}"
+  git -C "${bad_root}" commit -qm "test: drift Chrome governance ledger"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration governance chain must not change the execution ledger" \
+    "${invocation_tmp}" "${invocation_marker}" "G4 ledger drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  printf '%s\n' reverted > "${bad_root}/docs/engineering/chrome-reverted.md"
+  git -C "${bad_root}" add -- docs/engineering/chrome-reverted.md
+  git -C "${bad_root}" commit -qm "test: intermediate outside-path drift"
+  git -C "${bad_root}" rm -q -- docs/engineering/chrome-reverted.md
+  git -C "${bad_root}" commit -qm "test: revert intermediate outside-path drift"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration governance commit changed an outside path" \
+    "${invocation_tmp}" "${invocation_marker}" "reverted intermediate G4 drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  git -C "${bad_root}" mv -- docs/task-cards/visual-style-baseline/README.md \
+    docs/task-cards/visual-style-baseline/README.chrome.tmp
+  git -C "${bad_root}" commit -qm "test: rename Chrome governance path"
+  git -C "${bad_root}" mv -- docs/task-cards/visual-style-baseline/README.chrome.tmp \
+    docs/task-cards/visual-style-baseline/README.md
+  git -C "${bad_root}" commit -qm "test: restore renamed Chrome governance path"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration governance chain must not rename or copy paths" \
+    "${invocation_tmp}" "${invocation_marker}" "G4 rename classification"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  cp "${bad_root}/docs/task-cards/visual-style-baseline/README.md" \
+    "${bad_root}/docs/task-cards/visual-style-baseline/README.chrome.copy"
+  git -C "${bad_root}" add -- \
+    docs/task-cards/visual-style-baseline/README.chrome.copy
+  git -C "${bad_root}" commit -qm "test: copy Chrome governance path"
+  git -C "${bad_root}" rm -q -- \
+    docs/task-cards/visual-style-baseline/README.chrome.copy
+  git -C "${bad_root}" commit -qm "test: remove copied Chrome governance path"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration governance chain must not rename or copy paths" \
+    "${invocation_tmp}" "${invocation_marker}" "G4 copy classification"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  printf '\000' >> "${bad_root}/docs/task-cards/visual-style-baseline/README.md"
+  git -C "${bad_root}" add -- docs/task-cards/visual-style-baseline/README.md
+  git -C "${bad_root}" commit -qm "test: NUL in Chrome governance path"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration governance path must not contain NUL bytes" \
+    "${invocation_tmp}" "${invocation_marker}" "G4 path NUL"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${governance_one_sha}"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration cumulative WriteSet must equal the exact six paths" \
+    "${invocation_tmp}" "${invocation_marker}" "incomplete G4 WriteSet"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  perl -0pi -e 's/151[.]0[.]7922[.]138/151.0.7922.139/' \
+    "${bad_root}/docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md"
+  git -C "${bad_root}" add -- \
+    docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
+  git -C "${bad_root}" commit -qm "test: non-exact Chrome literal"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration plan must use the exact target literal" \
+    "${invocation_tmp}" "${invocation_marker}" "non-exact Chrome literal"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  replace_exact_block \
+    "${bad_root}/docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md" \
+    "sed 's/[[:space:]]*\$//'" "sed 's/^[[:space:]]*//'" \
+    "leading-whitespace Chrome normalization fixture"
+  git -C "${bad_root}" add -- \
+    docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
+  git -C "${bad_root}" commit -qm "test: allow leading Chrome whitespace"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration plan must normalize trailing whitespace only" \
+    "${invocation_tmp}" "${invocation_marker}" "leading-whitespace normalization"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  printf '\nAuthority blob drift\n' >> \
+    "${bad_root}/docs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md"
+  git -C "${bad_root}" add -- \
+    docs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md
+  git -C "${bad_root}" commit -qm "test: drift fixed Chrome Authority blob"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "fixed Chrome migration Authority blob drifted" "${invocation_tmp}" \
+    "${invocation_marker}" "fixed Authority blob drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  chmod +x \
+    "${bad_root}/docs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md"
+  git -C "${bad_root}" add -- \
+    docs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md
+  git -C "${bad_root}" commit -qm "test: drift fixed Chrome Authority mode"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "fixed Chrome migration Authority mode must remain 100644" \
+    "${invocation_tmp}" "${invocation_marker}" "fixed Authority mode drift"
+  negative_cases=$((negative_cases + 1))
+
+  bad_tree="$(git -C "${bad_root}" rev-parse "${g4_sha}^{tree}")"
+  origin_parent="$(git -C "${bad_root}" rev-parse "${migration_origin_sha}^")"
+  bad_ancestry_sha="$(printf '%s\n' "test: unrelated Chrome G4 ancestry" | \
+    git -C "${bad_root}" commit-tree "${bad_tree}" -p "${origin_parent}")"
+  git -C "${bad_root}" checkout -q --detach "${bad_ancestry_sha}"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration HEAD must descend the fixed origin" \
+    "${invocation_tmp}" "${invocation_marker}" "G4 origin ancestry drift"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${migration_origin_sha}"
+  printf '\norigin ledger drift\n' >> "${bad_state}"
+  git -C "${bad_root}" add -- "${ledger_path}"
+  replacement_tree="$(git -C "${bad_root}" write-tree)"
+  git -C "${bad_root}" restore --staged --worktree \
+    --source="${migration_origin_sha}" -- "${ledger_path}"
+  replacement_sha="$(printf '%s\n' "test: replacement origin ledger drift" | \
+    git -C "${bad_root}" commit-tree "${replacement_tree}" -p "${origin_parent}")"
+  git -C "${bad_root}" replace "${migration_origin_sha}" "${replacement_sha}"
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration origin ledger mismatch" "${invocation_tmp}" \
+    "${invocation_marker}" "fixed origin ledger drift"
+  git -C "${bad_root}" replace -d "${migration_origin_sha}" >/dev/null
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${g4_sha}"
+  git -C "${bad_root}" switch -q -C chrome-g4-merge-side
+  perl -0pi -e 's/\z/\n<!-- G4 merge side -->\n/' \
+    "${bad_root}/docs/task-cards/visual-style-baseline/README.md"
+  git -C "${bad_root}" commit -qam "test: G4 merge side"
+  side_sha="$(git -C "${bad_root}" rev-parse HEAD)"
+  git -C "${bad_root}" switch -q -C chrome-g4-merge-main "${g4_sha}"
+  perl -0pi -e 's/\A(#![^\n]*\n)/$1# G4 merge main\n/' \
+    "${bad_root}/scripts/verify-visual-style-baseline-cards"
+  git -C "${bad_root}" commit -qam "test: G4 merge main"
+  git -C "${bad_root}" merge -q --no-ff "${side_sha}" \
+    -m "test: merged G4 governance"
+  expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
+    "Chrome authority migration governance chain must be linear" \
+    "${invocation_tmp}" "${invocation_marker}" "G4 merge commit"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 7 ]] ||
+    fail "Chrome authority migration positive matrix count drifted from 7"
+  [[ "${negative_cases}" -eq 57 ]] ||
+    fail "Chrome authority migration negative matrix count drifted from 57"
+  printf '%s\n' \
+    "ChromeAuthorityMigrationPositiveCases = ${positive_cases}" \
+    "ChromeAuthorityMigrationNegativeCases = ${negative_cases}" \
+    "ChromeAuthorityMigrationContractTests = PASS"
+}
+
+if [[ "${chrome_authority_migration_contract_only}" -eq 1 ]]; then
+  run_chrome_authority_migration_contract
+  exit 0
+fi
 
 if [[ "${model_gate_routing_contract_only}" -eq 1 ]]; then
   run_model_gate_routing_contract
