@@ -169,6 +169,7 @@ git commit -m "test(vsb): require fixed historical HV replay"
 ### Task 3: Fix the append-only Authority text
 
 **Files:**
+- Modify: `docs/superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md`
 - Modify: `docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md`
 - Modify: `docs/task-cards/visual-style-baseline/README.md`
 
@@ -194,12 +195,13 @@ Append the exact-eight terminal exception without rewriting the immutable exact-
 
 - [ ] **Step 2: Add one exact README Authority section**
 
-Record `2690ab9...` as immutable `NO_GO/P1=1`, the fixed snapshot, exact-eight paths, version-5 terminal receipt, L3/L4 routes, and non-authorizations. Reject stale v6/R5/current-tree-HV prose outside its historical explanation.
+Record `2690ab9...` as immutable `NO_GO/P1=1`, the fixed snapshot, exact-eight paths, version-5 terminal receipt, L3/L4 routes, and non-authorizations. Use the structural Authority binding from the design in this self-containing commit; Task 4 replaces that binding with the resolved literal commit SHA. Reject stale v6/R5/current-tree-HV prose outside its historical explanation.
 
 - [ ] **Step 3: Commit and capture Authority**
 
 ```bash
 git add \
+  docs/superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md \
   docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md \
   docs/task-cards/visual-style-baseline/README.md
 git diff --cached --check
@@ -214,6 +216,7 @@ This is the first post-`2690ab9...` tree containing final design, final plan, an
 ### Task 4: Make one-time task-card topology and receipt GREEN
 
 **Files:**
+- Modify: `docs/task-cards/visual-style-baseline/README.md`
 - Modify: `scripts/verify-visual-style-baseline-cards`
 - Modify: `tests/task-cards/verify-visual-style-baseline-cards.sh`
 
@@ -252,7 +255,9 @@ Set `historical_hv_repair_authority_sha` to the exact 40-character stdout
 captured by Task 3's `git rev-parse HEAD`. Validate it with
 `[[ "${historical_hv_repair_authority_sha}" =~ ^[0-9a-f]{40}$ ]]` and store it
 as a single-quoted literal in production; do not read it from an environment
-variable or symbolic ref at runtime.
+variable or symbolic ref at runtime. Replace the README structural binding
+with that same literal SHA in this task, then validate the README block
+exactly once from both the working file and inspected candidate commits.
 
 - [ ] **Step 2: Validate every repair-chain commit**
 
@@ -285,6 +290,7 @@ Expected: locked counters and `HistoricalHVReplayRepairContractTests = PASS`.
 
 ```bash
 git add \
+  docs/task-cards/visual-style-baseline/README.md \
   scripts/verify-visual-style-baseline-cards \
   tests/task-cards/verify-visual-style-baseline-cards.sh
 git diff --cached --check

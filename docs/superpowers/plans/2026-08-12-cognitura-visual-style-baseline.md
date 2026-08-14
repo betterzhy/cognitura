@@ -1910,7 +1910,7 @@ real-browser probe at all three viewports
 fresh recapture of all four PNGs into a temp directory
 byte-for-byte cmp against committed evidence
 evidence manifest hash/dimension checks
-historical HV visual verifier
+fixed historical HV replay from Git snapshot `77d8c1e780f5cc4d209a56baff349135a3c04ee8`
 frozen W1 production tree check
 acceptance-report closed-set checks
 git diff --check
@@ -2116,7 +2116,6 @@ If any of the ten comparison fields or fifteen formal acceptance fields is not s
 /bin/bash tests/visual-style-baseline/verify-visual-style-baseline.sh
 env PATH="${VSB_TOOLCHAIN_PATH}" scripts/verify-visual-style-baseline --repo-root .
 env PATH="${VSB_TOOLCHAIN_PATH}" scripts/verify-module-default-reading
-scripts/verify-high-fidelity-visual
 scripts/verify-wave1-implementation-cards \
   --repo-root . \
   --cards-dir docs/task-cards/wave-1-implementation
@@ -2151,20 +2150,47 @@ rm -rf "${VSB_FIXED_RUNTIME_DIR}"
 
 Expected: the candidate contains no execution-state receipt, Wave 1 restore, App, backend, schema, raw, historical evidence, or `.idea/` path.
 
-- [ ] **Step 13: Run two independent fixed-candidate reviews**
+The immutable candidate produced by historical Steps 1-12 is
+`2690ab9e6d0318c63deb56f86bc0b923ae845c04`. Its fixed L4 review returned
+`NO_GO / P1=1` because the mutable current-tree
+`scripts/verify-high-fidelity-visual` is not a replay of the already-completed
+historical HV stage. Do not amend that candidate or use the current-tree HV
+verifier as historical evidence.
 
-First dispatch a fresh `deep_reviewer` on the exact unchanged `VSB03_CANDIDATE_SHA`. Require review of browser-probe authenticity, screenshot freshness, viewport safety, acceptance evidence, reference comparison, no self-reported-count bypass, frozen write sets, and all fifteen acceptance fields.
+The append-only terminal repair is governed by
+`docs/superpowers/specs/2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md`
+and
+`docs/superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md`.
+It replays the complete fixed Git tree
+`77d8c1e780f5cc4d209a56baff349135a3c04ee8`, keeps execution-state version 5,
+and permits one cumulative exact-eight successor candidate. The ten other
+VSB-03 Owner paths remain byte- and mode-identical to `2690ab9...`. No G5,
+R5, version 6, generic replay API, database write, or remote push is allowed.
 
-Required general verdict:
+- [ ] **Step 13: Run L3 governance and L4 final reviews on one candidate**
+
+First dispatch one fresh `deep_reviewer / xhigh` on the exact unchanged repair
+candidate for its L3 governance review. Require exact-eight topology, fixed
+Authority ancestry, archived-HV isolation, mutation coverage, and no second
+state machine.
+
+Required governance verdict:
 
 ```text
-GeneralReviewVerdict = GO
+GovernanceReviewVerdict = GO
 P0 = 0
 P1 = 0
 P2 = 0
+ReviewMultiplicity = ONE
+Ultra = NOT_RUN
 ```
 
-Then dispatch `ultra_gatekeeper` on the same unchanged SHA. Provide the approved spec SHA, full candidate write set, all Gate output, reference PNG, three viewport screenshots, comparison screenshot, computed-style facts, general review verdict, and the explicit scope exclusions.
+Then dispatch one fresh `deep_reviewer / xhigh` on the same unchanged SHA for
+the L4 final Gate. Provide the approved repair Authority, all Gate output,
+reference PNG, three viewport screenshots, comparison screenshot,
+computed-style facts, historical replay output, governance verdict, and the
+explicit scope exclusions. Ultra is not run because there is no irreversible
+external write, database, deletion, authentication, or key boundary.
 
 Required final verdict:
 
@@ -2177,6 +2203,9 @@ SameProductVisualFamilyWithReference = PASS
 ReadingFirst = PASS
 NoDashboardRegression = PASS
 NoFormalDesignAuthorityViolation = PASS
+HistoricalHVReplay = PASS
+ReviewMultiplicity = ONE
+Ultra = NOT_RUN
 ```
 
 Any finding creates a new owner-card failure and candidate SHA. Never patch inside a review step or reuse the old verdict.
@@ -2192,15 +2221,15 @@ ReleasedTaskCard = NONE
 CompletedTaskCards = VSB-00,VSB-01,VSB-02,VSB-03
 CurrentCandidateSHA = ${VSB03_CANDIDATE_SHA}
 CurrentGateStatus = VSB-G3_PASS
-CurrentReviewRoute = deep_reviewer+ultra_gatekeeper
+CurrentReviewRoute = deep_reviewer
 CurrentReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0
 VSB03CandidateSHA = ${VSB03_CANDIDATE_SHA}
 VSB03GateStatus = VSB-G3_PASS
-VSB03ReviewRoute = deep_reviewer+ultra_gatekeeper
-VSB03DeepReviewVerdict = GO_P0_0_P1_0_P2_0
-VSB03UltraReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0
+VSB03ReviewRoute = deep_reviewer
+VSB03DeepReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0
+VSB03UltraReviewVerdict = NOT_RUN
 NextTaskCard = NONE
-TransitionSequence = 5
+TransitionSequence = 11
 TransitionKind = COMPLETE
 TransitionBaseSHA = ${VSB03_CANDIDATE_SHA}
 VisualImplementation = COMPLETE
