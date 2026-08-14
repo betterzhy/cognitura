@@ -236,6 +236,7 @@ materialize_capture_pair() {
   local inspected_candidate="$1"
   local pair_root="$2"
   local release_receipt g4_sha capture_mode verifier_mode
+  local expected_task_card_blob expected_wave1_blob
   release_receipt="$(git -C "${repo_root}" rev-list --first-parent -n 1 \
     "${inspected_candidate}" -- \
     docs/task-cards/visual-style-baseline/execution-state.md)"
@@ -268,6 +269,18 @@ materialize_capture_pair() {
      "$(git -C "${repo_root}" rev-parse \
        "${g4_sha}:scripts/verify-visual-style-baseline-cards")" ]] ||
     fail "materialized G4 verifier blob mismatch"
+  expected_task_card_blob="$(git -C "${repo_root}" rev-parse \
+    "${g4_sha}:scripts/verify-visual-style-baseline-cards")"
+  expected_wave1_blob="$(git -C "${repo_root}" rev-parse \
+    "${inspected_candidate}:scripts/verify-wave1-implementation-cards")"
+  [[ -x "${repo_root}/scripts/verify-visual-style-baseline-cards" &&
+     "$(git hash-object "${repo_root}/scripts/verify-visual-style-baseline-cards")" == \
+       "${expected_task_card_blob}" ]] ||
+    fail "working task-card verifier must equal the reviewed G4 blob and mode"
+  [[ -x "${repo_root}/scripts/verify-wave1-implementation-cards" &&
+     "$(git hash-object "${repo_root}/scripts/verify-wave1-implementation-cards")" == \
+       "${expected_wave1_blob}" ]] ||
+    fail "working Wave 1 verifier must equal the candidate blob and mode"
   "${pair_root}/verify-visual-style-baseline-cards" \
     --chrome-capture-source-contract \
     "${pair_root}/capture-visual-style-baseline" >/dev/null
@@ -392,7 +405,6 @@ if [[ -n "${candidate_sha}" ]]; then
   validate_candidate_tree "${candidate_sha}"
   materialize_capture_pair "${candidate_sha}" "${runtime_root}/scripts"
   capture_runner="${runtime_root}/scripts/capture-visual-style-baseline"
-  task_card_verifier="${runtime_root}/scripts/verify-visual-style-baseline-cards"
 else
   "${task_card_verifier}" \
     --chrome-capture-source-contract "${capture_runner}" >/dev/null
