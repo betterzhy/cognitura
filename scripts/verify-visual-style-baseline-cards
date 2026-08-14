@@ -1188,6 +1188,24 @@ if [[ "${model_route_head_current}" -eq 1 || \
     2>/dev/null || fail "fixed model-route plan blob is unavailable"
 fi
 
+chrome_authority_migration_schema_current=0
+chrome_authority_migration_head_current=0
+chrome_authority_migration_marker_current=0
+if git -C "${repo_root}" merge-base --is-ancestor \
+    "${chrome_authority_migration_spec_sha}" \
+    "${initial_repository_head}" 2>/dev/null; then
+  chrome_authority_migration_head_current=1
+fi
+if grep -Eq \
+    '(Chrome Authority Migration|2026-08-14-cognitura-vsb-chrome-authority-migration|ce2a3ca466cc4df2ff077017f1ddb03cb285416f|151[.]0[.]7922[.]138|CHROME_AUTHORITY_MIGRATION)' \
+    "${index_file}"; then
+  chrome_authority_migration_marker_current=1
+fi
+if [[ "${chrome_authority_migration_head_current}" -eq 1 || \
+      "${chrome_authority_migration_marker_current}" -eq 1 ]]; then
+  chrome_authority_migration_schema_current=1
+fi
+
 # Recognize the one reviewable pending candidate before ordinary card/state
 # diagnostics can mask chain-provenance failures.  A successful preflight does
 # not return yet: current README/card/WriteSet contracts below must also pass.
@@ -1275,8 +1293,10 @@ if [[ "${model_route_schema_current}" -eq 1 ]]; then
 fi
 
 expected_chrome_authority_migration_section=$'当前 Chrome Authority Migration 由\n[`2026-08-14-cognitura-vsb-chrome-authority-migration-design.md`](../../superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md)\n及其实施计划\n[`2026-08-14-cognitura-vsb-chrome-authority-migration.md`](../../superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md)\n统一约束，固定 Authority SHA 为 `ce2a3ca466cc4df2ff077017f1ddb03cb285416f`，\n固定 origin 为 `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`。它只允许将 Chrome\n`151.0.7922.109` 精确迁移到 `151.0.7922.138`；G4 从 origin 起的累计\nWriteSet 必须精确为以下六路径：\n\n```text\ndocs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md\ndocs/superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md\ndocs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md\ndocs/task-cards/visual-style-baseline/README.md\nscripts/verify-visual-style-baseline-cards\ntests/task-cards/verify-visual-style-baseline-cards.sh\n```\n\n只有已完整重放并通过 `L3 / deep_reviewer / xhigh / ONE` 零 finding 审查的\nG4，才允许以 ledger-only 直接子提交 R4 记录唯一\n`CHROME_AUTHORITY_MIGRATION`；完整验证的 R4 才是新的 VSB-03 release\nanchor。G4、原 origin 和未完整重放的 receipt 都不是 Owner release anchor，\n也不会改变 VSB-03 当前 `L4 / deep_reviewer / xhigh / ONE` 的单次最终门禁。'
-validate_chrome_authority_migration_readme_file "${index_file}" \
-  README.md "README.md: Chrome authority migration block mismatch"
+if [[ "${chrome_authority_migration_schema_current}" -eq 1 ]]; then
+  validate_chrome_authority_migration_readme_file "${index_file}" \
+    README.md "README.md: Chrome authority migration block mismatch"
+fi
 
 shopt -s nullglob
 actual_cards=("${cards_dir}"/VSB-*.md)

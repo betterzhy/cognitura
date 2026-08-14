@@ -3945,9 +3945,23 @@ validation_output="$(
 )" || fail "canonical Visual Style Baseline state was rejected"
 assert_contains "${validation_output}" "VisualStyleBaselineTaskCardValidation = PASS"
 assert_contains "${validation_output}" "TaskCardCount = 4"
+printf '%s\n' '<!-- Chrome Authority Migration -->' >> \
+  "${bootstrap_cards_dir}/README.md"
+if fixed_bootstrap_marker_output="$(
+  "${verifier}" \
+    --repo-root "${repo_root}" \
+    --cards-dir "${bootstrap_cards_dir}" 2>&1
+)"; then
+  fail "historical bootstrap carrying the current Chrome marker unexpectedly passed"
+fi
+assert_contains "${fixed_bootstrap_marker_output}" \
+  "README.md: Chrome authority migration block mismatch"
+git -C "${repo_root}" restore --worktree -- \
+  docs/task-cards/visual-style-baseline/README.md
 if [[ "${fixed_bootstrap_contract_only}" -eq 1 ]]; then
   printf '%s\n' \
     'FixedBootstrapHistoricalRepositoryContract = PASS' \
+    'FixedBootstrapCurrentChromeMarkerFailClosed = PASS' \
     "FixedBootstrapSHA = ${fixed_lifecycle_fixture_sha}"
   exit 0
 fi
