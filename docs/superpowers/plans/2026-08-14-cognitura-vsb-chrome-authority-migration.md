@@ -4,17 +4,18 @@
 
 **Goal:** migrate the VSB-03 reproducibility authority from exact Chrome `151.0.7922.109` to exact installed Chrome `151.0.7922.138` without widening the VSB-03 Owner WriteSet.
 
-**Architecture:** Rejected Authority `ce2a3ca...` and rejected G4 `4a62647f...` remain immutable `NO_GO / P1=1` predecessor evidence. The first commit after `4a62647f...` containing the corrected three Authority files becomes the fixed successor Authority; later verifier/test work produces a successor G4 while the origin, exact six-path cumulative WriteSet, and ledger bytes remain unchanged. Stage A validates a verifier-owned canonical temporary Bash fixture while the actual capture path stays absent through G4/R4; Stage B starts only with the exact twelve-path VSB-03 candidate and applies the same public checker to its candidate-bound capture source before any browser launch.
+**Architecture:** The rejected pairs `ce2a3ca... / 4a62647f...` and `a2d22c2... / b0b77e8...` remain immutable `NO_GO / P1=1` evidence. The first commit after `b0b77e8...` containing the corrected three Authority files becomes the fixed successor Authority; later verifier/test work produces a successor G4 while the origin, exact six-path cumulative WriteSet, and ledger bytes remain unchanged. Stage A validates one canonical exact-byte capture wrapper while the actual capture path stays absent through G4/R4. Stage B materializes that wrapper beside the reviewed-G4 task-card verifier and executes the exact materialized pair; only the verifier-owned `--chrome-fixed-capture` mode may start Chrome.
 
 **Tech Stack:** Markdown Authority, Bash 3.2-compatible public verifier and real-Git fixtures, exact Chrome `151.0.7922.138`, Git fixed commits, `deep_reviewer / xhigh / ONE`.
 
 ## Global Constraints
 
 - Origin is exactly `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`.
-- Rejected predecessor Authority is exactly `ce2a3ca466cc4df2ff077017f1ddb03cb285416f`; rejected predecessor candidate is exactly `4a62647fdb8226cc5c0527c48f552ef553ff146e`; both remain immutable `NO_GO` evidence and neither may anchor R4.
-- The first correction commit after the rejected candidate is the successor fixed Authority; its three `100644` Authority blobs remain immutable through the successor G4.
+- The two rejected Authority/candidate pairs are exactly `ce2a3ca466cc4df2ff077017f1ddb03cb285416f / 4a62647fdb8226cc5c0527c48f552ef553ff146e` and `a2d22c2e8218413d26f7d8940a9ea5564e59b7f0 / b0b77e878fd468f38d40ddd702c96ea8e7446658`; all four commits remain immutable `NO_GO` evidence and none may anchor R4.
+- The first correction commit after `b0b77e878fd468f38d40ddd702c96ea8e7446658` is the successor fixed Authority; its three `100644` Authority blobs remain immutable through the successor G4.
 - Normalize only trailing whitespace from the fixed Chrome binary's `--version` output.
-- Capture invokes only `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`; no browser-path override, non-empty `CHROME_BIN`, PATH lookup, or fallback is accepted. An internal variable may carry this literal only when declared readonly and never assigned from environment, CLI, PATH, or discovery output.
+- Only the reviewed-G4 `scripts/verify-visual-style-baseline-cards --chrome-fixed-capture` mode invokes `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`; no browser-path override, non-empty `CHROME_BIN`, PATH lookup, or fallback is accepted. Candidate-owned Bash contains no browser executable or launch logic.
+- `scripts/capture-visual-style-baseline` is one exact `100755` wrapper that resolves its sibling `verify-visual-style-baseline-cards` and `exec`s `--chrome-fixed-capture "$@"`; no additional byte is allowed.
 - G4 cumulative WriteSet is the exact six paths in the design; the ledger is byte-identical to origin.
 - `scripts/capture-visual-style-baseline` is absent at origin and must remain absent through successor G4 and R4; it may be created only by the later VSB-03 exact twelve-path Owner candidate.
 - R4 is a ledger-only direct child of the reviewed successor G4 and the only version `4 -> 5` migration.
@@ -24,7 +25,7 @@
 
 ---
 
-### Task 1: Freeze the successor migration Authority
+### Task 1: Freeze the governed-launcher successor Authority
 
 **Files:**
 - Modify: `docs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md`
@@ -32,45 +33,54 @@
 - Modify: `docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md`
 
 **Interfaces:**
-- Consumes: user approval of exact target Chrome `151.0.7922.138`, origin `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`, and append-only recovery from the rejected predecessor Authority/candidate.
+- Consumes: user approval of architecture A, exact target Chrome `151.0.7922.138`, origin `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`, and append-only recovery from both rejected Authority/candidate pairs.
 - Produces: one fixed successor Authority commit whose SHA and three immutable `100644` blobs are consumed by the successor G4 validator.
 
 - [ ] **Step 1: Fix the rejected predecessor evidence and installed binary**
 
 ```bash
-test "$(git rev-parse HEAD)" = '4a62647fdb8226cc5c0527c48f552ef553ff146e'
+test "$(git rev-parse HEAD)" = 'b0b77e878fd468f38d40ddd702c96ea8e7446658'
 git cat-file -e 'ce2a3ca466cc4df2ff077017f1ddb03cb285416f^{commit}'
-actual="$(/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --version | sed 's/[[:space:]]*$//')"
-test "${actual}" = 'Google Chrome 151.0.7922.138'
+git cat-file -e '4a62647fdb8226cc5c0527c48f552ef553ff146e^{commit}'
+git cat-file -e 'a2d22c2e8218413d26f7d8940a9ea5564e59b7f0^{commit}'
+test -x '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+test "$(plutil -extract CFBundleShortVersionString raw -o - \
+  '/Applications/Google Chrome.app/Contents/Info.plist')" = '151.0.7922.138'
 ```
 
-Expected: PASS. Record `ce2a3ca...` and `4a62647f...` as immutable
-`NO_GO / P1=1` predecessor evidence; do not amend or relabel either commit.
+Expected: PASS. Record both rejected pairs as immutable `NO_GO / P1=1`
+predecessor evidence; do not amend or relabel any rejected commit.
 
 - [ ] **Step 2: Apply the exact successor Authority correction**
 
 Keep all six existing `151.0.7922.138` contract literals in the old plan and
-keep `151.0.7922.109` absent. Replace browser selection with a readonly
-internal constant set directly to the fixed literal executable:
+keep `151.0.7922.109` absent. Move the complete capture implementation and the
+sole Chrome launch into the frozen task-card verifier. The later candidate
+capture path is exactly:
 
 ```bash
-readonly VSB_FIXED_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-VSB_CHROME_VERSION="$("${VSB_FIXED_CHROME}" --version | sed 's/[[:space:]]*$//')"
-test "${VSB_CHROME_VERSION}" = 'Google Chrome 151.0.7922.138'
+#!/bin/bash
+set -euo pipefail
+
+script_dir="${0%/*}"
+[[ "${script_dir}" != "${0}" ]] || script_dir='.'
+script_dir="$(cd -- "${script_dir}" && pwd -P)"
+exec "${script_dir}/verify-visual-style-baseline-cards" --chrome-fixed-capture "$@"
 ```
 
-The capture CLI is closed to only `--repo-root PATH`, `--output-dir PATH`,
-and `--replace-existing`. It must reject a non-empty `CHROME_BIN` and every
-unknown override flag, including `--chrome-bin`, without PATH lookup or
-browser fallback. The formal positive capture always uses the fixed literal
-installed binary.
+The wrapper contains no fixed path, executable variable, parser, function,
+fallback, browser call, external path helper, or source self-check. The sibling frozen verifier owns
+the only capture parser and accepts only `--repo-root PATH`, `--output-dir
+PATH`, and `--replace-existing`; it rejects non-empty `CHROME_BIN` and every
+unknown override flag before any effect, then calls the fixed literal browser.
 
 - [ ] **Step 3: Verify the Authority content**
 
 ```bash
 test "$(rg -o '151\.0\.7922\.138' docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md | wc -l | tr -d ' ')" = 6
 ! rg -n '151\.0\.7922\.109' docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
-test "$(/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --version | sed 's/[[:space:]]*$//')" = 'Google Chrome 151.0.7922.138'
+test "$(plutil -extract CFBundleShortVersionString raw -o - \
+  '/Applications/Google Chrome.app/Contents/Info.plist')" = '151.0.7922.138'
 ! rg -n -- '--chrome-bin PATH|optional; use CHROME_BIN|selected browser|macOS Chrome|chromium fallback' \\
   docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
 git diff --check
@@ -81,14 +91,14 @@ Expected: PASS.
 - [ ] **Step 4: Commit the three-path successor Authority**
 
 After Authority approval, stage only the three existing paths and create a new
-non-amend direct child of rejected candidate `4a62647f...`:
+non-amend direct child of rejected candidate `b0b77e8...`:
 
 ```bash
 git add -- \
   docs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md \
   docs/superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md \
   docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
-git commit -m 'docs(vsb): rebaseline fixed Chrome authority'
+git commit -m 'docs(vsb): govern the fixed Chrome launcher'
 git rev-parse HEAD
 ```
 
@@ -114,9 +124,9 @@ migration fixtures and print exact positive/negative counts before PASS.
 - [ ] **Step 2: Add the first legal positive**
 
 Clone the repository into the invocation-owned temporary root, detach the
-fixed origin, replay the immutable predecessor chain through rejected
-`ce2a3ca...` and `4a62647f...`, then replay the fixed successor Authority
-blobs. Add README/verifier/test changes as later governance commits and prove:
+fixed origin, replay the immutable predecessor chain through both rejected
+pairs, then replay the fixed successor Authority blobs. Add
+README/verifier/test changes as later governance commits and prove:
 
 ```text
 single parent per commit
@@ -125,8 +135,8 @@ exact six-path cumulative WriteSet
 origin/HEAD/working ledger blobs identical
 all modes canonical
 no rename/copy, NUL, merge, ledger, or outside-path change
-rejected predecessor SHAs remain in ancestry but are never current Authority/G4/R4
-successor Authority is the first correction commit after rejected candidate
+all rejected SHAs remain in ancestry but are never current Authority/G4/R4
+successor Authority is the first correction commit after b0b77e8...
 successor Authority blobs stay immutable through successor G4
 ```
 
@@ -146,12 +156,17 @@ state or version 5.
 
 Use the public verifier for legal G4 pending, exact R4 explicit, R4 static,
 VSB-03 release-anchor use, and later ordinary version-5 preservation. Build one
-canonical legal Bash source fixture under the test invocation's `mktemp -d`
-root and pass it to
-`--chrome-capture-source-contract FILE`. Add mutations of that same fixture
-for each override, environment selection, PATH lookup/discovery, fallback, and
-fake alternate path bypass; pass every mutation through the same public mode
-and assert the fake executable invocation log remains empty. Add
+canonical exact wrapper under the test invocation's `mktemp -d` root, set mode
+`100755`, and pass it to `--chrome-capture-source-contract FILE`. Add isolated
+byte/mode mutations for comments, dead functions, heredocs, `$VAR`, `${VAR}`,
+indirect expansion, arrays, aliases, `eval`, alternate/fallback executables,
+missing/reordered/suffixed lines, NUL, newline, and mode drift. Every mutation
+must fail and the fake executable invocation log must remain empty. Exercise
+the owned capture mode with non-empty `CHROME_BIN`, poisoned PATH, unknown
+options, and `--chrome-bin`; each must fail before any browser/server/build
+sentinel. Add one positive verifier-owned temporary capture fixture that uses
+the fixed binary, writes only under the invocation root, cleans completely,
+and is explicitly not formal VSB evidence. Add
 negatives for missing/duplicate/wrong/reordered/unknown migration fields,
 second migration, non-direct/merge/extra-path receipt, old/target version
 mismatch, bad route/effort/multiplicity/verdict, origin or Authority
@@ -173,8 +188,8 @@ worktree cleanup.
 - Test: `tests/task-cards/verify-visual-style-baseline-cards.sh`
 
 **Interfaces:**
-- Consumes: the fixed successor Authority commit, rejected predecessor identities, and tests from Tasks 1-2.
-- Produces: `validate_chrome_authority_migration_chain`, `validate_chrome_capture_source_contract FILE`, public `--chrome-capture-source-contract FILE`, Stage A pending admission, exact R4 construction/replay, version-5 ordinary preservation, and the Stage B candidate hook.
+- Consumes: the fixed successor Authority commit, all rejected predecessor identities, and tests from Tasks 1-2.
+- Produces: `validate_chrome_authority_migration_chain`, exact-wrapper `validate_chrome_capture_source_contract FILE`, public `--chrome-capture-source-contract FILE`, owned `--chrome-fixed-capture`, Stage A pending admission, exact R4 construction/replay, version-5 ordinary preservation, and the Stage B materialized-pair hook.
 
 - [ ] **Step 1: Bind README to the fixed Authority**
 
@@ -188,11 +203,11 @@ current Authority or R4 base.
 
 - [ ] **Step 2: Implement the exact G4 chain validator**
 
-Add constants for origin, both rejected SHAs, and the fixed successor Authority
-SHA; retain the exact six-path list with canonical modes. First-parent
-traversal must retain and classify the predecessor as `NO_GO`, require the
-successor Authority to be the first correction commit after `4a62647f...`,
-and reject a predecessor as current. Keep per-commit non-empty subset
+Add constants for origin, all four rejected SHAs, and the fixed successor
+Authority SHA; retain the exact six-path list with canonical modes.
+First-parent traversal must retain and classify both predecessor pairs as
+`NO_GO`, require the successor Authority to be the first correction commit
+after `b0b77e8...`, and reject any predecessor as current. Keep per-commit non-empty subset
 validation, unlimited rename/copy inspection, NUL checks, ledger identity,
 immutable successor three-Authority-blob checks, and final exact cumulative
 WriteSet.
@@ -200,18 +215,21 @@ WriteSet.
 - [ ] **Step 3: Implement Stage A without the actual capture script**
 
 Add public mode `--chrome-capture-source-contract FILE`. It accepts exactly
-one explicit regular Bash source file, cannot be combined with repository,
-cards, or transition flags, and invokes only
+one explicit regular `100755` file, cannot be combined with repository, cards,
+or transition flags, and invokes only
 `validate_chrome_capture_source_contract FILE`. The helper is read-only: it
-does not start Chrome, build Web assets, mutate Git, or require
-`scripts/capture-visual-style-baseline` to exist. It checks the fixture's
-readonly fixed literal path, exact `--repo-root`/`--output-dir`/
-`--replace-existing` CLI, non-empty `CHROME_BIN` and unknown-option
-rejection, trailing-whitespace-only normalization, and absence of PATH lookup,
-discovery, fallback, or alternate executable selection.
+does not start Chrome, interpret Bash, build Web assets, mutate Git, or require
+`scripts/capture-visual-style-baseline` to exist. It compares the supplied
+bytes and final newline to the canonical wrapper in the design.
 
-Run the canonical fixture and every mutation from Task 2 through this public
-mode. Independently fail unless `scripts/capture-visual-style-baseline` is
+Add `--chrome-fixed-capture` to the same verifier. This is the only mode and
+the only function allowed to start Chrome. It owns the exact capture CLI,
+fixed literal version enforcement, test/build/server/probe/screenshot/cleanup
+workflow, and early rejection of environment/browser overrides. It never
+accepts an executable path. Stage A runs the wrapper checker, the capture
+mode's early-rejection cases, and one verifier-owned positive temporary capture
+fixture that cleans completely and is not formal evidence. Independently fail
+unless `scripts/capture-visual-style-baseline` is
 absent at origin, every governance commit, successor G4, the working tree, and
 later R4. Neither the six-path G4 implementation nor the ledger-only R4 may
 create or synthesize the actual script.
@@ -241,9 +259,13 @@ release receipt only after full replay.  Extend the current VSB-03 single-deep
 COMPLETE/FINAL_NO_GO predicates from versions `3|4` to `3|4|5`; do not change
 the frozen historical stacked receipt semantics. Once any candidate or working
 tree under validation contains `scripts/capture-visual-style-baseline`, never
-take the Stage A absence path: materialize the candidate-bound file into a
-verifier-owned temporary file, run the same source-contract helper, and reject
-the candidate or release on any failure.
+take the Stage A absence path: materialize the candidate wrapper and the
+reviewed-G4 task-card verifier as `100755` siblings in one invocation-owned
+directory, validate their exact Git identities and wrapper bytes, and reject
+the candidate or release on any failure. Execute the pair with a sanitized
+environment, locked toolchain PATH, fixed `/bin/bash`, and no `BASH_ENV`,
+`ENV`, exported functions, or browser override variables. Validation of one
+copy followed by execution of another is forbidden.
 
 - [ ] **Step 7: Run focused GREEN**
 
@@ -295,8 +317,8 @@ G4_SHA="$(git rev-parse HEAD)"
 
 Expected: origin-to-`${G4_SHA}` cumulative changes are still the exact
 six-path governance WriteSet, its ledger blob still equals the unchanged origin
-blob, the rejected predecessor remains immutable `NO_GO` evidence, and the
-successor Authority blobs remain identical to their first correction commit.
+blob, both rejected pairs remain immutable `NO_GO` evidence, and the successor
+Authority blobs remain identical to their first correction commit.
 
 - [ ] **Step 3: Run the fixed-tree complete gates serially**
 
@@ -312,8 +334,9 @@ git diff --check
 
 Expected: migration focused, full VSB, both syntax checks, static VSB PENDING,
 Wave 1 SUSPENDED/Active NONE, actual capture path absent at origin/every
-governance commit/G4/working tree, Stage A canonical fixture PASS with all
-mutations rejected, and diff check all PASS on the fixed G4 tree.
+governance commit/G4/working tree, Stage A exact wrapper PASS with all
+byte/mode mutations and owned-launcher early-rejection cases closed, and diff
+check all PASS on the fixed G4 tree.
 
 - [ ] **Step 4: Prove the fixed identity**
 
@@ -386,7 +409,7 @@ capture script.
 
 **Interfaces:**
 - Consumes: validated R4 and exact Chrome `151.0.7922.138`.
-- Produces: a new exact twelve-path VSB-03 candidate whose candidate-bound capture source passes the same public checker before candidate admission, release, or browser launch.
+- Produces: a new exact twelve-path VSB-03 candidate whose candidate-bound exact wrapper delegates to the sibling reviewed-G4 verifier before candidate admission, release, or browser launch.
 
 - [ ] **Step 1: Re-run the VSB-03 prerequisites**
 
@@ -409,20 +432,21 @@ must never execute.
 
 As soon as `scripts/capture-visual-style-baseline` exists in a working tree
 or candidate, the Stage A absence branch is illegal. Before task-card candidate
-admission or release, materialize that exact candidate blob with `git show`
-into a verifier-owned temporary file and pass it to:
+admission or release, materialize that exact candidate blob with `git show`,
+require canonical bytes/mode through:
 
 ```bash
 scripts/verify-visual-style-baseline-cards \
   --chrome-capture-source-contract "${VSB_CANDIDATE_CAPTURE_TMP}"
 ```
 
-The capture runner must pass its own source file to the same public mode before
-its first test, build, server, or browser process. The visual verifier must
-materialize and validate the candidate-bound capture source through that mode
-before invoking it. Missing checker execution, a conditional skip after the
-path exists, or validation of a working-tree copy instead of the candidate blob
-is a candidate/release failure.
+The fixed visual verifier must create one temporary `scripts/` directory,
+materialize the validated candidate wrapper and the task-card verifier from the
+reviewed G4 recorded by R4 as `100755` siblings, and execute that exact wrapper.
+The wrapper delegates to sibling `--chrome-fixed-capture`; no candidate-owned
+source may select or launch a browser. Missing validation, a conditional skip,
+wrong G4 verifier blob, or validating one copy and executing another is a
+candidate/release failure.
 
 Do not execute that old plan's Steps 13 through 16.  Their stacked Ultra route,
 pre-migration sequence values, terminal receipt body, and direct W1 restore are

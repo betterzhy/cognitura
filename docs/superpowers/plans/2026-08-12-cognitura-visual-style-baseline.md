@@ -1615,20 +1615,18 @@ twelve-path cumulative VSB-03 candidate.
 
 **Interfaces:**
 
-- Consumes: the reviewed VSB-02 DOM/CSS candidate, deterministic Visual Reference entry, committed reference PNG, local Chrome, and formal 15-field acceptance contract.
-- Produces: real evaluated-DOM/computed-style evidence, fresh three-viewport PNGs, a side-by-side family comparison, fixed-candidate acceptance, a final ultra Gate, and a separate auditable restoration of the exact frozen Wave 1 card.
+- Consumes: the reviewed VSB-02 DOM/CSS candidate, deterministic Visual Reference entry, committed reference PNG, reviewed R4/G4 fixed-launcher authority, local Chrome, and formal 15-field acceptance contract.
+- Produces: real evaluated-DOM/computed-style evidence, fresh three-viewport PNGs, a side-by-side family comparison, and fixed-candidate acceptance; current model routing and Wave 1 restoration remain governed by the later Authority.
 
 - [ ] **Step 1: Verify the final card is active and browser/toolchain prerequisites are exact**
 
 ```bash
 test "$(sed -n 's/^ActiveTaskCard = //p' docs/task-cards/visual-style-baseline/execution-state.md)" = "VSB-03"
 VSB02_RECEIPT_SHA="$(git rev-parse HEAD)"
-readonly VSB_FIXED_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-VSB_CHROME_VERSION="$("${VSB_FIXED_CHROME}" --version | sed 's/[[:space:]]*$//')"
-test "${VSB_CHROME_VERSION}" = "Google Chrome 151.0.7922.138"
+test -x '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+VSB_EXPECTED_CHROME_VERSION='Google Chrome 151.0.7922.138'
 env PATH="${VSB_TOOLCHAIN_PATH}" node --version
 env PATH="${VSB_TOOLCHAIN_PATH}" pnpm --dir web --version
-printf '%s\n' "${VSB_CHROME_VERSION}"
 python3 -c 'from PIL import __version__; assert __version__ == "12.2.0", __version__'
 scripts/verify-visual-style-baseline-reference --repo-root .
 git diff --quiet \
@@ -1779,7 +1777,7 @@ runtime guard installation failure or any non-zero forbidden-API counter
 CSP violation on the guarded instrumented target
 server log request outside the local visual-reference asset allowlist
 Chrome version other than Google Chrome 151.0.7922.138
-capture source admits a browser override, environment selection, PATH lookup, fallback branch, or alternate/fake executable
+capture wrapper differs by any byte/mode, or any non-governed-verifier path launches/selects a browser
 missing visual-reference-ready or comparison-ready marker
 historical HV evidence mutation
 frozen W1-I03 production-path mutation
@@ -1790,25 +1788,28 @@ full-product ImplementationValidation claimed PASS
 
 For the spoof case, make a temporary source copy that adds `data-probe-primary-projection-count="1"` but removes the real primary projection, rebuild it, and require FAIL. For overflow, inject `min-width: 2000px` into the real module root, rebuild, and require FAIL at 1024. These two cases prove the Gate observes evaluated layout rather than static self-report.
 
-Before starting any browser process, the test harness must validate the
-capture source contract through the task-card verifier's public read-only mode:
+Before starting any browser process, the test harness must validate the exact
+capture wrapper through the task-card verifier's public read-only mode:
 
 ```bash
 scripts/verify-visual-style-baseline-cards \
   --chrome-capture-source-contract "${VSB_CAPTURE_SOURCE_FIXTURE}"
 ```
 
-Use one canonical legal Bash fixture in the test invocation's temporary
-directory, then isolated mutations of that fixture for four negative classes:
-a browser override option, an environment-sourced executable, executable
-discovery or fallback, and an alternate fake executable path. Pass the legal
-fixture and every mutation through the same public mode. Each mutation must
-fail; the fake executable is a non-executing sentinel whose invocation log
-remains empty. The legal fixture models the exact CLI, readonly fixed literal,
-environment/unknown rejection, and trailing-whitespace-only normalization.
-Stage A G4/R4 tests use only this temporary fixture while the actual path is
-absent. Stage B tests additionally validate the actual candidate-bound source;
-once that path exists there is no conditional skip.
+Use the canonical seven-line `100755` wrapper from the migration design in the
+test invocation's temporary directory. Pass it and isolated mutations through
+the same public mode. Mutations cover extra comments, dead functions,
+heredocs, `$VAR`, `${VAR}`, indirect expansion, arrays, aliases, `eval`,
+alternate/fallback executables, missing/reordered/suffixed lines, NUL, newline,
+and mode drift. Every mutation fails exact byte/mode comparison; the fake
+executable sentinel remains empty. Separately invoke the frozen verifier's
+owned capture mode with non-empty `CHROME_BIN`, poisoned PATH, unknown options,
+and `--chrome-bin`; each fails before browser/server/build effects. The G4
+contract also runs one verifier-owned temporary positive capture that uses the
+fixed Chrome binary, writes only below its invocation root, cleans completely,
+and is not formal evidence. Stage B validates and executes the exact candidate-
+bound wrapper beside the reviewed-G4 verifier; once the path exists there is
+no conditional skip.
 
 The static forbidden-API scan starts at `web/src/visual-reference/main.tsx`, resolves every transitive relative `.ts`, `.tsx`, and `.css` import, and rejects any local import outside `web/src/visual-reference/**`, `web/src/modules/module-reading/**`, and `web/src/styles/**`. It scans that resolved production closure only—never tests or README files—and requires the literal closure list to match the expected production entry/component/style files. In that closure and both source HTML entries it rejects `http:`, `https:`, protocol-relative `//`, `data:` except the verifier-owned comparison images, `blob:`, CSS `url(`, every non-root-local `src=`, `href=`, dynamic import, or worker URL, and every CSS import edge outside this exact five-edge graph:
 
@@ -1832,7 +1833,21 @@ Expected: FAIL because capture/verifier scripts, evidence, manifest, and accepta
 
 - [ ] **Step 6: Implement a deterministic local build/server/capture runner**
 
-`scripts/capture-visual-style-baseline` accepts:
+`scripts/capture-visual-style-baseline` is exactly this `100755` wrapper:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+script_dir="${0%/*}"
+[[ "${script_dir}" != "${0}" ]] || script_dir='.'
+script_dir="$(cd -- "${script_dir}" && pwd -P)"
+exec "${script_dir}/verify-visual-style-baseline-cards" --chrome-fixed-capture "$@"
+```
+
+It contains no parser, browser literal, executable variable, source self-check,
+test/build/server/browser logic, fallback, or extra byte. The sibling reviewed-
+G4 `scripts/verify-visual-style-baseline-cards --chrome-fixed-capture` accepts:
 
 ```text
 --repo-root PATH
@@ -1842,27 +1857,17 @@ Expected: FAIL because capture/verifier scripts, evidence, manifest, and accepta
 
 These are the only accepted CLI inputs. Every unknown flag is rejected,
 including `--chrome-bin`. A non-empty `CHROME_BIN` is rejected before any
-test, build, server, or browser process. The executable is a readonly internal
-constant whose value is exactly
-`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`; it is never
-assigned from the environment, CLI, PATH, discovery output, or a fallback.
+test, build, server, or browser process. The verifier owns one small launch
+function that calls exactly
+`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`; it accepts
+Chrome arguments but never an executable input and is never assigned from the
+environment, CLI, PATH, discovery output, or a fallback. No other Repository
+file starts Chrome.
 
-Before the first test, build, server, or browser action, the runner must check
-its own source through the already-fixed governance verifier:
-
-```bash
-scripts/verify-visual-style-baseline-cards \
-  --chrome-capture-source-contract "$0"
-```
-
-Failure is terminal. Because this path now exists in Stage B, the runner may
-not bypass the check based on migration state, ledger version, or file
-existence.
-
-It must:
+The verifier-owned capture mode must:
 
 1. enforce Node 24.18.0 and `pnpm --dir web` 11.17.0;
-2. invoke the fixed literal executable through that readonly internal constant, normalize only trailing whitespace from its `--version` output, and require the result equals `Google Chrome 151.0.7922.138` exactly;
+2. invoke the fixed literal executable through its owned launch function, normalize only trailing whitespace from its `--version` output, and require the result equals `Google Chrome 151.0.7922.138` exactly;
 3. run the focused Web tests and production build;
 4. create `runtime_tmp` with `mktemp -d`, create `staging_root="${runtime_tmp}/site"`, and copy `web/dist/.` into that root without modifying `web/dist`;
 5. copy `browser-probe.html` to `${staging_root}/__probe.html`, `browser-runtime-guard.js` to `${staging_root}/__browser-runtime-guard.js`, and `reference-comparison.html` to `${staging_root}/__reference-comparison.html`;
@@ -1969,15 +1974,21 @@ env PATH="${VSB_TOOLCHAIN_PATH}" \
   --candidate-sha "${VSB03_CANDIDATE_SHA}"
 ```
 
-The fixed verifier itself performs the governed-path comparison before
-invoking the candidate-bound capture script. It extracts
-`scripts/capture-visual-style-baseline` from the same candidate into its
-verifier-owned temp directory rather than calling a later working-tree copy,
-then passes that temporary file to
-`scripts/verify-visual-style-baseline-cards --chrome-capture-source-contract`.
-Only after PASS may it invoke the capture script. Once the capture path exists,
-missing or conditionally skipped source validation is a hard failure. When the
-VSB ledger is `COMPLETE`, the candidate must equal both `CurrentCandidateSHA`
+The fixed visual verifier itself performs the governed-path comparison before
+capture. It creates one invocation-owned `scripts/` directory, extracts
+`scripts/capture-visual-style-baseline` from the VSB-03 candidate, and extracts
+`scripts/verify-visual-style-baseline-cards` from the reviewed G4 named by the
+validated R4. Both files retain mode `100755` and are siblings. The visual
+verifier passes the materialized wrapper to the G4 verifier's
+`--chrome-capture-source-contract`, confirms both Git blob identities, and then
+executes that exact materialized wrapper under a sanitized environment and the
+locked toolchain PATH, with no `BASH_ENV`, `ENV`, exported functions, or
+browser override variables. The wrapper uses fixed `/bin/bash`, builtin-only
+sibling resolution, and delegates only to its sibling G4 verifier's
+`--chrome-fixed-capture` mode. Validation of one copy and execution of another,
+a working-tree substitute, direct Chrome launch by the visual verifier, or
+conditional skip is a hard failure. When the VSB ledger is
+`COMPLETE`, the candidate must equal both `CurrentCandidateSHA`
 and `VSB03CandidateSHA`. While VSB-03 is active, the manifest may use
 `CandidateSHA = SEE_VISUAL_STYLE_BASELINE_EXECUTION_STATE_AFTER_FIXED_REVIEW`;
 the command-line fixed SHA is the binding evidence. The ledger and later Wave
@@ -2322,5 +2333,5 @@ Do not push. Do not propagate styles to Domain Panorama, Theme, Element, Verific
 - [ ] Browser evidence observes real evaluated DOM and computed style, not fixture-authored counters.
 - [ ] The three required viewports and side-by-side comparison are generated and freshly recaptured.
 - [ ] All fifteen acceptance fields fail closed; full product implementation is not overclaimed.
-- [ ] Every candidate is independently reviewed at a fixed SHA; the final candidate has both deep and ultra reviews.
+- [ ] Every candidate is independently reviewed at a fixed SHA; the final candidate uses the current `L4 / deep_reviewer / xhigh / ONE` gate and runs no Ultra without a new explicit escalation reason.
 - [ ] No step contains a deferred placeholder or an unresolved design decision.
