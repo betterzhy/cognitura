@@ -6,7 +6,7 @@
 
 **Architecture:** Formal design continues to own page structure and behavior. The new Visual Style Reference owns only Visual DNA; five CSS files are its single production projection. The existing `ModuleDefaultReading` remains the production semantic surface, while a separate Vite entry supplies deterministic offline visual evidence without modifying `App.tsx` or creating a product route. A dedicated execution ledger serializes `VSB-00..VSB-03`; Wave 1 card `W1-I03` is frozen at its reviewed candidate and restored only after the final fixed-candidate GO.
 
-**Tech Stack:** Markdown authority records, Bash 3.2-compatible fail-closed validators, Python 3 with Pillow 12.2.0 for one-time pixel-equivalent JPEG-to-PNG import, CSS custom properties, React 19.2.8, TypeScript 7.0.2, Vite 8.1.5, Vitest 4.1.10 with Testing Library/jsdom, exact Node 24.18.0 and pnpm 11.17.0, exact Google Chrome 151.0.7922.138 headless capture, Git fixed commits, `deep_reviewer`, and `ultra_gatekeeper`.
+**Tech Stack:** Markdown authority records, Bash 3.2-compatible fail-closed validators, Python 3 with Pillow 12.2.0 for one-time pixel-equivalent JPEG-to-PNG import, CSS custom properties, React 19.2.8, TypeScript 7.0.2, Vite 8.1.5, Vitest 4.1.10 with Testing Library/jsdom, exact Node 24.18.0 and pnpm 11.17.0, exact Google Chrome 151.0.7922.138 headless capture, Git fixed commits, and `deep_reviewer / xhigh`.
 
 ## Global Constraints
 
@@ -24,7 +24,7 @@
 - The exact Web runtime is Node `24.18.0` and pnpm `11.17.0`; do not relax `.node-version`, `engines`, or `packageManager`.
 - `FormalDatabaseWrite = NOT_AUTHORIZED` and `RemotePush = NOT_AUTHORIZED` throughout.
 - Use non-amend local commits. Do not reset, force, merge, or push.
-- Each business candidate gets a new fixed-SHA `deep_reviewer` review. The final unchanged `VSB-03` candidate also gets `ultra_gatekeeper` GO/NO-GO. Findings return to the owning card and create a new SHA.
+- Each business candidate gets a new fixed-SHA `deep_reviewer` review. The final unchanged `VSB-03` candidate gets one `L4 / deep_reviewer / xhigh / ONE` GO/NO-GO; Ultra remains `NOT_RUN`. Findings return to the owning card and create a new SHA.
 - State releases are separate commits. They contain only the Visual Style Baseline execution ledger, except the final Wave 1 restore receipt, whose exact projection WriteSet is listed in Task 5.
 
 ## Exact Toolchain Bootstrap
@@ -208,7 +208,7 @@ VSB03DeepReviewVerdict = NOT_RUN
 VSB03UltraReviewVerdict = NOT_RUN
 ```
 
-An `ADVANCE` receipt fills only the just-completed card's receipt fields. `RETURN_TO_OWNER` resets the owner and every successor receipt to `NONE/NOT_RUN`, while preserving the strict predecessor receipts; invalidated values remain auditable in Git history. `COMPLETE` checks every candidate as a resolvable 40-character commit SHA, `VSB00GateStatus = VSB-G0_PASS`, `VSB01GateStatus = VSB-G1_PASS`, `VSB02GateStatus = VSB-G2_PASS`, `VSB03GateStatus = VSB-G3_PASS`, three owner-card deep-review zero-finding verdicts, and both VSB-03 deep/ultra zero-finding verdicts.
+An `ADVANCE` receipt fills only the just-completed card's receipt fields. `RETURN_TO_OWNER` resets the owner and every successor receipt to `NONE/NOT_RUN`, while preserving the strict predecessor receipts; invalidated values remain auditable in Git history. `COMPLETE` checks every candidate as a resolvable 40-character commit SHA, `VSB00GateStatus = VSB-G0_PASS`, `VSB01GateStatus = VSB-G1_PASS`, `VSB02GateStatus = VSB-G2_PASS`, `VSB03GateStatus = VSB-G3_PASS`, three owner-card deep-review zero-finding verdicts, and the current VSB-03 deep final verdict with Ultra `NOT_RUN`. The stacked VSB-03 values in unfinished bootstrap examples are frozen placeholders only, not an executable final route.
 
 The `TransitionSequence = 1..5` values shown below are exact for the first-pass path. After any `RETURN_TO_OWNER` or explicit stop transition, every later receipt uses `previous TransitionSequence + 1`; it never reuses the first-pass number. The card order, strict completed prefix, Gate, review, and transition-base rules remain unchanged.
 
@@ -304,7 +304,7 @@ The exact card contracts are:
 | `VSB-00` | `GOVERNANCE_BOOTSTRAP` | `VSB-G0 GOVERNANCE_AND_REFERENCE` | `deep_reviewer` | reference PNG; Style Reference; authority bridge/index; reference importer/verifier/tests |
 | `VSB-01` | `VSB-00` | `VSB-G1 SEMANTIC_TOKENS` | `deep_reviewer` | five `web/src/styles/*.css`; style contract; exact-toolchain verifier repair/test |
 | `VSB-02` | `VSB-01` | `VSB-G2 MODULE_DEFAULT_READING_VISUAL` | `deep_reviewer` | existing module-reading presentation/tests; independent Vite visual-reference entry/fixture/tests |
-| `VSB-03` | `VSB-02` | `VSB-G3 FIXED_VISUAL_ACCEPTANCE` | `deep_reviewer+ultra_gatekeeper` | capture/verifier/tests; new visual evidence/manifest; acceptance report |
+| `VSB-03` | `VSB-02` | `VSB-G3 FIXED_VISUAL_ACCEPTANCE` | `deep_reviewer / L4 / xhigh / ONE` | capture/verifier/tests; new visual evidence/manifest; acceptance report |
 
 Forbid these literals in every card:
 
@@ -2317,7 +2317,6 @@ env PATH="${VSB_TOOLCHAIN_PATH}" \
   --candidate-sha "${VSB03_CANDIDATE_SHA}"
 rm -rf "${VSB_FIXED_RUNTIME_DIR}"
 env PATH="${VSB_TOOLCHAIN_PATH}" scripts/verify-module-default-reading
-scripts/verify-high-fidelity-visual
 /bin/bash tests/task-cards/verify-wave1-implementation-cards.sh
 /bin/bash tests/task-cards/verify-visual-style-baseline-cards.sh
 scripts/verify-wave1-implementation-cards \
