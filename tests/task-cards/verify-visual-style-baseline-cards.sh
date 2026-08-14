@@ -3803,8 +3803,8 @@ if [[ "${current_pending_contract_only}" -eq 1 ]]; then
   assert_contains "${current_pending_output}" \
     "VisualStyleBaselineTaskCardValidation = PASS"
   assert_contains "${current_pending_output}" \
-    "VerifierRecoveryStatus = PENDING"
-  printf '%s\n' 'CurrentVerifierRecoveryPendingContract = PASS'
+    "ChromeAuthorityMigrationStatus = PENDING"
+  printf '%s\n' 'CurrentChromeAuthorityMigrationPendingContract = PASS'
   exit 0
 fi
 
@@ -3966,8 +3966,8 @@ if [[ "${fixed_bootstrap_contract_only}" -eq 1 ]]; then
   exit 0
 fi
 
-# At the real recovery candidate G3, static validation must distinguish the
-# approved pending recovery from an ordinary receipt without mutating the ledger.
+# The repository-static public status follows the current ledger generation:
+# recovery pending at v3, Chrome migration pending at v4, and Chrome PASS at v5.
 current_execution_state_version_values="$(
   sed -n 's/^ExecutionStateVersion = //p' \
     "${cards_dir}/execution-state.md"
@@ -3976,17 +3976,29 @@ current_execution_state_version_values="$(
   awk 'NF { count += 1 } END { print count + 0 }')" -eq 1 ]] ||
   fail "current execution state must contain ExecutionStateVersion exactly once"
 case "${current_execution_state_version_values}" in
-  3) current_verifier_recovery_status="PENDING" ;;
-  4) current_verifier_recovery_status="PASS" ;;
-  *) fail "current execution state has unsupported recovery version: ${current_execution_state_version_values}" ;;
+  3)
+    current_public_status_field="VerifierRecoveryStatus"
+    current_public_status_value="PENDING"
+    ;;
+  4)
+    current_public_status_field="ChromeAuthorityMigrationStatus"
+    current_public_status_value="PENDING"
+    ;;
+  5)
+    current_public_status_field="ChromeAuthorityMigrationStatus"
+    current_public_status_value="PASS"
+    ;;
+  *)
+    fail "current execution state has unsupported public status version: ${current_execution_state_version_values}"
+    ;;
 esac
-current_verifier_recovery_output="$(
+current_public_status_output="$(
   "${verifier}" --repo-root "${main_repo_root}" --cards-dir "${cards_dir}"
-)" || fail "current verifier-recovery candidate was rejected"
-assert_contains "${current_verifier_recovery_output}" \
+)" || fail "current public-status candidate was rejected"
+assert_contains "${current_public_status_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
-assert_contains "${current_verifier_recovery_output}" \
-  "VerifierRecoveryStatus = ${current_verifier_recovery_status}"
+assert_contains "${current_public_status_output}" \
+  "${current_public_status_field} = ${current_public_status_value}"
 
 missing_state_dir="${test_tmp_root}/missing-state"
 cp -R "${bootstrap_cards_dir}" "${missing_state_dir}"
