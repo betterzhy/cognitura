@@ -6,7 +6,7 @@
 
 **Architecture:** Formal design continues to own page structure and behavior. The new Visual Style Reference owns only Visual DNA; five CSS files are its single production projection. The existing `ModuleDefaultReading` remains the production semantic surface, while a separate Vite entry supplies deterministic offline visual evidence without modifying `App.tsx` or creating a product route. A dedicated execution ledger serializes `VSB-00..VSB-03`; Wave 1 card `W1-I03` is frozen at its reviewed candidate and restored only after the final fixed-candidate GO.
 
-**Tech Stack:** Markdown authority records, Bash 3.2-compatible fail-closed validators, Python 3 with Pillow 12.2.0 for one-time pixel-equivalent JPEG-to-PNG import, CSS custom properties, React 19.2.8, TypeScript 7.0.2, Vite 8.1.5, Vitest 4.1.10 with Testing Library/jsdom, exact Node 24.18.0 and pnpm 11.17.0, exact Google Chrome 151.0.7922.109 headless capture, Git fixed commits, `deep_reviewer`, and `ultra_gatekeeper`.
+**Tech Stack:** Markdown authority records, Bash 3.2-compatible fail-closed validators, Python 3 with Pillow 12.2.0 for one-time pixel-equivalent JPEG-to-PNG import, CSS custom properties, React 19.2.8, TypeScript 7.0.2, Vite 8.1.5, Vitest 4.1.10 with Testing Library/jsdom, exact Node 24.18.0 and pnpm 11.17.0, exact Google Chrome 151.0.7922.138 headless capture, Git fixed commits, `deep_reviewer`, and `ultra_gatekeeper`.
 
 ## Global Constraints
 
@@ -1617,8 +1617,8 @@ Wave 1 must still be exactly suspended.
 test "$(sed -n 's/^ActiveTaskCard = //p' docs/task-cards/visual-style-baseline/execution-state.md)" = "VSB-03"
 VSB02_RECEIPT_SHA="$(git rev-parse HEAD)"
 VSB_CHROME_BIN='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-VSB_CHROME_VERSION="$("${VSB_CHROME_BIN}" --version)"
-test "${VSB_CHROME_VERSION}" = "Google Chrome 151.0.7922.109"
+VSB_CHROME_VERSION="$("${VSB_CHROME_BIN}" --version | sed 's/[[:space:]]*$//')"
+test "${VSB_CHROME_VERSION}" = "Google Chrome 151.0.7922.138"
 env PATH="${VSB_TOOLCHAIN_PATH}" node --version
 env PATH="${VSB_TOOLCHAIN_PATH}" pnpm --dir web --version
 printf '%s\n' "${VSB_CHROME_VERSION}"
@@ -1629,7 +1629,7 @@ git diff --quiet \
   docs/design/high-fidelity/evidence
 ```
 
-Expected now: Node `v24.18.0`, pnpm `11.17.0`, exact Chrome `Google Chrome 151.0.7922.109`, Pillow `12.2.0`, formal reference PASS, and no historical evidence diff. A different Chrome build is a reproducibility blocker, not permission to refresh committed evidence.
+Expected now: Node `v24.18.0`, pnpm `11.17.0`, exact normalized Chrome version `Google Chrome 151.0.7922.138`, Pillow `12.2.0`, formal reference PASS, and no historical evidence diff. Only trailing whitespace from `--version` is normalized; a different Chrome build is a reproducibility blocker, not permission to refresh committed evidence.
 
 - [ ] **Step 2: Write the real-browser probe before the verifier**
 
@@ -1771,7 +1771,7 @@ external network or browser-storage use
 runtime guard installation failure or any non-zero forbidden-API counter
 CSP violation on the guarded instrumented target
 server log request outside the local visual-reference asset allowlist
-Chrome version other than Google Chrome 151.0.7922.109
+Chrome version other than Google Chrome 151.0.7922.138
 missing visual-reference-ready or comparison-ready marker
 historical HV evidence mutation
 frozen W1-I03 production-path mutation
@@ -1816,7 +1816,7 @@ Expected: FAIL because capture/verifier scripts, evidence, manifest, and accepta
 It must:
 
 1. enforce Node 24.18.0 and `pnpm --dir web` 11.17.0;
-2. require the selected browser version equals `Google Chrome 151.0.7922.109` exactly;
+2. normalize only trailing whitespace from the selected browser's `--version` output and require the result equals `Google Chrome 151.0.7922.138` exactly;
 3. run the focused Web tests and production build;
 4. create `runtime_tmp` with `mktemp -d`, create `staging_root="${runtime_tmp}/site"`, and copy `web/dist/.` into that root without modifying `web/dist`;
 5. copy `browser-probe.html` to `${staging_root}/__probe.html`, `browser-runtime-guard.js` to `${staging_root}/__browser-runtime-guard.js`, and `reference-comparison.html` to `${staging_root}/__reference-comparison.html`;
@@ -1988,7 +1988,7 @@ ComparisonInput = tests/visual-style-baseline/reference-comparison.html
 HistoricalEvidenceOverwrite = FORBIDDEN
 ```
 
-Set `VSB_CHROME_VERSION` from the exact `Chrome --version` output and require the literal `Google Chrome 151.0.7922.109`. `${VSB02_RECEIPT_SHA}` and `${VSB_CHROME_VERSION}` are execution variables: write their literal values into the manifest, with no dollar signs or symbolic refs. Add a four-row table with file, viewport, byte size, SHA-256, capture command, real-DOM probe result, computed-style result, runtime-guard result, comparison readiness, allowed HTTP requests, and freshness result.
+Set `VSB_CHROME_VERSION` from the normalized `Chrome --version` output (trailing whitespace only) and require the literal `Google Chrome 151.0.7922.138`. `${VSB02_RECEIPT_SHA}` and `${VSB_CHROME_VERSION}` are execution variables: write their literal values into the manifest, with no dollar signs or symbolic refs. Add a four-row table with file, viewport, byte size, SHA-256, capture command, real-DOM probe result, computed-style result, runtime-guard result, comparison readiness, allowed HTTP requests, and freshness result.
 
 Create `docs/engineering/cognitura-visual-style-baseline-acceptance.md` with the following closed block only after Step 9 inspection and the full verifier are PASS:
 
