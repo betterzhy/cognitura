@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cognitura Visual Style Baseline Browser Probe</title>
+    <style>
+      html, body, iframe { width: 100%; height: 100%; margin: 0; border: 0; }
+    </style>
+  </head>
+  <body data-probe-status="PENDING">
+    <iframe id="target-frame" title="Visual reference probe target"></iframe>
+    <script>
+      (() => {
+        "use strict";
+
+        const body = document.body;
+        const frame = document.getElementById("target-frame");
+        const parameters = new URLSearchParams(location.search);
+        const target = parameters.get("target");
+        const runtimeGuard = parameters.get("runtimeGuard");
+        const allowedTargets = new Set([
+          "/visual-reference.html",
+          "/__instrumented-visual-reference.html",
+        ]);
+        const counters = [
+          "fetchCount",
+          "xhrCount",
+          "websocketCount",
+          "eventsourceCount",
+          "beaconCount",
+          "storageCount",
+          "cookieCount",
+          "indexeddbCount",
+        ];
+
+        const write = (name, value) => {
+          body.dataset[name] = String(value);
+        };
+        const waitForReady = async (doc) => {
+          for (let attempt = 0; attempt < 100; attempt += 1) {
+            if (doc.documentElement.dataset.visualReferenceReady === "true") {
+              return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+          throw new Error("VISUAL_REFERENCE_READY_TIMEOUT");
+        };
+        const px = (value) => value.trim();
+
+        if (
+          target === null ||
+          !allowedTargets.has(target) ||
+          (runtimeGuard !== "required" && runtimeGuard !== "not-required")
+        ) {
+          write("probeStatus", "FAIL");
+          return;
+        }
+
+        frame.addEventListener("load", async () => {
+          try {
+            const doc = frame.contentDocument;
+            const win = frame.contentWindow;
+            if (doc === null || win === null) {
+              throw new Error("PROBE_FRAME_UNAVAILABLE");
+            }
+            await waitForReady(doc);
+
+            const readingRoot = doc.querySelector(".module-default-reading");
+            const conclusion = doc.querySelector(
+              '[data-reading-section="core-conclusion"] p',
+            );
+            const title = doc.querySelector(".module-default-reading h1");
+            const sourceButton = doc.querySelector(
+              '[data-reading-section="source-entry"] button',
+            );
+            if (
+              readingRoot === null ||
+              conclusion === null ||
+              title === null ||
+              sourceButton === null
+            ) {
+              throw new Error("PROBE_REQUIRED_NODE_MISSING");
+            }
+
+            const sections = Array.from(
+              doc.querySelectorAll("[data-reading-section]"),
+            );
+            const sectionOrder = sections.map((node) =>
+              node.getAttribute("data-reading-section"),
+            );
+            const relations = Array.from(
+              doc.querySelectorAll(
+                '[data-reading-section="relations"] li[data-relation-type]',
+              ),
+            );
+            const naturalRelations = relations.filter((item) => {
+              const verb = item.querySelector('[data-relation-part="type"]');
+              return (
+                verb !== null &&
+                verb.textContent.trim() !== item.dataset.relationType
+              );
+            });
+            const forbiddenHeadings = Array.from(
+              doc.querySelectorAll("h1,h2,h3"),
+            ).filter((heading) =>
+              /Conditions|Results|条件|结果/.test(heading.textContent || ""),
+            );
+            sourceButton.focus();
+            const machineSourceIds = JSON.parse(
+              sourceButton.dataset.sourceRefs || "[]",
+            );
+            const visibleSourceIds = machineSourceIds.filter((sourceId) =>
+              doc.body.innerText.includes(sourceId),
+            );
+            const sourceStyle = win.getComputedStyle(sourceButton);
+            const rootStyle = win.getComputedStyle(readingRoot);
+            const bodyStyle = win.getComputedStyle(conclusion);
+            const titleStyle = win.getComputedStyle(title);
+            const nestedSemanticSurfaceCount = doc.querySelectorAll(
+              ".cka-projection-surface .cka-projection-surface, .cka-semantic-boundary .cka-semantic-boundary",
+            ).length;
+            const usage = win.__vsbRuntimeUsage;
+            const guardRequired = runtimeGuard === "required";
+            if (guardRequired && usage === undefined) {
+              throw new Error("RUNTIME_GUARD_MISSING");
+            }
+            const guardStatus = guardRequired
+              ? usage.guardInstallStatus
+              : "NOT_APPLICABLE";
+            const counterTotal = guardRequired
+              ? counters.reduce((total, key) => total + usage[key], 0)
+              : 0;
+            const cspViolations = guardRequired ? usage.cspViolationCount : 0;
+
+            write("visualReferenceReady", "true");
+            write("sectionOrder", sectionOrder.join(","));
+            write("sectionCount", sections.length);
+            write(
+              "primaryProjectionCount",
+              doc.querySelectorAll('[data-primary-visual-projection="true"]')
+                .length,
+            );
+            write(
+              "complementaryCount",
+              doc.querySelectorAll('[role="complementary"], aside').length,
+            );
+            write(
+              "dashboardSelectorCount",
+              doc.querySelectorAll(
+                '[data-dashboard], [class*="dashboard"], [class*="metric"], [class*="coverage"]',
+              ).length,
+            );
+            write(
+              "cardWallSelectorCount",
+              doc.querySelectorAll(
+                '[data-card-wall], [class*="card-wall"], [class*="card-grid"]',
+              ).length,
+            );
+            write(
+              "nestedSemanticSurfaceCount",
+              nestedSemanticSurfaceCount,
+            );
+            write("buttonCount", doc.querySelectorAll("button").length);
+            write("relationCount", relations.length);
+            write("naturalLanguageRelationCount", naturalRelations.length);
+            write("conditionsResultsHeadingCount", forbiddenHeadings.length);
+            write("machineSourceIdVisibleCount", visibleSourceIds.length);
+            write("rootBackgroundColor", rootStyle.backgroundColor);
+            write("rootTextColor", rootStyle.color);
+            write("bodyFontFamily", bodyStyle.fontFamily);
+            write("bodyFontSize", px(bodyStyle.fontSize));
+            write("bodyLineHeight", px(bodyStyle.lineHeight));
+            write("objectTitleFontSize", px(titleStyle.fontSize));
+            write("objectTitleLineHeight", px(titleStyle.lineHeight));
+            write("focusOutlineStyle", sourceStyle.outlineStyle);
+            write("focusOutlineWidth", px(sourceStyle.outlineWidth));
+            write("focusOutlineOffset", px(sourceStyle.outlineOffset));
+            write("focusOutlineColor", sourceStyle.outlineColor);
+            write("activeElementIsSourceButton", doc.activeElement === sourceButton);
+            write("runtimeGuardStatus", guardStatus);
+            for (const counter of counters) {
+              write(`runtime${counter[0].toUpperCase()}${counter.slice(1)}`, guardRequired ? usage[counter] : 0);
+            }
+            write("runtimeCounterTotal", counterTotal);
+            write("cspViolationCount", cspViolations);
+            write("documentScrollWidth", doc.documentElement.scrollWidth);
+            write("viewportWidth", doc.documentElement.clientWidth);
+            write(
+              "overflowSafe",
+              doc.documentElement.scrollWidth <= doc.documentElement.clientWidth,
+            );
+
+            const exactOrder =
+              "core-questions,core-conclusion,primary-spine,stage-chain,boundaries,elements,relations,source-entry";
+            const pass =
+              sectionOrder.join(",") === exactOrder &&
+              sections.length === 8 &&
+              doc.querySelectorAll('[data-primary-visual-projection="true"]')
+                .length === 1 &&
+              doc.querySelectorAll('[role="complementary"], aside').length === 0 &&
+              doc.querySelectorAll(
+                '[data-dashboard], [class*="dashboard"], [class*="metric"], [class*="coverage"], [data-card-wall], [class*="card-wall"], [class*="card-grid"]',
+              ).length === 0 &&
+              nestedSemanticSurfaceCount === 0 &&
+              relations.length >= 1 &&
+              relations.length <= 3 &&
+              naturalRelations.length === relations.length &&
+              forbiddenHeadings.length === 0 &&
+              visibleSourceIds.length === 0 &&
+              doc.querySelectorAll("button").length === 1 &&
+              doc.activeElement === sourceButton &&
+              rootStyle.backgroundColor === "rgb(255, 255, 255)" &&
+              rootStyle.color === "rgb(23, 32, 51)" &&
+              /^(Inter|"Inter"|-apple-system|BlinkMacSystemFont)/.test(
+                bodyStyle.fontFamily,
+              ) &&
+              bodyStyle.fontSize === "16px" &&
+              bodyStyle.lineHeight === "27px" &&
+              titleStyle.fontSize === "28px" &&
+              titleStyle.lineHeight === "36px" &&
+              sourceStyle.outlineStyle === "solid" &&
+              sourceStyle.outlineWidth === "2px" &&
+              sourceStyle.outlineOffset === "2px" &&
+              sourceStyle.outlineColor === "rgba(79, 103, 232, 0.32)" &&
+              guardStatus === (guardRequired ? "PASS" : "NOT_APPLICABLE") &&
+              counterTotal === 0 &&
+              cspViolations === 0 &&
+              doc.documentElement.scrollWidth <= doc.documentElement.clientWidth;
+            write("probeStatus", pass ? "READY" : "FAIL");
+          } catch (error) {
+            write("probeError", error instanceof Error ? error.message : "UNKNOWN");
+            write("probeStatus", "FAIL");
+          }
+        });
+        frame.src = target;
+      })();
+    </script>
+  </body>
+</html>

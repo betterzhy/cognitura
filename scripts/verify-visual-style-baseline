@@ -1,0 +1,276 @@
+#!/bin/bash
+set -euo pipefail
+
+repo_root=""
+candidate_sha=""
+runtime_root=""
+
+cleanup() {
+  if [[ -n "${runtime_root}" && -d "${runtime_root}" ]]; then
+    rm -rf -- "${runtime_root}"
+  fi
+}
+trap cleanup EXIT
+
+fail() {
+  printf 'VisualStyleBaselineVerification = FAIL\n%s\n' "$1" >&2
+  exit 1
+}
+
+usage() {
+  printf '%s\n' \
+    'Usage: scripts/verify-visual-style-baseline --repo-root PATH [--candidate-sha SHA]' >&2
+  exit 2
+}
+
+sha256_file() {
+  shasum -a 256 "$1" | awk '{print $1}'
+}
+
+require_line() {
+  local source_file="$1"
+  local expected_line="$2"
+  [[ "$(grep -Fxc -- "${expected_line}" "${source_file}" || true)" -eq 1 ]] ||
+    fail "required line mismatch in ${source_file#"${repo_root}/"}: ${expected_line}"
+}
+
+require_png_dimensions() {
+  python3 - "$1" "$2" "$3" <<'PY'
+import pathlib
+import struct
+import sys
+
+data = pathlib.Path(sys.argv[1]).read_bytes()
+if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+    raise SystemExit(1)
+if struct.unpack(">II", data[16:24]) != (int(sys.argv[2]), int(sys.argv[3])):
+    raise SystemExit(1)
+PY
+}
+
+owner_files() {
+  printf '%s\n' \
+    scripts/capture-visual-style-baseline \
+    scripts/verify-visual-style-baseline \
+    tests/visual-style-baseline/browser-probe.html \
+    tests/visual-style-baseline/browser-runtime-guard.js \
+    tests/visual-style-baseline/reference-comparison.html \
+    tests/visual-style-baseline/verify-visual-style-baseline.sh \
+    docs/design/visual-style-baseline/evidence/README.md \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1440x1100.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1280x960.png \
+    docs/design/visual-style-baseline/evidence/module-default-reading-1024x900.png \
+    docs/design/visual-style-baseline/evidence/reference-comparison.png \
+    docs/engineering/cognitura-visual-style-baseline-acceptance.md
+}
+
+validate_candidate_tree() {
+  local inspected_candidate="$1"
+  local candidate_parent candidate_file actual_files expected_files raw_status
+  git -C "${repo_root}" rev-parse --verify "${inspected_candidate}^{commit}" >/dev/null 2>&1 ||
+    fail "candidate SHA must resolve to a commit"
+  git -C "${repo_root}" merge-base --is-ancestor "${inspected_candidate}" HEAD ||
+    fail "candidate SHA must be an ancestor of HEAD"
+  candidate_parent="$(git -C "${repo_root}" rev-parse "${inspected_candidate}^")"
+  [[ "$(git -C "${repo_root}" show -s --format='%P' "${inspected_candidate}" | wc -w | tr -d ' ')" -eq 1 ]] ||
+    fail "candidate must have exactly one parent"
+  [[ "$(git -C "${repo_root}" show "${candidate_parent}:docs/task-cards/visual-style-baseline/execution-state.md" | sed -n 's/^ChromeAuthorityMigrationStatus = //p')" == PASS ]] ||
+    fail "candidate parent must be the validated R4 release anchor"
+  [[ "$(git -C "${repo_root}" show "${candidate_parent}:docs/task-cards/visual-style-baseline/execution-state.md" | sed -n 's/^ExecutionStateVersion = //p')" == 5 ]] ||
+    fail "candidate parent must use execution-state version 5"
+
+  expected_files="$(owner_files)"
+  actual_files="$(git -C "${repo_root}" diff --name-only "${candidate_parent}..${inspected_candidate}" | LC_ALL=C sort)"
+  [[ "${actual_files}" == "$(printf '%s\n' "${expected_files}" | LC_ALL=C sort)" ]] ||
+    fail "candidate must have the exact twelve-path VSB-03 WriteSet"
+  raw_status="$(git -C "${repo_root}" diff-tree --no-commit-id --name-status -r \
+    -M -C --find-copies-harder "${candidate_parent}" "${inspected_candidate}")"
+  [[ -n "${raw_status}" ]] || fail "candidate commit must be non-empty"
+  [[ -z "$(printf '%s\n' "${raw_status}" | awk '$1 ~ /^[RC]/{print}')" ]] ||
+    fail "candidate must not rename or copy paths"
+
+  while IFS= read -r candidate_file; do
+    [[ -n "${candidate_file}" ]] || continue
+    git -C "${repo_root}" cat-file -e "${inspected_candidate}:${candidate_file}" 2>/dev/null ||
+      fail "candidate is missing ${candidate_file}"
+    git -C "${repo_root}" diff --quiet "${inspected_candidate}" -- "${candidate_file}" ||
+      fail "working tree differs from candidate: ${candidate_file}"
+  done <<< "${expected_files}"
+  [[ -z "$(git -C "${repo_root}" diff --cached --name-only)" ]] ||
+    fail "candidate verification forbids staged changes"
+}
+
+materialize_capture_pair() {
+  local inspected_candidate="$1"
+  local pair_root="$2"
+  local candidate_parent g4_sha capture_mode verifier_mode
+  candidate_parent="$(git -C "${repo_root}" rev-parse "${inspected_candidate}^")"
+  g4_sha="$(git -C "${repo_root}" show \
+    "${candidate_parent}:docs/task-cards/visual-style-baseline/execution-state.md" |
+    sed -n 's/^ChromeAuthorityMigrationReviewedCandidateSHA = //p')"
+  [[ "${g4_sha}" =~ ^[0-9a-f]{40}$ ]] || fail "R4 reviewed G4 SHA mismatch"
+  git -C "${repo_root}" merge-base --is-ancestor "${g4_sha}" "${candidate_parent}" ||
+    fail "R4 reviewed G4 must be an ancestor of the candidate"
+  capture_mode="$(git -C "${repo_root}" ls-tree "${inspected_candidate}" -- \
+    scripts/capture-visual-style-baseline | awk '{print $1}')"
+  verifier_mode="$(git -C "${repo_root}" ls-tree "${g4_sha}" -- \
+    scripts/verify-visual-style-baseline-cards | awk '{print $1}')"
+  [[ "${capture_mode}" == 100755 && "${verifier_mode}" == 100755 ]] ||
+    fail "candidate capture pair must use mode 100755"
+  mkdir -p "${pair_root}"
+  git -C "${repo_root}" show \
+    "${inspected_candidate}:scripts/capture-visual-style-baseline" > \
+    "${pair_root}/capture-visual-style-baseline"
+  git -C "${repo_root}" show \
+    "${g4_sha}:scripts/verify-visual-style-baseline-cards" > \
+    "${pair_root}/verify-visual-style-baseline-cards"
+  chmod 755 "${pair_root}/capture-visual-style-baseline" \
+    "${pair_root}/verify-visual-style-baseline-cards"
+  "${pair_root}/verify-visual-style-baseline-cards" \
+    --chrome-capture-source-contract \
+    "${pair_root}/capture-visual-style-baseline" >/dev/null
+}
+
+validate_evidence_contract() {
+  local evidence_dir="$1"
+  local manifest_file="$2"
+  local capture_file capture_name width height capture_sha capture_bytes
+  require_line "${manifest_file}" 'CanonicalProjectName = Cognitura'
+  require_line "${manifest_file}" 'EvidenceSet = VISUAL_STYLE_BASELINE_VSB_03'
+  require_line "${manifest_file}" 'EvidenceStatus = FIXED_CANDIDATE'
+  require_line "${manifest_file}" 'CandidateSHA = SEE_VISUAL_STYLE_BASELINE_EXECUTION_STATE_AFTER_FIXED_REVIEW'
+  require_line "${manifest_file}" 'CaptureInputSHA = efc763966d64fc808e9098bec52566edb7d15dc3'
+  require_line "${manifest_file}" 'ReferenceSHA256 = a8446ea987f6a1710c3845f837e2776190997b77f81584cf7b667cbfebe2f95f'
+  require_line "${manifest_file}" 'Node = 24.18.0'
+  require_line "${manifest_file}" 'pnpm = 11.17.0'
+  require_line "${manifest_file}" 'Chrome = Google Chrome 151.0.7922.138'
+  require_line "${manifest_file}" 'CaptureToolBinding = FIXED_CANDIDATE_TREE'
+  require_line "${manifest_file}" 'HistoricalEvidenceOverwrite = FORBIDDEN'
+
+  for capture_name in \
+      module-default-reading-1440x1100.png:1440:1100 \
+      module-default-reading-1280x960.png:1280:960 \
+      module-default-reading-1024x900.png:1024:900 \
+      reference-comparison.png:2560:1100; do
+    width="${capture_name#*:}"
+    width="${width%%:*}"
+    height="${capture_name##*:}"
+    capture_name="${capture_name%%:*}"
+    capture_file="${evidence_dir}/${capture_name}"
+    [[ -f "${capture_file}" ]] || fail "missing evidence PNG: ${capture_name}"
+    require_png_dimensions "${capture_file}" "${width}" "${height}" ||
+      fail "evidence PNG dimensions mismatch: ${capture_name}"
+    capture_sha="$(sha256_file "${capture_file}")"
+    capture_bytes="$(wc -c < "${capture_file}" | tr -d ' ')"
+    grep -Fq "| ${capture_name} | ${width}x${height} | ${capture_bytes} | ${capture_sha} |" \
+      "${manifest_file}" || fail "evidence manifest row mismatch: ${capture_name}"
+  done
+}
+
+validate_acceptance_contract() {
+  local acceptance_file="$1"
+  local required_field
+  require_line "${acceptance_file}" 'CanonicalProjectName = Cognitura'
+  require_line "${acceptance_file}" 'AcceptanceKind = VISUAL_STYLE_BASELINE'
+  for required_field in \
+    SameProductFamily SameVisualCalmness SameSurfaceCharacter \
+    SameBorderCharacter SameBluePurpleFamily SameTypographyDensity \
+    SameIconCharacter SameRefinementLevel SameSemanticColorRestraint \
+    NewPageIsSubstantiallyMoreReadingFirst SameProductVisualFamilyWithReference \
+    ReadingFirst InteractiveCognitiveDocument ContinuousDocumentFlow \
+    ZeroInteractionReading CardAndContainerRestraint VisualPrimitiveDensity \
+    InteractionExposureRestraint TypographyHierarchy ColorSemanticConsistency \
+    RelationSemanticExpression NoDashboardRegression NoCardWallRegression \
+    NoAISaaSTemplateDrift NoFormalDesignAuthorityViolation VisualStyleBaseline
+  do
+    require_line "${acceptance_file}" "${required_field} = PASS"
+  done
+  require_line "${acceptance_file}" \
+    'ModuleDefaultReadingVisualImplementation = PASS_WITHIN_EXISTING_CANONICAL_PROJECTION'
+  require_line "${acceptance_file}" \
+    'FullModuleDefaultReadingBusinessAcceptance = BLOCKED_BY_DOC_GAP_MDR_001'
+  require_line "${acceptance_file}" \
+    'ImplementationValidation = NOT_CLAIMED_FOR_FULL_PRODUCT_PAGE'
+  require_line "${acceptance_file}" 'FormalDatabaseWrite = NOT_AUTHORIZED'
+  require_line "${acceptance_file}" 'RemotePush = NOT_AUTHORIZED'
+}
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --repo-root)
+      [[ "$#" -ge 2 ]] || usage
+      repo_root="$2"
+      shift 2
+      ;;
+    --candidate-sha)
+      [[ "$#" -ge 2 ]] || usage
+      candidate_sha="$2"
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+[[ -n "${repo_root}" ]] || usage
+repo_root="$(cd "${repo_root}" && pwd -P)"
+runtime_root="$(mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-fixed.XXXXXX")"
+
+[[ "$(node --version)" == v24.18.0 ]] || fail "expected Node v24.18.0"
+[[ "$(pnpm --dir "${repo_root}/web" --version)" == 11.17.0 ]] ||
+  fail "expected pnpm 11.17.0"
+python3 -c 'from PIL import __version__; assert __version__ == "12.2.0"' ||
+  fail "expected Pillow 12.2.0"
+
+"${repo_root}/scripts/verify-visual-style-baseline-reference" --repo-root "${repo_root}" >/dev/null
+"${repo_root}/scripts/verify-visual-style-baseline-cards" \
+  --repo-root "${repo_root}" \
+  --cards-dir "${repo_root}/docs/task-cards/visual-style-baseline" >/dev/null
+"${repo_root}/scripts/verify-wave1-implementation-cards" \
+  --repo-root "${repo_root}" \
+  --cards-dir "${repo_root}/docs/task-cards/wave-1-implementation" >/dev/null
+"${repo_root}/scripts/verify-module-default-reading" >/dev/null
+
+git -C "${repo_root}" diff --quiet \
+  70eefba5912e6884e4e7e1d6477a65f4091d6590..HEAD -- \
+  docs/design/high-fidelity/evidence || fail "historical visual evidence changed"
+git -C "${repo_root}" diff --quiet \
+  7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d..HEAD -- \
+  docs/task-cards/wave-1-implementation/README.md \
+  docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md ||
+  fail "frozen W1-I03 governance paths changed"
+
+capture_runner="${repo_root}/scripts/capture-visual-style-baseline"
+if [[ -n "${candidate_sha}" ]]; then
+  validate_candidate_tree "${candidate_sha}"
+  materialize_capture_pair "${candidate_sha}" "${runtime_root}/scripts"
+  capture_runner="${runtime_root}/scripts/capture-visual-style-baseline"
+else
+  "${repo_root}/scripts/verify-visual-style-baseline-cards" \
+    --chrome-capture-source-contract "${capture_runner}" >/dev/null
+fi
+
+fresh_dir="${runtime_root}/fresh-evidence"
+env -u BASH_ENV -u ENV -u CHROME_BIN -u GOOGLE_CHROME_BIN \
+  -u PUPPETEER_EXECUTABLE_PATH \
+  "${capture_runner}" --repo-root "${repo_root}" --output-dir "${fresh_dir}"
+
+evidence_dir="${repo_root}/docs/design/visual-style-baseline/evidence"
+manifest_file="${evidence_dir}/README.md"
+acceptance_file="${repo_root}/docs/engineering/cognitura-visual-style-baseline-acceptance.md"
+validate_evidence_contract "${evidence_dir}" "${manifest_file}"
+validate_acceptance_contract "${acceptance_file}"
+for fresh_file in "${fresh_dir}"/*.png; do
+  committed_file="${evidence_dir}/$(basename "${fresh_file}")"
+  cmp -s "${fresh_file}" "${committed_file}" ||
+    fail "fresh capture differs from committed evidence: $(basename "${fresh_file}")"
+done
+git -C "${repo_root}" diff --check || fail "git diff --check failed"
+
+printf '%s\n' \
+  'VisualStyleBaselineVerification = PASS' \
+  'Chrome = Google Chrome 151.0.7922.138' \
+  'RealBrowserProbe = PASS' \
+  'FreshCapture = PASS' \
+  'EvidenceManifest = PASS' \
+  'VisualAcceptance = PASS' \
+  'HistoricalEvidence = UNCHANGED' \
+  'FrozenWave1 = UNCHANGED'
