@@ -11,6 +11,7 @@ historical_failed_receipt_contract_only=0
 verifier_recovery_contract_only=0
 chrome_authority_migration_contract_only=0
 chrome_capture_source_contract_only=0
+chrome_fixed_capture_contract_only=0
 case "${1:-}" in
   --repair-contract-only)
     repair_contract_only=1
@@ -53,6 +54,10 @@ case "${1:-}" in
     ;;
   --chrome-capture-source-contract-only)
     chrome_capture_source_contract_only=1
+    shift
+    ;;
+  --chrome-fixed-capture-contract-only)
+    chrome_fixed_capture_contract_only=1
     shift
     ;;
 esac
@@ -171,6 +176,7 @@ run_verifier_recovery_contract() {
   # A fresh ledger-only child with the same nominal RETURN projection exercises
   # the public explicit path without reclassifying immutable 9904d3d as legal.
   git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" config advice.detachedHead false
   git -C "${fixture_root}" checkout -q --detach "${failed_candidate_sha}"
   git -C "${fixture_root}" show \
     "${recovery_origin_sha}:${ledger_path}" > "${fixture_state}"
@@ -2888,25 +2894,33 @@ expect_chrome_migration_static_failure() {
 
 write_canonical_chrome_capture_source() {
   local source_file="$1"
+  printf '%s\n' \
+    '#!/bin/bash' \
+    'set -euo pipefail' \
+    '' \
+    'script_dir="${0%/*}"' \
+    '[[ "${script_dir}" != "${0}" ]] || script_dir='\''.'\''' \
+    'script_dir="$(cd -- "${script_dir}" && pwd -P)"' \
+    'exec "${script_dir}/verify-visual-style-baseline-cards" --chrome-fixed-capture "$@"' > "${source_file}"
+  chmod 755 "${source_file}"
+}
+
+write_dead_token_chrome_capture_bypass() {
+  local source_file="$1"
   local sentinel_file="$2"
   printf '%s\n' \
     '#!/usr/bin/env bash' \
-    '' \
     'set -euo pipefail' \
     '' \
-    'usage() {' \
-    '  exit 2' \
-    '}' \
+    'usage() { exit 2; }' \
+    'fail() { exit 1; }' \
     '' \
-    'fail() {' \
-    '  exit 1' \
-    '}' \
-    '' \
+    'contract_tokens_only() {' \
     '[[ -z "${CHROME_BIN:-}" ]] || fail "CHROME_BIN override is forbidden"' \
-    '' \
-    'repo_root=""' \
-    'output_dir=""' \
-    'replace_existing=0' \
+    "readonly VSB_FIXED_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'" \
+    'VSB_CHROME_VERSION="$("${VSB_FIXED_CHROME}" --version | sed '\''s/[[:space:]]*$//'\'')"' \
+    '[[ "${VSB_CHROME_VERSION}" == '\''Google Chrome 151.0.7922.138'\'' ]] ||' \
+    '  fail "fixed Chrome version mismatch"' \
     'while [[ "$#" -gt 0 ]]; do' \
     '  case "$1" in' \
     '    --repo-root)' \
@@ -2926,13 +2940,13 @@ write_canonical_chrome_capture_source() {
     '    *) usage ;;' \
     '  esac' \
     'done' \
+    '}' \
     '' \
-    "printf 'EXECUTED\\n' > '${sentinel_file}'" \
-    '' \
-    "readonly VSB_FIXED_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'" \
-    'VSB_CHROME_VERSION="$("${VSB_FIXED_CHROME}" --version | sed '\''s/[[:space:]]*$//'\'')"' \
-    '[[ "${VSB_CHROME_VERSION}" == '\''Google Chrome 151.0.7922.138'\'' ]] ||' \
-    '  fail "fixed Chrome version mismatch"' > "${source_file}"
+    'ALT_BROWSER="${CHROME_BIN:-google-chrome}"' \
+    ": > '${sentinel_file}'" \
+    'exit 97' \
+    '"$ALT_BROWSER" --headless --screenshot=/tmp/not-executed.png about:blank' > "${source_file}"
+  chmod 755 "${source_file}"
 }
 
 run_chrome_capture_source_public() {
@@ -2977,6 +2991,7 @@ run_chrome_capture_source_contract() {
   local fixture_dir="${test_tmp_root}/chrome-capture-source-contract"
   local legal_source="${fixture_dir}/capture-legal"
   local mutated_source="${fixture_dir}/capture-mutated"
+  local bypass_source="${fixture_dir}/capture-dead-token-bypass"
   local sentinel_file="${fixture_dir}/fake-browser-invoked"
   local invocation_tmp="${fixture_dir}/tmp"
   local invocation_marker="${invocation_tmp}/sibling-marker"
@@ -2984,7 +2999,17 @@ run_chrome_capture_source_contract() {
   local positive_cases=0 negative_cases=0
   mkdir -p "${fixture_dir}" "${invocation_tmp}"
   printf '%s\n' 'preserve sibling' > "${invocation_marker}"
-  write_canonical_chrome_capture_source "${legal_source}" "${sentinel_file}"
+  write_dead_token_chrome_capture_bypass "${bypass_source}" "${sentinel_file}"
+
+  expect_chrome_capture_source_failure \
+    "${bypass_source}" 'Chrome capture source canonical wrapper mismatch' \
+    'dead-token alternate-browser source' \
+    "${invocation_tmp}" "${invocation_marker}"
+  [[ ! -e "${sentinel_file}" ]] ||
+    fail "Chrome capture source checker executed the dead-token bypass"
+  negative_cases=$((negative_cases + 1))
+
+  write_canonical_chrome_capture_source "${legal_source}"
 
   run_chrome_capture_source_public \
     "${legal_source}" "${invocation_tmp}" "${invocation_marker}"
@@ -2996,44 +3021,72 @@ run_chrome_capture_source_contract() {
     fail "Chrome capture source checker executed the supplied source"
   positive_cases=$((positive_cases + 1))
 
-  for mutation in override environment path-lookup fallback fake-path leading-space; do
+  for mutation in \
+      extra-comment dead-function heredoc dollar-var braced-var indirect array \
+      alias eval missing-line reorder suffix nul no-final-newline mode; do
     cp "${legal_source}" "${mutated_source}"
+    chmod 755 "${mutated_source}"
+    expected_message='Chrome capture source canonical wrapper mismatch'
     case "${mutation}" in
-      override)
-        perl -0pi -e \
-          's/    \*\) usage ;;/    --chrome-bin) shift 2 ;;\n    *) usage ;;/' \
-          "${mutated_source}"
-        expected_message='Chrome capture source CLI contract mismatch'
+      extra-comment)
+        printf '%s\n' '# accepted-looking extra behavior' >> "${mutated_source}"
         ;;
-      environment)
-        perl -0pi -e \
-          's@readonly VSB_FIXED_CHROME='"'"'/Applications/Google Chrome[.]app/Contents/MacOS/Google Chrome'"'"'@readonly VSB_FIXED_CHROME="\${CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"@' \
-          "${mutated_source}"
-        expected_message='Chrome capture source fixed executable contract mismatch'
+      dead-function)
+        printf '%s\n' 'unused() { :; }' >> "${mutated_source}"
         ;;
-      path-lookup)
-        perl -0pi -e \
-          's@readonly VSB_FIXED_CHROME=.*@readonly VSB_FIXED_CHROME="\$(command -v google-chrome)"@' \
-          "${mutated_source}"
-        expected_message='Chrome capture source executable discovery is forbidden'
+      heredoc)
+        printf '%s\n' 'cat <<EOF' 'ignored' 'EOF' >> "${mutated_source}"
         ;;
-      fallback)
-        perl -0pi -e \
-          's@readonly VSB_FIXED_CHROME=.*@readonly VSB_FIXED_CHROME='"'"'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'"'"'; [[ -x "\${VSB_FIXED_CHROME}" ]] || readonly VSB_FIXED_CHROME='"'"'/usr/bin/google-chrome'"'"'@' \
+      dollar-var)
+        perl -0pi -e 's@exec "\$\{script_dir\}/verify-visual-style-baseline-cards"@exec "\$VERIFIER"@' \
           "${mutated_source}"
-        expected_message='Chrome capture source fallback is forbidden'
         ;;
-      fake-path)
-        perl -0pi -e \
-          's@^VSB_CHROME_VERSION=.*$@ALT_BROWSER=/tmp/fake-google-chrome\nVSB_CHROME_VERSION="\$("\${ALT_BROWSER}" --version | sed '"'"'s/[[:space:]]*\$//'"'"')"@m' \
+      braced-var)
+        perl -0pi -e 's@exec "\$\{script_dir\}/verify-visual-style-baseline-cards"@exec "\${VERIFIER}"@' \
           "${mutated_source}"
-        expected_message='Chrome capture source alternate executable is forbidden'
         ;;
-      leading-space)
-        perl -0pi -e \
-          's@^VSB_CHROME_VERSION=.*$@VSB_CHROME_VERSION="\$("\${VSB_FIXED_CHROME}" --version | xargs)"@m' \
+      indirect)
+        perl -0pi -e 's@exec "\$\{script_dir\}/verify-visual-style-baseline-cards"@name=VERIFIER\nexec "\${!name}"@' \
           "${mutated_source}"
-        expected_message='Chrome capture source version normalization mismatch'
+        ;;
+      array)
+        perl -0pi -e 's#exec "\$\{script_dir\}/verify-visual-style-baseline-cards"#launcher=("\${script_dir}/verify-visual-style-baseline-cards")\nexec "\${launcher[@]}"#' \
+          "${mutated_source}"
+        ;;
+      alias)
+        printf '%s\n' 'alias verifier=true' >> "${mutated_source}"
+        ;;
+      eval)
+        printf '%s\n' 'eval :' >> "${mutated_source}"
+        ;;
+      missing-line)
+        sed '/^set -euo pipefail$/d' "${mutated_source}" > "${mutated_source}.next"
+        mv "${mutated_source}.next" "${mutated_source}"
+        chmod 755 "${mutated_source}"
+        ;;
+      reorder)
+        awk '
+          NR == 2 { second = $0; next }
+          NR == 3 { print; print second; next }
+          { print }
+        ' "${mutated_source}" > "${mutated_source}.next"
+        mv "${mutated_source}.next" "${mutated_source}"
+        chmod 755 "${mutated_source}"
+        ;;
+      suffix)
+        perl -0pi -e 's# --chrome-fixed-capture "\$@"# --chrome-fixed-capture "\$@" \# suffix#' \
+          "${mutated_source}"
+        ;;
+      nul)
+        printf '\0' >> "${mutated_source}"
+        expected_message='Chrome capture source must not contain NUL bytes'
+        ;;
+      no-final-newline)
+        perl -0pi -e 's/\n\z//' "${mutated_source}"
+        ;;
+      mode)
+        chmod 644 "${mutated_source}"
+        expected_message='Chrome capture source mode must be 100755'
         ;;
     esac
     expect_chrome_capture_source_failure \
@@ -3046,19 +3099,211 @@ run_chrome_capture_source_contract() {
 
   [[ "${positive_cases}" -eq 1 ]] ||
     fail "Chrome capture source positive matrix count drifted from 1"
-  [[ "${negative_cases}" -eq 6 ]] ||
-    fail "Chrome capture source negative matrix count drifted from 6"
+  [[ "${negative_cases}" -eq 16 ]] ||
+    fail "Chrome capture source negative matrix count drifted from 16"
   printf '%s\n' \
     "ChromeCaptureSourcePositiveCases = ${positive_cases}" \
     "ChromeCaptureSourceNegativeCases = ${negative_cases}" \
     'ChromeCaptureSourceContractTests = PASS'
 }
 
+run_chrome_fixed_capture_public() {
+  local fixture_root="$1"
+  local output_dir="$2"
+  local invocation_tmp="$3"
+  local locked_path="$4"
+  shift 4
+  chrome_fixed_capture_output=""
+  chrome_fixed_capture_rc=0
+  if chrome_fixed_capture_output="$(
+    env -u BASH_ENV -u ENV -u CHROME_BIN -u GOOGLE_CHROME_BIN \
+      -u PUPPETEER_EXECUTABLE_PATH \
+      TMPDIR="${invocation_tmp}" PATH="${locked_path}" \
+      /bin/bash "${verifier}" --chrome-fixed-capture \
+        --repo-root "${fixture_root}" --output-dir "${output_dir}" \
+        "$@" 2>&1
+  )"; then
+    chrome_fixed_capture_rc=0
+  else
+    chrome_fixed_capture_rc=$?
+  fi
+}
+
+run_chrome_fixed_capture_contract() {
+  local fixture_dir="${test_tmp_root}/chrome-fixed-capture-contract"
+  local fixture_root="${fixture_dir}/repo"
+  local output_dir="${fixture_dir}/output"
+  local invocation_tmp="${fixture_dir}/tmp"
+  local invocation_marker="${invocation_tmp}/sibling-marker"
+  local poison_dir="${fixture_dir}/poison"
+  local locked_node_dir="/Users/yuzhuangzhuang/.npm/_npx/4aa47c519def57bc/node_modules/.bin"
+  local locked_pnpm_dir="/Users/yuzhuangzhuang/.npm/_npx/acaf29b40d536b0e/node_modules/.bin"
+  local locked_path="${locked_node_dir}:${locked_pnpm_dir}:/opt/homebrew/opt/python@3.11/libexec/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  local capture_name width height actual_width actual_height
+  local positive_cases=0 negative_cases=0
+
+  mkdir -p \
+    "${fixture_root}/web" \
+    "${fixture_root}/tests/visual-style-baseline" \
+    "${fixture_root}/docs/design/reference" \
+    "${invocation_tmp}" "${poison_dir}"
+  [[ "$(${locked_node_dir}/node --version)" == v24.18.0 ]] ||
+    fail "locked Chrome-capture Node fixture is unavailable"
+  [[ "$(PATH="${locked_path}" pnpm --dir "${repo_root}/web" --version)" == 11.17.0 ]] ||
+    fail "locked Chrome-capture pnpm fixture is unavailable"
+  printf '%s\n' 'preserve sibling' > "${invocation_marker}"
+  printf '%s\n' \
+    '{' \
+    '  "name": "cognitura-chrome-capture-fixture",' \
+    '  "private": true,' \
+    '  "packageManager": "pnpm@11.17.0",' \
+    '  "engines": { "node": "24.18.0", "pnpm": "11.17.0" },' \
+    '  "scripts": {' \
+    '    "test": "node -e \"process.stdout.write('\''fixture-test-pass\\n'\'')\"",' \
+    '    "build": "node build.mjs"' \
+    '  }' \
+    '}' > "${fixture_root}/web/package.json"
+  printf '%s\n' \
+    'import { mkdirSync, writeFileSync } from "node:fs";' \
+    'mkdirSync(new URL("./dist", import.meta.url), { recursive: true });' \
+    'writeFileSync(new URL("./dist/visual-reference.html", import.meta.url), `<!doctype html>' \
+    '<html lang="zh-CN"><head><meta charset="UTF-8">' \
+    '<style>html,body{margin:0;width:100%;height:100%;background:#f7f8fb}main{width:832px;margin:64px auto;padding:48px;background:white;border:1px solid #dfe3ea}</style>' \
+    '</head><body><main><h1>Cognitura</h1><p>Stage A owned capture fixture</p></main>' \
+    '<script type="module">document.documentElement.dataset.visualReferenceReady="true";</script>' \
+    '</body></html>\n`);' > \
+    "${fixture_root}/web/build.mjs"
+  printf '%s\n' \
+    'window.__cognituraRuntimeGuard = {' \
+    '  installStatus: "PASS", fetchCount: 0, storageWriteCount: 0,' \
+    '  sendBeaconCount: 0, eventSourceCount: 0' \
+    '};' > "${fixture_root}/tests/visual-style-baseline/browser-runtime-guard.js"
+  printf '%s\n' \
+    '<!doctype html>' \
+    '<html><head><meta charset="UTF-8"><title>Probe</title></head><body data-probe-status="PENDING">' \
+    '<script>' \
+    'const params = new URLSearchParams(location.search);' \
+    'const frame = document.createElement("iframe");' \
+    'frame.src = params.get("target");' \
+    'frame.addEventListener("load", () => {' \
+    '  const root = frame.contentDocument.documentElement;' \
+    '  const guard = frame.contentWindow.__cognituraRuntimeGuard;' \
+    '  const required = params.get("runtimeGuard") === "required";' \
+    '  document.body.dataset.visualReferenceReady = root.dataset.visualReferenceReady || "false";' \
+    '  document.body.dataset.runtimeGuardStatus = required ? (guard?.installStatus || "MISSING") : "NOT_APPLICABLE";' \
+    '  document.body.dataset.runtimeCounterTotal = required && guard ? String(guard.fetchCount + guard.storageWriteCount + guard.sendBeaconCount + guard.eventSourceCount) : "0";' \
+    '  document.body.dataset.cspViolationCount = "0";' \
+    '  document.body.dataset.probeStatus = document.body.dataset.visualReferenceReady === "true" && (!required || document.body.dataset.runtimeGuardStatus === "PASS") ? "READY" : "FAIL";' \
+    '});' \
+    'document.body.append(frame);' \
+    '</script></body></html>' > \
+    "${fixture_root}/tests/visual-style-baseline/browser-probe.html"
+  printf '%s\n' \
+    '<!doctype html>' \
+    '<html><head><meta charset="UTF-8"><title>Comparison</title></head>' \
+    '<body data-comparison-ready="true"><img src="/__assets/reference.png" alt="reference">' \
+    '<img src="/__assets/candidate.png" alt="candidate"></body></html>' > \
+    "${fixture_root}/tests/visual-style-baseline/reference-comparison.html"
+  cp "${repo_root}/docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png" \
+    "${fixture_root}/docs/design/reference/Cognitive-Knowledge-Atlas-Dashboard.png"
+
+  run_chrome_fixed_capture_public "${fixture_root}" "${output_dir}" \
+    "${invocation_tmp}" "${locked_path}"
+  [[ "${chrome_fixed_capture_rc}" -eq 0 ]] ||
+    fail "canonical owned Chrome capture was rejected: ${chrome_fixed_capture_output}"
+  assert_contains "${chrome_fixed_capture_output}" \
+    'ChromeFixedCapture = PASS'
+  assert_contains "${chrome_fixed_capture_output}" 'ProbeResult = PASS'
+  assert_contains "${chrome_fixed_capture_output}" 'CSPResult = PASS'
+  assert_contains "${chrome_fixed_capture_output}" 'ComparisonReady = PASS'
+  assert_contains "${chrome_fixed_capture_output}" 'CaptureSHA256 = '
+  for capture_name in \
+      module-default-reading-1440x1100.png \
+      module-default-reading-1280x960.png \
+      module-default-reading-1024x900.png \
+      reference-comparison.png; do
+    [[ -s "${output_dir}/${capture_name}" ]] ||
+      fail "owned Chrome capture output is missing: ${capture_name}"
+    case "${capture_name}" in
+      module-default-reading-1440x1100.png) width=1440; height=1100 ;;
+      module-default-reading-1280x960.png) width=1280; height=960 ;;
+      module-default-reading-1024x900.png) width=1024; height=900 ;;
+      reference-comparison.png) width=2560; height=1100 ;;
+    esac
+    actual_width="$(sips -g pixelWidth "${output_dir}/${capture_name}" 2>/dev/null | awk '/pixelWidth/{print $2}')"
+    actual_height="$(sips -g pixelHeight "${output_dir}/${capture_name}" 2>/dev/null | awk '/pixelHeight/{print $2}')"
+    [[ "${actual_width}" == "${width}" && "${actual_height}" == "${height}" ]] ||
+      fail "owned Chrome capture dimensions mismatch: ${capture_name}"
+  done
+  [[ -f "${invocation_marker}" &&
+     "$(cat "${invocation_marker}")" == 'preserve sibling' ]] ||
+    fail "owned Chrome capture changed its TMPDIR sibling"
+  shopt -s nullglob
+  local tmp_entries=("${invocation_tmp}"/*)
+  shopt -u nullglob
+  [[ "${#tmp_entries[@]}" -eq 1 &&
+     "${tmp_entries[0]}" == "${invocation_marker}" ]] ||
+    fail "owned Chrome capture leaked TMPDIR entries"
+  if ps -axo command | grep -F 'Google Chrome --headless=new' | \
+      grep -F "${fixture_dir}" | grep -q .; then
+    fail "owned Chrome capture leaked a headless browser process"
+  fi
+  if ps -axo command | grep -F 'python' | grep -F 'http.server' | \
+      grep -F "${fixture_dir}" | grep -q .; then
+    fail "owned Chrome capture leaked its HTTP server"
+  fi
+  positive_cases=$((positive_cases + 1))
+
+  if CHROME_BIN=/tmp/fake-browser \
+      TMPDIR="${invocation_tmp}" PATH="${locked_path}" \
+      /bin/bash "${verifier}" --chrome-fixed-capture \
+        --repo-root "${fixture_root}" \
+        --output-dir "${fixture_dir}/rejected-env" >/dev/null 2>&1; then
+    fail "owned Chrome capture accepted CHROME_BIN"
+  fi
+  negative_cases=$((negative_cases + 1))
+
+  printf '%s\n' '#!/bin/bash' 'printf '\''v0.0.0\\n'\''' > "${poison_dir}/node"
+  chmod 755 "${poison_dir}/node"
+  run_chrome_fixed_capture_public "${fixture_root}" \
+    "${fixture_dir}/rejected-path" "${invocation_tmp}" \
+    "${poison_dir}:${locked_path}"
+  [[ "${chrome_fixed_capture_rc}" -ne 0 ]] ||
+    fail "owned Chrome capture accepted poisoned PATH"
+  assert_contains "${chrome_fixed_capture_output}" 'expected Node v24.18.0'
+  negative_cases=$((negative_cases + 1))
+
+  for capture_name in unknown chrome-bin; do
+    if [[ "${capture_name}" == unknown ]]; then
+      set -- --unknown-option
+    else
+      set -- --chrome-bin /tmp/fake-browser
+    fi
+    run_chrome_fixed_capture_public "${fixture_root}" \
+      "${fixture_dir}/rejected-${capture_name}" "${invocation_tmp}" \
+      "${locked_path}" "$@"
+    [[ "${chrome_fixed_capture_rc}" -ne 0 ]] ||
+      fail "owned Chrome capture accepted ${capture_name} option"
+    negative_cases=$((negative_cases + 1))
+  done
+
+  [[ "${positive_cases}" -eq 1 ]] ||
+    fail "owned Chrome capture positive matrix count drifted from 1"
+  [[ "${negative_cases}" -eq 4 ]] ||
+    fail "owned Chrome capture negative matrix count drifted from 4"
+  printf '%s\n' \
+    "ChromeFixedCapturePositiveCases = ${positive_cases}" \
+    "ChromeFixedCaptureNegativeCases = ${negative_cases}" \
+    'ChromeFixedCaptureContractTests = PASS'
+}
+
 run_chrome_authority_migration_contract() {
-  local migration_authority_sha="a2d22c2e8218413d26f7d8940a9ea5564e59b7f0"
+  local migration_authority_sha="55857a7e02147c3a5ea8e632250862e38bd6457f"
   local migration_origin_sha="7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d"
   local rejected_authority_sha="ce2a3ca466cc4df2ff077017f1ddb03cb285416f"
   local rejected_candidate_sha="4a62647fdb8226cc5c0527c48f552ef553ff146e"
+  local rejected_successor_authority_sha="a2d22c2e8218413d26f7d8940a9ea5564e59b7f0"
+  local rejected_successor_candidate_sha="b0b77e878fd468f38d40ddd702c96ea8e7446658"
   local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
   local fixture_root="${test_tmp_root}/chrome-authority-migration-repo"
   local fixture_cards="${fixture_root}/docs/task-cards/visual-style-baseline"
@@ -3088,9 +3333,10 @@ run_chrome_authority_migration_contract() {
   approved_paths=("${authority_paths[@]}" "${governance_paths[@]}")
 
   run_chrome_capture_source_contract
+  run_chrome_fixed_capture_contract
 
   [[ "$(git -C "${repo_root}" rev-parse "${migration_authority_sha}^")" == \
-     "${rejected_candidate_sha}" ]] ||
+     "${rejected_successor_candidate_sha}" ]] ||
     fail "successor Chrome migration Authority must be the direct child of the rejected candidate"
   git -C "${repo_root}" merge-base --is-ancestor \
     "${rejected_authority_sha}" "${rejected_candidate_sha}" ||
@@ -3098,6 +3344,12 @@ run_chrome_authority_migration_contract() {
   git -C "${repo_root}" merge-base --is-ancestor \
     "${migration_origin_sha}" "${rejected_authority_sha}" ||
     fail "rejected Chrome migration Authority does not descend the fixed origin"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${rejected_candidate_sha}" "${rejected_successor_authority_sha}" ||
+    fail "rejected successor Chrome Authority is absent from predecessor ancestry"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${rejected_successor_authority_sha}" "${rejected_successor_candidate_sha}" ||
+    fail "rejected successor Chrome candidate does not descend its Authority"
 
   git clone --shared -q "${repo_root}" "${fixture_root}"
   git -C "${fixture_root}" checkout -q --detach "${migration_origin_sha}"
@@ -3358,8 +3610,7 @@ run_chrome_authority_migration_contract() {
   invalid_capture_candidate_sha="$(commit_model_route_owner_candidate \
     "${fixture_root}" "test: VSB-03 candidate with candidate-bound capture source" \
     model_route_vsb03_write_set)"
-  perl -0pi -e \
-    's@/Applications/Google Chrome[.]app/Contents/MacOS/Google Chrome@/tmp/fake-google-chrome@' \
+  printf '%s\n' '# invalid candidate-owned behavior' >> \
     "${fixture_root}/scripts/capture-visual-style-baseline"
   git -C "${fixture_root}" add -- scripts/capture-visual-style-baseline
   git -C "${fixture_root}" commit -qm \
@@ -3372,7 +3623,7 @@ run_chrome_authority_migration_contract() {
   invalid_capture_receipt_sha="$(commit_chrome_authority_migration_ledger \
     "${fixture_root}" "test: reject invalid candidate-bound capture source")"
   expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
-    "Chrome capture source fixed executable contract mismatch" \
+    "Chrome capture source canonical wrapper mismatch" \
     "${invocation_tmp}" "${invocation_marker}" \
     "candidate-bound invalid Chrome capture source" \
     "${invalid_capture_candidate_sha}" "${invalid_capture_receipt_sha}"
@@ -3734,6 +3985,7 @@ run_chrome_authority_migration_contract() {
   local alternate_cards="${alternate_root}/docs/task-cards/visual-style-baseline"
   local alternate_authority_sha alternate_g4_sha
   git clone --shared -q "${repo_root}" "${alternate_root}"
+  git -C "${alternate_root}" config advice.detachedHead false
   git -C "${alternate_root}" checkout -q --detach "${rejected_candidate_sha}"
   git -C "${alternate_root}" checkout -q "${migration_authority_sha}" -- \
     "${authority_paths[@]}"
@@ -3790,13 +4042,14 @@ run_chrome_authority_migration_contract() {
   cmp -s "${expected_paths_file}" "${actual_paths_file}" ||
     fail "alternate same-blob G4 must retain the exact six-path cumulative WriteSet"
   expect_chrome_migration_static_failure "${alternate_root}" "${alternate_cards}" \
-    "Chrome authority migration HEAD must descend the successor Authority SHA" \
+    "Chrome authority migration HEAD must retain the rejected successor Authority" \
     "${invocation_tmp}" "${invocation_marker}" \
     "alternate same-blob Authority ancestry"
   negative_cases=$((negative_cases + 1))
 
   bad_root="${test_tmp_root}/chrome-authority-bad-governance"
   git clone --shared -q "${fixture_root}" "${bad_root}"
+  git -C "${bad_root}" config advice.detachedHead false
   local bad_cards="${bad_root}/docs/task-cards/visual-style-baseline"
   local bad_state="${bad_root}/${ledger_path}"
   local bad_tree bad_ancestry_sha replacement_tree replacement_sha origin_parent
@@ -3928,7 +4181,8 @@ run_chrome_authority_migration_contract() {
   git -C "${bad_root}" checkout -q --detach "${g4_sha}"
   replace_exact_block \
     "${bad_root}/docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md" \
-    "sed 's/[[:space:]]*\$//'" "sed 's/^[[:space:]]*//'" \
+    'Only trailing whitespace from `--version` is normalized' \
+    'Leading and trailing whitespace from `--version` is normalized' \
     "leading-whitespace Chrome normalization fixture"
   git -C "${bad_root}" add -- \
     docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
@@ -4020,6 +4274,11 @@ fi
 
 if [[ "${chrome_capture_source_contract_only}" -eq 1 ]]; then
   run_chrome_capture_source_contract
+  exit 0
+fi
+
+if [[ "${chrome_fixed_capture_contract_only}" -eq 1 ]]; then
+  run_chrome_fixed_capture_contract
   exit 0
 fi
 

@@ -45,10 +45,13 @@ ledger-only R3 才能成为新的 VSB-02 anchor。恢复不改变当前模型路
 及其实施计划
 [`2026-08-14-cognitura-vsb-chrome-authority-migration.md`](../../superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md)
 统一约束，固定 successor Authority SHA 为
-`a2d22c2e8218413d26f7d8940a9ea5564e59b7f0`。被拒绝的 predecessor
-Authority `ce2a3ca466cc4df2ff077017f1ddb03cb285416f` 及其固定候选
-`4a62647fdb8226cc5c0527c48f552ef553ff146e` 保留为 immutable
-`NO_GO / P1=1` 证据；两者都不是当前 Authority、G4 或 R4 base。固定 origin 为
+`55857a7e02147c3a5ea8e632250862e38bd6457f`。被拒绝的两组 predecessor
+Authority / candidate 分别为
+`ce2a3ca466cc4df2ff077017f1ddb03cb285416f` /
+`4a62647fdb8226cc5c0527c48f552ef553ff146e` 与
+`a2d22c2e8218413d26f7d8940a9ea5564e59b7f0` /
+`b0b77e878fd468f38d40ddd702c96ea8e7446658`；四者均保留为 immutable
+`NO_GO / P1=1` 证据，不是当前 Authority、G4 或 R4 base。固定 origin 为
 `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`。该 successor 只允许将 Chrome
 `151.0.7922.109` 精确迁移到 `151.0.7922.138`；G4 从 origin 起的累计
 WriteSet 必须精确为以下六路径：
