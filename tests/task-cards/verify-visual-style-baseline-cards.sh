@@ -2770,12 +2770,12 @@ if [[ "${current_pending_contract_only}" -eq 1 ]]; then
     fail "Visual Style Baseline task-card set is missing"
   current_pending_output="$(
     "${verifier}" --repo-root "${repo_root}" --cards-dir "${cards_dir}"
-  )" || fail "current receipt-correction candidate was rejected"
+  )" || fail "current verifier-recovery candidate was rejected"
   assert_contains "${current_pending_output}" \
     "VisualStyleBaselineTaskCardValidation = PASS"
   assert_contains "${current_pending_output}" \
-    "ReceiptCorrectionStatus = PENDING"
-  printf '%s\n' 'CurrentReceiptCorrectionPendingContract = PASS'
+    "VerifierRecoveryStatus = PENDING"
+  printf '%s\n' 'CurrentVerifierRecoveryPendingContract = PASS'
   exit 0
 fi
 
@@ -2923,15 +2923,27 @@ if [[ "${fixed_bootstrap_contract_only}" -eq 1 ]]; then
   exit 0
 fi
 
-# At the real correction candidate G2, static validation must distinguish the
-# approved pending correction from an ordinary receipt without mutating the ledger.
-current_receipt_correction_output="$(
+# At the real recovery candidate G3, static validation must distinguish the
+# approved pending recovery from an ordinary receipt without mutating the ledger.
+current_execution_state_version_values="$(
+  sed -n 's/^ExecutionStateVersion = //p' \
+    "${cards_dir}/execution-state.md"
+)"
+[[ "$(printf '%s\n' "${current_execution_state_version_values}" | \
+  awk 'NF { count += 1 } END { print count + 0 }')" -eq 1 ]] ||
+  fail "current execution state must contain ExecutionStateVersion exactly once"
+case "${current_execution_state_version_values}" in
+  3) current_verifier_recovery_status="PENDING" ;;
+  4) current_verifier_recovery_status="PASS" ;;
+  *) fail "current execution state has unsupported recovery version: ${current_execution_state_version_values}" ;;
+esac
+current_verifier_recovery_output="$(
   "${verifier}" --repo-root "${main_repo_root}" --cards-dir "${cards_dir}"
-)" || fail "current receipt-correction candidate was rejected"
-assert_contains "${current_receipt_correction_output}" \
+)" || fail "current verifier-recovery candidate was rejected"
+assert_contains "${current_verifier_recovery_output}" \
   "VisualStyleBaselineTaskCardValidation = PASS"
-assert_contains "${current_receipt_correction_output}" \
-  "ReceiptCorrectionStatus = PENDING"
+assert_contains "${current_verifier_recovery_output}" \
+  "VerifierRecoveryStatus = ${current_verifier_recovery_status}"
 
 missing_state_dir="${test_tmp_root}/missing-state"
 cp -R "${bootstrap_cards_dir}" "${missing_state_dir}"
