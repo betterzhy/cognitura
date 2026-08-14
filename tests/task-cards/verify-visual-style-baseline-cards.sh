@@ -3045,6 +3045,25 @@ run_chrome_authority_migration_contract() {
     fail "legal G4 pending verifier call leaked TMPDIR entries or changed its sibling"
   positive_cases=$((positive_cases + 1))
 
+  git -C "${fixture_root}" checkout -q --detach "${g4_sha}"
+  perl -0pi -e \
+    's/G4，才允许以 ledger-only/G4 才允许以 ledger-only/' \
+    "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+  git -C "${fixture_root}" add -- \
+    docs/task-cards/visual-style-baseline/README.md
+  git -C "${fixture_root}" commit -qm \
+    "test: commit invalid Chrome migration README authority"
+  bad_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  cp "${repo_root}/docs/task-cards/visual-style-baseline/README.md" \
+    "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+  expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+    "committed Chrome authority migration README block mismatch" \
+    "${invocation_tmp}" "${invocation_marker}" \
+    "pending G4 committed README masked by working tree"
+  negative_cases=$((negative_cases + 1))
+  git -C "${fixture_root}" restore --worktree -- \
+    docs/task-cards/visual-style-baseline/README.md
+
   local fixture_state="${fixture_root}/${ledger_path}"
   local r4_sha vsb03_candidate_sha vsb03_complete_sha later_sha bad_sha
   local field value field_index mutation bad_root side_sha main_sha
@@ -3373,15 +3392,51 @@ run_chrome_authority_migration_contract() {
   bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
     "test: mutate Chrome migration block after R4")"
   expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
-    "ordinary version-5 transition must preserve ChromeAuthorityMigration fields" \
+    "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block" \
     "${invocation_tmp}" "${invocation_marker}" \
     "post-R4 Chrome migration block mutation" "${r4_sha}" "${bad_sha}"
   negative_cases=$((negative_cases + 1))
   expect_chrome_migration_static_failure "${fixture_root}" "${fixture_cards}" \
-    "ordinary version-5 transition must preserve ChromeAuthorityMigration fields" \
+    "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block" \
     "${invocation_tmp}" "${invocation_marker}" \
     "static post-R4 Chrome migration block mutation history"
   negative_cases=$((negative_cases + 1))
+
+  for mutation in interleaved relocated unknown_prefix; do
+    git -C "${fixture_root}" checkout -q --detach "${r4_sha}"
+    set_legal_stop_by_user "${fixture_state}" "${r4_sha}"
+    set_field "${fixture_state}" TransitionSequence 11
+    case "${mutation}" in
+      interleaved)
+        perl -0pi -e \
+          's/(^ChromeAuthorityMigrationReviewRoute = deep_reviewer\n)/$1UnrelatedLedgerNote = PRESERVE_OUTSIDE_MIGRATION_BLOCK\n/m or die "missing Chrome migration interleave anchor\n"' \
+          "${fixture_state}"
+        ;;
+      relocated)
+        perl -0pi -e \
+          'if (s/(^ChromeAuthorityMigrationStatus = PASS\n.*?^ChromeAuthorityMigrationReviewVerdict = GO_P0_0_P1_0_P2_0\n)//ms) { my $block = $1; s/(^RemotePush = NOT_AUTHORIZED\n)/$1$block/m or die "missing Chrome migration relocation target\n" } else { die "missing Chrome migration block\n" }' \
+          "${fixture_state}"
+        ;;
+      unknown_prefix)
+        perl -0pi -e \
+          's/(^ChromeAuthorityMigrationReviewVerdict = GO_P0_0_P1_0_P2_0\n)/$1ChromeAuthorityMigrationUnknown = FORBIDDEN\n/m or die "missing Chrome migration unknown-prefix anchor\n"' \
+          "${fixture_state}"
+        ;;
+    esac
+    bad_sha="$(commit_chrome_authority_migration_ledger "${fixture_root}" \
+      "test: ordinary version-5 ${mutation} Chrome migration block")"
+    expect_chrome_migration_failure "${fixture_root}" "${fixture_cards}" \
+      "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "ordinary version-5 ${mutation} Chrome migration block" \
+      "${r4_sha}" "${bad_sha}"
+    negative_cases=$((negative_cases + 1))
+    expect_chrome_migration_static_failure "${fixture_root}" "${fixture_cards}" \
+      "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block" \
+      "${invocation_tmp}" "${invocation_marker}" \
+      "static ordinary version-5 ${mutation} Chrome migration history"
+    negative_cases=$((negative_cases + 1))
+  done
 
   local alternate_root="${test_tmp_root}/chrome-authority-alternate-commit"
   local alternate_cards="${alternate_root}/docs/task-cards/visual-style-baseline"
@@ -3654,8 +3709,8 @@ run_chrome_authority_migration_contract() {
 
   [[ "${positive_cases}" -eq 9 ]] ||
     fail "Chrome authority migration positive matrix count drifted from 9"
-  [[ "${negative_cases}" -eq 68 ]] ||
-    fail "Chrome authority migration negative matrix count drifted from 68"
+  [[ "${negative_cases}" -eq 75 ]] ||
+    fail "Chrome authority migration negative matrix count drifted from 75"
   printf '%s\n' \
     "ChromeAuthorityMigrationPositiveCases = ${positive_cases}" \
     "ChromeAuthorityMigrationNegativeCases = ${negative_cases}" \

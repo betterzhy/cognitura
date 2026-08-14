@@ -1896,6 +1896,22 @@ validate_chrome_authority_migration_plan_at_commit() {
     fail "Chrome authority migration plan must normalize trailing whitespace only"
 }
 
+validate_chrome_authority_migration_readme_at_commit() {
+  local commit_sha="$1"
+  local committed_readme
+  committed_readme="$(mktemp \
+    "${verifier_tmp_root}/committed-chrome-authority-readme.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${commit_sha}:docs/task-cards/visual-style-baseline/README.md" > \
+    "${committed_readme}" 2>/dev/null ||
+    fail "committed Chrome authority migration README is unavailable"
+  require_nul_free_file "${committed_readme}" \
+    "committed Chrome authority migration README block mismatch"
+  require_exact_block_once "${committed_readme}" \
+    "${expected_chrome_authority_migration_section}" \
+    "committed Chrome authority migration README block mismatch"
+}
+
 validate_chrome_authority_migration_chain() {
   local candidate_sha="$1"
   local origin_ledger previous_sha chain_sha parent_line path_count
@@ -2006,6 +2022,7 @@ validate_chrome_authority_migration_chain() {
   expected_paths="$(chrome_authority_migration_write_set | LC_ALL=C sort)"
   [[ "${actual_paths}" == "${expected_paths}" ]] ||
     fail "Chrome authority migration cumulative WriteSet must equal the exact six paths"
+  validate_chrome_authority_migration_readme_at_commit "${candidate_sha}"
 }
 
 validate_chrome_authority_migration_pending_head() {
@@ -2136,24 +2153,45 @@ require_chrome_authority_migration_state_values() {
     fail "Chrome authority migration review verdict mismatch"
 }
 
+write_expected_chrome_authority_migration_block() {
+  local candidate_sha="$1"
+  printf '%s\n' \
+    'ChromeAuthorityMigrationStatus = PASS' \
+    "ChromeAuthorityMigrationSpecSHA = ${chrome_authority_migration_spec_sha}" \
+    "ChromeAuthorityMigrationOriginReceiptSHA = ${chrome_authority_migration_origin_sha}" \
+    "ChromeAuthorityMigrationReviewedCandidateSHA = ${candidate_sha}" \
+    'ChromeAuthorityMigrationPreviousVersion = 151.0.7922.109' \
+    'ChromeAuthorityMigrationTargetVersion = 151.0.7922.138' \
+    'ChromeAuthorityMigrationReviewLevel = L3' \
+    'ChromeAuthorityMigrationReviewRoute = deep_reviewer' \
+    'ChromeAuthorityMigrationReviewEffort = xhigh' \
+    'ChromeAuthorityMigrationReviewMultiplicity = ONE' \
+    'ChromeAuthorityMigrationReviewVerdict = GO_P0_0_P1_0_P2_0'
+}
+
+require_canonical_chrome_authority_migration_block() {
+  local file="$1"
+  local candidate_sha="$2"
+  local expected_block anchored_block
+  expected_block="$(write_expected_chrome_authority_migration_block \
+    "${candidate_sha}")"
+  anchored_block=$'VerifierRecoveryReviewVerdict = GO_P0_0_P1_0_P2_0\n'"${expected_block}"
+  require_exact_block_once "${file}" "${anchored_block}" \
+    "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block"
+  [[ "$(grep -c '^ChromeAuthorityMigration' "${file}" || true)" -eq 11 ]] ||
+    fail "ordinary version-5 transition must preserve the exact canonical ChromeAuthorityMigration block"
+}
+
 require_chrome_authority_migration_fields_unchanged_between_files() {
   local base_file="$1"
   local head_file="$2"
-  local base_block head_block field
-  base_block="$(mktemp "${verifier_tmp_root}/base-chrome-authority-block.XXXXXX")"
-  head_block="$(mktemp "${verifier_tmp_root}/head-chrome-authority-block.XXXXXX")"
-  grep '^ChromeAuthorityMigration' "${base_file}" > "${base_block}" || true
-  grep '^ChromeAuthorityMigration' "${head_file}" > "${head_block}" || true
-  [[ "$(wc -l < "${base_block}" | tr -d ' ')" -eq 11 &&
-     "$(wc -l < "${head_block}" | tr -d ' ')" -eq 11 ]] ||
-    fail "ordinary version-5 transition must preserve ChromeAuthorityMigration fields"
-  while IFS= read -r field; do
-    [[ "$(grep -c "^${field} = " "${base_file}" || true)" -eq 1 &&
-       "$(grep -c "^${field} = " "${head_file}" || true)" -eq 1 ]] ||
-      fail "ordinary version-5 transition must preserve ChromeAuthorityMigration fields"
-  done < <(chrome_authority_migration_fields)
-  cmp -s "${base_block}" "${head_block}" ||
-    fail "ordinary version-5 transition must preserve ChromeAuthorityMigration fields"
+  local candidate_sha
+  candidate_sha="$(state_value_from_file \
+    "${base_file}" ChromeAuthorityMigrationReviewedCandidateSHA)"
+  require_canonical_chrome_authority_migration_block \
+    "${base_file}" "${candidate_sha}"
+  require_canonical_chrome_authority_migration_block \
+    "${head_file}" "${candidate_sha}"
 }
 
 validate_chrome_authority_migration_transition_files() {
@@ -2169,6 +2207,7 @@ validate_chrome_authority_migration_transition_files() {
       fail "CHROME_AUTHORITY_MIGRATION is allowed exactly once"
   done < <(chrome_authority_migration_fields)
   validate_chrome_authority_migration_chain "${pair_base}"
+  validate_chrome_authority_migration_readme_at_commit "${pair_head}"
   require_chrome_authority_migration_state_values "${head_file}" "${pair_base}"
   [[ "$(state_value_from_file "${head_file}" ExecutionStateVersion)" == 5 &&
      "$(state_value_from_file "${base_file}" TransitionSequence)" == 9 &&
@@ -2200,8 +2239,8 @@ validate_chrome_authority_migration_transition_files() {
 }
 
 validate_chrome_authority_migration_static_replay() {
-  local candidate_sha repository_head migration_receipt base_file receipt_file receipt_block
-  local head_file chain_sha chain_parent chain_file chain_block chain_kind
+  local candidate_sha repository_head migration_receipt base_file receipt_file
+  local head_file chain_sha chain_parent chain_file chain_kind
   local migration_count=0
   candidate_sha="$(state_value_from_file \
     "${state_file}" ChromeAuthorityMigrationReviewedCandidateSHA)"
@@ -2211,6 +2250,7 @@ validate_chrome_authority_migration_static_replay() {
     "${candidate_sha}" "${repository_head}" 2>/dev/null ||
     fail "Chrome authority migration reviewed candidate is not an ancestor of HEAD"
   validate_chrome_authority_migration_chain "${candidate_sha}"
+  validate_chrome_authority_migration_readme_at_commit "${repository_head}"
   migration_receipt="$(git -C "${repo_root}" rev-list \
     --reverse --first-parent "${candidate_sha}..${repository_head}" | sed -n '1p')"
   [[ -n "${migration_receipt}" &&
@@ -2222,7 +2262,6 @@ validate_chrome_authority_migration_static_replay() {
     fail "Chrome authority migration receipt diff must contain only execution-state.md"
   base_file="$(mktemp "${verifier_tmp_root}/static-chrome-base.XXXXXX")"
   receipt_file="$(mktemp "${verifier_tmp_root}/static-chrome-receipt.XXXXXX")"
-  receipt_block="$(mktemp "${verifier_tmp_root}/static-chrome-block.XXXXXX")"
   git -C "${repo_root}" show \
     "${candidate_sha}:${ledger_path}" > "${base_file}" 2>/dev/null ||
     fail "G4 ledger is missing"
@@ -2232,23 +2271,16 @@ validate_chrome_authority_migration_static_replay() {
   validate_chrome_authority_migration_transition_files \
     "${candidate_sha}" "${migration_receipt}" \
     "${base_file}" "${receipt_file}"
-  grep '^ChromeAuthorityMigration' "${receipt_file}" > "${receipt_block}" || true
-  [[ "$(wc -l < "${receipt_block}" | tr -d ' ')" -eq 11 ]] ||
-    fail "CHROME_AUTHORITY_MIGRATION receipt must contain the canonical migration block"
   while IFS= read -r chain_sha; do
     [[ -n "${chain_sha}" ]] || continue
     chain_parent="$(single_parent_of "${chain_sha}" \
       "post-R4 first-parent commit")"
     chain_file="$(mktemp "${verifier_tmp_root}/post-chrome-ledger.XXXXXX")"
-    chain_block="$(mktemp "${verifier_tmp_root}/post-chrome-block.XXXXXX")"
     git -C "${repo_root}" show \
       "${chain_sha}:${ledger_path}" > "${chain_file}" 2>/dev/null ||
       fail "post-R4 ledger is missing"
-    grep '^ChromeAuthorityMigration' "${chain_file}" > "${chain_block}" || true
-    [[ "$(wc -l < "${chain_block}" | tr -d ' ')" -eq 11 ]] ||
-      fail "ordinary version-5 transition must preserve ChromeAuthorityMigration fields"
-    cmp -s "${receipt_block}" "${chain_block}" ||
-      fail "ordinary version-5 transition must preserve ChromeAuthorityMigration fields"
+    require_chrome_authority_migration_fields_unchanged_between_files \
+      "${receipt_file}" "${chain_file}"
     if commit_is_ledger_only "${chain_parent}" "${chain_sha}"; then
       chain_kind="$(commit_ledger_field "${chain_sha}" TransitionKind || true)"
       [[ "${chain_kind}" == CHROME_AUTHORITY_MIGRATION ]] &&
