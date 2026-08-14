@@ -18,8 +18,12 @@ receipt_correction_spec_sha="dc4a105bbe95b1b07fa0e734cec1148eab15279c"
 receipt_correction_plan_sha="f4bd848186a4a4d2d771d0d031340483bfa5de9b"
 receipt_correction_origin_sha="0ff410961b0f3865652e54ae46453646ed87f69e"
 receipt_correction_reviewed_vsb01_sha="108592b757ba50ea6ded7b901bd2b623737a7048"
+verifier_recovery_spec_sha="5799d873791694f7e4cb4a2dbe65c8fa27495beb"
+verifier_recovery_origin_sha="9904d3deb87e4a3e2820c5a12463929916057c36"
+verifier_recovery_failed_candidate_sha="b16f867bfb951bf969ac8c4a8697c8b8913325bd"
 governance_repair_status_output=""
 receipt_correction_status_output=""
+verifier_recovery_status_output=""
 verifier_tmp_root="$(
   mktemp -d "${TMPDIR:-/tmp}/cognitura-vsb-verifier.XXXXXX"
 )"
@@ -1314,6 +1318,72 @@ path_is_in_owner_write_set() {
   return 1
 }
 
+validate_canonical_visual_reference_html() {
+  local child_sha="$1"
+  local copy_target=web/visual-reference.html
+  local html_file expected_html_file
+  html_file="$(mktemp "${verifier_tmp_root}/visual-reference-html.XXXXXX")"
+  expected_html_file="$(mktemp "${verifier_tmp_root}/expected-visual-reference-html.XXXXXX")"
+  git -C "${repo_root}" show "${child_sha}:${copy_target}" > "${html_file}" 2>/dev/null ||
+    fail "literal C053 target HTML is unavailable"
+  require_nul_free_file "${html_file}" "literal C053 target HTML must not contain NUL bytes"
+  printf '%s\n' \
+    '<!doctype html>' \
+    '<html lang="zh-CN">' \
+    '  <head>' \
+    '    <meta charset="UTF-8" />' \
+    '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />' \
+    '    <title>Cognitura Visual Reference</title>' \
+    '  </head>' \
+    '  <body>' \
+    '    <div id="visual-reference-root"></div>' \
+    '    <script type="module" src="/src/visual-reference/main.tsx"></script>' \
+    '  </body>' \
+    '</html>' > "${expected_html_file}"
+  cmp -s "${html_file}" "${expected_html_file}" ||
+    fail "literal C053 target HTML must match the exact canonical document"
+}
+
+validate_literal_visual_reference_copy() {
+  local owner_index="$1"
+  local parent_sha="$2"
+  local child_sha="$3"
+  local copy_status="$4"
+  local copy_source="$5"
+  local copy_target="$6"
+  local parent_source child_source parent_target child_target
+  local source_mode source_blob child_source_mode child_source_blob
+  local target_mode target_blob
+  [[ "${copy_status}" == C053 &&
+     "${copy_source}" == web/index.html &&
+     "${copy_target}" == web/visual-reference.html &&
+     "${owner_index}" -eq 2 ]] ||
+    fail "candidate chain commit must not rename or copy paths"
+  path_is_in_owner_write_set "${owner_index}" "${copy_target}" ||
+    fail "candidate chain commit must not rename or copy paths"
+  parent_source="$(git -C "${repo_root}" ls-tree \
+    "${parent_sha}" -- "${copy_source}")"
+  child_source="$(git -C "${repo_root}" ls-tree \
+    "${child_sha}" -- "${copy_source}")"
+  parent_target="$(git -C "${repo_root}" ls-tree \
+    "${parent_sha}" -- "${copy_target}")"
+  child_target="$(git -C "${repo_root}" ls-tree \
+    "${child_sha}" -- "${copy_target}")"
+  [[ -n "${parent_source}" && "${parent_source}" == "${child_source}" ]] ||
+    fail "literal C053 source must be unchanged in parent and child"
+  [[ -z "${parent_target}" && -n "${child_target}" ]] ||
+    fail "literal C053 target must be absent in the parent and added in the child"
+  read -r source_mode _ source_blob _ <<< "${parent_source}"
+  read -r child_source_mode _ child_source_blob _ <<< "${child_source}"
+  read -r target_mode _ target_blob _ <<< "${child_target}"
+  [[ "${source_mode}" == 100644 && "${child_source_mode}" == 100644 &&
+     "${source_blob}" == "${child_source_blob}" ]] ||
+    fail "literal C053 source blob and mode must remain unchanged"
+  [[ "${target_mode}" == 100644 && "${target_blob}" != "${source_blob}" ]] ||
+    fail "literal C053 target must be a distinct canonical file"
+  validate_canonical_visual_reference_html "${child_sha}"
+}
+
 commit_is_ledger_only() {
   local parent_sha="$1"
   local child_sha="$2"
@@ -1327,7 +1397,7 @@ require_governance_repair_state_values() {
   local file="$1"
   local candidate_sha="$2"
   case "$(state_value_from_file "${file}" ExecutionStateVersion)" in
-    2|3) ;;
+    2|3|4) ;;
     *)
     fail "GOVERNANCE_REPAIR must upgrade ExecutionStateVersion from 1 to 2"
       ;;
@@ -1448,6 +1518,9 @@ ledger_receipt_claims_owner_release() {
     RECEIPT_CORRECTION)
       [[ "${owner_id}" == VSB-02 ]] || return 1
       ;;
+    VERIFIER_RECOVERY)
+      [[ "${owner_id}" == VSB-02 ]] || return 1
+      ;;
     *) return 1 ;;
   esac
   [[ "$(commit_ledger_field "${receipt_sha}" TransitionBaseSHA)" == \
@@ -1488,7 +1561,7 @@ validate_candidate_chain_commit() {
   local parent_sha="$2"
   local child_sha="$3"
   local actual_parent changed_paths candidate_path parent_mode child_mode
-  local raw_status_file raw_error_file
+  local raw_status_file raw_error_file status_token status_path status_target
   actual_parent="$(single_parent_of "${child_sha}" \
     "candidate chain commit")"
   [[ "${actual_parent}" == "${parent_sha}" ]] ||
@@ -1502,17 +1575,31 @@ validate_candidate_chain_commit() {
   raw_error_file="$(mktemp \
     "${verifier_tmp_root}/candidate-raw-error.XXXXXX")"
   if ! git -C "${repo_root}" -c diff.renameLimit=0 \
-    diff-tree --no-commit-id -r -M -C --find-copies-harder --name-status \
+    diff-tree --no-commit-id -r -M -C --find-copies-harder --name-status -z \
     "${parent_sha}" "${child_sha}" \
     > "${raw_status_file}" 2> "${raw_error_file}"; then
     fail "candidate chain rename and copy inspection failed"
   fi
   [[ ! -s "${raw_error_file}" ]] ||
     fail "candidate chain rename and copy inspection was degraded"
-  if awk '$1 ~ /^[RC][0-9]+$/ { found = 1 } END { exit !found }' \
-    "${raw_status_file}"; then
-    fail "candidate chain commit must not rename or copy paths"
-  fi
+  while IFS= read -r -d '' status_token; do
+    IFS= read -r -d '' status_path ||
+      fail "candidate chain rename and copy inspection failed"
+    case "${status_token}" in
+      R*)
+        IFS= read -r -d '' status_target ||
+          fail "candidate chain rename and copy inspection failed"
+        fail "candidate chain commit must not rename or copy paths"
+        ;;
+      C*)
+        IFS= read -r -d '' status_target ||
+          fail "candidate chain rename and copy inspection failed"
+        validate_literal_visual_reference_copy \
+          "${owner_index}" "${parent_sha}" "${child_sha}" \
+          "${status_token}" "${status_path}" "${status_target}"
+        ;;
+    esac
+  done < "${raw_status_file}"
   while IFS= read -r candidate_path; do
     [[ "${candidate_path}" != "${ledger_path}" ]] ||
       fail "candidate chain must not modify the execution ledger"
@@ -1531,6 +1618,356 @@ validate_candidate_chain_commit() {
       *) fail "candidate chain commit must preserve existing file modes" ;;
     esac
   done <<< "${changed_paths}"
+}
+
+verifier_recovery_fields() {
+  printf '%s\n' \
+    VerifierRecoveryStatus VerifierRecoverySpecSHA \
+    VerifierRecoveryOriginReceiptSHA VerifierRecoveryFailedCandidateSHA \
+    VerifierRecoveryReviewedCandidateSHA VerifierRecoveryReviewLevel \
+    VerifierRecoveryReviewRoute VerifierRecoveryReviewEffort \
+    VerifierRecoveryReviewMultiplicity VerifierRecoveryReviewVerdict
+}
+
+verifier_recovery_write_set() {
+  printf '%s\n' \
+    docs/superpowers/specs/2026-08-14-cognitura-vsb-copy-classification-recovery-design.md \
+    docs/superpowers/plans/2026-08-14-cognitura-vsb-copy-classification-recovery.md \
+    docs/task-cards/visual-style-baseline/README.md \
+    scripts/verify-visual-style-baseline-cards \
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+}
+
+verifier_recovery_expected_mode() {
+  case "$1" in
+    scripts/verify-visual-style-baseline-cards|tests/task-cards/verify-visual-style-baseline-cards.sh)
+      printf '100755\n'
+      ;;
+    docs/superpowers/specs/2026-08-14-cognitura-vsb-copy-classification-recovery-design.md|\
+    docs/superpowers/plans/2026-08-14-cognitura-vsb-copy-classification-recovery.md|\
+    docs/task-cards/visual-style-baseline/README.md)
+      printf '100644\n'
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+validate_verifier_recovery_chain() {
+  local candidate_sha="$1"
+  local previous_sha chain_sha actual_parent path_count recovery_path expected_mode
+  local origin_ledger chain_ledger actual_paths expected_paths
+  local status_file error_file status_token status_path status_target content_file
+  local authority_path authority_blob chain_blob chain_mode
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${verifier_recovery_origin_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "fixed verifier-recovery origin is absent from G3 ancestry"
+  [[ "${candidate_sha}" != "${verifier_recovery_origin_sha}" ]] ||
+    fail "fixed verifier-recovery origin is not a pending G3 candidate"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${verifier_recovery_spec_sha}" "${candidate_sha}" 2>/dev/null ||
+    fail "fixed revised verifier-recovery Authority is absent from G3 ancestry"
+  origin_ledger="$(git -C "${repo_root}" rev-parse \
+    "${verifier_recovery_origin_sha}:${ledger_path}" 2>/dev/null)" ||
+    fail "fixed verifier-recovery origin ledger is missing"
+  previous_sha="${verifier_recovery_origin_sha}"
+  while IFS= read -r chain_sha; do
+    [[ -n "${chain_sha}" ]] || continue
+    actual_parent="$(single_parent_of "${chain_sha}" \
+      "verifier recovery governance commit")"
+    [[ "${actual_parent}" == "${previous_sha}" ]] ||
+      fail "verifier recovery governance commit must have exactly one parent"
+    status_file="$(mktemp "${verifier_tmp_root}/recovery-status.XXXXXX")"
+    error_file="$(mktemp "${verifier_tmp_root}/recovery-error.XXXXXX")"
+    if ! git -C "${repo_root}" -c diff.renameLimit=0 diff-tree \
+      --no-commit-id -r -M -C --find-copies-harder --name-status -z \
+      "${previous_sha}" "${chain_sha}" > "${status_file}" 2> "${error_file}"; then
+      fail "verifier recovery governance rename and copy inspection failed"
+    fi
+    [[ ! -s "${error_file}" ]] ||
+      fail "verifier recovery governance rename and copy inspection was degraded"
+    path_count=0
+    while IFS= read -r -d '' status_token; do
+      IFS= read -r -d '' status_path ||
+        fail "verifier recovery governance path inspection failed"
+      case "${status_token}" in
+        R*|C*)
+          IFS= read -r -d '' status_target ||
+            fail "verifier recovery governance path inspection failed"
+          fail "verifier recovery governance chain must not rename or copy paths"
+          ;;
+      esac
+    done < "${status_file}"
+    while IFS= read -r -d '' recovery_path; do
+      path_count=$((path_count + 1))
+      expected_mode="$(verifier_recovery_expected_mode "${recovery_path}")" ||
+        fail "verifier recovery governance chain changed a path outside the exact five-path WriteSet"
+      chain_mode="$(git -C "${repo_root}" ls-tree \
+        "${chain_sha}" -- "${recovery_path}" | awk '{print $1}')"
+      [[ "${chain_mode}" == "${expected_mode}" ]] ||
+        fail "verifier recovery governance path mode drifted"
+      content_file="$(mktemp "${verifier_tmp_root}/recovery-content.XXXXXX")"
+      git -C "${repo_root}" show \
+        "${chain_sha}:${recovery_path}" > "${content_file}" 2>/dev/null ||
+        fail "verifier recovery governance path blob is unavailable"
+      require_nul_free_file "${content_file}" \
+        "verifier recovery governance path must not contain NUL bytes"
+    done < <(git -C "${repo_root}" diff --no-renames --name-only -z \
+      "${previous_sha}..${chain_sha}")
+    [[ "${path_count}" -gt 0 ]] ||
+      fail "verifier recovery governance commit must not be empty"
+    chain_ledger="$(git -C "${repo_root}" rev-parse \
+      "${chain_sha}:${ledger_path}" 2>/dev/null)" ||
+      fail "verifier recovery governance ledger is missing"
+    [[ "${chain_ledger}" == "${origin_ledger}" ]] ||
+      fail "verifier recovery governance chain must preserve the origin ledger bytes"
+    for authority_path in \
+      docs/superpowers/specs/2026-08-14-cognitura-vsb-copy-classification-recovery-design.md \
+      docs/superpowers/plans/2026-08-14-cognitura-vsb-copy-classification-recovery.md; do
+      if git -C "${repo_root}" merge-base --is-ancestor \
+          "${verifier_recovery_spec_sha}" "${chain_sha}" 2>/dev/null; then
+        authority_blob="$(git -C "${repo_root}" rev-parse \
+          "${verifier_recovery_spec_sha}:${authority_path}" 2>/dev/null)" ||
+          fail "fixed verifier-recovery Authority blob is unavailable"
+        chain_blob="$(git -C "${repo_root}" rev-parse \
+          "${chain_sha}:${authority_path}" 2>/dev/null)" ||
+          fail "fixed verifier-recovery Authority blob drifted"
+        chain_mode="$(git -C "${repo_root}" ls-tree \
+          "${chain_sha}" -- "${authority_path}" | awk '{print $1}')"
+        [[ "${chain_blob}" == "${authority_blob}" && "${chain_mode}" == 100644 ]] ||
+          fail "fixed verifier-recovery Authority blob or mode drifted"
+      fi
+    done
+    previous_sha="${chain_sha}"
+  done < <(git -C "${repo_root}" rev-list --reverse --first-parent \
+    "${verifier_recovery_origin_sha}..${candidate_sha}")
+  [[ "${previous_sha}" == "${candidate_sha}" ]] ||
+    fail "G3 must be the verifier recovery governance chain tip"
+  actual_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+    "${verifier_recovery_origin_sha}..${candidate_sha}" | LC_ALL=C sort)"
+  expected_paths="$(verifier_recovery_write_set | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "verifier recovery governance chain must have the exact five-path cumulative WriteSet"
+}
+
+validate_verifier_recovery_pending_head() {
+  local candidate_sha="$1"
+  local repository_head origin_blob head_blob working_blob field
+  repository_head="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null)" ||
+    fail "repository HEAD is unavailable"
+  [[ "${candidate_sha}" == "${repository_head}" ]] ||
+    fail "pending G3 must equal repository HEAD"
+  origin_blob="$(git -C "${repo_root}" rev-parse \
+    "${verifier_recovery_origin_sha}:${ledger_path}")"
+  head_blob="$(git -C "${repo_root}" rev-parse \
+    "${candidate_sha}:${ledger_path}")"
+  working_blob="$(git -C "${repo_root}" hash-object "${state_file}")"
+  [[ "${origin_blob}" == "${head_blob}" && "${head_blob}" == "${working_blob}" ]] ||
+    fail "pending G3 must preserve the fixed origin ledger bytes"
+  while IFS= read -r field; do
+    [[ "$(grep -c "^${field} = " "${state_file}" || true)" -eq 0 ]] ||
+      fail "pending G3 ledger must not contain verifier recovery fields"
+  done < <(verifier_recovery_fields)
+  [[ "$(state_value_from_file "${state_file}" ExecutionStateVersion)" == 3 &&
+     "$(state_value_from_file "${state_file}" TransitionSequence)" == 6 &&
+     "$(state_value_from_file "${state_file}" TransitionKind)" == RETURN_TO_OWNER &&
+     "$(state_value_from_file "${state_file}" TransitionBaseSHA)" == "${verifier_recovery_failed_candidate_sha}" &&
+     "$(state_value_from_file "${state_file}" Owner)" == VSB-02 &&
+     "$(state_value_from_file "${state_file}" CurrentCandidateSHA)" == "${verifier_recovery_failed_candidate_sha}" &&
+     "$(state_value_from_file "${state_file}" CurrentGateStatus)" == FAIL &&
+     "$(state_value_from_file "${state_file}" CurrentReviewVerdict)" == FINDING_P0_0_P1_1_P2_1 ]] ||
+    fail "pending G3 must preserve the fixed VSB-02 finding state"
+  validate_verifier_recovery_chain "${candidate_sha}"
+  validate_candidate_chain_commit 2 \
+    "$(single_parent_of "${verifier_recovery_failed_candidate_sha}" \
+      "failed VSB-02 candidate")" "${verifier_recovery_failed_candidate_sha}"
+}
+
+build_expected_verifier_recovery_ledger() {
+  local origin_file="$1"
+  local expected_file="$2"
+  local candidate_sha="$3"
+  awk -v candidate_sha="${candidate_sha}" \
+      -v spec_sha="${verifier_recovery_spec_sha}" '
+    /^ExecutionStateVersion = 3$/ { print "ExecutionStateVersion = 4"; next }
+    { print }
+    /^ReceiptCorrectionReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0$/ {
+      print "VerifierRecoveryStatus = PASS"
+      print "VerifierRecoverySpecSHA = " spec_sha
+      print "VerifierRecoveryOriginReceiptSHA = 9904d3deb87e4a3e2820c5a12463929916057c36"
+      print "VerifierRecoveryFailedCandidateSHA = b16f867bfb951bf969ac8c4a8697c8b8913325bd"
+      print "VerifierRecoveryReviewedCandidateSHA = " candidate_sha
+      print "VerifierRecoveryReviewLevel = L3"
+      print "VerifierRecoveryReviewRoute = deep_reviewer"
+      print "VerifierRecoveryReviewEffort = xhigh"
+      print "VerifierRecoveryReviewMultiplicity = ONE"
+      print "VerifierRecoveryReviewVerdict = GO_P0_0_P1_0_P2_0"
+    }
+  ' "${origin_file}" | awk -v candidate_sha="${candidate_sha}" '
+    /^TransitionSequence = 6$/ { print "TransitionSequence = 7"; next }
+    /^TransitionKind = RETURN_TO_OWNER$/ { print "TransitionKind = VERIFIER_RECOVERY"; next }
+    /^TransitionBaseSHA = b16f867bfb951bf969ac8c4a8697c8b8913325bd$/ {
+      print "TransitionBaseSHA = " candidate_sha; next
+    }
+    /^Owner = VSB-02$/ { next }
+    { print }
+  ' > "${expected_file}" ||
+    fail "could not build the approved VERIFIER_RECOVERY ledger"
+}
+
+require_verifier_recovery_state_values() {
+  local file="$1"
+  local candidate_sha="$2"
+  local field
+  while IFS= read -r field; do
+    [[ "$(grep -c "^${field} = " "${file}" || true)" -eq 1 ]] ||
+      fail "verifier recovery field must occur exactly once: ${field}"
+  done < <(verifier_recovery_fields)
+  [[ "$(state_value_from_file "${file}" VerifierRecoveryStatus)" == PASS &&
+     "$(state_value_from_file "${file}" VerifierRecoverySpecSHA)" == "${verifier_recovery_spec_sha}" &&
+     "$(state_value_from_file "${file}" VerifierRecoveryOriginReceiptSHA)" == "${verifier_recovery_origin_sha}" &&
+     "$(state_value_from_file "${file}" VerifierRecoveryFailedCandidateSHA)" == "${verifier_recovery_failed_candidate_sha}" &&
+     "$(state_value_from_file "${file}" VerifierRecoveryReviewedCandidateSHA)" == "${candidate_sha}" &&
+     "$(state_value_from_file "${file}" VerifierRecoveryReviewLevel)" == L3 &&
+     "$(state_value_from_file "${file}" VerifierRecoveryReviewRoute)" == deep_reviewer &&
+     "$(state_value_from_file "${file}" VerifierRecoveryReviewEffort)" == xhigh &&
+     "$(state_value_from_file "${file}" VerifierRecoveryReviewMultiplicity)" == ONE &&
+     "$(state_value_from_file "${file}" VerifierRecoveryReviewVerdict)" == GO_P0_0_P1_0_P2_0 ]] ||
+    fail "verifier recovery canonical block mismatch"
+}
+
+require_verifier_recovery_fields_unchanged_between_files() {
+  local base_file="$1"
+  local head_file="$2"
+  local field base_block head_block
+  base_block="$(mktemp "${verifier_tmp_root}/base-recovery-block.XXXXXX")"
+  head_block="$(mktemp "${verifier_tmp_root}/head-recovery-block.XXXXXX")"
+  grep '^VerifierRecovery' "${base_file}" > "${base_block}" || true
+  grep '^VerifierRecovery' "${head_file}" > "${head_block}" || true
+  [[ "$(wc -l < "${base_block}" | tr -d ' ')" -eq 10 &&
+     "$(wc -l < "${head_block}" | tr -d ' ')" -eq 10 ]] ||
+    fail "ordinary version-4 transition must preserve VerifierRecovery fields"
+  while IFS= read -r field; do
+    [[ "$(grep -c "^${field} = " "${base_file}" || true)" -eq 1 &&
+       "$(grep -c "^${field} = " "${head_file}" || true)" -eq 1 ]] ||
+      fail "ordinary version-4 transition must preserve VerifierRecovery fields"
+  done < <(verifier_recovery_fields)
+  cmp -s "${base_block}" "${head_block}" ||
+    fail "ordinary version-4 transition must preserve VerifierRecovery fields"
+}
+
+validate_verifier_recovery_transition_files() {
+  local pair_base="$1"
+  local pair_head="$2"
+  local base_file="$3"
+  local head_file="$4"
+  local field origin_file expected_file base_mode head_mode
+  [[ "$(state_value_from_file "${base_file}" ExecutionStateVersion)" == 3 ]] ||
+    fail "VERIFIER_RECOVERY is allowed exactly once"
+  while IFS= read -r field; do
+    [[ "$(grep -c "^${field} = " "${base_file}" || true)" -eq 0 ]] ||
+      fail "VERIFIER_RECOVERY is allowed exactly once"
+  done < <(verifier_recovery_fields)
+  validate_verifier_recovery_chain "${pair_base}"
+  require_verifier_recovery_state_values "${head_file}" "${pair_base}"
+  [[ "$(state_value_from_file "${head_file}" ExecutionStateVersion)" == 4 &&
+     "$(state_value_from_file "${head_file}" TransitionSequence)" == 7 &&
+     "$(state_value_from_file "${head_file}" TransitionKind)" == VERIFIER_RECOVERY &&
+     "$(state_value_from_file "${head_file}" TransitionBaseSHA)" == "${pair_base}" &&
+     "$(grep -c '^Owner = ' "${head_file}" || true)" -eq 0 ]] ||
+    fail "VERIFIER_RECOVERY transition fields mismatch"
+  origin_file="$(mktemp "${verifier_tmp_root}/recovery-origin-ledger.XXXXXX")"
+  expected_file="$(mktemp "${verifier_tmp_root}/expected-recovery-ledger.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${verifier_recovery_origin_sha}:${ledger_path}" > "${origin_file}" 2>/dev/null ||
+    fail "fixed verifier-recovery origin ledger is missing"
+  cmp -s "${origin_file}" "${base_file}" ||
+    fail "G3 ledger must be byte-identical to the fixed recovery origin"
+  build_expected_verifier_recovery_ledger \
+    "${origin_file}" "${expected_file}" "${pair_base}"
+  require_nul_free_file "${head_file}" "VERIFIER_RECOVERY ledger must not contain NUL bytes"
+  cmp -s "${expected_file}" "${head_file}" ||
+    fail "VERIFIER_RECOVERY receipt must be the exact approved ledger transform"
+  base_mode="$(git -C "${repo_root}" ls-tree \
+    "${pair_base}" -- "${ledger_path}" | awk '{print $1}')"
+  head_mode="$(git -C "${repo_root}" ls-tree \
+    "${pair_head}" -- "${ledger_path}" | awk '{print $1}')"
+  [[ "${base_mode}" == 100644 && "${head_mode}" == 100644 ]] ||
+    fail "VERIFIER_RECOVERY receipt ledger mode must remain canonical"
+}
+
+validate_verifier_recovery_static_replay() {
+  local candidate_sha repository_head recovery_receipt receipt_file receipt_block
+  local chain_sha chain_parent chain_file chain_block chain_kind recovery_count=0
+  candidate_sha="$(state_value_from_file \
+    "${state_file}" VerifierRecoveryReviewedCandidateSHA)"
+  repository_head="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null)" ||
+    fail "repository HEAD is unavailable"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${candidate_sha}" "${repository_head}" 2>/dev/null ||
+    fail "verifier recovery reviewed candidate is not an ancestor of HEAD"
+  validate_verifier_recovery_chain "${candidate_sha}"
+  recovery_receipt="$(git -C "${repo_root}" rev-list \
+    --reverse --first-parent "${candidate_sha}..${repository_head}" | sed -n '1p')"
+  [[ -n "${recovery_receipt}" &&
+     "$(single_parent_of "${recovery_receipt}" "VERIFIER_RECOVERY receipt")" == \
+       "${candidate_sha}" ]] ||
+    fail "VERIFIER_RECOVERY receipt must be the direct child of G3"
+  receipt_file="$(mktemp "${verifier_tmp_root}/static-recovery-receipt.XXXXXX")"
+  receipt_block="$(mktemp "${verifier_tmp_root}/static-recovery-block.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${recovery_receipt}:${ledger_path}" > "${receipt_file}" 2>/dev/null ||
+    fail "VERIFIER_RECOVERY receipt ledger is missing"
+  grep '^VerifierRecovery' "${receipt_file}" > "${receipt_block}" || true
+  [[ "$(wc -l < "${receipt_block}" | tr -d ' ')" -eq 10 ]] ||
+    fail "VERIFIER_RECOVERY receipt must contain the canonical recovery block"
+  validate_parent_receipt_transition_pair \
+    "${candidate_sha}" "${recovery_receipt}" 0
+  while IFS= read -r chain_sha; do
+    [[ -n "${chain_sha}" ]] || continue
+    chain_parent="$(single_parent_of "${chain_sha}" "post-recovery first-parent commit")"
+    chain_file="$(mktemp "${verifier_tmp_root}/post-recovery-ledger.XXXXXX")"
+    chain_block="$(mktemp "${verifier_tmp_root}/post-recovery-block.XXXXXX")"
+    git -C "${repo_root}" show \
+      "${chain_sha}:${ledger_path}" > "${chain_file}" 2>/dev/null ||
+      fail "post-R3 ledger is missing"
+    grep '^VerifierRecovery' "${chain_file}" > "${chain_block}" || true
+    [[ "$(wc -l < "${chain_block}" | tr -d ' ')" -eq 10 ]] ||
+      fail "post-R3 history must preserve the canonical VerifierRecovery block"
+    cmp -s "${receipt_block}" "${chain_block}" ||
+      fail "post-R3 history must preserve the canonical VerifierRecovery block"
+    if commit_is_ledger_only "${chain_parent}" "${chain_sha}"; then
+      chain_kind="$(commit_ledger_field "${chain_sha}" TransitionKind || true)"
+      [[ "${chain_kind}" == VERIFIER_RECOVERY ]] &&
+        recovery_count=$((recovery_count + 1))
+    fi
+  done < <(git -C "${repo_root}" rev-list --first-parent \
+    "${candidate_sha}..${repository_head}")
+  [[ "${recovery_count}" -eq 1 ]] ||
+    fail "VERIFIER_RECOVERY is allowed exactly once"
+  require_verifier_recovery_fields_unchanged_between_files \
+    "${receipt_file}" "${state_file}"
+}
+
+validate_latest_nonterminal_receipt_static() {
+  local latest_receipt latest_parent latest_file latest_kind
+  latest_receipt="$(git -C "${repo_root}" log -1 --first-parent \
+    --format=%H HEAD -- "${ledger_path}")"
+  [[ -n "${latest_receipt}" ]] || fail "static ledger receipt is missing"
+  latest_parent="$(single_parent_of "${latest_receipt}" "latest static ledger receipt")"
+  latest_file="$(mktemp "${verifier_tmp_root}/latest-static-ledger.XXXXXX")"
+  git -C "${repo_root}" show \
+    "${latest_receipt}:${ledger_path}" > "${latest_file}" 2>/dev/null ||
+    fail "latest static ledger receipt is missing"
+  cmp -s "${latest_file}" "${state_file}" ||
+    fail "working ledger must match the latest first-parent receipt"
+  latest_kind="$(state_value_from_file "${latest_file}" TransitionKind)"
+  case "${latest_kind}" in
+    ACTIVATE_SET|ADVANCE|RETURN_TO_OWNER|GOVERNANCE_REPAIR|RECEIPT_CORRECTION|VERIFIER_RECOVERY)
+      validate_parent_receipt_transition_pair \
+        "${latest_parent}" "${latest_receipt}" 0
+      ;;
+    *) fail "latest static ledger-changing commit is not an ordinary receipt" ;;
+  esac
 }
 
 validate_candidate_mode_history() {
@@ -1609,11 +2046,13 @@ validate_parent_receipt_transition_pair() {
   local ledger_path pair_dir pair_base_file pair_head_file pair_paths
   local base_sequence head_sequence head_kind immutable_field governance_field
   local receipt_index base_active owner_index base_completed head_completed
-  local correction_intent=0 correction_field
+  local correction_intent=0 correction_field recovery_intent=0 recovery_field
   local expected_base_prefix expected_head_prefix expected_head_active expected_head_next
   local head_owner return_owner_index failed_owner_index expected_return_prefix expected_return_next
   [[ "${pair_head}" != "${governance_repair_origin_sha}" ]] ||
     fail "fixed governance repair origin is not a valid ordinary VSB receipt"
+  [[ "${pair_head}" != "${verifier_recovery_origin_sha}" ]] ||
+    fail "fixed verifier-recovery origin is not a valid ordinary VSB receipt"
   [[ "$(single_parent_of "${pair_head}" "candidate-parent ledger receipt")" == "${pair_base}" ]] ||
     fail "receipt HEAD must be the direct child of its BASE"
   ledger_path=docs/task-cards/visual-style-baseline/execution-state.md
@@ -1635,6 +2074,22 @@ validate_parent_receipt_transition_pair() {
   base_sequence="$(state_value_from_file "${pair_base_file}" TransitionSequence)"
   head_sequence="$(state_value_from_file "${pair_head_file}" TransitionSequence)"
   head_kind="$(state_value_from_file "${pair_head_file}" TransitionKind)"
+  if [[ "${head_kind}" == VERIFIER_RECOVERY ]]; then
+    recovery_intent=1
+  elif [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 3 ]]; then
+    while IFS= read -r recovery_field; do
+      if grep -q "^${recovery_field} = " "${pair_head_file}"; then
+        recovery_intent=1
+        break
+      fi
+    done < <(verifier_recovery_fields)
+  fi
+  if [[ "${recovery_intent}" -eq 1 ]]; then
+    validate_verifier_recovery_transition_files \
+      "${pair_base}" "${pair_head}" "${pair_base_file}" "${pair_head_file}"
+    rm -rf -- "${pair_dir}"
+    return 0
+  fi
   if [[ "${head_kind}" == RECEIPT_CORRECTION ]]; then
     correction_intent=1
   elif [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 2 ]]; then
@@ -1683,6 +2138,13 @@ validate_parent_receipt_transition_pair() {
     require_repair_fields_unchanged_between_files \
       "${pair_base_file}" "${pair_head_file}"
     require_receipt_correction_fields_unchanged_between_files \
+      "${pair_base_file}" "${pair_head_file}"
+  elif [[ "$(state_value_from_file "${pair_base_file}" ExecutionStateVersion)" == 4 ]]; then
+    require_repair_fields_unchanged_between_files \
+      "${pair_base_file}" "${pair_head_file}"
+    require_receipt_correction_fields_unchanged_between_files \
+      "${pair_base_file}" "${pair_head_file}"
+    require_verifier_recovery_fields_unchanged_between_files \
       "${pair_base_file}" "${pair_head_file}"
   fi
   if [[ "${head_kind}" != ACTIVATE_SET ]]; then
@@ -1848,7 +2310,7 @@ validate_parent_receipt_transition_pair() {
         fail "COMPLETE receipt must close VSB-03 after the exact predecessor prefix"
       expected_pair_complete_route=deep_reviewer+ultra_gatekeeper
       if [[ "${model_route_schema_current}" -eq 1 &&
-            "$(state_value_from_file "${pair_head_file}" ExecutionStateVersion)" == 3 ]]; then
+            "$(state_value_from_file "${pair_head_file}" ExecutionStateVersion)" =~ ^(3|4)$ ]]; then
         expected_pair_complete_route=deep_reviewer
       fi
       [[ "$(state_value_from_file "${pair_head_file}" CurrentCandidateSHA)" == "${pair_base}" &&
@@ -1868,7 +2330,7 @@ validate_parent_receipt_transition_pair() {
          "$(state_value_from_file "${pair_head_file}" VSB03GateStatus)" == VSB-G3_PASS ]] ||
         fail "COMPLETE receipt must fill the exact VSB-03 receipt"
       if [[ "${model_route_schema_current}" -eq 1 &&
-            "$(state_value_from_file "${pair_head_file}" ExecutionStateVersion)" == 3 ]]; then
+            "$(state_value_from_file "${pair_head_file}" ExecutionStateVersion)" =~ ^(3|4)$ ]]; then
         [[ "$(state_value_from_file "${pair_head_file}" VSB03ReviewRoute)" == deep_reviewer &&
            "$(state_value_from_file "${pair_head_file}" VSB03DeepReviewVerdict)" == \
              FINAL_GO_P0_0_P1_0_P2_0 &&
@@ -1916,6 +2378,33 @@ for index in 0 1 2 3; do
   done <<< "${actual_write_set}"
 done
 
+if [[ -z "${transition_base}" ]]; then
+  pending_recovery_head="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null)" ||
+    fail "repository HEAD is unavailable"
+  if [[ "${pending_recovery_head}" != "${verifier_recovery_origin_sha}" ]] &&
+     git -C "${repo_root}" merge-base --is-ancestor \
+       "${verifier_recovery_origin_sha}" "${pending_recovery_head}" 2>/dev/null; then
+    pending_recovery_origin_blob="$(git -C "${repo_root}" rev-parse \
+      "${verifier_recovery_origin_sha}:${ledger_path}" 2>/dev/null)" ||
+      fail "fixed verifier-recovery origin ledger is missing"
+    pending_recovery_head_blob="$(git -C "${repo_root}" rev-parse \
+      "${pending_recovery_head}:${ledger_path}" 2>/dev/null || true)"
+    pending_recovery_working_blob="$(git -C "${repo_root}" hash-object \
+      "${state_file}")" || fail "working verifier-recovery ledger cannot be read"
+    if [[ "${pending_recovery_origin_blob}" == "${pending_recovery_head_blob}" &&
+          "${pending_recovery_head_blob}" == "${pending_recovery_working_blob}" ]]; then
+      validate_verifier_recovery_pending_head "${pending_recovery_head}"
+      printf '%s\n' \
+        'VisualStyleBaselineTaskCardValidation = PASS' \
+        'TaskCardCount = 4' \
+        'TaskCardSetStatus = IN_PROGRESS' \
+        'ActiveTaskCard = VSB-02' \
+        'VerifierRecoveryStatus = PENDING'
+      exit 0
+    fi
+  fi
+fi
+
 if [[ "${receipt_correction_pending_preflight}" -eq 1 && \
       -z "${transition_base}" ]]; then
   printf '%s\n' \
@@ -1947,6 +2436,35 @@ if [[ -n "${transition_base}" ]]; then
   git -C "${repo_root}" show \
     "${early_head}:${ledger_path}" > "${early_head_probe}" 2>/dev/null ||
     fail "transition HEAD ledger is missing"
+  if grep -q '^TransitionKind = VERIFIER_RECOVERY$' "${early_head_probe}" ||
+     { [[ "$(state_value_from_file "${early_base_probe}" ExecutionStateVersion)" == 3 ]] &&
+       grep -q '^VerifierRecovery[A-Za-z]* = ' "${early_head_probe}"; }; then
+    [[ "${early_head}" == "$(git -C "${repo_root}" rev-parse HEAD)" ]] ||
+      fail "transition HEAD must equal repository HEAD"
+    [[ "$(single_parent_of "${early_head}" "transition HEAD")" == \
+       "${early_base}" ]] ||
+      fail "transition HEAD must be a direct child of transition BASE"
+    early_diff_paths="$(git -C "${repo_root}" diff --no-renames --name-only \
+      "${early_base}..${early_head}")"
+    [[ "${early_diff_paths}" == "${ledger_path}" ]] ||
+      fail "receipt diff must contain only execution-state.md"
+    require_nul_free_file \
+      "${early_base_probe}" "transition ledger must not contain NUL bytes"
+    require_nul_free_file \
+      "${early_head_probe}" "transition ledger must not contain NUL bytes"
+    cmp -s "${state_file}" "${early_head_probe}" ||
+      fail "working ledger must match transition HEAD tree"
+    validate_verifier_recovery_transition_files \
+      "${early_base}" "${early_head}" \
+      "${early_base_probe}" "${early_head_probe}"
+    printf '%s\n' \
+      'VisualStyleBaselineTaskCardValidation = PASS' \
+      'TaskCardCount = 4' \
+      'TaskCardSetStatus = IN_PROGRESS' \
+      'ActiveTaskCard = VSB-02' \
+      'VerifierRecoveryStatus = PASS'
+    exit 0
+  fi
   if grep -q '^TransitionKind = RECEIPT_CORRECTION$' "${early_head_probe}" ||
      { [[ "$(state_value_from_file "${early_base_probe}" ExecutionStateVersion)" == 2 ]] &&
        grep -q '^ReceiptCorrection[A-Za-z]* = ' "${early_head_probe}"; }; then
@@ -2026,6 +2544,23 @@ case "${execution_state_version}" in
         "$(field_value "${state_file}" ReceiptCorrectionReviewedCandidateSHA)"
     fi
     ;;
+  4)
+    while IFS= read -r field; do
+      one_field_value "${state_file}" "${field}" execution-state.md >/dev/null
+    done < <(governance_repair_fields)
+    while IFS= read -r field; do
+      one_field_value "${state_file}" "${field}" execution-state.md >/dev/null
+    done < <(receipt_correction_fields)
+    while IFS= read -r field; do
+      one_field_value "${state_file}" "${field}" execution-state.md >/dev/null
+    done < <(verifier_recovery_fields)
+    if [[ -z "${transition_base}" ]]; then
+      require_receipt_correction_state_values "${state_file}" \
+        "$(field_value "${state_file}" ReceiptCorrectionReviewedCandidateSHA)"
+      require_verifier_recovery_state_values "${state_file}" \
+        "$(field_value "${state_file}" VerifierRecoveryReviewedCandidateSHA)"
+    fi
+    ;;
   *)
     if [[ "$(field_value "${state_file}" TransitionKind)" == GOVERNANCE_REPAIR ]]; then
       fail "GOVERNANCE_REPAIR must upgrade ExecutionStateVersion from 1 to 2"
@@ -2051,7 +2586,8 @@ esac
 [[ "$(field_value "${state_file}" VSB00ReviewRoute)" == deep_reviewer ]] || fail "VSB00ReviewRoute mismatch"
 [[ "$(field_value "${state_file}" VSB01ReviewRoute)" == deep_reviewer ]] || fail "VSB01ReviewRoute mismatch"
 [[ "$(field_value "${state_file}" VSB02ReviewRoute)" == deep_reviewer ]] || fail "VSB02ReviewRoute mismatch"
-if [[ "${execution_state_version}" == 2 || "${execution_state_version}" == 3 ]]; then
+if [[ "${execution_state_version}" == 2 || "${execution_state_version}" == 3 ||
+      "${execution_state_version}" == 4 ]]; then
   require_governance_repair_state_values \
     "${state_file}" "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)"
   is_commit_sha "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)" ||
@@ -2063,6 +2599,12 @@ if [[ "${execution_state_version}" == 3 && -z "${transition_base}" ]]; then
   validate_receipt_correction_static_replay
   receipt_correction_status_output=PASS
 fi
+if [[ "${execution_state_version}" == 4 && -z "${transition_base}" ]]; then
+  validate_receipt_correction_static_replay
+  validate_verifier_recovery_static_replay
+  receipt_correction_status_output=PASS
+  verifier_recovery_status_output=PASS
+fi
 
 set_status="$(field_value "${state_file}" TaskCardSetStatus)"
 active="$(field_value "${state_file}" ActiveTaskCard)"
@@ -2072,7 +2614,7 @@ next="$(field_value "${state_file}" NextTaskCard)"
 sequence="$(field_value "${state_file}" TransitionSequence)"
 kind="$(field_value "${state_file}" TransitionKind)"
 if [[ "${model_route_schema_current}" -eq 1 && \
-      "${execution_state_version}" == 3 ]]; then
+      "${execution_state_version}" =~ ^(3|4)$ ]]; then
   case "${set_status}" in
     COMPLETE|FINAL_NO_GO)
       [[ "$(field_value "${state_file}" VSB03ReviewRoute)" == deep_reviewer ]] ||
@@ -2085,7 +2627,7 @@ if [[ "${model_route_schema_current}" -eq 1 && \
            deep_reviewer+ultra_gatekeeper &&
          "$(field_value "${state_file}" VSB03DeepReviewVerdict)" == NOT_RUN &&
          "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
-        fail "unfinished version-3 VSB-03 must preserve the frozen review placeholder"
+        fail "unfinished current VSB-03 must preserve the frozen review placeholder"
       ;;
   esac
 else
@@ -2131,7 +2673,7 @@ require_pass_receipt() {
   [[ "${gate}" == "VSB-G${i}_PASS" ]] || fail "VSB0${i}GateStatus mismatch"
   if [[ "${i}" -eq 3 ]]; then
     if [[ "${model_route_schema_current}" -eq 1 && \
-          "${execution_state_version}" == 3 ]]; then
+          "${execution_state_version}" =~ ^(3|4)$ ]]; then
       [[ "${verdict}" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
         fail "VSB03 deep review must be final zero-finding GO"
       [[ "$(field_value "${state_file}" VSB03UltraReviewVerdict)" == NOT_RUN ]] ||
@@ -2278,6 +2820,13 @@ elif [[ "${set_status}" == IN_PROGRESS ]]; then
       [[ "$(grep -c '^Owner = ' "${state_file}" || true)" -eq 0 ]] ||
         fail "Owner is allowed only for RETURN_TO_OWNER"
       ;;
+    VERIFIER_RECOVERY)
+      [[ "${execution_state_version}" == 4 && "${completed_count}" -eq 2 &&
+         "${active}" == VSB-02 && "${released}" == VSB-02 &&
+         "${next}" == VSB-03 && "${sequence}" == 7 &&
+         "$(grep -c '^Owner = ' "${state_file}" || true)" -eq 0 ]] ||
+        fail "VERIFIER_RECOVERY static state mismatch"
+      ;;
     RETURN_TO_OWNER)
       owner="$(one_field_value "${state_file}" Owner execution-state.md)"
       [[ "${owner}" == "${active}" && "${owner}" == "${released}" ]] ||
@@ -2311,7 +2860,7 @@ elif [[ "${set_status}" == FINAL_NO_GO ]]; then
   [[ "$(field_value "${state_file}" CurrentGateStatus)" == FAIL ]] || fail "FINAL_NO_GO requires FAIL Gate"
   expected_final_route=deep_reviewer+ultra_gatekeeper
   if [[ "${model_route_schema_current}" -eq 1 && \
-        "${execution_state_version}" == 3 ]]; then
+        "${execution_state_version}" =~ ^(3|4)$ ]]; then
     expected_final_route=deep_reviewer
   fi
   [[ "$(field_value "${state_file}" CurrentReviewRoute)" == \
@@ -2326,7 +2875,7 @@ elif [[ "${set_status}" == FINAL_NO_GO ]]; then
   is_nonzero_finding_verdict "$(field_value "${state_file}" CurrentReviewVerdict)" ||
     fail "FINAL_NO_GO requires a non-zero finding verdict"
   if [[ "${model_route_schema_current}" -eq 1 && \
-        "${execution_state_version}" == 3 ]]; then
+        "${execution_state_version}" =~ ^(3|4)$ ]]; then
     for i in 0 1 2; do require_pass_receipt "${i}"; done
     [[ "$(field_value "${state_file}" VSB03CandidateSHA)" == \
          "$(field_value "${state_file}" CurrentCandidateSHA)" &&
@@ -2352,7 +2901,7 @@ elif [[ "${set_status}" == COMPLETE ]]; then
   for i in 0 1 2 3; do require_pass_receipt "${i}"; done
   expected_complete_route=deep_reviewer+ultra_gatekeeper
   if [[ "${model_route_schema_current}" -eq 1 && \
-        "${execution_state_version}" == 3 ]]; then
+        "${execution_state_version}" =~ ^(3|4)$ ]]; then
     expected_complete_route=deep_reviewer
   fi
   [[ "${kind}" == COMPLETE && "$(field_value "${state_file}" CurrentGateStatus)" == VSB-G3_PASS && "$(field_value "${state_file}" CurrentReviewRoute)" == "${expected_complete_route}" && "$(field_value "${state_file}" CurrentReviewVerdict)" == FINAL_GO_P0_0_P1_0_P2_0 ]] ||
@@ -2365,7 +2914,13 @@ else
   fail "unsupported TaskCardSetStatus: ${set_status}"
 fi
 
-if [[ "${execution_state_version}" == 2 || "${execution_state_version}" == 3 ]]; then
+if [[ -z "${transition_base}" && "${set_status}" == IN_PROGRESS &&
+      "${execution_state_version}" =~ ^(3|4)$ ]]; then
+  validate_latest_nonterminal_receipt_static
+fi
+
+if [[ "${execution_state_version}" == 2 || "${execution_state_version}" == 3 ||
+      "${execution_state_version}" == 4 ]]; then
   validate_governance_repair_chain \
     "$(field_value "${state_file}" GovernanceRepairReviewedCandidateSHA)"
 fi
@@ -2430,6 +2985,8 @@ if [[ -n "${transition_base}" ]]; then
     fail "transition HEAD is not a commit"
   [[ "${resolved_head}" != "${governance_repair_origin_sha}" ]] ||
     fail "fixed governance repair origin is not a valid ordinary VSB receipt"
+  [[ "${resolved_head}" != "${verifier_recovery_origin_sha}" ]] ||
+    fail "fixed verifier-recovery origin is not a valid ordinary VSB receipt"
   [[ "$(single_parent_of "${resolved_head}" "transition HEAD")" == "${resolved_base}" ]] ||
     fail "transition HEAD must be the direct child of BASE"
   ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
@@ -2494,6 +3051,13 @@ if [[ -n "${transition_base}" ]]; then
     require_repair_fields_unchanged_between_files \
       "${base_ledger_file}" "${head_ledger_file}"
     require_receipt_correction_fields_unchanged_between_files \
+      "${base_ledger_file}" "${head_ledger_file}"
+  elif [[ "$(state_value_from_file "${base_ledger_file}" ExecutionStateVersion)" == 4 ]]; then
+    require_repair_fields_unchanged_between_files \
+      "${base_ledger_file}" "${head_ledger_file}"
+    require_receipt_correction_fields_unchanged_between_files \
+      "${base_ledger_file}" "${head_ledger_file}"
+    require_verifier_recovery_fields_unchanged_between_files \
       "${base_ledger_file}" "${head_ledger_file}"
   fi
   if [[ "${head_kind}" != ACTIVATE_SET ]]; then
@@ -2661,7 +3225,7 @@ if [[ -n "${transition_base}" ]]; then
       final_owner="$(state_value_from_file "${base_ledger_file}" ActiveTaskCard)"
       expected_pair_final_route=deep_reviewer+ultra_gatekeeper
       if [[ "${model_route_schema_current}" -eq 1 &&
-            "$(state_value_from_file "${head_ledger_file}" ExecutionStateVersion)" == 3 ]]; then
+            "$(state_value_from_file "${head_ledger_file}" ExecutionStateVersion)" =~ ^(3|4)$ ]]; then
         expected_pair_final_route=deep_reviewer
       fi
       [[ "${final_owner}" == VSB-03 &&
@@ -2687,7 +3251,7 @@ if [[ -n "${transition_base}" ]]; then
       is_nonzero_finding_verdict "$(state_value_from_file "${head_ledger_file}" CurrentReviewVerdict)" ||
         fail "FINAL_NO_GO requires a non-zero finding verdict"
       if [[ "${model_route_schema_current}" -eq 1 &&
-            "$(state_value_from_file "${head_ledger_file}" ExecutionStateVersion)" == 3 ]]; then
+            "$(state_value_from_file "${head_ledger_file}" ExecutionStateVersion)" =~ ^(3|4)$ ]]; then
         for receipt_index in 0 1 2; do
           require_receipt_unchanged_between_files \
             "${base_ledger_file}" "${head_ledger_file}" "${receipt_index}" \
@@ -2728,4 +3292,8 @@ fi
 if [[ -n "${receipt_correction_status_output}" ]]; then
   printf 'ReceiptCorrectionStatus = %s\n' \
     "${receipt_correction_status_output}"
+fi
+if [[ -n "${verifier_recovery_status_output}" ]]; then
+  printf 'VerifierRecoveryStatus = %s\n' \
+    "${verifier_recovery_status_output}"
 fi

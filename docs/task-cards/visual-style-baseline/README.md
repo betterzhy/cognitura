@@ -30,6 +30,16 @@ Active、Released、Completed 或 READY 事实。
   并要求 `deep_reviewer` 零 finding GO 以及 `ultra_gatekeeper` 零 finding 最终 GO。
 - 修复后，仅 G 的 ledger-only `GOVERNANCE_REPAIR` receipt R 可作为 VSB-01 release anchor。
 
+当前 verifier recovery Authority 是
+[`2026-08-14-cognitura-vsb-copy-classification-recovery-design.md`](../../superpowers/specs/2026-08-14-cognitura-vsb-copy-classification-recovery-design.md)
+及其同提交计划
+[`2026-08-14-cognitura-vsb-copy-classification-recovery.md`](../../superpowers/plans/2026-08-14-cognitura-vsb-copy-classification-recovery.md)，
+固定 SHA 为 `5799d873791694f7e4cb4a2dbe65c8fa27495beb`。它只允许 literal
+`C053 web/index.html web/visual-reference.html` 的受约束分类，并以一次
+`VERIFIER_RECOVERY` 将 version 3 升级至 version 4。`9904d3deb87e4a3e2820c5a12463929916057c36`
+仍是 immutable invalid receipt evidence，不是普通 PASS 或 release anchor；只有完整验证的
+ledger-only R3 才能成为新的 VSB-02 anchor。恢复不改变当前模型路由、finding、数据库或 push 边界。
+
 当前模型路由 Authority 是
 [`2026-08-13-cognitura-model-gate-routing-design.md`](../../superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md)
 （固定 SHA `1199e76a18db1d168c67c328ce7f195f3cdac7d9`）及其 TDD 修订计划

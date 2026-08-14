@@ -8,6 +8,7 @@ fixed_bootstrap_contract_only=0
 current_pending_contract_only=0
 governance_repair_pending_contract_only=0
 historical_failed_receipt_contract_only=0
+verifier_recovery_contract_only=0
 case "${1:-}" in
   --repair-contract-only)
     repair_contract_only=1
@@ -38,6 +39,10 @@ case "${1:-}" in
     ;;
   --historical-failed-receipt-contract-only)
     historical_failed_receipt_contract_only=1
+    shift
+    ;;
+  --verifier-recovery-contract-only)
+    verifier_recovery_contract_only=1
     shift
     ;;
 esac
@@ -79,6 +84,718 @@ assert_commit_parent_count() {
   parent_count=$(($# - 1))
   [[ "${parent_count}" -eq "${expected}" ]] ||
     fail "fixture ${commit} must have ${expected} parents, found ${parent_count}"
+}
+
+make_verifier_recovery_return_receipt() {
+  local fixture_root="$1"
+  local origin_sha="$2"
+  local candidate_sha="$3"
+  local ledger_path=docs/task-cards/visual-style-baseline/execution-state.md
+  local fixture_state="${fixture_root}/${ledger_path}"
+  git -C "${fixture_root}" show "${origin_sha}:${ledger_path}" > "${fixture_state}"
+  set_field "${fixture_state}" CurrentCandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: verifier recovery classifier receipt"
+  git -C "${fixture_root}" rev-parse HEAD
+}
+
+expect_verifier_recovery_transition_failure() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local base_sha="$3"
+  local head_sha="$4"
+  local expected_message="$5"
+  local label="$6"
+  local output
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" \
+    --transition-base "${base_sha}" --transition-head "${head_sha}" 2>&1)"; then
+    fail "${label} unexpectedly passed"
+  fi
+  assert_contains "${output}" "${expected_message}"
+}
+
+expect_verifier_recovery_static_failure() {
+  local fixture_root="$1"
+  local fixture_cards="$2"
+  local expected_message="$3"
+  local label="$4"
+  local output
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" 2>&1)"; then
+    fail "${label} unexpectedly passed"
+  fi
+  assert_contains "${output}" "${expected_message}"
+}
+
+run_verifier_recovery_contract() {
+  local recovery_spec_sha="5799d873791694f7e4cb4a2dbe65c8fa27495beb"
+  local recovery_origin_sha="9904d3deb87e4a3e2820c5a12463929916057c36"
+  local failed_candidate_sha="b16f867bfb951bf969ac8c4a8697c8b8913325bd"
+  local failed_candidate_parent="c97069ca4ccd2dd5088e76ea7b75213bbc1f5113"
+  local ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
+  local fixture_root="${test_tmp_root}/verifier-recovery"
+  local fixture_cards="${fixture_root}/docs/task-cards/visual-style-baseline"
+  local fixture_state="${fixture_cards}/execution-state.md"
+  local legal_return_sha output status
+  local g3_sha r3_sha later_sha second_sha
+  local expected_ledger="${test_tmp_root}/expected-verifier-recovery-ledger"
+  local actual_ledger="${test_tmp_root}/actual-verifier-recovery-ledger"
+  local positive_cases=0 negative_cases=0
+  local recovery_path
+
+  [[ "$(git -C "${repo_root}" rev-parse "${recovery_origin_sha}^")" == \
+     "${failed_candidate_sha}" ]] ||
+    fail "fixed recovery origin is not the direct child of the failed VSB-02 candidate"
+  [[ "$(git -C "${repo_root}" rev-parse "${failed_candidate_sha}^")" == \
+     "${failed_candidate_parent}" ]] ||
+    fail "fixed failed VSB-02 candidate parent drifted"
+  status="$(git -C "${repo_root}" -c diff.renameLimit=0 diff-tree \
+    --no-commit-id -r -M -C --find-copies-harder --name-status \
+    "${failed_candidate_parent}" "${failed_candidate_sha}" | \
+    sed -n '/web\/index[.]html.*web\/visual-reference[.]html/p')"
+  [[ "${status}" == $'C053\tweb/index.html\tweb/visual-reference.html' ]] ||
+    fail "fixed VSB-02 candidate no longer has the literal C053 HTML classification: ${status}"
+
+  # A fresh ledger-only child with the same nominal RETURN projection exercises
+  # the public explicit path without reclassifying immutable 9904d3d as legal.
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${failed_candidate_sha}"
+  git -C "${fixture_root}" show \
+    "${recovery_origin_sha}:${ledger_path}" > "${fixture_state}"
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: fresh literal C053 RETURN receipt"
+  legal_return_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if ! output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" --transition-base "${failed_candidate_sha}" \
+    --transition-head "${legal_return_sha}" 2>&1)"; then
+    fail "literal C053 HTML-entry positive was rejected: ${output}"
+  fi
+  assert_contains "${output}" "VisualStyleBaselineTaskCardValidation = PASS"
+  positive_cases=$((positive_cases + 1))
+  recovery_tmp="${test_tmp_root}/verifier-recovery-public-tmp"
+  mkdir -p "${recovery_tmp}"
+  printf 'preserve sibling\n' > "${recovery_tmp}/sibling-marker"
+  recovery_status_before="$(git -C "${fixture_root}" status --porcelain=v1)"
+  TMPDIR="${recovery_tmp}" "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" --transition-base "${failed_candidate_sha}" \
+    --transition-head "${legal_return_sha}" > /dev/null ||
+    fail "literal C053 public TMPDIR replay was rejected"
+  recovery_status_after="$(git -C "${fixture_root}" status --porcelain=v1)"
+  [[ "${recovery_status_after}" == "${recovery_status_before}" ]] ||
+    fail "verifier recovery public replay left Git worktree residue"
+  [[ "$(find "${recovery_tmp}" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')" == 1 &&
+     "$(cat "${recovery_tmp}/sibling-marker")" == "preserve sibling" ]] ||
+    fail "verifier recovery public replay leaked TMPDIR entries or changed its sibling"
+  positive_cases=$((positive_cases + 1))
+
+  # Keep Git's literal C053 score while moving the only root declaration into
+  # a comment.  Substring counting accepts this malformed document, while the
+  # semantic HTML contract must reject it.
+  git -C "${fixture_root}" checkout -q --detach "${failed_candidate_parent}"
+  git -C "${fixture_root}" read-tree --reset -u "${failed_candidate_sha}^{tree}"
+  perl -0pi -e '
+    s@Cognitura Visual Reference@Cognitura Visual@;
+    s@    <div id="visual-reference-root"></div>@    <!-- <div id="visual-reference-root"></div> -->@
+  ' "${fixture_root}/web/visual-reference.html"
+  git -C "${fixture_root}" add -A
+  git -C "${fixture_root}" commit -qm "test: comment out the C053 visual root"
+  malformed_html_candidate="$(git -C "${fixture_root}" rev-parse HEAD)"
+  git -C "${fixture_root}" show \
+    "${recovery_origin_sha}:${ledger_path}" > "${fixture_state}"
+  set_field "${fixture_state}" CurrentCandidateSHA "${malformed_html_candidate}"
+  set_field "${fixture_state}" TransitionBaseSHA "${malformed_html_candidate}"
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: return malformed C053 HTML to owner"
+  malformed_html_receipt="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" \
+    --transition-base "${malformed_html_candidate}" \
+    --transition-head "${malformed_html_receipt}" 2>&1)"; then
+    fail "comment-only C053 visual root unexpectedly passed"
+  fi
+  assert_contains "${output}" \
+    "literal C053 target HTML must match the exact canonical document"
+  negative_cases=$((negative_cases + 1))
+
+  html_mutations=(comment-script extra-local single-quote-remote unquoted-remote)
+  for html_mutation in "${html_mutations[@]}"; do
+    git -C "${fixture_root}" checkout -q --detach "${failed_candidate_parent}"
+    git -C "${fixture_root}" read-tree --reset -u "${failed_candidate_sha}^{tree}"
+    case "${html_mutation}" in
+      comment-script)
+        perl -0pi -e '
+          s@Cognitura Visual Reference@Cognitura Visual@;
+          s@    <script type="module" src="/src/visual-reference/main.tsx"></script>@    <!-- <script type="module" src="/src/visual-reference/main.tsx"></script> -->@
+        ' "${fixture_root}/web/visual-reference.html"
+        ;;
+      extra-local)
+        perl -0pi -e '
+          s@    <title>[^\n]*\n@@;
+          s@  </body>@    <img src="/extra.png" data-pad="XXXX" />\n  </body>@
+        ' \
+          "${fixture_root}/web/visual-reference.html"
+        ;;
+      single-quote-remote)
+        perl -0pi -e "
+          s@    <title>[^\\n]*\\n@@;
+          s@  </body>@    <img src='https://example.invalid/x.png' />\\n  </body>@
+        " \
+          "${fixture_root}/web/visual-reference.html"
+        ;;
+      unquoted-remote)
+        perl -0pi -e '
+          s@    <title>[^\n]*\n@@;
+          s@  </body>@    <img src=//example.invalid/x.png data-pad= />\n  </body>@
+        ' \
+          "${fixture_root}/web/visual-reference.html"
+        ;;
+    esac
+    git -C "${fixture_root}" add -A
+    git -C "${fixture_root}" commit -qm "test: malformed C053 HTML ${html_mutation}"
+    malformed_html_candidate="$(git -C "${fixture_root}" rev-parse HEAD)"
+    malformed_html_status="$(git -C "${fixture_root}" -c diff.renameLimit=0 \
+      diff-tree --no-commit-id -r -M -C --find-copies-harder \
+      --name-status "${failed_candidate_parent}" "${malformed_html_candidate}" -- \
+      web/index.html web/visual-reference.html)"
+    assert_contains "${malformed_html_status}" \
+      $'C053\tweb/index.html\tweb/visual-reference.html'
+    git -C "${fixture_root}" show \
+      "${recovery_origin_sha}:${ledger_path}" > "${fixture_state}"
+    set_field "${fixture_state}" CurrentCandidateSHA "${malformed_html_candidate}"
+    set_field "${fixture_state}" TransitionBaseSHA "${malformed_html_candidate}"
+    git -C "${fixture_root}" add -- "${ledger_path}"
+    git -C "${fixture_root}" commit -qm "test: return malformed HTML ${html_mutation}"
+    malformed_html_receipt="$(git -C "${fixture_root}" rev-parse HEAD)"
+    if output="$("${verifier}" --repo-root "${fixture_root}" \
+      --cards-dir "${fixture_cards}" \
+      --transition-base "${malformed_html_candidate}" \
+      --transition-head "${malformed_html_receipt}" 2>&1)"; then
+      fail "malformed HTML ${html_mutation} unexpectedly passed"
+    fi
+    assert_contains "${output}" \
+      "literal C053 target HTML must match the exact canonical document"
+    negative_cases=$((negative_cases + 1))
+  done
+
+  classifier_mutations=(non053 rename low-rename-limit alternate-pair source-changed internal-copy mode extra ledger merge)
+  classifier_messages=(
+    "candidate chain commit must not rename or copy paths"
+    "candidate chain commit must not rename or copy paths"
+    "candidate chain commit must not rename or copy paths"
+    "candidate chain commit must not rename or copy paths"
+    "literal C053 source must be unchanged in parent and child"
+    "candidate chain commit must not rename or copy paths"
+    "literal C053 target must be a distinct canonical file"
+    "candidate chain commit changed a path outside the Owner WriteSet"
+    "transition BASE failed full VSB state validation"
+    "transition BASE failed full VSB state validation"
+  )
+  for classifier_index in "${!classifier_mutations[@]}"; do
+    classifier_mutation="${classifier_mutations[${classifier_index}]}"
+    git -C "${fixture_root}" checkout -q --detach "${failed_candidate_parent}"
+    git -C "${fixture_root}" read-tree --reset -u "${failed_candidate_sha}^{tree}"
+    case "${classifier_mutation}" in
+      non053)
+        perl -0pi -e 's@Cognitura Visual Reference@Cognitura Visual ReferenceXXXXXXXX@' \
+          "${fixture_root}/web/visual-reference.html"
+        ;;
+      rename|low-rename-limit)
+        git -C "${fixture_root}" mv -- \
+          web/src/modules/module-reading/KeyRelations.tsx \
+          web/src/modules/module-reading/KeyRelations.renamed.tsx
+        ;;
+      alternate-pair)
+        cp "${fixture_root}/web/index.html" \
+          "${fixture_root}/web/src/visual-reference/VisualReference.tsx"
+        ;;
+      source-changed)
+        printf '\nsource changed\n' >> "${fixture_root}/web/index.html"
+        ;;
+      internal-copy)
+        cp "${fixture_root}/web/src/modules/module-reading/ModuleNarrative.tsx" \
+          "${fixture_root}/web/src/visual-reference/VisualReference.tsx"
+        ;;
+      mode)
+        chmod +x "${fixture_root}/web/visual-reference.html"
+        ;;
+      extra)
+        mkdir -p "${fixture_root}/docs/engineering"
+        printf 'extra\n' > "${fixture_root}/docs/engineering/recovery-extra.md"
+        ;;
+      ledger)
+        set_field "${fixture_state}" NextTaskCard VSB-02
+        ;;
+      merge)
+        git -C "${fixture_root}" commit -qm \
+          "test: recovery classifier merge base"
+        recovery_merge_base="$(git -C "${fixture_root}" rev-parse HEAD)"
+        git -C "${fixture_root}" switch -q -c recovery-side
+        printf '\nside\n' >> \
+          "${fixture_root}/web/src/visual-reference/VisualReference.tsx"
+        git -C "${fixture_root}" commit -qam "test: recovery classifier side"
+        recovery_side="$(git -C "${fixture_root}" rev-parse HEAD)"
+        git -C "${fixture_root}" switch -q -c recovery-main \
+          "${recovery_merge_base}"
+        printf '\nmain\n' >> \
+          "${fixture_root}/web/src/visual-reference/visual-reference.css"
+        git -C "${fixture_root}" commit -qam "test: recovery classifier main"
+        git -C "${fixture_root}" merge -q --no-ff "${recovery_side}" \
+          -m "test: recovery classifier merge"
+        ;;
+    esac
+    if [[ "${classifier_mutation}" != merge ]]; then
+      git -C "${fixture_root}" add -A
+      git -C "${fixture_root}" diff --cached --quiet &&
+        fail "classifier mutation ${classifier_mutation} created no change"
+      git -C "${fixture_root}" commit -qm \
+        "test: verifier classifier ${classifier_mutation}"
+    fi
+    if [[ "${classifier_mutation}" == low-rename-limit ]]; then
+      git -C "${fixture_root}" config diff.renameLimit 1
+    fi
+    classifier_candidate="$(git -C "${fixture_root}" rev-parse HEAD)"
+    if [[ "${classifier_mutation}" == non053 ]]; then
+      classifier_status="$(git -C "${fixture_root}" -c diff.renameLimit=0 \
+        diff-tree --no-commit-id -r -M -C --find-copies-harder \
+        --name-status "${failed_candidate_parent}" "${classifier_candidate}" -- \
+        web/index.html web/visual-reference.html)"
+      assert_contains "${classifier_status}" \
+        $'C052\tweb/index.html\tweb/visual-reference.html'
+    elif [[ "${classifier_mutation}" == rename ||
+            "${classifier_mutation}" == low-rename-limit ]]; then
+      classifier_status="$(git -C "${fixture_root}" -c diff.renameLimit=0 \
+        diff-tree --no-commit-id -r -M -C --find-copies-harder \
+        --name-status "${failed_candidate_parent}" "${classifier_candidate}")"
+      assert_contains "${classifier_status}" \
+        $'R053\tweb/src/modules/module-reading/KeyRelations.tsx\tweb/src/modules/module-reading/KeyRelations.renamed.tsx'
+    elif [[ "${classifier_mutation}" == alternate-pair ]]; then
+      classifier_status="$(git -C "${fixture_root}" -c diff.renameLimit=0 \
+        diff-tree --no-commit-id -r -M -C --find-copies-harder \
+        --name-status "${failed_candidate_parent}" "${classifier_candidate}")"
+      assert_contains "${classifier_status}" \
+        $'C100\tweb/index.html\tweb/src/visual-reference/VisualReference.tsx'
+    elif [[ "${classifier_mutation}" == internal-copy ]]; then
+      classifier_status="$(git -C "${fixture_root}" -c diff.renameLimit=0 \
+        diff-tree --no-commit-id -r -M -C --find-copies-harder \
+        --name-status "${failed_candidate_parent}" "${classifier_candidate}")"
+      assert_contains "${classifier_status}" \
+        $'C053\tweb/src/modules/module-reading/ModuleNarrative.tsx\tweb/src/visual-reference/VisualReference.tsx'
+    fi
+    classifier_receipt="$(make_verifier_recovery_return_receipt \
+      "${fixture_root}" "${recovery_origin_sha}" "${classifier_candidate}")"
+    expect_verifier_recovery_transition_failure \
+      "${fixture_root}" "${fixture_cards}" \
+      "${classifier_candidate}" "${classifier_receipt}" \
+      "${classifier_messages[${classifier_index}]}" \
+      "recovery classifier ${classifier_mutation}"
+    if [[ "${classifier_mutation}" == low-rename-limit ]]; then
+      git -C "${fixture_root}" config --unset diff.renameLimit
+    fi
+    negative_cases=$((negative_cases + 1))
+  done
+
+  git -C "${fixture_root}" checkout -q --detach "${recovery_origin_sha}"
+  recovery_status_before="$(git -C "${fixture_root}" status --porcelain=v1)"
+  if output="$(TMPDIR="${recovery_tmp}" "${verifier}" \
+    --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" 2>&1)"; then
+    fail "fixed recovery origin unexpectedly passed public static provenance replay"
+  fi
+  assert_contains "${output}" \
+    "fixed verifier-recovery origin is not a valid ordinary VSB receipt"
+  recovery_status_after="$(git -C "${fixture_root}" status --porcelain=v1)"
+  [[ "${recovery_status_after}" == "${recovery_status_before}" ]] ||
+    fail "fixed recovery origin static replay left Git worktree residue"
+  [[ "$(find "${recovery_tmp}" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')" == 1 &&
+     "$(cat "${recovery_tmp}/sibling-marker")" == "preserve sibling" ]] ||
+    fail "fixed recovery origin static replay leaked TMPDIR entries or changed its sibling"
+  negative_cases=$((negative_cases + 1))
+
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" --transition-base "${failed_candidate_sha}" \
+    --transition-head "${recovery_origin_sha}" 2>&1)"; then
+    fail "immutable failed recovery origin unexpectedly passed as an ordinary receipt"
+  fi
+  assert_contains "${output}" "fixed verifier-recovery origin is not a valid ordinary VSB receipt"
+  negative_cases=$((negative_cases + 1))
+
+  # Build exact G3 from the fixed successor Authority.  The fixture adopts the
+  # three mutable contract paths from this test run; the two Authority blobs
+  # remain the exact 5799d873 tree.
+  git -C "${fixture_root}" checkout -q --detach "${recovery_spec_sha}"
+  for recovery_path in \
+    docs/task-cards/visual-style-baseline/README.md \
+    scripts/verify-visual-style-baseline-cards \
+    tests/task-cards/verify-visual-style-baseline-cards.sh; do
+    cp "${repo_root}/${recovery_path}" "${fixture_root}/${recovery_path}"
+  done
+  git -C "${fixture_root}" add -- \
+    docs/task-cards/visual-style-baseline/README.md \
+    scripts/verify-visual-style-baseline-cards \
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+  git -C "${fixture_root}" commit -qm "test: exact verifier recovery G3"
+  g3_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if ! output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" 2>&1)"; then
+    fail "exact G3 pending candidate was rejected: ${output}"
+  fi
+  assert_contains "${output}" "VerifierRecoveryStatus = PENDING"
+  positive_cases=$((positive_cases + 1))
+
+  g3_mutations=(empty outside ledger-restored outside-restored authority-blob authority-mode rename copy nul incomplete merge)
+  g3_messages=(
+    "verifier recovery governance commit must not be empty"
+    "verifier recovery governance chain changed a path outside the exact five-path WriteSet"
+    "verifier recovery governance chain changed a path outside the exact five-path WriteSet"
+    "verifier recovery governance chain changed a path outside the exact five-path WriteSet"
+    "fixed verifier-recovery Authority blob or mode drifted"
+    "verifier recovery governance path mode drifted"
+    "verifier recovery governance chain must not rename or copy paths"
+    "verifier recovery governance chain must not rename or copy paths"
+    "README.md must not contain NUL bytes"
+    "verifier recovery governance chain must have the exact five-path cumulative WriteSet"
+    "verifier recovery governance commit must have exactly one parent"
+  )
+  for g3_index in "${!g3_mutations[@]}"; do
+    g3_mutation="${g3_mutations[${g3_index}]}"
+    git -C "${fixture_root}" checkout -q --detach "${g3_sha}"
+    case "${g3_mutation}" in
+      empty)
+        git -C "${fixture_root}" commit --allow-empty -qm \
+          "test: empty verifier recovery governance commit"
+        ;;
+      outside)
+        mkdir -p "${fixture_root}/docs/engineering"
+        printf 'outside\n' > \
+          "${fixture_root}/docs/engineering/verifier-recovery-extra.md"
+        git -C "${fixture_root}" add -- \
+          docs/engineering/verifier-recovery-extra.md
+        git -C "${fixture_root}" commit -qm "test: G3 outside path"
+        ;;
+      ledger-restored)
+        set_field "${fixture_state}" NextTaskCard VSB-02
+        git -C "${fixture_root}" add -- "${ledger_path}"
+        git -C "${fixture_root}" commit -qm "test: drift G3 ledger"
+        git -C "${fixture_root}" show \
+          "${recovery_origin_sha}:${ledger_path}" > "${fixture_state}"
+        git -C "${fixture_root}" add -- "${ledger_path}"
+        git -C "${fixture_root}" commit -qm "test: restore G3 ledger"
+        ;;
+      outside-restored)
+        mkdir -p "${fixture_root}/docs/engineering"
+        printf 'outside\n' > \
+          "${fixture_root}/docs/engineering/verifier-recovery-extra.md"
+        git -C "${fixture_root}" add -- \
+          docs/engineering/verifier-recovery-extra.md
+        git -C "${fixture_root}" commit -qm "test: intermediate G3 outside path"
+        git -C "${fixture_root}" rm -q -- \
+          docs/engineering/verifier-recovery-extra.md
+        git -C "${fixture_root}" commit -qm "test: restore G3 outside path"
+        ;;
+      authority-blob)
+        printf '\ndrift\n' >> "${fixture_root}/docs/superpowers/specs/2026-08-14-cognitura-vsb-copy-classification-recovery-design.md"
+        git -C "${fixture_root}" commit -qam "test: drift G3 Authority blob"
+        ;;
+      authority-mode)
+        chmod +x "${fixture_root}/docs/superpowers/plans/2026-08-14-cognitura-vsb-copy-classification-recovery.md"
+        git -C "${fixture_root}" commit -qam "test: drift G3 Authority mode"
+        ;;
+      rename)
+        git -C "${fixture_root}" mv -- \
+          scripts/verify-visual-style-baseline-cards \
+          scripts/verify-visual-style-baseline-cards.recovery
+        printf '%s\n' '#!/usr/bin/env bash' > \
+          "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+        chmod +x "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+        git -C "${fixture_root}" add -- \
+          scripts/verify-visual-style-baseline-cards
+        git -C "${fixture_root}" commit -qm "test: rename G3 path"
+        ;;
+      copy)
+        cp "${fixture_root}/docs/task-cards/visual-style-baseline/README.md" \
+          "${fixture_root}/docs/task-cards/visual-style-baseline/README.recovery-copy"
+        git -C "${fixture_root}" add -- \
+          docs/task-cards/visual-style-baseline/README.recovery-copy
+        git -C "${fixture_root}" commit -qm "test: copy G3 path"
+        ;;
+      nul)
+        printf '\000' >> \
+          "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+        git -C "${fixture_root}" commit -qam "test: NUL G3 path"
+        ;;
+      incomplete)
+        git -C "${fixture_root}" checkout -q --detach "${recovery_spec_sha}"
+        cp "${repo_root}/docs/task-cards/visual-style-baseline/README.md" \
+          "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+        cp "${repo_root}/scripts/verify-visual-style-baseline-cards" \
+          "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+        git -C "${fixture_root}" add -- \
+          docs/task-cards/visual-style-baseline/README.md \
+          scripts/verify-visual-style-baseline-cards
+        git -C "${fixture_root}" commit -qm "test: incomplete G3"
+        ;;
+      merge)
+        git -C "${fixture_root}" switch -q -c g3-side
+        printf '\nside\n' >> \
+          "${fixture_root}/docs/task-cards/visual-style-baseline/README.md"
+        git -C "${fixture_root}" commit -qam "test: G3 side"
+        g3_side="$(git -C "${fixture_root}" rev-parse HEAD)"
+        git -C "${fixture_root}" switch -q -c g3-main "${g3_sha}"
+        printf '\nmain\n' >> \
+          "${fixture_root}/scripts/verify-visual-style-baseline-cards"
+        git -C "${fixture_root}" commit -qam "test: G3 main"
+        git -C "${fixture_root}" merge -q --no-ff "${g3_side}" \
+          -m "test: merge G3 governance"
+        ;;
+    esac
+    expect_verifier_recovery_static_failure \
+      "${fixture_root}" "${fixture_cards}" \
+      "${g3_messages[${g3_index}]}" "recovery G3 ${g3_mutation}"
+    negative_cases=$((negative_cases + 1))
+  done
+  git -C "${fixture_root}" checkout -q --detach "${g3_sha}"
+
+  # R3 is independently generated from the immutable origin bytes.  Any
+  # implementation that copies its own builder into the expectation cannot
+  # satisfy this literal transformation oracle.
+  git -C "${fixture_root}" show \
+    "${recovery_origin_sha}:${ledger_path}" > "${fixture_state}"
+  awk -v g3_sha="${g3_sha}" -v spec_sha="${recovery_spec_sha}" '
+    /^ExecutionStateVersion = 3$/ { print "ExecutionStateVersion = 4"; next }
+    { print }
+    /^ReceiptCorrectionReviewVerdict = FINAL_GO_P0_0_P1_0_P2_0$/ {
+      print "VerifierRecoveryStatus = PASS"
+      print "VerifierRecoverySpecSHA = " spec_sha
+      print "VerifierRecoveryOriginReceiptSHA = 9904d3deb87e4a3e2820c5a12463929916057c36"
+      print "VerifierRecoveryFailedCandidateSHA = b16f867bfb951bf969ac8c4a8697c8b8913325bd"
+      print "VerifierRecoveryReviewedCandidateSHA = " g3_sha
+      print "VerifierRecoveryReviewLevel = L3"
+      print "VerifierRecoveryReviewRoute = deep_reviewer"
+      print "VerifierRecoveryReviewEffort = xhigh"
+      print "VerifierRecoveryReviewMultiplicity = ONE"
+      print "VerifierRecoveryReviewVerdict = GO_P0_0_P1_0_P2_0"
+    }
+  ' "${fixture_state}" | awk -v g3_sha="${g3_sha}" '
+    /^TransitionSequence = 6$/ { print "TransitionSequence = 7"; next }
+    /^TransitionKind = RETURN_TO_OWNER$/ { print "TransitionKind = VERIFIER_RECOVERY"; next }
+    /^TransitionBaseSHA = b16f867bfb951bf969ac8c4a8697c8b8913325bd$/ {
+      print "TransitionBaseSHA = " g3_sha; next
+    }
+    /^Owner = VSB-02$/ { next }
+    { print }
+  ' > "${expected_ledger}"
+  cp "${expected_ledger}" "${fixture_state}"
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: exact VERIFIER_RECOVERY receipt"
+  r3_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if ! output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" --transition-base "${g3_sha}" \
+    --transition-head "${r3_sha}" 2>&1)"; then
+    fail "exact G3 to R3 transition was rejected: ${output}"
+  fi
+  assert_contains "${output}" "VerifierRecoveryStatus = PASS"
+  "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" > /dev/null ||
+    fail "exact version-4 R3 failed static replay"
+  git -C "${fixture_root}" show "${r3_sha}:${ledger_path}" > "${actual_ledger}"
+  cmp -s "${expected_ledger}" "${actual_ledger}" ||
+    fail "R3 bytes differ from the independent mechanical transform"
+  [[ "$(tail -c 1 "${actual_ledger}" | od -An -tuC | tr -d ' ')" == 10 ]] ||
+    fail "R3 must preserve the final newline"
+  [[ "$(git -C "${fixture_root}" ls-tree "${r3_sha}" -- "${ledger_path}" | awk '{print $1}')" == 100644 ]] ||
+    fail "R3 ledger mode must remain 100644"
+  positive_cases=$((positive_cases + 2))
+
+  # Version 4 continues the current single-xhigh route.  Exercise a real
+  # post-R3 VSB-02 ADVANCE and VSB-03 COMPLETE chain through explicit and
+  # static public entrypoints.
+  git -C "${fixture_root}" checkout -q --detach "${r3_sha}"
+  post_r3_vsb02_candidate="$(commit_model_route_owner_candidate \
+    "${fixture_root}" "test: post-R3 VSB-02 candidate" \
+    model_route_vsb02_write_set)"
+  set_vsb02_advance_receipt "${fixture_state}" "${post_r3_vsb02_candidate}"
+  set_field "${fixture_state}" TransitionSequence 8
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: post-R3 advance VSB-02"
+  post_r3_vsb02_receipt="$(git -C "${fixture_root}" rev-parse HEAD)"
+  "${verifier}" --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" \
+    --transition-base "${post_r3_vsb02_candidate}" \
+    --transition-head "${post_r3_vsb02_receipt}" > /dev/null ||
+    fail "post-R3 VSB-02 ADVANCE was rejected"
+  "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" > /dev/null ||
+    fail "post-R3 VSB-02 ADVANCE failed static replay"
+  positive_cases=$((positive_cases + 1))
+  post_r3_vsb03_candidate="$(commit_model_route_owner_candidate \
+    "${fixture_root}" "test: post-R3 VSB-03 candidate" \
+    model_route_vsb03_write_set)"
+  set_field "${fixture_state}" TaskCardSetStatus IN_PROGRESS
+  set_field "${fixture_state}" ActiveTaskCard VSB-02
+  set_field "${fixture_state}" ReleasedTaskCard VSB-02
+  set_field "${fixture_state}" CompletedTaskCards VSB-00,VSB-01
+  set_field "${fixture_state}" CurrentCandidateSHA "${post_r3_vsb03_candidate}"
+  set_field "${fixture_state}" CurrentGateStatus FAIL
+  set_field "${fixture_state}" CurrentReviewRoute deep_reviewer
+  set_field "${fixture_state}" CurrentReviewVerdict FINDING_P0_0_P1_1_P2_0
+  set_field "${fixture_state}" VSB02CandidateSHA NONE
+  set_field "${fixture_state}" VSB02GateStatus NOT_RUN
+  set_field "${fixture_state}" VSB02ReviewVerdict NOT_RUN
+  set_field "${fixture_state}" VSB03CandidateSHA NONE
+  set_field "${fixture_state}" VSB03GateStatus NOT_RUN
+  set_field "${fixture_state}" VSB03DeepReviewVerdict NOT_RUN
+  set_field "${fixture_state}" VSB03UltraReviewVerdict NOT_RUN
+  set_field "${fixture_state}" NextTaskCard VSB-03
+  set_field "${fixture_state}" TransitionSequence 9
+  set_field "${fixture_state}" TransitionKind RETURN_TO_OWNER
+  set_field "${fixture_state}" TransitionBaseSHA "${post_r3_vsb03_candidate}"
+  printf '%s\n' 'Owner = VSB-02' >> "${fixture_state}"
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: post-R3 RETURN_TO_OWNER"
+  post_r3_return="$(git -C "${fixture_root}" rev-parse HEAD)"
+  "${verifier}" --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" \
+    --transition-base "${post_r3_vsb03_candidate}" \
+    --transition-head "${post_r3_return}" > /dev/null ||
+    fail "post-R3 RETURN_TO_OWNER was rejected"
+  "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" > /dev/null ||
+    fail "post-R3 RETURN_TO_OWNER failed static replay"
+  positive_cases=$((positive_cases + 2))
+
+  git -C "${fixture_root}" checkout -q --detach "${post_r3_vsb03_candidate}"
+  set_vsb03_complete_receipt "${fixture_state}" \
+    "${post_r3_vsb03_candidate}" deep_reviewer \
+    FINAL_GO_P0_0_P1_0_P2_0 NOT_RUN
+  set_field "${fixture_state}" TransitionSequence 9
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: post-R3 single-deep COMPLETE"
+  post_r3_complete="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if ! output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" \
+    --transition-base "${post_r3_vsb03_candidate}" \
+    --transition-head "${post_r3_complete}" 2>&1)"; then
+    fail "post-R3 single-deep COMPLETE explicit transition was rejected: ${output}"
+  fi
+  if ! output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" 2>&1)"; then
+    fail "post-R3 single-deep COMPLETE static state was rejected: ${output}"
+  fi
+  assert_contains "${output}" "TaskCardSetStatus = COMPLETE"
+  positive_cases=$((positive_cases + 2))
+
+  git -C "${fixture_root}" checkout -q --detach "${post_r3_vsb03_candidate}"
+  set_vsb03_complete_receipt "${fixture_state}" \
+    "${post_r3_vsb03_candidate}" deep_reviewer+ultra_gatekeeper \
+    GO_P0_0_P1_0_P2_0 FINAL_GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" TransitionSequence 9
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: forbidden post-R3 stacked COMPLETE"
+  post_r3_complete="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" \
+    --transition-base "${post_r3_vsb03_candidate}" \
+    --transition-head "${post_r3_complete}" 2>&1)"; then
+    fail "post-R3 stacked COMPLETE unexpectedly passed"
+  fi
+  assert_contains "${output}" \
+    "current VSB-03 completion must use one deep_reviewer xhigh final gate"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${post_r3_vsb03_candidate}"
+  set_vsb03_complete_receipt "${fixture_state}" \
+    "${post_r3_vsb03_candidate}" ultra_gatekeeper \
+    FINAL_GO_P0_0_P1_0_P2_0 NOT_RUN
+  set_field "${fixture_state}" TransitionSequence 9
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: forbidden post-R3 Ultra-only COMPLETE"
+  post_r3_complete="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" \
+    --transition-base "${post_r3_vsb03_candidate}" \
+    --transition-head "${post_r3_complete}" 2>&1)"; then
+    fail "post-R3 Ultra-only COMPLETE unexpectedly passed"
+  fi
+  assert_contains "${output}" \
+    "current VSB-03 completion must use one deep_reviewer xhigh final gate"
+  negative_cases=$((negative_cases + 1))
+
+  # Exactly once and later byte preservation are observable through the same
+  # public transition/static entrypoints.
+  git -C "${fixture_root}" checkout -q --detach "${r3_sha}"
+  set_field "${fixture_state}" TransitionSequence 8
+  set_field "${fixture_state}" TransitionKind VERIFIER_RECOVERY
+  set_field "${fixture_state}" TransitionBaseSHA "${r3_sha}"
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: forbidden second verifier recovery"
+  second_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" --transition-base "${r3_sha}" \
+    --transition-head "${second_sha}" 2>&1)"; then
+    fail "second VERIFIER_RECOVERY unexpectedly passed"
+  fi
+  assert_contains "${output}" "VERIFIER_RECOVERY is allowed exactly once"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${r3_sha}"
+  set_field "${fixture_state}" TaskCardSetStatus STOPPED_BY_USER
+  set_field "${fixture_state}" ActiveTaskCard NONE
+  set_field "${fixture_state}" ReleasedTaskCard NONE
+  set_field "${fixture_state}" NextTaskCard NONE
+  set_field "${fixture_state}" CurrentGateStatus STOPPED_BY_USER
+  set_field "${fixture_state}" CurrentReviewRoute NONE
+  set_field "${fixture_state}" CurrentReviewVerdict NOT_APPLICABLE_USER_STOP
+  set_field "${fixture_state}" TransitionSequence 8
+  set_field "${fixture_state}" TransitionKind STOP_BY_USER
+  set_field "${fixture_state}" TransitionBaseSHA "${r3_sha}"
+  set_field "${fixture_state}" VisualImplementation STOPPED_BY_USER
+  set_field "${fixture_state}" UserStopAuthorization EXPLICIT_USER_INSTRUCTION
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: later ordinary receipt preserves recovery block"
+  later_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  "${verifier}" --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" \
+    --transition-base "${r3_sha}" --transition-head "${later_sha}" > /dev/null ||
+    fail "later ordinary receipt preserving the recovery block was rejected"
+  "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" > /dev/null ||
+    fail "later ordinary terminal receipt failed static replay"
+  positive_cases=$((positive_cases + 2))
+
+  git -C "${fixture_root}" checkout -q --detach "${r3_sha}"
+  set_field "${fixture_state}" VerifierRecoveryReviewEffort high
+  set_field "${fixture_state}" TransitionSequence 8
+  set_field "${fixture_state}" TransitionKind STOP_BY_USER
+  set_field "${fixture_state}" TransitionBaseSHA "${r3_sha}"
+  set_field "${fixture_state}" TaskCardSetStatus STOPPED_BY_USER
+  set_field "${fixture_state}" ActiveTaskCard NONE
+  set_field "${fixture_state}" ReleasedTaskCard NONE
+  set_field "${fixture_state}" NextTaskCard NONE
+  set_field "${fixture_state}" CurrentGateStatus STOPPED_BY_USER
+  set_field "${fixture_state}" CurrentReviewRoute NONE
+  set_field "${fixture_state}" CurrentReviewVerdict NOT_APPLICABLE_USER_STOP
+  set_field "${fixture_state}" VisualImplementation STOPPED_BY_USER
+  set_field "${fixture_state}" UserStopAuthorization EXPLICIT_USER_INSTRUCTION
+  git -C "${fixture_root}" add -- "${ledger_path}"
+  git -C "${fixture_root}" commit -qm "test: mutate recovery block in ordinary receipt"
+  later_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" --transition-base "${r3_sha}" \
+    --transition-head "${later_sha}" 2>&1)"; then
+    fail "ordinary receipt mutating the recovery block unexpectedly passed"
+  fi
+  assert_contains "${output}" \
+    "ordinary version-4 transition must preserve VerifierRecovery fields"
+  negative_cases=$((negative_cases + 1))
+  if output="$("${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_cards}" 2>&1)"; then
+    fail "static replay accepted ordinary receipt recovery-field tampering"
+  fi
+  assert_contains "${output}" "verifier recovery canonical block mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  printf '%s\n' \
+    "VerifierRecoveryContractTests = PASS" \
+    "VerifierRecoveryPositiveCases = ${positive_cases}" \
+    "VerifierRecoveryNegativeCases = ${negative_cases}"
 }
 
 set_field() {
@@ -2038,6 +2755,11 @@ EOF
 
 if [[ "${model_gate_routing_contract_only}" -eq 1 ]]; then
   run_model_gate_routing_contract
+  exit 0
+fi
+
+if [[ "${verifier_recovery_contract_only}" -eq 1 ]]; then
+  run_verifier_recovery_contract
   exit 0
 fi
 
