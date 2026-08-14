@@ -40,6 +40,30 @@ Active、Released、Completed 或 READY 事实。
 仍是 immutable invalid receipt evidence，不是普通 PASS 或 release anchor；只有完整验证的
 ledger-only R3 才能成为新的 VSB-02 anchor。恢复不改变当前模型路由、finding、数据库或 push 边界。
 
+当前 Chrome Authority Migration 由
+[`2026-08-14-cognitura-vsb-chrome-authority-migration-design.md`](../../superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md)
+及其实施计划
+[`2026-08-14-cognitura-vsb-chrome-authority-migration.md`](../../superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md)
+统一约束，固定 Authority SHA 为 `ce2a3ca466cc4df2ff077017f1ddb03cb285416f`，
+固定 origin 为 `7b7b9bcab8b372c66ebd0533cbfe3dca885d0f3d`。它只允许将 Chrome
+`151.0.7922.109` 精确迁移到 `151.0.7922.138`；G4 从 origin 起的累计
+WriteSet 必须精确为以下六路径：
+
+```text
+docs/superpowers/specs/2026-08-14-cognitura-vsb-chrome-authority-migration-design.md
+docs/superpowers/plans/2026-08-14-cognitura-vsb-chrome-authority-migration.md
+docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
+docs/task-cards/visual-style-baseline/README.md
+scripts/verify-visual-style-baseline-cards
+tests/task-cards/verify-visual-style-baseline-cards.sh
+```
+
+只有已完整重放并通过 `L3 / deep_reviewer / xhigh / ONE` 零 finding 审查的
+G4，才允许以 ledger-only 直接子提交 R4 记录唯一
+`CHROME_AUTHORITY_MIGRATION`；完整验证的 R4 才是新的 VSB-03 release
+anchor。G4、原 origin 和未完整重放的 receipt 都不是 Owner release anchor，
+也不会改变 VSB-03 当前 `L4 / deep_reviewer / xhigh / ONE` 的单次最终门禁。
+
 当前模型路由 Authority 是
 [`2026-08-13-cognitura-model-gate-routing-design.md`](../../superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md)
 （固定 SHA `1199e76a18db1d168c67c328ce7f195f3cdac7d9`）及其 TDD 修订计划

@@ -3523,7 +3523,7 @@ run_chrome_authority_migration_contract() {
   git -C "${bad_root}" add -- docs/task-cards/visual-style-baseline/README.md
   git -C "${bad_root}" commit -qm "test: NUL in Chrome governance path"
   expect_chrome_migration_failure "${bad_root}" "${bad_cards}" \
-    "Chrome authority migration governance path must not contain NUL bytes" \
+    "README.md: stale Chrome authority migration version" \
     "${invocation_tmp}" "${invocation_marker}" "G4 path NUL"
   negative_cases=$((negative_cases + 1))
 
