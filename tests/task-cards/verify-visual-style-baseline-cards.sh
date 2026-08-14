@@ -12,6 +12,7 @@ verifier_recovery_contract_only=0
 chrome_authority_migration_contract_only=0
 chrome_capture_source_contract_only=0
 chrome_fixed_capture_contract_only=0
+historical_hv_replay_repair_contract_only=0
 case "${1:-}" in
   --repair-contract-only)
     repair_contract_only=1
@@ -58,6 +59,10 @@ case "${1:-}" in
     ;;
   --chrome-fixed-capture-contract-only)
     chrome_fixed_capture_contract_only=1
+    shift
+    ;;
+  --historical-hv-replay-repair-contract-only)
+    historical_hv_replay_repair_contract_only=1
     shift
     ;;
 esac
@@ -4266,6 +4271,141 @@ run_chrome_authority_migration_contract() {
     "ChromeAuthorityMigrationNegativeCases = ${negative_cases}" \
     "ChromeAuthorityMigrationContractTests = PASS"
 }
+
+run_historical_hv_replay_repair_contract() {
+  local repair_origin_sha=2690ab9e6d0318c63deb56f86bc0b923ae845c04
+  local source_head fixture_root fixture_cards fixture_state
+  local governance_sha candidate_sha receipt_sha output actual_paths expected_paths
+  local invocation_tmp invocation_marker
+  local positive_cases=0 negative_cases=0
+  local path
+  local -a governance_paths product_paths repair_paths
+
+  governance_paths=(
+    docs/superpowers/specs/2026-08-15-cognitura-vsb-historical-hv-replay-repair-design.md
+    docs/superpowers/plans/2026-08-15-cognitura-vsb-historical-hv-replay-repair.md
+    docs/superpowers/plans/2026-08-12-cognitura-visual-style-baseline.md
+    docs/task-cards/visual-style-baseline/README.md
+    scripts/verify-visual-style-baseline-cards
+    tests/task-cards/verify-visual-style-baseline-cards.sh
+  )
+  product_paths=(
+    scripts/verify-visual-style-baseline
+    tests/visual-style-baseline/verify-visual-style-baseline.sh
+  )
+  repair_paths=("${governance_paths[@]}" "${product_paths[@]}")
+
+  source_head="$(git -C "${repo_root}" rev-parse HEAD)"
+  fixture_root="${test_tmp_root}/historical-hv-repair"
+  fixture_cards="${fixture_root}/docs/task-cards/visual-style-baseline"
+  fixture_state="${fixture_cards}/execution-state.md"
+  invocation_tmp="${test_tmp_root}/historical-hv-repair-invocation"
+  invocation_marker="${test_tmp_root}/historical-hv-repair-sibling-marker"
+
+  git -C "${repo_root}" cat-file -e "${repair_origin_sha}^{commit}" ||
+    fail "fixed historical HV repair origin is unavailable"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" config advice.detachedHead false
+  git -C "${fixture_root}" config user.name "Cognitura Test"
+  git -C "${fixture_root}" config user.email "test@cognitura.invalid"
+  git -C "${fixture_root}" checkout -q --detach "${repair_origin_sha}"
+
+  for path in "${governance_paths[0]}" "${governance_paths[1]}"; do
+    mkdir -p "${fixture_root}/$(dirname "${path}")"
+    git -C "${repo_root}" show "${source_head}:${path}" > "${fixture_root}/${path}"
+  done
+  printf '\nHistoricalHVReplayRepairFixture = AUTHORITY\n' >> \
+    "${fixture_root}/${governance_paths[2]}"
+  printf '\nHistoricalHVReplayRepairFixture = AUTHORITY\n' >> \
+    "${fixture_root}/${governance_paths[3]}"
+  printf '\n# historical HV repair production fixture\n' >> \
+    "${fixture_root}/${governance_paths[4]}"
+  printf '\n# historical HV repair contract fixture\n' >> \
+    "${fixture_root}/${governance_paths[5]}"
+  git -C "${fixture_root}" add -- "${governance_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: historical HV repair authority"
+  governance_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  assert_commit_parent_count "${fixture_root}" "${governance_sha}" 1
+
+  printf '\n# historical HV replay repair fixture\n' >> \
+    "${fixture_root}/${product_paths[0]}"
+  printf '\n# historical HV replay repair fixture\n' >> \
+    "${fixture_root}/${product_paths[1]}"
+  git -C "${fixture_root}" add -- "${product_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: historical HV replay repair candidate"
+  candidate_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  assert_commit_parent_count "${fixture_root}" "${candidate_sha}" 1
+  [[ "$(git -C "${fixture_root}" rev-parse "${candidate_sha}^")" == \
+     "${governance_sha}" ]] || fail "repair candidate must directly follow fixture Authority"
+
+  actual_paths="$(git -C "${fixture_root}" diff --no-renames --name-only \
+    "${repair_origin_sha}..${candidate_sha}" | LC_ALL=C sort)"
+  expected_paths="$(printf '%s\n' "${repair_paths[@]}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "historical HV fixture must have exact eight-path cumulative WriteSet"
+  [[ "$(git -C "${fixture_root}" rev-parse \
+       "${repair_origin_sha}:docs/task-cards/visual-style-baseline/execution-state.md")" == \
+     "$(git -C "${fixture_root}" rev-parse \
+       "${candidate_sha}:docs/task-cards/visual-style-baseline/execution-state.md")" ]] ||
+    fail "historical HV repair candidate must preserve the execution ledger"
+
+  set_field "${fixture_state}" TaskCardSetStatus COMPLETE
+  set_field "${fixture_state}" ActiveTaskCard NONE
+  set_field "${fixture_state}" ReleasedTaskCard NONE
+  set_field "${fixture_state}" CompletedTaskCards VSB-00,VSB-01,VSB-02,VSB-03
+  set_field "${fixture_state}" CurrentCandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" CurrentGateStatus VSB-G3_PASS
+  set_field "${fixture_state}" CurrentReviewRoute deep_reviewer
+  set_field "${fixture_state}" CurrentReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" VSB03CandidateSHA "${candidate_sha}"
+  set_field "${fixture_state}" VSB03GateStatus VSB-G3_PASS
+  set_field "${fixture_state}" VSB03ReviewRoute deep_reviewer
+  set_field "${fixture_state}" VSB03DeepReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
+  set_field "${fixture_state}" VSB03UltraReviewVerdict NOT_RUN
+  set_field "${fixture_state}" TransitionSequence 11
+  set_field "${fixture_state}" TransitionKind COMPLETE
+  set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
+  set_field "${fixture_state}" VisualImplementation COMPLETE
+  git -C "${fixture_root}" add -- \
+    docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${fixture_root}" commit -qm "test: complete historical HV replay repair"
+  receipt_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  assert_commit_parent_count "${fixture_root}" "${receipt_sha}" 1
+  [[ "$(git -C "${fixture_root}" diff --name-only \
+       "${candidate_sha}..${receipt_sha}")" == \
+     docs/task-cards/visual-style-baseline/execution-state.md ]] ||
+    fail "historical HV repair receipt must be ledger-only"
+
+  mkdir -p "${invocation_tmp}"
+  : > "${invocation_marker}"
+  if ! output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+      --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" \
+      --transition-base "${candidate_sha}" \
+      --transition-head "${receipt_sha}" 2>&1)"; then
+    fail "legal historical HV exact-eight COMPLETE transition was rejected: ${output}"
+  fi
+  positive_cases=$((positive_cases + 1))
+  if ! output="$(TMPDIR="${invocation_tmp}" "${verifier}" \
+      --repo-root "${fixture_root}" --cards-dir "${fixture_cards}" 2>&1)"; then
+    fail "legal historical HV terminal static replay was rejected: ${output}"
+  fi
+  positive_cases=$((positive_cases + 1))
+  [[ -f "${invocation_marker}" ]] ||
+    fail "historical HV repair verifier removed the sibling marker"
+  [[ -z "$(find "${invocation_tmp}" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
+    fail "historical HV repair verifier left invocation residue"
+  [[ "${positive_cases}" -eq 2 && "${negative_cases}" -eq 0 ]] ||
+    fail "historical HV repair focused case counts drifted"
+  printf '%s\n' \
+    "HistoricalHVReplayRepairPositiveCases = ${positive_cases}" \
+    "HistoricalHVReplayRepairNegativeCases = ${negative_cases}" \
+    "HistoricalHVReplayRepairContractTests = PASS"
+}
+
+if [[ "${historical_hv_replay_repair_contract_only}" -eq 1 ]]; then
+  run_historical_hv_replay_repair_contract
+  exit 0
+fi
 
 if [[ "${chrome_authority_migration_contract_only}" -eq 1 ]]; then
   run_chrome_authority_migration_contract
