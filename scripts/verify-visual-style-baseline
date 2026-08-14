@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 /usr/bin/env -i \
   HOME="${HOME:-/tmp}" \
   TMPDIR="${TMPDIR:-/tmp}" \

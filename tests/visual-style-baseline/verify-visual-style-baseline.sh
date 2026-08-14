@@ -91,6 +91,21 @@ sanitization_sentinel="${runtime_root}/startup-function-bypass"
   fail "startup sanitization was bypassed by imported shell functions"
 negative_cases=$((negative_cases + 1))
 
+bash_env_sentinel="${runtime_root}/bash-env-pre-sanitization-executed"
+bash_env_fixture="${runtime_root}/ambient-bash-env"
+printf '%s\n' \
+  'printf "executed\\n" > "${VSB_BASH_ENV_SENTINEL}"' > "${bash_env_fixture}"
+(
+  export VSB_BASH_ENV_SENTINEL="${bash_env_sentinel}"
+  BASH_ENV="${bash_env_fixture}" ENV="${bash_env_fixture}" \
+    env PATH="${locked_toolchain_path}" \
+      "${repo_root}/scripts/verify-visual-style-baseline" \
+      --repo-root "${runtime_root}/missing-repository" >/dev/null 2>&1 || true
+)
+[[ ! -e "${bash_env_sentinel}" ]] ||
+  fail "BASH_ENV executed before the sanitized verifier payload"
+negative_cases=$((negative_cases + 1))
+
 candidate_binding_repo="${runtime_root}/candidate-binding-repo"
 candidate_binding_sentinel="${runtime_root}/mutable-tool-was-executed"
 git clone --shared --quiet "${repo_root}" "${candidate_binding_repo}"
@@ -257,6 +272,49 @@ if [[ -d "${repo_root}/web/node_modules" ]]; then
 fi
 mkdir -p "${browser_mutation_tmp}"
 
+wrong_version_verifier="${runtime_root}/wrong-version-verifier"
+wrong_version_chrome="${runtime_root}/wrong-version-chrome"
+wrong_version_sentinel="${runtime_root}/wrong-version-browser-side-effect"
+git -C "${repo_root}" show \
+  'c3ee56051d423ae12852787948d71e994005087e:scripts/verify-visual-style-baseline-cards' > \
+  "${wrong_version_verifier}"
+printf '%s\n' \
+  '#!/bin/bash' \
+  'if [[ "$#" -eq 1 && "$1" == --version ]]; then' \
+  '  printf '\''Google Chrome 151.0.7922.137\\n'\''' \
+  '  exit 0' \
+  'fi' \
+  "printf 'executed\\n' > '${wrong_version_sentinel}'" \
+  'exit 97' > "${wrong_version_chrome}"
+chmod 755 "${wrong_version_verifier}" "${wrong_version_chrome}"
+python3 - "${wrong_version_verifier}" "${wrong_version_chrome}" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+fixed = "'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'"
+if source.count(fixed) != 2:
+    raise SystemExit("fixed Chrome dependency replacement count mismatch")
+path.write_text(source.replace(fixed, repr(sys.argv[2])), encoding="utf-8")
+PY
+wrong_version_output=""
+if wrong_version_output="$(env -i \
+    HOME="${HOME}" \
+    TMPDIR="${browser_mutation_tmp}" \
+    PATH="${locked_toolchain_path}" \
+    LANG="${LANG:-C}" \
+    /bin/bash "${wrong_version_verifier}" --chrome-fixed-capture \
+      --repo-root "${browser_mutation_repo}" \
+      --output-dir "${runtime_root}/wrong-version-output" 2>&1)"; then
+  fail "Chrome version 151.0.7922.137 unexpectedly passed"
+fi
+[[ "${wrong_version_output}" == *'expected Google Chrome 151.0.7922.138'* ]] ||
+  fail "wrong Chrome version failed without exact diagnostic"
+[[ ! -e "${wrong_version_sentinel}" ]] ||
+  fail "wrong Chrome version reached a browser side effect"
+negative_cases=$((negative_cases + 1))
+
 inject_probe_mutation() {
   local probe_file="$1"
   local mutation_code="$2"
@@ -289,8 +347,10 @@ for browser_mutation in \
     conditions-heading \
     spoofed-primary-count \
     forbidden-runtime-api \
+    browser-storage \
     runtime-guard-failure \
     csp-violation \
+    external-image-csp \
     unexpected-http-request \
     visual-ready-missing \
     comparison-ready-missing; do
@@ -342,11 +402,17 @@ for browser_mutation in \
     forbidden-runtime-api)
       inject_probe_mutation "${browser_probe}" 'try { win.fetch("/forbidden-runtime"); } catch (_error) {}'
       ;;
+    browser-storage)
+      inject_probe_mutation "${browser_probe}" 'try { win.localStorage.setItem("vsb", "forbidden"); } catch (_error) {}'
+      ;;
     runtime-guard-failure)
       inject_probe_mutation "${browser_probe}" 'if (win.__vsbRuntimeUsage) win.__vsbRuntimeUsage.guardInstallStatus = "FAIL";'
       ;;
     csp-violation)
       inject_probe_mutation "${browser_probe}" 'if (win.__vsbRuntimeUsage) win.__vsbRuntimeUsage.cspViolationCount = 1;'
+      ;;
+    external-image-csp)
+      inject_probe_mutation "${browser_probe}" 'const externalImage = doc.createElement("img"); externalImage.src = "http://1.2.3.4/forbidden.png"; doc.body.append(externalImage); await new Promise((resolve) => win.setTimeout(resolve, 250));'
       ;;
     unexpected-http-request)
       inject_probe_mutation "${browser_probe}" 'const image = doc.createElement("img"); image.src = "/unexpected-network-path"; doc.body.append(image);'
@@ -415,6 +481,9 @@ imported_function_sentinel="${runtime_root}/imported-function-executed"
 [[ ! -e "${imported_function_sentinel}" ]] ||
   fail "fixed visual verification imported an exported shell function"
 negative_cases=$((negative_cases + 1))
+
+[[ "${negative_cases}" -eq 48 ]] ||
+  fail "visual browser negative matrix count drifted from 48"
 
 printf '%s\n' \
   'VisualStyleBaselineBrowserContractTests = PASS' \
