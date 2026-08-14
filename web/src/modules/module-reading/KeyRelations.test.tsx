@@ -258,6 +258,14 @@ describe("KeyRelations", () => {
     const input = rendererInputWithTwoRelations;
     render(<KeyRelations input={input} />);
     const relationList = screen.getByRole("list", { name: "局部关系" });
+    expect(relationList.closest("section")).toHaveAttribute(
+      "aria-labelledby",
+      "key-relations-heading",
+    );
+    expect(screen.getByRole("heading", { level: 2 })).toHaveAttribute(
+      "id",
+      "key-relations-heading",
+    );
     const relationItems = within(relationList).getAllByRole("listitem");
     const nodeById = new Map(input.nodes.map((node) => [node.nodeId, node]));
 

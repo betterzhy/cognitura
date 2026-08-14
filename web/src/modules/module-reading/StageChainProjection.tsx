@@ -18,12 +18,18 @@ export function StageChainProjection({
 
   return (
     <section
+      aria-labelledby="stage-chain-projection-heading"
       className="stage-chain-projection"
       data-reading-section="stage-chain"
     >
       <header className="stage-chain-projection__header">
         <p className="stage-chain-projection__label">机制路径</p>
-        <h2 className="cka-type-major-section">{input.title}</h2>
+        <h2
+          className="cka-type-major-section"
+          id="stage-chain-projection-heading"
+        >
+          {input.title}
+        </h2>
         <p className="stage-chain-projection__summary">{input.summary}</p>
       </header>
       <ol aria-label="机制路径">

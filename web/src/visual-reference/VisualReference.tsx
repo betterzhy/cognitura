@@ -6,6 +6,16 @@ import {
   visualReferenceRenderer,
 } from "./module-default-reading.fixture";
 
+export function findVisualReferenceRoot(root: ParentNode) {
+  const visualReferenceRoot = root.querySelector<HTMLElement>(
+    '#visual-reference-root[data-visual-entry="reference-only"]',
+  );
+  if (visualReferenceRoot === null) {
+    throw new Error("VISUAL_REFERENCE_ROOT_MISSING");
+  }
+  return visualReferenceRoot;
+}
+
 export function VisualReference() {
   useEffect(() => {
     document.documentElement.dataset.visualReferenceReady = "true";

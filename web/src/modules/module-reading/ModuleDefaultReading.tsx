@@ -131,13 +131,15 @@ export function ModuleDefaultReading({
 
   return (
     <main
-      aria-label={module.title}
+      aria-labelledby="module-default-reading-heading"
       className="module-default-reading cka-visual-root cka-reading-surface"
       data-reading-flow="continuous-document"
     >
       <header className="module-default-reading__identity">
         <p className="module-default-reading__eyebrow">认知模块</p>
-        <h1 className="cka-type-object-title">{module.title}</h1>
+        <h1 className="cka-type-object-title" id="module-default-reading-heading">
+          {module.title}
+        </h1>
       </header>
       <ModuleNarrative projection={narrative} />
       <div

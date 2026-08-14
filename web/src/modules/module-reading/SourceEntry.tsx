@@ -9,12 +9,14 @@ export function SourceEntry({ sourceRefs }: SourceEntryProps) {
 
   return (
     <section
-      aria-label="来源锚点"
+      aria-labelledby="module-source-entry-heading"
       className="module-source-entry"
       data-reading-section="source-entry"
     >
       <div>
-        <p className="module-section-label">来源锚点</p>
+        <p className="module-section-label" id="module-source-entry-heading">
+          来源锚点
+        </p>
         <p>关键结论可回到正式来源核验。</p>
       </div>
       <button

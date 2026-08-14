@@ -38,8 +38,14 @@ export function KeyRelations({ input }: KeyRelationsProps) {
   });
 
   return (
-    <section className="key-relations" data-reading-section="relations">
-      <h2 className="cka-type-major-section">局部关系</h2>
+    <section
+      aria-labelledby="key-relations-heading"
+      className="key-relations"
+      data-reading-section="relations"
+    >
+      <h2 className="cka-type-major-section" id="key-relations-heading">
+        局部关系
+      </h2>
       <ul aria-label="局部关系">
         {resolvedRelations.map(({ relation, sourceNode, targetNode }) => (
           <li

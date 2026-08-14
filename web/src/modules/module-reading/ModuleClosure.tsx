@@ -9,10 +9,16 @@ export function ModuleClosure({ boundaries, elements }: ModuleClosureProps) {
   return (
     <>
       <section
+        aria-labelledby="module-closure-boundaries-heading"
         className="module-closure__boundaries cka-semantic-boundary"
         data-reading-section="boundaries"
       >
-        <h2 className="cka-type-major-section">边界与例外</h2>
+        <h2
+          className="cka-type-major-section"
+          id="module-closure-boundaries-heading"
+        >
+          边界与例外
+        </h2>
         <ul aria-label="边界与例外">
           {boundaries.map((boundary) => (
             <li
@@ -26,10 +32,16 @@ export function ModuleClosure({ boundaries, elements }: ModuleClosureProps) {
       </section>
 
       <section
+        aria-labelledby="module-closure-elements-heading"
         className="module-closure__elements"
         data-reading-section="elements"
       >
-        <h2 className="cka-type-major-section">关键知识</h2>
+        <h2
+          className="cka-type-major-section"
+          id="module-closure-elements-heading"
+        >
+          关键知识
+        </h2>
         <ul aria-label="关键知识">
           {elements.map((element) => (
             <li data-element-id={element.artifactId} key={element.artifactId}>

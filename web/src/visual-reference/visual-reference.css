@@ -77,6 +77,7 @@ body {
 }
 
 .visual-reference__path {
+  box-sizing: border-box;
   width: min(100%, var(--projection-width));
   margin-inline: auto;
   margin-block-end: var(--space-4);

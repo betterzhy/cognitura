@@ -2,6 +2,7 @@
 
 .module-default-reading {
   box-sizing: border-box;
+  min-inline-size: 0;
   width: min(100%, var(--projection-width));
   margin-inline: auto;
   padding: clamp(var(--space-8), 5vw, var(--space-16));

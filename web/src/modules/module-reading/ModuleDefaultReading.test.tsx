@@ -73,6 +73,31 @@ const expectedSectionOrder = [
   "source-entry",
 ] as const;
 
+const forbiddenDashboardClassFragment =
+  /(?:dashboard|card-wall|metric|coverage|progress|glass|gradient)/i;
+
+function expectNoDashboardPresentationHooks(root: HTMLElement) {
+  const elements = [
+    root,
+    ...root.querySelectorAll<HTMLElement>("[class]"),
+  ];
+  const forbiddenClasses = elements.flatMap((element) =>
+    Array.from(element.classList).filter((className) =>
+      forbiddenDashboardClassFragment.test(className),
+    ),
+  );
+  const forbiddenDataAttributes = [
+    root,
+    ...root.querySelectorAll<HTMLElement>("*"),
+  ].flatMap((element) =>
+    ["data-dashboard", "data-card-wall"].filter((attribute) =>
+      element.hasAttribute(attribute),
+    ),
+  );
+  expect(forbiddenClasses).toEqual([]);
+  expect(forbiddenDataAttributes).toEqual([]);
+}
+
 function assertExactComposition(main: HTMLElement) {
   const questions = within(main).getByRole("list", { name: "核心问题" });
   const conclusion = within(main).getByRole("region", {
@@ -228,6 +253,14 @@ describe("ModuleDefaultReading", () => {
       "cka-reading-surface",
     );
     expect(main).toHaveAttribute("data-reading-flow", "continuous-document");
+    expect(main).toHaveAttribute(
+      "aria-labelledby",
+      "module-default-reading-heading",
+    );
+    expect(within(main).getByRole("heading", { level: 1 })).toHaveAttribute(
+      "id",
+      "module-default-reading-heading",
+    );
     expect(within(main).getByRole("heading", { level: 1 })).toHaveClass(
       "cka-type-object-title",
     );
@@ -240,11 +273,8 @@ describe("ModuleDefaultReading", () => {
     expect(screen.getByText("认知模块", { exact: true })).toHaveClass(
       "module-default-reading__eyebrow",
     );
-    expect(
-      main.querySelectorAll(
-        "aside, [role='complementary'], .dashboard, [data-dashboard], .card-wall, [data-card-wall]",
-      ),
-    ).toHaveLength(0);
+    expect(main.querySelectorAll("aside, [role='complementary']")).toHaveLength(0);
+    expectNoDashboardPresentationHooks(main);
   });
 
   it("consumes the production style authority without parallel theme values", () => {
@@ -287,6 +317,7 @@ describe("ModuleDefaultReading", () => {
       "width: min(100%, var(--reading-column-width))",
     );
     expect(moduleDefaultReadingStyles).not.toContain("100vw");
+    expect(moduleDefaultReadingStyles).toContain("min-inline-size: 0");
     expect(moduleDefaultReadingStyles).toMatch(/max-width:\s*64rem/);
     expect(moduleDefaultReadingStyles).toMatch(/max-width:\s*48rem/);
     expect(moduleDefaultReadingStyles).toContain("overflow-x: hidden");
@@ -312,6 +343,34 @@ describe("ModuleDefaultReading", () => {
     const relations = reordered.querySelector('[data-reading-section="relations"]');
     relations?.after(stageChain as Node);
     expect(() => assertExactComposition(reordered)).toThrow();
+  });
+
+  it("keeps every forbidden dashboard class substring mutation RED", () => {
+    [
+      "module-dashboard-summary",
+      "reading-card-wall-grid",
+      "module-metric-row",
+      "source-coverage-ring",
+      "stage-progress-indicator",
+      "reading-glass-surface",
+      "visual-gradient-banner",
+    ].forEach((forbiddenClass) => {
+      const mutated = renderedMainClone();
+      mutated.classList.add(forbiddenClass);
+      expect(() => expectNoDashboardPresentationHooks(mutated)).toThrow();
+    });
+
+    const rootAttributeMutation = renderedMainClone();
+    rootAttributeMutation.setAttribute("data-dashboard", "");
+    expect(() => expectNoDashboardPresentationHooks(rootAttributeMutation)).toThrow();
+
+    const descendantAttributeMutation = renderedMainClone();
+    descendantAttributeMutation
+      .querySelector('[data-reading-section="stage-chain"]')
+      ?.setAttribute("data-card-wall", "arbitrary-value");
+    expect(() =>
+      expectNoDashboardPresentationHooks(descendantAttributeMutation),
+    ).toThrow();
   });
 
   it("keeps canonical relation identity, type, source, and target mutations RED", () => {

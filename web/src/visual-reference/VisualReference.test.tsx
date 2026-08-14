@@ -11,11 +11,12 @@ import viteConfigRaw from "../../vite.config.mjs?raw";
 import visualReferenceHtml from "../../visual-reference.html?raw";
 import fixtureRaw from "./module-default-reading.fixture.ts?raw";
 import {
+  buildVisualReferenceNodes,
   visualReferenceModule,
   visualReferenceRenderer,
 } from "./module-default-reading.fixture";
 import mainRaw from "./main.tsx?raw";
-import { VisualReference } from "./VisualReference";
+import { findVisualReferenceRoot, VisualReference } from "./VisualReference";
 import visualReferenceRaw from "./VisualReference.tsx?raw";
 import visualReferenceCss from "./visual-reference.css?raw";
 
@@ -63,6 +64,8 @@ const forbiddenFixtureBehaviors = [
 const forbiddenProjectionName = /^(?:conditions|results)$/i;
 const forbiddenProjectionClassToken =
   /(?:^|[-_])(?:conditions?|results?)(?:$|[-_])/i;
+const forbiddenDashboardClassFragment =
+  /(?:dashboard|card-wall|metric|coverage|progress|glass|gradient)/i;
 
 afterEach(() => {
   cleanup();
@@ -119,6 +122,52 @@ function expectNoConditionsOrResults(root: HTMLElement) {
     ),
   );
   expect(classSections).toHaveLength(0);
+}
+
+function expectNoDashboardPresentationHooks(root: HTMLElement) {
+  const elements = [
+    root,
+    ...root.querySelectorAll<HTMLElement>("[class]"),
+  ];
+  const forbiddenClasses = elements.flatMap((element) =>
+    Array.from(element.classList).filter((className) =>
+      forbiddenDashboardClassFragment.test(className),
+    ),
+  );
+  const forbiddenDataAttributes = [
+    root,
+    ...root.querySelectorAll<HTMLElement>("*"),
+  ].flatMap((element) =>
+    ["data-dashboard", "data-card-wall"].filter((attribute) =>
+      element.hasAttribute(attribute),
+    ),
+  );
+  expect(forbiddenClasses).toEqual([]);
+  expect(forbiddenDataAttributes).toEqual([]);
+}
+
+function expectSmallScreenBreadcrumbPaddingContract(source: string) {
+  expect(source).toMatch(
+    /@media\s*\(max-width:\s*48rem\)[\s\S]*?\.visual-reference__path\s*\{[^}]*padding-inline:\s*var\(--space-5\)/,
+  );
+}
+
+function computedBreadcrumbBoxSizing(source: string) {
+  const style = document.createElement("style");
+  style.textContent = source;
+  document.head.append(style);
+  const { container, unmount } = render(<VisualReference />);
+  const breadcrumb = within(container).getByRole("navigation", {
+    name: "知识路径",
+  });
+  const boxSizing = getComputedStyle(breadcrumb).boxSizing;
+  unmount();
+  style.remove();
+  return boxSizing;
+}
+
+function expectBreadcrumbBorderBox(source: string) {
+  expect(computedBreadcrumbBoxSizing(source)).toBe("border-box");
 }
 
 function expectOfflineFixtureSources(sources: readonly string[]) {
@@ -309,16 +358,39 @@ describe("VisualReference", () => {
     expect(
       reading.querySelectorAll("[data-reading-section='relations'] li"),
     ).toHaveLength(1);
-    expect(
-      container.querySelectorAll(
-        "aside, [role='complementary'], .dashboard, [data-dashboard], .card-wall, [data-card-wall]",
-      ),
-    ).toHaveLength(0);
+    expect(container.querySelectorAll("aside, [role='complementary']")).toHaveLength(0);
+    expectNoDashboardPresentationHooks(reference);
     visualReferenceRenderer.sourceRefs.forEach((sourceRef) =>
       expect(reference).not.toHaveTextContent(sourceRef),
     );
     expectNoConditionsOrResults(reference);
     expectNoConditionsOrResults(reading);
+
+    [
+      "visual-dashboard-summary",
+      "reading-card-wall-grid",
+      "module-metric-row",
+      "source-coverage-ring",
+      "stage-progress-indicator",
+      "reading-glass-surface",
+      "visual-gradient-banner",
+    ].forEach((forbiddenClass) => {
+      const mutated = reference.cloneNode(true) as HTMLElement;
+      mutated.classList.add(forbiddenClass);
+      expect(() => expectNoDashboardPresentationHooks(mutated)).toThrow();
+    });
+
+    const rootAttributeMutation = reference.cloneNode(true) as HTMLElement;
+    rootAttributeMutation.setAttribute("data-dashboard", "");
+    expect(() => expectNoDashboardPresentationHooks(rootAttributeMutation)).toThrow();
+
+    const descendantAttributeMutation = reference.cloneNode(true) as HTMLElement;
+    descendantAttributeMutation
+      .querySelector('[data-reading-section="stage-chain"]')
+      ?.setAttribute("data-card-wall", "arbitrary-value");
+    expect(() =>
+      expectNoDashboardPresentationHooks(descendantAttributeMutation),
+    ).toThrow();
 
     const mutatedReference = reference.cloneNode(true) as HTMLElement;
     const forbiddenSection = document.createElement("section");
@@ -385,8 +457,24 @@ describe("VisualReference", () => {
       }),
     ]);
     expect(visualReferenceRenderer.nodes).toHaveLength(4);
+    expect(visualReferenceRenderer.nodes.map((node) => node.nodeId)).toEqual([
+      "renderer-node.mvcc.read-view",
+      "renderer-node.mvcc.record-version",
+      "renderer-node.mvcc.visibility",
+      "renderer-node.mvcc.visible-result",
+    ]);
     expect(visualReferenceRenderer.nodes.map((node) => node.contentPath)).toEqual(
       [0, 1, 2, 3].map((index) => `/knowledgeElements/${index}/title`),
+    );
+    expect(() =>
+      buildVisualReferenceNodes(
+        visualReferenceModule.knowledgeElements.slice(0, 3),
+      ),
+    ).toThrow("VISUAL_REFERENCE_ELEMENT_COUNT_MISMATCH");
+    const sparseElements = [...visualReferenceModule.knowledgeElements];
+    delete sparseElements[2];
+    expect(() => buildVisualReferenceNodes(sparseElements)).toThrow(
+      "VISUAL_REFERENCE_ELEMENT_MISSING",
     );
     expect(visualReferenceRenderer.relations).toEqual([
       expect.objectContaining({
@@ -399,7 +487,22 @@ describe("VisualReference", () => {
   });
 
   it("defines an independent Vite entry and no online or persistent fixture behavior", () => {
-    expect(visualReferenceDocument).toContain('<div id="visual-reference-root"></div>');
+    const parsedDocument = new DOMParser().parseFromString(
+      visualReferenceDocument,
+      "text/html",
+    );
+    const entryRoot = parsedDocument.querySelectorAll(
+      '#visual-reference-root[data-visual-entry="reference-only"]',
+    );
+    expect(entryRoot).toHaveLength(1);
+    expect(findVisualReferenceRoot(parsedDocument)).toBe(entryRoot[0]);
+    const wrongEntryDocument = new DOMParser().parseFromString(
+      visualReferenceDocument.replace("reference-only", "product-route"),
+      "text/html",
+    );
+    expect(() => findVisualReferenceRoot(wrongEntryDocument)).toThrow(
+      "VISUAL_REFERENCE_ROOT_MISSING",
+    );
     expect(visualReferenceDocument).toContain(
       '<script type="module" src="/src/visual-reference/main.tsx"></script>',
     );
@@ -496,6 +599,7 @@ describe("VisualReference", () => {
     expect(loaded).not.toBeNull();
     const config = loaded!.config;
     const input = config.build?.rollupOptions?.input as Record<string, string>;
+    expect(Object.isFrozen(input)).toBe(true);
     expect(input).toEqual({
       app: resolve(webRoot, "index.html"),
       visualReference: resolve(webRoot, "visual-reference.html"),
@@ -541,5 +645,12 @@ describe("VisualReference", () => {
     expect(visualReferenceStyles).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(visualReferenceStyles).not.toMatch(/\b(?:rgb|hsl)a?\(/i);
     expect(visualReferenceStyles).not.toMatch(/gradient\s*\(/i);
+    expectSmallScreenBreadcrumbPaddingContract(visualReferenceStyles);
+    expectBreadcrumbBorderBox(visualReferenceStyles);
+    expect(() =>
+      expectBreadcrumbBorderBox(
+        `${visualReferenceStyles}\n.visual-reference__path { box-sizing: content-box; }`,
+      ),
+    ).toThrow();
   });
 });

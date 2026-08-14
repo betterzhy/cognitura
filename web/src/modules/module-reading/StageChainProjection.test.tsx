@@ -64,6 +64,14 @@ describe("StageChainProjection", () => {
       ),
     ).toEqual(["stage-chain"]);
     expect(container.firstElementChild).toHaveClass("stage-chain-projection");
+    expect(container.firstElementChild).toHaveAttribute(
+      "aria-labelledby",
+      "stage-chain-projection-heading",
+    );
+    expect(screen.getByRole("heading", { level: 2 })).toHaveAttribute(
+      "id",
+      "stage-chain-projection-heading",
+    );
     expect(container.firstElementChild).not.toHaveClass("cka-projection-surface");
     expect(
       screen.getByRole("heading", { name: rendererInput.title, level: 2 }),

@@ -18,6 +18,14 @@ describe("SourceEntry", () => {
       JSON.stringify(sourceRefs),
     );
     expect(section).toHaveAttribute("data-reading-section", "source-entry");
+    expect(section).toHaveAttribute(
+      "aria-labelledby",
+      "module-source-entry-heading",
+    );
+    expect(within(section).getByText("来源锚点", { exact: true })).toHaveAttribute(
+      "id",
+      "module-source-entry-heading",
+    );
     expect(section).toHaveClass("module-source-entry");
     expect(button).not.toHaveAttribute("data-reading-section");
     expect(button).toHaveClass("module-source-entry__action", "cka-focusable");

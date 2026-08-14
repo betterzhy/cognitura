@@ -6,6 +6,35 @@ import type {
 const sourceRef = "evidence.visual-reference.mvcc";
 const moduleRef = "module.mvcc.visual-reference";
 const relationRef = "relation.mvcc.visible-result.depends-read-view";
+const rendererNodeIds = [
+  "renderer-node.mvcc.read-view",
+  "renderer-node.mvcc.record-version",
+  "renderer-node.mvcc.visibility",
+  "renderer-node.mvcc.visible-result",
+] as const;
+
+export function buildVisualReferenceNodes(
+  knowledgeElements: CognitiveModule["knowledgeElements"],
+): RendererInput["nodes"] {
+  if (knowledgeElements.length !== rendererNodeIds.length) {
+    throw new Error("VISUAL_REFERENCE_ELEMENT_COUNT_MISMATCH");
+  }
+  return rendererNodeIds.map((nodeId, index) => {
+    const element = knowledgeElements[index];
+    if (element === undefined) {
+      throw new Error("VISUAL_REFERENCE_ELEMENT_MISSING");
+    }
+    return {
+      nodeId,
+      artifactRef: moduleRef,
+      contentPath: `/knowledgeElements/${index}/title`,
+      label: element.title,
+      summary: element.content,
+      groupRef: null,
+      sourceRefs: [sourceRef],
+    };
+  });
+}
 
 export const visualReferenceModule: CognitiveModule = {
   schemaVersion: "2.0.0",
@@ -135,20 +164,7 @@ export const visualReferenceRenderer: RendererInput = {
   rendererType: "STAGE_CHAIN",
   title: "一致性读的可见版本选择机制",
   summary: "从读取视图到可见结果的四步认知路径。",
-  nodes: visualReferenceModule.knowledgeElements.map((element, index) => ({
-    nodeId: [
-      "renderer-node.mvcc.read-view",
-      "renderer-node.mvcc.record-version",
-      "renderer-node.mvcc.visibility",
-      "renderer-node.mvcc.visible-result",
-    ][index],
-    artifactRef: moduleRef,
-    contentPath: `/knowledgeElements/${index}/title`,
-    label: element.title,
-    summary: element.content,
-    groupRef: null,
-    sourceRefs: [sourceRef],
-  })),
+  nodes: buildVisualReferenceNodes(visualReferenceModule.knowledgeElements),
   groups: [],
   relations: [
     {

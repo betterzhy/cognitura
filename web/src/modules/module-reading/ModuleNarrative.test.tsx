@@ -65,6 +65,18 @@ describe("ModuleNarrative", () => {
         (section) => section.getAttribute("data-reading-section"),
       ),
     ).toEqual(["core-questions", "core-conclusion", "primary-spine"]);
+    const labeledSections = [
+      ["core-questions", "module-narrative-questions-heading"],
+      ["core-conclusion", "module-narrative-conclusion-heading"],
+      ["primary-spine", "module-narrative-spine-heading"],
+    ] as const;
+    labeledSections.forEach(([sectionName, headingId]) => {
+      const section = container.querySelector(
+        `[data-reading-section="${sectionName}"]`,
+      );
+      expect(section).toHaveAttribute("aria-labelledby", headingId);
+      expect(section?.querySelector("h2")).toHaveAttribute("id", headingId);
+    });
     expect(
       container.querySelector('[data-reading-section="core-questions"]'),
     ).toHaveClass("module-narrative__questions");

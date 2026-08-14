@@ -91,6 +91,17 @@ describe("ModuleClosure", () => {
         (section) => section.getAttribute("data-reading-section"),
       ),
     ).toEqual(["boundaries", "elements"]);
+    const labeledSections = [
+      ["boundaries", "module-closure-boundaries-heading"],
+      ["elements", "module-closure-elements-heading"],
+    ] as const;
+    labeledSections.forEach(([sectionName, headingId]) => {
+      const section = container.querySelector(
+        `[data-reading-section="${sectionName}"]`,
+      );
+      expect(section).toHaveAttribute("aria-labelledby", headingId);
+      expect(section?.querySelector("h2")).toHaveAttribute("id", headingId);
+    });
     expect(
       screen.queryByRole("heading", { name: /Conditions|Results/ }),
     ).toBeNull();
