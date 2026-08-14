@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import type { CriticalBoundary, KnowledgeElement } from "./model";
 
 export interface ModuleClosureProps {
@@ -6,16 +8,20 @@ export interface ModuleClosureProps {
 }
 
 export function ModuleClosure({ boundaries, elements }: ModuleClosureProps) {
+  const headingBaseId = useId();
+  const boundariesHeadingId = `${headingBaseId}-boundaries`;
+  const elementsHeadingId = `${headingBaseId}-elements`;
+
   return (
     <>
       <section
-        aria-labelledby="module-closure-boundaries-heading"
+        aria-labelledby={boundariesHeadingId}
         className="module-closure__boundaries cka-semantic-boundary"
         data-reading-section="boundaries"
       >
         <h2
           className="cka-type-major-section"
-          id="module-closure-boundaries-heading"
+          id={boundariesHeadingId}
         >
           边界与例外
         </h2>
@@ -32,13 +38,13 @@ export function ModuleClosure({ boundaries, elements }: ModuleClosureProps) {
       </section>
 
       <section
-        aria-labelledby="module-closure-elements-heading"
+        aria-labelledby={elementsHeadingId}
         className="module-closure__elements"
         data-reading-section="elements"
       >
         <h2
           className="cka-type-major-section"
-          id="module-closure-elements-heading"
+          id={elementsHeadingId}
         >
           关键知识
         </h2>

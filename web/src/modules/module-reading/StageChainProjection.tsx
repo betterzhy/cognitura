@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import type { RendererInput } from "./model";
 
 export interface StageChainProjectionProps {
@@ -9,6 +11,7 @@ export function StageChainProjection({
   moduleRef,
   input,
 }: StageChainProjectionProps) {
+  const headingId = `${useId()}-stage-chain-heading`;
   if (input.rendererType !== "STAGE_CHAIN") {
     throw new Error("RENDERER_TYPE_MISMATCH");
   }
@@ -18,7 +21,7 @@ export function StageChainProjection({
 
   return (
     <section
-      aria-labelledby="stage-chain-projection-heading"
+      aria-labelledby={headingId}
       className="stage-chain-projection"
       data-reading-section="stage-chain"
     >
@@ -26,7 +29,7 @@ export function StageChainProjection({
         <p className="stage-chain-projection__label">机制路径</p>
         <h2
           className="cka-type-major-section"
-          id="stage-chain-projection-heading"
+          id={headingId}
         >
           {input.title}
         </h2>

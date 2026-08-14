@@ -11,7 +11,6 @@ import viteConfigRaw from "../../vite.config.mjs?raw";
 import visualReferenceHtml from "../../visual-reference.html?raw";
 import fixtureRaw from "./module-default-reading.fixture.ts?raw";
 import {
-  buildVisualReferenceNodes,
   visualReferenceModule,
   visualReferenceRenderer,
 } from "./module-default-reading.fixture";
@@ -164,6 +163,24 @@ function computedBreadcrumbBoxSizing(source: string) {
   unmount();
   style.remove();
   return boxSizing;
+}
+
+function computedBreadcrumbMaxInlineSize(source: string) {
+  const style = document.createElement("style");
+  style.textContent = source;
+  document.head.append(style);
+  const { container, unmount } = render(<VisualReference />);
+  const breadcrumb = within(container).getByRole("navigation", {
+    name: "知识路径",
+  });
+  const maxInlineSize = getComputedStyle(breadcrumb).maxInlineSize;
+  unmount();
+  style.remove();
+  return maxInlineSize;
+}
+
+function expectBreadcrumbInlineContained(source: string) {
+  expect(computedBreadcrumbMaxInlineSize(source)).toBe("100%");
 }
 
 function expectBreadcrumbBorderBox(source: string) {
@@ -408,6 +425,17 @@ describe("VisualReference", () => {
   });
 
   it("uses the exact deterministic canonical-shaped fixture", () => {
+    return import("./module-default-reading.fixture").then(
+      (fixtureNamespace) => {
+        expect(Object.keys(fixtureNamespace).sort()).toEqual([
+          "visualReferenceModule",
+          "visualReferenceRenderer",
+        ]);
+      },
+    );
+  });
+
+  it("preserves the exact canonical fixture data", () => {
     expect(visualReferenceModule).toMatchObject({
       artifactId: "module.mvcc.visual-reference",
       revisionId: "rev.module.mvcc.visual-reference.1",
@@ -466,16 +494,6 @@ describe("VisualReference", () => {
     expect(visualReferenceRenderer.nodes.map((node) => node.contentPath)).toEqual(
       [0, 1, 2, 3].map((index) => `/knowledgeElements/${index}/title`),
     );
-    expect(() =>
-      buildVisualReferenceNodes(
-        visualReferenceModule.knowledgeElements.slice(0, 3),
-      ),
-    ).toThrow("VISUAL_REFERENCE_ELEMENT_COUNT_MISMATCH");
-    const sparseElements = [...visualReferenceModule.knowledgeElements];
-    delete sparseElements[2];
-    expect(() => buildVisualReferenceNodes(sparseElements)).toThrow(
-      "VISUAL_REFERENCE_ELEMENT_MISSING",
-    );
     expect(visualReferenceRenderer.relations).toEqual([
       expect.objectContaining({
         relationId: "renderer-relation.mvcc.visible-result.depends-read-view",
@@ -492,16 +510,26 @@ describe("VisualReference", () => {
       "text/html",
     );
     const entryRoot = parsedDocument.querySelectorAll(
-      '#visual-reference-root[data-visual-entry="reference-only"]',
+      '#visual-reference-root[data-visual-entry="reference-only"][data-product-route="false"]',
     );
     expect(entryRoot).toHaveLength(1);
-    expect(findVisualReferenceRoot(parsedDocument)).toBe(entryRoot[0]);
+    expect(findVisualReferenceRoot(parsedDocument.body)).toBe(entryRoot[0]);
     const wrongEntryDocument = new DOMParser().parseFromString(
       visualReferenceDocument.replace("reference-only", "product-route"),
       "text/html",
     );
     expect(() => findVisualReferenceRoot(wrongEntryDocument)).toThrow(
       "VISUAL_REFERENCE_ROOT_MISSING",
+    );
+    const duplicateEntryDocument = new DOMParser().parseFromString(
+      visualReferenceDocument.replace(
+        "</body>",
+        '<div id="visual-reference-root" data-visual-entry="reference-only" data-product-route="false"></div></body>',
+      ),
+      "text/html",
+    );
+    expect(() => findVisualReferenceRoot(duplicateEntryDocument.body)).toThrow(
+      "VISUAL_REFERENCE_ROOT_DUPLICATE",
     );
     expect(visualReferenceDocument).toContain(
       '<script type="module" src="/src/visual-reference/main.tsx"></script>',
@@ -599,6 +627,7 @@ describe("VisualReference", () => {
     expect(loaded).not.toBeNull();
     const config = loaded!.config;
     const input = config.build?.rollupOptions?.input as Record<string, string>;
+    expect(Object.isFrozen(config.build?.rollupOptions)).toBe(true);
     expect(Object.isFrozen(input)).toBe(true);
     expect(input).toEqual({
       app: resolve(webRoot, "index.html"),
@@ -650,6 +679,12 @@ describe("VisualReference", () => {
     expect(() =>
       expectBreadcrumbBorderBox(
         `${visualReferenceStyles}\n.visual-reference__path { box-sizing: content-box; }`,
+      ),
+    ).toThrow();
+    expectBreadcrumbInlineContained(visualReferenceStyles);
+    expect(() =>
+      expectBreadcrumbInlineContained(
+        `${visualReferenceStyles}\n.visual-reference__path { max-inline-size: none; }`,
       ),
     ).toThrow();
   });

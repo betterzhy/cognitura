@@ -13,7 +13,7 @@ const rendererNodeIds = [
   "renderer-node.mvcc.visible-result",
 ] as const;
 
-export function buildVisualReferenceNodes(
+function buildVisualReferenceNodes(
   knowledgeElements: CognitiveModule["knowledgeElements"],
 ): RendererInput["nodes"] {
   if (knowledgeElements.length !== rendererNodeIds.length) {

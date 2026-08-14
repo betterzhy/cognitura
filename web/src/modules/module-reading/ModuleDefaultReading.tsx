@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+import { useId } from "react";
+
 import { KeyRelations } from "./KeyRelations";
 import { ModuleClosure } from "./ModuleClosure";
 import { ModuleNarrative } from "./ModuleNarrative";
@@ -125,19 +127,20 @@ export function ModuleDefaultReading({
   module,
   rendererInput,
 }: ModuleDefaultReadingProps) {
+  const headingId = `${useId()}-module-heading`;
   const narrative = projectModuleNarrative(module);
   const closure = projectModuleClosure(module);
   validateFormalRelations(module, rendererInput);
 
   return (
     <main
-      aria-labelledby="module-default-reading-heading"
+      aria-labelledby={headingId}
       className="module-default-reading cka-visual-root cka-reading-surface"
       data-reading-flow="continuous-document"
     >
       <header className="module-default-reading__identity">
         <p className="module-default-reading__eyebrow">认知模块</p>
-        <h1 className="cka-type-object-title" id="module-default-reading-heading">
+        <h1 className="cka-type-object-title" id={headingId}>
           {module.title}
         </h1>
       </header>

@@ -64,13 +64,11 @@ describe("StageChainProjection", () => {
       ),
     ).toEqual(["stage-chain"]);
     expect(container.firstElementChild).toHaveClass("stage-chain-projection");
-    expect(container.firstElementChild).toHaveAttribute(
-      "aria-labelledby",
-      "stage-chain-projection-heading",
-    );
-    expect(screen.getByRole("heading", { level: 2 })).toHaveAttribute(
+    const headingId = container.firstElementChild?.getAttribute("aria-labelledby");
+    expect(headingId).toBeTruthy();
+    expect(container.firstElementChild?.querySelector("h2")).toHaveAttribute(
       "id",
-      "stage-chain-projection-heading",
+      headingId,
     );
     expect(container.firstElementChild).not.toHaveClass("cka-projection-surface");
     expect(
@@ -86,6 +84,29 @@ describe("StageChainProjection", () => {
           item.querySelector(".stage-chain-projection__number")?.textContent,
         ),
     ).toEqual(["1", "2"]);
+  });
+
+  it("keeps the stage heading binding local across multiple instances", () => {
+    const { container } = render(
+      <>
+        <StageChainProjection moduleRef="module.mvcc" input={rendererInput} />
+        <StageChainProjection moduleRef="module.mvcc" input={rendererInput} />
+      </>,
+    );
+    const sections = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-reading-section="stage-chain"]'),
+    );
+    const headingIds = sections.map((section) => {
+      const headingId = section.getAttribute("aria-labelledby");
+      expect(headingId).toBeTruthy();
+      const heading = section.querySelector("h2");
+      expect(heading).toHaveAttribute("id", headingId);
+      expect(heading).toBeVisible();
+      return headingId;
+    });
+
+    expect(sections).toHaveLength(2);
+    expect(new Set(headingIds).size).toBe(headingIds.length);
   });
 
   it("fails closed when the module reference does not match", () => {

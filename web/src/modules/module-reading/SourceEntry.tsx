@@ -1,20 +1,23 @@
+import { useId } from "react";
+
 interface SourceEntryProps {
   readonly sourceRefs: readonly string[];
 }
 
 export function SourceEntry({ sourceRefs }: SourceEntryProps) {
+  const headingId = `${useId()}-source-heading`;
   if (sourceRefs.length === 0) {
     throw new Error("MODULE_DEFAULT_READING_SOURCE_REQUIRED");
   }
 
   return (
     <section
-      aria-labelledby="module-source-entry-heading"
+      aria-labelledby={headingId}
       className="module-source-entry"
       data-reading-section="source-entry"
     >
       <div>
-        <p className="module-section-label" id="module-source-entry-heading">
+        <p className="module-section-label" id={headingId}>
           来源锚点
         </p>
         <p>关键结论可回到正式来源核验。</p>

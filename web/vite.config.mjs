@@ -8,13 +8,12 @@ const webEntries = Object.freeze({
   app: resolve(webRoot, "index.html"),
   visualReference: resolve(webRoot, "visual-reference.html"),
 });
+const rollupOptions = Object.freeze({ input: webEntries });
 
 export default defineConfig({
   plugins: [react()],
   build: {
-    rollupOptions: {
-      input: webEntries,
-    },
+    rollupOptions,
   },
   test: {
     environment: "jsdom",

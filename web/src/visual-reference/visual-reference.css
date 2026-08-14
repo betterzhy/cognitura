@@ -78,6 +78,7 @@ body {
 
 .visual-reference__path {
   box-sizing: border-box;
+  max-inline-size: 100%;
   width: min(100%, var(--projection-width));
   margin-inline: auto;
   margin-block-end: var(--space-4);

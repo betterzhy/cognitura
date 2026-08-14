@@ -258,14 +258,10 @@ describe("KeyRelations", () => {
     const input = rendererInputWithTwoRelations;
     render(<KeyRelations input={input} />);
     const relationList = screen.getByRole("list", { name: "局部关系" });
-    expect(relationList.closest("section")).toHaveAttribute(
-      "aria-labelledby",
-      "key-relations-heading",
-    );
-    expect(screen.getByRole("heading", { level: 2 })).toHaveAttribute(
-      "id",
-      "key-relations-heading",
-    );
+    const relationSection = relationList.closest("section") as HTMLElement;
+    const headingId = relationSection.getAttribute("aria-labelledby");
+    expect(headingId).toBeTruthy();
+    expect(relationSection.querySelector("h2")).toHaveAttribute("id", headingId);
     const relationItems = within(relationList).getAllByRole("listitem");
     const nodeById = new Map(input.nodes.map((node) => [node.nodeId, node]));
 
@@ -338,6 +334,29 @@ describe("KeyRelations", () => {
       expect(item.textContent).not.toMatch(/\b[A-Z]+_[A-Z_]+\b/);
     });
     expect(relationItems).toHaveLength(2);
+  });
+
+  it("keeps the relations heading binding local across multiple instances", () => {
+    const { container } = render(
+      <>
+        <KeyRelations input={rendererInputWithTwoRelations} />
+        <KeyRelations input={rendererInputWithTwoRelations} />
+      </>,
+    );
+    const sections = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-reading-section="relations"]'),
+    );
+    const headingIds = sections.map((section) => {
+      const headingId = section.getAttribute("aria-labelledby");
+      expect(headingId).toBeTruthy();
+      const heading = section.querySelector("h2");
+      expect(heading).toHaveAttribute("id", headingId);
+      expect(heading).toBeVisible();
+      return headingId;
+    });
+
+    expect(sections).toHaveLength(2);
+    expect(new Set(headingIds).size).toBe(headingIds.length);
   });
 
   it("maps every formal relation type to an exhaustive natural-language verb", () => {

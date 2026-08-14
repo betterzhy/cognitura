@@ -18,13 +18,11 @@ describe("SourceEntry", () => {
       JSON.stringify(sourceRefs),
     );
     expect(section).toHaveAttribute("data-reading-section", "source-entry");
-    expect(section).toHaveAttribute(
-      "aria-labelledby",
-      "module-source-entry-heading",
-    );
+    const headingId = section.getAttribute("aria-labelledby");
+    expect(headingId).toBeTruthy();
     expect(within(section).getByText("来源锚点", { exact: true })).toHaveAttribute(
       "id",
-      "module-source-entry-heading",
+      headingId,
     );
     expect(section).toHaveClass("module-source-entry");
     expect(button).not.toHaveAttribute("data-reading-section");
@@ -40,6 +38,32 @@ describe("SourceEntry", () => {
 
     button.focus();
     expect(button).toHaveFocus();
+  });
+
+  it("keeps the source label binding local across multiple instances", () => {
+    const { container } = render(
+      <>
+        <SourceEntry sourceRefs={["evidence.mvcc"]} />
+        <SourceEntry sourceRefs={["evidence.mvcc"]} />
+      </>,
+    );
+    const sections = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-reading-section="source-entry"]'),
+    );
+    const headingIds = sections.map((section) => {
+      const headingId = section.getAttribute("aria-labelledby");
+      expect(headingId).toBeTruthy();
+      const heading = section.querySelector(".module-section-label");
+      expect(heading).toHaveAttribute(
+        "id",
+        headingId,
+      );
+      expect(heading).toBeVisible();
+      return headingId;
+    });
+
+    expect(sections).toHaveLength(2);
+    expect(new Set(headingIds).size).toBe(headingIds.length);
   });
 
   it("preserves all source refs in input order as machine-only data", () => {

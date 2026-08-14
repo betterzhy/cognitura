@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import type { ModuleNarrativeProjection } from "./model";
 
 export interface ModuleNarrativeProps {
@@ -5,16 +7,21 @@ export interface ModuleNarrativeProps {
 }
 
 export function ModuleNarrative({ projection }: ModuleNarrativeProps) {
+  const headingBaseId = useId();
+  const questionsHeadingId = `${headingBaseId}-questions`;
+  const conclusionHeadingId = `${headingBaseId}-conclusion`;
+  const spineHeadingId = `${headingBaseId}-spine`;
+
   return (
     <>
       <section
-        aria-labelledby="module-narrative-questions-heading"
+        aria-labelledby={questionsHeadingId}
         className="module-narrative__questions"
         data-reading-section="core-questions"
       >
         <h2
           className="cka-type-major-section"
-          id="module-narrative-questions-heading"
+          id={questionsHeadingId}
         >
           核心问题
         </h2>
@@ -26,13 +33,13 @@ export function ModuleNarrative({ projection }: ModuleNarrativeProps) {
       </section>
 
       <section
-        aria-labelledby="module-narrative-conclusion-heading"
+        aria-labelledby={conclusionHeadingId}
         className="module-narrative__conclusion"
         data-reading-section="core-conclusion"
       >
         <h2
           className="cka-type-major-section"
-          id="module-narrative-conclusion-heading"
+          id={conclusionHeadingId}
         >
           核心结论
         </h2>
@@ -40,13 +47,13 @@ export function ModuleNarrative({ projection }: ModuleNarrativeProps) {
       </section>
 
       <section
-        aria-labelledby="module-narrative-spine-heading"
+        aria-labelledby={spineHeadingId}
         className="module-narrative__spine"
         data-reading-section="primary-spine"
       >
         <h2
           className="cka-type-major-section"
-          id="module-narrative-spine-heading"
+          id={spineHeadingId}
         >
           认知主线
         </h2>

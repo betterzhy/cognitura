@@ -28,6 +28,20 @@ const projection: ModuleNarrativeProjection = {
   ],
 };
 
+function expectLocalSectionLabels(container: HTMLElement) {
+  const sections = Array.from(
+    container.querySelectorAll<HTMLElement>("[data-reading-section]"),
+  );
+  return sections.map((section) => {
+    const headingId = section.getAttribute("aria-labelledby");
+    expect(headingId).toBeTruthy();
+    const heading = section.querySelector<HTMLElement>(`[id="${headingId}"]`);
+    expect(heading).not.toBeNull();
+    expect(heading).toBeVisible();
+    return headingId;
+  });
+}
+
 describe("ModuleNarrative", () => {
   it("renders questions, conclusion, and spine in canonical order", () => {
     const { container } = render(<ModuleNarrative projection={projection} />);
@@ -65,18 +79,7 @@ describe("ModuleNarrative", () => {
         (section) => section.getAttribute("data-reading-section"),
       ),
     ).toEqual(["core-questions", "core-conclusion", "primary-spine"]);
-    const labeledSections = [
-      ["core-questions", "module-narrative-questions-heading"],
-      ["core-conclusion", "module-narrative-conclusion-heading"],
-      ["primary-spine", "module-narrative-spine-heading"],
-    ] as const;
-    labeledSections.forEach(([sectionName, headingId]) => {
-      const section = container.querySelector(
-        `[data-reading-section="${sectionName}"]`,
-      );
-      expect(section).toHaveAttribute("aria-labelledby", headingId);
-      expect(section?.querySelector("h2")).toHaveAttribute("id", headingId);
-    });
+    expectLocalSectionLabels(container);
     expect(
       container.querySelector('[data-reading-section="core-questions"]'),
     ).toHaveClass("module-narrative__questions");
@@ -93,5 +96,18 @@ describe("ModuleNarrative", () => {
     expect(container.querySelectorAll(".cka-projection-surface")).toHaveLength(
       0,
     );
+  });
+
+  it("keeps every narrative section label local across multiple instances", () => {
+    const { container } = render(
+      <>
+        <ModuleNarrative projection={projection} />
+        <ModuleNarrative projection={projection} />
+      </>,
+    );
+    const headingIds = expectLocalSectionLabels(container);
+
+    expect(headingIds).toHaveLength(6);
+    expect(new Set(headingIds).size).toBe(headingIds.length);
   });
 });

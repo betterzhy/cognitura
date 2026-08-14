@@ -43,6 +43,20 @@ const moduleClosureSource: ModuleClosureProjection = {
 
 const projection = projectModuleClosure(moduleClosureSource);
 
+function expectLocalClosureLabels(container: HTMLElement) {
+  const sections = Array.from(
+    container.querySelectorAll<HTMLElement>("[data-reading-section]"),
+  );
+  return sections.map((section) => {
+    const headingId = section.getAttribute("aria-labelledby");
+    expect(headingId).toBeTruthy();
+    const heading = section.querySelector("h2");
+    expect(heading).toHaveAttribute("id", headingId);
+    expect(heading).toBeVisible();
+    return headingId;
+  });
+}
+
 describe("ModuleClosure", () => {
   it("renders boundaries before elements without inferred semantics", () => {
     const { container } = render(
@@ -91,17 +105,7 @@ describe("ModuleClosure", () => {
         (section) => section.getAttribute("data-reading-section"),
       ),
     ).toEqual(["boundaries", "elements"]);
-    const labeledSections = [
-      ["boundaries", "module-closure-boundaries-heading"],
-      ["elements", "module-closure-elements-heading"],
-    ] as const;
-    labeledSections.forEach(([sectionName, headingId]) => {
-      const section = container.querySelector(
-        `[data-reading-section="${sectionName}"]`,
-      );
-      expect(section).toHaveAttribute("aria-labelledby", headingId);
-      expect(section?.querySelector("h2")).toHaveAttribute("id", headingId);
-    });
+    expectLocalClosureLabels(container);
     expect(
       screen.queryByRole("heading", { name: /Conditions|Results/ }),
     ).toBeNull();
@@ -117,5 +121,24 @@ describe("ModuleClosure", () => {
     screen.getAllByRole("heading", { level: 2 }).forEach((heading) =>
       expect(heading).toHaveClass("cka-type-major-section"),
     );
+  });
+
+  it("keeps closure heading bindings local across multiple instances", () => {
+    const { container } = render(
+      <>
+        <ModuleClosure
+          boundaries={projection.criticalBoundaries}
+          elements={projection.knowledgeElements}
+        />
+        <ModuleClosure
+          boundaries={projection.criticalBoundaries}
+          elements={projection.knowledgeElements}
+        />
+      </>,
+    );
+    const headingIds = expectLocalClosureLabels(container);
+
+    expect(headingIds).toHaveLength(4);
+    expect(new Set(headingIds).size).toBe(headingIds.length);
   });
 });

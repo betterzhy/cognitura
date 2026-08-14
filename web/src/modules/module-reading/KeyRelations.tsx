@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import {
   isRelationType,
   type RelationType,
@@ -17,6 +19,7 @@ const relationVerbByType = {
 } satisfies Readonly<Record<RelationType, string>>;
 
 export function KeyRelations({ input }: KeyRelationsProps) {
+  const headingId = `${useId()}-relations-heading`;
   if (input.relations.length === 0) {
     throw new Error("MODULE_DEFAULT_READING_RELATION_REQUIRED");
   }
@@ -39,11 +42,11 @@ export function KeyRelations({ input }: KeyRelationsProps) {
 
   return (
     <section
-      aria-labelledby="key-relations-heading"
+      aria-labelledby={headingId}
       className="key-relations"
       data-reading-section="relations"
     >
-      <h2 className="cka-type-major-section" id="key-relations-heading">
+      <h2 className="cka-type-major-section" id={headingId}>
         局部关系
       </h2>
       <ul aria-label="局部关系">

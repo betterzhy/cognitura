@@ -224,6 +224,33 @@ function renderedMainClone() {
   return clone;
 }
 
+function expectLocalLabelBinding(element: HTMLElement) {
+  const headingId = element.getAttribute("aria-labelledby");
+  expect(headingId).toBeTruthy();
+  const heading = element.querySelector<HTMLElement>(`[id="${headingId}"]`);
+  expect(heading).not.toBeNull();
+  expect(heading).toBeVisible();
+  return headingId;
+}
+
+function computedReadingMaxInlineSize(source: string) {
+  const style = document.createElement("style");
+  style.textContent = source;
+  document.head.append(style);
+  const { container, unmount } = render(
+    <ModuleDefaultReading module={module} rendererInput={rendererInput} />,
+  );
+  const reading = container.querySelector("main") as HTMLElement;
+  const maxInlineSize = getComputedStyle(reading).maxInlineSize;
+  unmount();
+  style.remove();
+  return maxInlineSize;
+}
+
+function expectReadingInlineContained(source: string) {
+  expect(computedReadingMaxInlineSize(source)).toBe("100%");
+}
+
 describe("ModuleDefaultReading", () => {
   it("composes the exact canonical reading projection in document order", () => {
     expect(module.artifactId).toBe("module.mvcc");
@@ -253,14 +280,7 @@ describe("ModuleDefaultReading", () => {
       "cka-reading-surface",
     );
     expect(main).toHaveAttribute("data-reading-flow", "continuous-document");
-    expect(main).toHaveAttribute(
-      "aria-labelledby",
-      "module-default-reading-heading",
-    );
-    expect(within(main).getByRole("heading", { level: 1 })).toHaveAttribute(
-      "id",
-      "module-default-reading-heading",
-    );
+    expectLocalLabelBinding(main);
     expect(within(main).getByRole("heading", { level: 1 })).toHaveClass(
       "cka-type-object-title",
     );
@@ -275,6 +295,20 @@ describe("ModuleDefaultReading", () => {
     );
     expect(main.querySelectorAll("aside, [role='complementary']")).toHaveLength(0);
     expectNoDashboardPresentationHooks(main);
+  });
+
+  it("keeps the accessible module label local to each rendered instance", () => {
+    const { container } = render(
+      <>
+        <ModuleDefaultReading module={module} rendererInput={rendererInput} />
+        <ModuleDefaultReading module={module} rendererInput={rendererInput} />
+      </>,
+    );
+    const mains = within(container).getAllByRole("main", { name: "MVCC" });
+    const headingIds = mains.map(expectLocalLabelBinding);
+
+    expect(mains).toHaveLength(2);
+    expect(new Set(headingIds).size).toBe(headingIds.length);
   });
 
   it("consumes the production style authority without parallel theme values", () => {
@@ -318,6 +352,12 @@ describe("ModuleDefaultReading", () => {
     );
     expect(moduleDefaultReadingStyles).not.toContain("100vw");
     expect(moduleDefaultReadingStyles).toContain("min-inline-size: 0");
+    expectReadingInlineContained(moduleDefaultReadingStyles);
+    expect(() =>
+      expectReadingInlineContained(
+        `${moduleDefaultReadingStyles}\n.module-default-reading { max-inline-size: none; }`,
+      ),
+    ).toThrow();
     expect(moduleDefaultReadingStyles).toMatch(/max-width:\s*64rem/);
     expect(moduleDefaultReadingStyles).toMatch(/max-width:\s*48rem/);
     expect(moduleDefaultReadingStyles).toContain("overflow-x: hidden");
