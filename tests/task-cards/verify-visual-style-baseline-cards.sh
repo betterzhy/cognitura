@@ -4683,12 +4683,132 @@ run_historical_hv_replay_repair_contract() {
     "transition HEAD must be the direct child of BASE" \
     "${invocation_tmp}" "${invocation_marker}" "non-direct repair receipt"
   negative_cases=$((negative_cases + 1))
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf '\nmerge side\n' >> "${bad_root}/${product_paths[0]}"
+  git -C "${bad_root}" commit -qam "test: add repair merge side"
+  side_sha="$(git -C "${bad_root}" rev-parse HEAD)"
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf '\nmerge main\n' >> "${bad_root}/${product_paths[1]}"
+  git -C "${bad_root}" commit -qam "test: add repair merge main"
+  git -C "${bad_root}" merge -q --no-ff "${side_sha}" \
+    -m "test: merge repair histories"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "post-correction first-parent commit must have exactly one parent" \
+    "${invocation_tmp}" "${invocation_marker}" "repair merge"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  git -C "${bad_root}" restore --source="${repair_origin_sha}" -- \
+    "${product_paths[0]}"
+  git -C "${bad_root}" commit -qam "test: omit repair cumulative path"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair cumulative diff must equal the exact eight-path WriteSet" \
+    "${invocation_tmp}" "${invocation_marker}" "missing repair cumulative path"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  cp "${bad_root}/${product_paths[0]}" \
+    "${bad_root}/scripts/copied-visual-style-baseline-verifier"
+  git -C "${bad_root}" add -- scripts/copied-visual-style-baseline-verifier
+  git -C "${bad_root}" commit -qm "test: copy repair path"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair chain must not rename or copy paths" \
+    "${invocation_tmp}" "${invocation_marker}" "repair copy"
+  negative_cases=$((negative_cases + 1))
+  git -C "${bad_root}" config diff.renameLimit 1
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair chain must not rename or copy paths" \
+    "${invocation_tmp}" "${invocation_marker}" "repair copy low rename limit"
+  git -C "${bad_root}" config --unset diff.renameLimit
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  printf 'outside\n' > "${bad_root}/historical-hv-restored-outside.txt"
+  git -C "${bad_root}" add -- historical-hv-restored-outside.txt
+  git -C "${bad_root}" commit -qm "test: introduce repair outside path"
+  git -C "${bad_root}" rm -q -- historical-hv-restored-outside.txt
+  git -C "${bad_root}" commit -qm "test: restore repair outside path"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair chain changed a path outside the exact eight-path WriteSet" \
+    "${invocation_tmp}" "${invocation_marker}" "restored repair outside path"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  synthetic_tree="$(git -C "${bad_root}" rev-parse "${candidate_sha}^{tree}")"
+  origin_parent="$(git -C "${bad_root}" rev-parse \
+    "${historical_hv_snapshot_sha}^")"
+  synthetic_sha="$(printf '%s\n' 'test: replace historical HV snapshot' | \
+    git -C "${bad_root}" commit-tree "${synthetic_tree}" -p "${origin_parent}")"
+  git -C "${bad_root}" replace \
+    "${historical_hv_snapshot_sha}" "${synthetic_sha}"
+  git -C "${bad_root}" checkout -q --detach "${receipt_sha}"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${receipt_sha}" \
+    "fixed historical HV replay snapshot identity mismatch" \
+    "${invocation_tmp}" "${invocation_marker}" "different historical HV snapshot"
+  git -C "${bad_root}" replace -d "${historical_hv_snapshot_sha}" >/dev/null
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  write_historical_hv_complete_state "${bad_root}" "${candidate_sha}"
+  set_field "${bad_state}" TransitionBaseSHA "${repair_origin_sha}"
+  git -C "${bad_root}" add -- docs/task-cards/visual-style-baseline/execution-state.md
+  git -C "${bad_root}" commit -qm "test: use wrong repair receipt base"
+  bad_receipt="$(git -C "${bad_root}" rev-parse HEAD)"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${candidate_sha}" "${bad_receipt}" \
+    "COMPLETE requires the exact VSB-03 terminal candidate" \
+    "${invocation_tmp}" "${invocation_marker}" "wrong repair receipt base"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${receipt_sha}"
+  printf '\nsecond repair\n' >> "${bad_root}/${product_paths[0]}"
+  git -C "${bad_root}" commit -qam "test: attempt second repair"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "TransitionSequence must increment by exactly one" \
+    "${invocation_tmp}" "${invocation_marker}" "second historical HV repair"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${bad_root}" checkout -q --detach "${candidate_sha}"
+  perl -0pi -e \
+    's/当前 terminal historical HV replay repair/当前 nonterminal historical HV replay repair/' \
+    "${bad_root}/${governance_paths[3]}"
+  git -C "${bad_root}" commit -qam "test: mutate historical HV repair block"
+  bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
+  bad_receipt="$(make_historical_hv_complete_receipt \
+    "${bad_root}" "${bad_candidate}")"
+  expect_historical_hv_repair_transition_failure \
+    "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
+    "historical HV repair Authority block mismatch" \
+    "${invocation_tmp}" "${invocation_marker}" "mutated historical HV repair block"
+  negative_cases=$((negative_cases + 1))
 
   [[ -f "${invocation_marker}" ]] ||
     fail "historical HV repair verifier removed the sibling marker"
   [[ -z "$(find "${invocation_tmp}" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
     fail "historical HV repair verifier left invocation residue"
-  [[ "${positive_cases}" -eq 2 && "${negative_cases}" -eq 17 ]] ||
+  [[ "${positive_cases}" -eq 2 && "${negative_cases}" -eq 26 ]] ||
     fail "historical HV repair focused case counts drifted"
   printf '%s\n' \
     "HistoricalHVReplayRepairPositiveCases = ${positive_cases}" \
