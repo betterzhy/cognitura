@@ -4275,6 +4275,7 @@ run_chrome_authority_migration_contract() {
 write_historical_hv_complete_state() {
   local fixture_root="$1"
   local candidate_sha="$2"
+  local transition_sequence="${3:-11}"
   local fixture_state="${fixture_root}/docs/task-cards/visual-style-baseline/execution-state.md"
   git -C "${fixture_root}" checkout -q --detach "${candidate_sha}"
   git -C "${fixture_root}" show \
@@ -4293,7 +4294,7 @@ write_historical_hv_complete_state() {
   set_field "${fixture_state}" VSB03ReviewRoute deep_reviewer
   set_field "${fixture_state}" VSB03DeepReviewVerdict FINAL_GO_P0_0_P1_0_P2_0
   set_field "${fixture_state}" VSB03UltraReviewVerdict NOT_RUN
-  set_field "${fixture_state}" TransitionSequence 11
+  set_field "${fixture_state}" TransitionSequence "${transition_sequence}"
   set_field "${fixture_state}" TransitionKind COMPLETE
   set_field "${fixture_state}" TransitionBaseSHA "${candidate_sha}"
   set_field "${fixture_state}" VisualImplementation COMPLETE
@@ -4302,7 +4303,9 @@ write_historical_hv_complete_state() {
 make_historical_hv_complete_receipt() {
   local fixture_root="$1"
   local candidate_sha="$2"
-  write_historical_hv_complete_state "${fixture_root}" "${candidate_sha}"
+  local transition_sequence="${3:-11}"
+  write_historical_hv_complete_state \
+    "${fixture_root}" "${candidate_sha}" "${transition_sequence}"
   git -C "${fixture_root}" add -- \
     docs/task-cards/visual-style-baseline/execution-state.md
   git -C "${fixture_root}" commit -qm "test: complete historical HV replay repair"
@@ -4783,10 +4786,10 @@ run_historical_hv_replay_repair_contract() {
   git -C "${bad_root}" commit -qam "test: attempt second repair"
   bad_candidate="$(git -C "${bad_root}" rev-parse HEAD)"
   bad_receipt="$(make_historical_hv_complete_receipt \
-    "${bad_root}" "${bad_candidate}")"
+    "${bad_root}" "${bad_candidate}" 12)"
   expect_historical_hv_repair_transition_failure \
     "${bad_root}" "${bad_cards}" "${bad_candidate}" "${bad_receipt}" \
-    "TransitionSequence must increment by exactly one" \
+    "terminal VSB state must be the exact direct-child receipt commit or its exact Wave 1 restore" \
     "${invocation_tmp}" "${invocation_marker}" "second historical HV repair"
   negative_cases=$((negative_cases + 1))
 
