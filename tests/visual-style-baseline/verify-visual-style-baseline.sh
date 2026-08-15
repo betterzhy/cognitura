@@ -481,6 +481,117 @@ fi
   fail "Chrome binary override failed without exact diagnostic"
 negative_cases=$((negative_cases + 1))
 
+historical_mutation_root="${runtime_root}/historical-verifier-mutations"
+mkdir -p "${historical_mutation_root}"
+
+expect_historical_verifier_failure() {
+  local mutation_name="$1"
+  local expected_diagnostic="$2"
+  local verifier_copy="${historical_mutation_root}/${mutation_name}"
+  local mutation_output=""
+  if mutation_output="$(env PATH="${locked_toolchain_path}" \
+      "${verifier_copy}" --repo-root "${repo_root}" 2>&1)"; then
+    fail "historical HV verifier mutation unexpectedly passed: ${mutation_name}"
+  fi
+  [[ "${mutation_output}" == *"${expected_diagnostic}"* ]] ||
+    fail "historical HV verifier mutation failed without exact diagnostic: ${mutation_name}"
+  negative_cases=$((negative_cases + 1))
+}
+
+historical_fake_git_dir="${historical_mutation_root}/fake-git-bin"
+historical_fake_git_sentinel="${historical_mutation_root}/fake-git-executed"
+historical_path_verifier="${historical_mutation_root}/path-poisoning"
+historical_path_tmp="${historical_mutation_root}/path-poisoning-tmp"
+mkdir -p "${historical_fake_git_dir}"
+mkdir -p "${historical_path_tmp}"
+printf 'keep\n' > "${historical_path_tmp}/sibling-marker"
+cp "${repo_root}/scripts/verify-visual-style-baseline" "${historical_path_verifier}"
+perl -0pi -e 's/\nrun_historical_hv_replay\n/\nrun_historical_hv_replay\nexit 0\n/' \
+  "${historical_path_verifier}"
+chmod 755 "${historical_path_verifier}"
+printf '%s\n' \
+  '#!/bin/sh' \
+  "printf 'executed\\n' > '${historical_fake_git_sentinel}'" \
+  'exec /usr/bin/git "$@"' > "${historical_fake_git_dir}/git"
+chmod 755 "${historical_fake_git_dir}/git"
+env TMPDIR="${historical_path_tmp}" \
+  PATH="${historical_fake_git_dir}:${locked_toolchain_path}" \
+  "${historical_path_verifier}" --repo-root "${repo_root}" >/dev/null
+[[ ! -e "${historical_fake_git_sentinel}" ]] ||
+  fail "historical HV replay used PATH-resolved Git"
+[[ "$(find "${historical_path_tmp}" -mindepth 1 -maxdepth 1 -print | sort)" == \
+   "${historical_path_tmp}/sibling-marker" ]] ||
+  fail "fixed historical HV replay left temporary residue"
+negative_cases=$((negative_cases + 1))
+
+historical_archive_mutation="${historical_mutation_root}/archive-mutation"
+cp "${repo_root}/scripts/verify-visual-style-baseline" \
+  "${historical_archive_mutation}"
+perl -0pi -e 's~/usr/bin/tar -xf - -C "\$\{replay_root\}"~/usr/bin/tar -xf - -C "\${replay_root}"\n  printf "# archive mutation\\n" >> "\${replay_root}/scripts/verify-high-fidelity-visual"~' \
+  "${historical_archive_mutation}"
+chmod 755 "${historical_archive_mutation}"
+expect_historical_verifier_failure archive-mutation \
+  'archived historical HV verifier blob mismatch'
+
+historical_projection_mutation="${historical_mutation_root}/current-projection"
+cp "${repo_root}/scripts/verify-visual-style-baseline" \
+  "${historical_projection_mutation}"
+perl -0pi -e 's/archive --format=tar "\$\{snapshot_sha\}"/archive --format=tar "HEAD"/' \
+  "${historical_projection_mutation}"
+chmod 755 "${historical_projection_mutation}"
+expect_historical_verifier_failure current-projection \
+  'archived historical HV verifier blob mismatch'
+
+historical_escape_mutation="${historical_mutation_root}/extraction-escape"
+cp "${repo_root}/scripts/verify-visual-style-baseline" \
+  "${historical_escape_mutation}"
+perl -0pi -e 's#local replay_root="\$\{runtime_root\}/historical-hv-replay"#local replay_root="\${runtime_root}/../historical-hv-escape"#; s/\nrun_historical_hv_replay\n/\nrun_historical_hv_replay\nexit 0\n/' \
+  "${historical_escape_mutation}"
+chmod 755 "${historical_escape_mutation}"
+expect_historical_verifier_failure extraction-escape \
+  'historical HV replay extraction escaped invocation root'
+
+historical_missing_pass="${historical_mutation_root}/missing-pass"
+cp "${repo_root}/scripts/verify-visual-style-baseline" "${historical_missing_pass}"
+perl -0pi -e 's#  require_historical_hv_output "\$\{replay_output\}"#  grep -Fvx -- "HighFidelityVisualValidation = PASS" "\${replay_output}" > "\${replay_output}.mutated"\n  mv "\${replay_output}.mutated" "\${replay_output}"\n  require_historical_hv_output "\${replay_output}"#' \
+  "${historical_missing_pass}"
+chmod 755 "${historical_missing_pass}"
+expect_historical_verifier_failure missing-pass \
+  'historical HV replay output mismatch: HighFidelityVisualValidation = PASS'
+
+historical_duplicate_pass="${historical_mutation_root}/duplicate-pass"
+cp "${repo_root}/scripts/verify-visual-style-baseline" "${historical_duplicate_pass}"
+perl -0pi -e 's#  require_historical_hv_output "\$\{replay_output\}"#  printf "HighFidelityVisualValidation = PASS\\n" >> "\${replay_output}"\n  require_historical_hv_output "\${replay_output}"#' \
+  "${historical_duplicate_pass}"
+chmod 755 "${historical_duplicate_pass}"
+expect_historical_verifier_failure duplicate-pass \
+  'historical HV replay output mismatch: HighFidelityVisualValidation = PASS'
+
+historical_contradiction="${historical_mutation_root}/authorization-contradiction"
+cp "${repo_root}/scripts/verify-visual-style-baseline" "${historical_contradiction}"
+perl -0pi -e 's#  require_historical_hv_output "\$\{replay_output\}"#  printf "RemotePush = AUTHORIZED\\n" >> "\${replay_output}"\n  require_historical_hv_output "\${replay_output}"#' \
+  "${historical_contradiction}"
+chmod 755 "${historical_contradiction}"
+expect_historical_verifier_failure authorization-contradiction \
+  'historical HV replay output mismatch: RemotePush = NOT_AUTHORIZED'
+
+historical_fail_contradiction="${historical_mutation_root}/fail-contradiction"
+cp "${repo_root}/scripts/verify-visual-style-baseline" \
+  "${historical_fail_contradiction}"
+perl -0pi -e 's#  require_historical_hv_output "\$\{replay_output\}"#  printf "IndependentGate = FAIL\\n" >> "\${replay_output}"\n  require_historical_hv_output "\${replay_output}"#' \
+  "${historical_fail_contradiction}"
+chmod 755 "${historical_fail_contradiction}"
+expect_historical_verifier_failure fail-contradiction \
+  'historical HV replay output contains a contradiction'
+
+historical_nonzero="${historical_mutation_root}/nonzero-exit"
+cp "${repo_root}/scripts/verify-visual-style-baseline" "${historical_nonzero}"
+perl -0pi -e 's#/bin/bash "\$\{replay_root\}/scripts/verify-high-fidelity-visual"#/bin/false "\${replay_root}/scripts/verify-high-fidelity-visual"#' \
+  "${historical_nonzero}"
+chmod 755 "${historical_nonzero}"
+expect_historical_verifier_failure nonzero-exit \
+  'fixed historical HV replay failed:'
+
 historical_identity_repo="${runtime_root}/historical-identity-repo"
 git clone --shared --quiet "${repo_root}" "${historical_identity_repo}"
 git -C "${historical_identity_repo}" config user.name "Cognitura Test"
@@ -561,8 +672,8 @@ negative_cases=$((negative_cases + 1))
    *'HistoricalHVCurrentTreeVerifier = NOT_RUN'* ]] ||
   fail "fixed visual verifier did not exclude the current-tree HV verifier"
 
-[[ "${negative_cases}" -eq 50 ]] ||
-  fail "visual browser negative matrix count drifted from 50"
+[[ "${negative_cases}" -eq 59 ]] ||
+  fail "visual browser negative matrix count drifted from 59"
 
 printf '%s\n' \
   'VisualStyleBaselineBrowserContractTests = PASS' \

@@ -535,22 +535,27 @@ run_historical_hv_replay() {
   local locked_path='/Users/yuzhuangzhuang/.npm/_npx/4aa47c519def57bc/node_modules/.bin:/Users/yuzhuangzhuang/.npm/_npx/acaf29b40d536b0e/node_modules/.bin:/opt/homebrew/opt/python@3.11/libexec/bin:/usr/bin:/bin:/usr/sbin:/sbin'
   local chrome_binary='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
   local chrome_version
-  [[ "$(git -C "${repo_root}" rev-parse "${snapshot_sha}^{tree}")" == \
+  [[ "${replay_root}" == "${runtime_root}/historical-hv-replay" &&
+     "${replay_tmp}" == "${runtime_root}/historical-hv-tmp" &&
+     "${replay_output}" == "${runtime_root}/historical-hv-output" ]] ||
+    fail "historical HV replay extraction escaped invocation root"
+  [[ "$(/usr/bin/git -C "${repo_root}" rev-parse "${snapshot_sha}^{tree}")" == \
        "${snapshot_tree}" &&
-     "$(git -C "${repo_root}" rev-parse "${snapshot_sha}^")" == \
+     "$(/usr/bin/git -C "${repo_root}" rev-parse "${snapshot_sha}^")" == \
        "${snapshot_parent}" ]] ||
     fail "fixed historical HV replay snapshot identity mismatch"
-  [[ "$(git -C "${repo_root}" ls-tree "${snapshot_sha}" -- \
+  [[ "$(/usr/bin/git -C "${repo_root}" ls-tree "${snapshot_sha}" -- \
        scripts/verify-high-fidelity-visual)" == \
        $'100755 blob 73c1b62e643d3808c16ccab89aefb13e3646502b\tscripts/verify-high-fidelity-visual' &&
-     "$(git -C "${repo_root}" ls-tree "${snapshot_sha}" -- AGENTS.md)" == \
+     "$(/usr/bin/git -C "${repo_root}" ls-tree "${snapshot_sha}" -- AGENTS.md)" == \
        $'100644 blob 3b9dbe8c3241671ed2070446d3781b1453239f07\tAGENTS.md' &&
-     "$(git -C "${repo_root}" ls-tree "${snapshot_sha}" -- \
+     "$(/usr/bin/git -C "${repo_root}" ls-tree "${snapshot_sha}" -- \
        docs/engineering/cognitura-design-index.md)" == \
        $'100644 blob d0b85366e8eaee7771afdb95436e1a7e28aa75ae\tdocs/engineering/cognitura-design-index.md' ]] ||
     fail "fixed historical HV replay key blob or mode mismatch"
-  [[ "$(git -C "${repo_root}" cat-file blob \
-       73c1b62e643d3808c16ccab89aefb13e3646502b | git hash-object --stdin)" == \
+  [[ "$(/usr/bin/git -C "${repo_root}" cat-file blob \
+       73c1b62e643d3808c16ccab89aefb13e3646502b | \
+       /usr/bin/git hash-object --stdin)" == \
        73c1b62e643d3808c16ccab89aefb13e3646502b ]] ||
     fail "fixed historical HV replay key blob or mode mismatch"
   [[ -x "${chrome_binary}" ]] ||
@@ -564,7 +569,7 @@ run_historical_hv_replay() {
   mkdir -p "${replay_root}" "${replay_tmp}"
   /usr/bin/git -C "${repo_root}" archive --format=tar "${snapshot_sha}" |
     /usr/bin/tar -xf - -C "${replay_root}"
-  [[ "$(git hash-object \
+  [[ "$(/usr/bin/git hash-object \
        "${replay_root}/scripts/verify-high-fidelity-visual")" == \
        73c1b62e643d3808c16ccab89aefb13e3646502b ]] ||
     fail "archived historical HV verifier blob mismatch"
