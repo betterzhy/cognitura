@@ -390,13 +390,13 @@ materialize_capture_pair() {
        "${g4_sha}:scripts/verify-visual-style-baseline-cards")" ]] ||
     fail "materialized G4 verifier blob mismatch"
   expected_task_card_blob="$(git -C "${repo_root}" rev-parse \
-    "${g4_sha}:scripts/verify-visual-style-baseline-cards")"
+    "${inspected_candidate}:scripts/verify-visual-style-baseline-cards")"
   expected_wave1_blob="$(git -C "${repo_root}" rev-parse \
     "${inspected_candidate}:scripts/verify-wave1-implementation-cards")"
   [[ -x "${repo_root}/scripts/verify-visual-style-baseline-cards" &&
      "$(git hash-object "${repo_root}/scripts/verify-visual-style-baseline-cards")" == \
        "${expected_task_card_blob}" ]] ||
-    fail "working task-card verifier must equal the reviewed G4 blob and mode"
+    fail "working task-card verifier must equal the fixed candidate blob and mode"
   [[ -x "${repo_root}/scripts/verify-wave1-implementation-cards" &&
      "$(git hash-object "${repo_root}/scripts/verify-wave1-implementation-cards")" == \
        "${expected_wave1_blob}" ]] ||
