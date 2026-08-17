@@ -4,8 +4,8 @@
 CanonicalProjectName = Cognitura
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
-Wave1ImplementationTaskCardSet = SUSPENDED_BY_USER
-ActiveImplementationGovernanceTaskCard = NONE
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I03
 VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 ActiveDesignTaskCard = NONE
 BusinessImplementation = USER_AUTHORIZED
@@ -35,5 +35,4 @@ BusinessImplementation = USER_AUTHORIZED
 - 每份契约通过对应 sol/high Gate 后才成为后续设计切片的正式输入。
 - 修复候选已通过两个独立 `gpt-5.6-sol/high` 阶段，完整设计与实现切片书面
   规格均已获用户批准；14 张实现卡已 bootstrap，非业务治理卡 I00 和来源领域卡
-  I01 已关闭，I02 等待独立数据库 Gate；I03 在 Visual Style Baseline 期间冻结为
-  `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡。
+  I01 已关闭，I02 等待独立数据库 Gate，I03 为唯一 `READY` 卡。

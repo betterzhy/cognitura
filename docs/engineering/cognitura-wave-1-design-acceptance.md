@@ -19,10 +19,10 @@ W1-DG5 FixedDesignReview = PASS
 Wave1DesignStatus = USER_APPROVED
 ImplementationSlicingStatus = USER_APPROVED
 ImplementationSlicingApprovalDate = 2026-07-30
-ImplementationTaskCardPlanStatus = I01_COMPLETE_I03_SUSPENDED_BY_USER
+ImplementationTaskCardPlanStatus = I01_COMPLETE_I03_READY
 BusinessImplementation = USER_AUTHORIZED
-Wave1ImplementationTaskCardSet = SUSPENDED_BY_USER
-ActiveImplementationGovernanceTaskCard = NONE
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I03
 VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 ImplementationGovernanceReviewedCandidate = 0211679431de535dd4d89a08257b54d8f4e0da82
 ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
@@ -166,6 +166,5 @@ UltraModel = NOT_USED
 任务卡 bootstrap 计划已完成；治理卡 I00 已对固定候选
 `0211679431de535dd4d89a08257b54d8f4e0da82` 取得零发现深审并关闭。I01 已对固定候选
 `6796079de8c919055ddc6538234254b50630a491` 取得零发现深审并关闭；I02 等待独立
-数据库 Gate；I03 在 Visual Style Baseline 期间冻结为 `SUSPENDED_BY_USER`，当前没有
-Wave 1 READY 卡。正式数据库、Parser/Object Storage Provider、
+数据库 Gate，I03 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、
 部署和远程推送均未授权。

@@ -9,8 +9,8 @@ ActiveTaskCard = NONE
 TaskCardSetStatus = COMPLETE
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
-Wave1ImplementationTaskCardSet = SUSPENDED_BY_USER
-ActiveImplementationGovernanceTaskCard = NONE
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
+ActiveImplementationGovernanceTaskCard = W1-I03
 VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 BusinessImplementation = USER_AUTHORIZED
 ```
@@ -18,8 +18,7 @@ BusinessImplementation = USER_AUTHORIZED
 本集合只完成 Wave 1 书面详细设计、设计验证和固定候选复核。复审修复候选已
 通过两个独立 `gpt-5.6-sol/high` 阶段，六张设计卡均已完成且完整设计已获用户
 批准，实现切片书面规格也已获用户批准。14 张实现卡已 bootstrap，非业务治理卡
-I00 和 I01 已关闭；I02 等待独立数据库 Gate。W1-I03 在 Visual Style Baseline
-期间冻结为 `SUSPENDED_BY_USER`，当前没有 Wave 1 READY 卡。
+I00 和 I01 已关闭；I02 等待独立数据库 Gate，W1-I03 为唯一 `READY` 业务卡。
 
 ## 1. 任务卡清单
 

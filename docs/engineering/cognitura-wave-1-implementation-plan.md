@@ -6,11 +6,11 @@ PlanKind = EXECUTION_PROJECTION
 FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
-TaskCardSetStatus = SUSPENDED_BY_USER
-ActiveTaskCard = NONE
-SuspendedTaskCard = W1-I03
-SuspendedCandidateSHA = 4e63936c631ab34807e714b90d30415a959bc13d
-SuspendedCandidateMutation = FORBIDDEN
+TaskCardSetStatus = READY_FOR_EXECUTION
+ActiveTaskCard = W1-I03
+SuspendedTaskCard = NONE
+SuspendedCandidateSHA = NONE
+SuspendedCandidateMutation = NONE
 BusinessImplementation = USER_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
@@ -20,7 +20,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
 Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02 等待独立数据库 Gate，
-I03 在 Visual Style Baseline 执行期间冻结为 `SUSPENDED_BY_USER`；当前没有 READY 卡。
+I03 为唯一 `READY` 卡。
 
 ## 1. 实现卡
 
@@ -29,7 +29,7 @@ I03 在 Visual Style Baseline 执行期间冻结为 `SUSPENDED_BY_USER`；当前
 | `W1-I00` | Task-card governance | `NONE` | `DONE` |
 | `W1-I01` | Source domain | `I00` | `DONE` |
 | `W1-I02` | Source persistence | `I01` | `QUEUED` |
-| `W1-I03` | DOCX security | `I01` | `SUSPENDED_BY_USER` |
+| `W1-I03` | DOCX security | `I01` | `READY` |
 | `W1-I04` | Text/list/section parser | `I03` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I05` | Table fidelity | `I04` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I06` | Image/relationship projection | `I04,I05` | `BLOCKED_BY_DEPENDENCY` |
