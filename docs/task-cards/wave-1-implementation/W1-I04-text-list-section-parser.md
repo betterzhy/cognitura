@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I04
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W1-IG4 TextListSectionParser
 Risk = HIGH
 DependsOn = W1-I03
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = HEADING_PARAGRAPH_LIST_ORDER_AND_SECTION_PATH_PRESERVED
 NegativeVerification = UNSUPPORTED_BLOCK_ORDER_AND_HIERARCHY_DRIFT_REJECTED
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
