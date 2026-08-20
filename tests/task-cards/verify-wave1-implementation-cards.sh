@@ -2869,6 +2869,8 @@ fi
 
 [[ -x "${verifier}" ]] || fail "Wave 1 implementation task-card verifier is missing or not executable"
 
+run_w1_i05_closure_contract
+
 validation_output="$(
   "${verifier}" \
     --cards-dir "${cards_dir}"
