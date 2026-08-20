@@ -1767,11 +1767,13 @@ I04ClosureUnknown = FORBIDDEN
 
 w1_i05_repair_origin_sha="2fa4e067a213be03660384b4b32a9cb73c0ad64d"
 w1_i05_repair_spec_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i05-recovery-review-repair.md"
+w1_i05_repair_fixture_correction_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i05-review-repair-fixture-correction.md"
 w1_i05_markdown_path="tests/ci/verify-markdown-links.sh"
 w1_i05_repair_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
 w1_i05_repair_verifier_path="scripts/verify-wave1-implementation-cards"
 w1_i05_markdown_red_sha="a4d7173b9bfe07238db4f5427f3710bad40ba906"
 w1_i05_markdown_green_sha="c5cafcdfb27ea37ca7639127ee5eed23f42467f5"
+w1_i05_rejected_repair_test_sha="72a1d243ff93053ad5e254c7e7de280904bb903f"
 
 new_w1_i05_repair_fixture() {
   local fixture_root="$1"
@@ -1796,7 +1798,9 @@ commit_w1_i05_repair_path() {
     tests/*|scripts/*) mode=755 ;;
   esac
   chmod "${mode}" "${fixture_root}/${path}"
-  if git -C "${fixture_root}" diff --quiet -- "${path}"; then
+  if git -C "${fixture_root}" ls-files --error-unmatch -- \
+      "${path}" >/dev/null 2>&1 &&
+      git -C "${fixture_root}" diff --quiet -- "${path}"; then
     printf '%s\n' '# fixture-only repair RED' >> "${fixture_root}/${path}"
   fi
   git -C "${fixture_root}" add "${path}"
@@ -1818,9 +1822,14 @@ commit_w1_i05_markdown_green() {
     "${w1_i05_markdown_green_sha}" "test: materialize Markdown masking GREEN"
 }
 
-commit_w1_i05_repair_test() {
+commit_w1_i05_repair_fixture_correction() {
+  commit_w1_i05_repair_path "$1" "${w1_i05_repair_fixture_correction_path}" \
+    WORKTREE "test: materialize W1-I05 repair fixture correction"
+}
+
+commit_w1_i05_corrected_repair_test() {
   commit_w1_i05_repair_path "$1" "${w1_i05_repair_test_path}" WORKTREE \
-    "test: materialize W1-I05 repair contract"
+    "test: materialize corrected W1-I05 repair contract"
 }
 
 commit_w1_i05_repair_verifier() {
@@ -1828,12 +1837,26 @@ commit_w1_i05_repair_verifier() {
     "test: materialize W1-I05 repair verifier"
 }
 
+complete_w1_i05_repair_after_green() {
+  local fixture_root="$1"
+  commit_w1_i05_repair_path "${fixture_root}" "${w1_i05_repair_test_path}" \
+    "${w1_i05_rejected_repair_test_sha}" \
+    "test: materialize rejected W1-I05 repair contract"
+  commit_w1_i05_repair_fixture_correction "${fixture_root}"
+  commit_w1_i05_corrected_repair_test "${fixture_root}"
+  commit_w1_i05_repair_verifier "${fixture_root}"
+}
+
+complete_w1_i05_repair_after_red() {
+  local fixture_root="$1"
+  commit_w1_i05_markdown_green "${fixture_root}"
+  complete_w1_i05_repair_after_green "${fixture_root}"
+}
+
 complete_w1_i05_repair_after_spec() {
   local fixture_root="$1"
   commit_w1_i05_markdown_red "${fixture_root}"
-  commit_w1_i05_markdown_green "${fixture_root}"
-  commit_w1_i05_repair_test "${fixture_root}"
-  commit_w1_i05_repair_verifier "${fixture_root}"
+  complete_w1_i05_repair_after_red "${fixture_root}"
 }
 
 build_legal_w1_i05_repair_fixture() {
@@ -1900,8 +1923,7 @@ run_w1_i05_verifier_recovery_contract() {
   new_w1_i05_repair_fixture "${fixture_root}"
   commit_w1_i05_repair_spec "${fixture_root}"
   commit_w1_i05_markdown_green "${fixture_root}"
-  commit_w1_i05_repair_test "${fixture_root}"
-  commit_w1_i05_repair_verifier "${fixture_root}"
+  complete_w1_i05_repair_after_green "${fixture_root}"
   expect_w1_i05_repair_failure "${fixture_root}" \
     "W1-I05 review repair Markdown RED evidence mismatch"
   negative_cases=$((negative_cases + 1))
@@ -1924,9 +1946,7 @@ run_w1_i05_verifier_recovery_contract() {
   printf '%s\n' '# repeated repair' >> "${fixture_root}/${w1_i05_markdown_path}"
   git -C "${fixture_root}" add "${w1_i05_markdown_path}"
   git -C "${fixture_root}" commit -qm "test: repeat repair path"
-  commit_w1_i05_markdown_green "${fixture_root}"
-  commit_w1_i05_repair_test "${fixture_root}"
-  commit_w1_i05_repair_verifier "${fixture_root}"
+  complete_w1_i05_repair_after_red "${fixture_root}"
   expect_w1_i05_repair_failure "${fixture_root}" \
     "W1-I05 review repair Markdown GREEN evidence mismatch"
   negative_cases=$((negative_cases + 1))
@@ -1938,9 +1958,7 @@ run_w1_i05_verifier_recovery_contract() {
   commit_w1_i05_markdown_red "${fixture_root}"
   git -C "${fixture_root}" switch -q --detach HEAD^
   git -C "${fixture_root}" merge -q --no-ff repair-side -m "test: merge repair RED"
-  commit_w1_i05_markdown_green "${fixture_root}"
-  commit_w1_i05_repair_test "${fixture_root}"
-  commit_w1_i05_repair_verifier "${fixture_root}"
+  complete_w1_i05_repair_after_red "${fixture_root}"
   expect_w1_i05_repair_failure "${fixture_root}" \
     "W1-I05 review repair commit must have exactly one parent"
   negative_cases=$((negative_cases + 1))
@@ -1966,9 +1984,7 @@ run_w1_i05_verifier_recovery_contract() {
   chmod 644 "${fixture_root}/${w1_i05_markdown_path}"
   git -C "${fixture_root}" add "${w1_i05_markdown_path}"
   git -C "${fixture_root}" commit -qm "test: drift repair mode"
-  commit_w1_i05_markdown_green "${fixture_root}"
-  commit_w1_i05_repair_test "${fixture_root}"
-  commit_w1_i05_repair_verifier "${fixture_root}"
+  complete_w1_i05_repair_after_red "${fixture_root}"
   expect_w1_i05_repair_failure "${fixture_root}" \
     "W1-I05 review repair path mode mismatch"
   negative_cases=$((negative_cases + 1))
@@ -1982,9 +1998,7 @@ run_w1_i05_verifier_recovery_contract() {
   printf '\0' >> "${fixture_root}/${w1_i05_markdown_path}"
   git -C "${fixture_root}" add "${w1_i05_markdown_path}"
   git -C "${fixture_root}" commit -qm "test: add repair NUL"
-  commit_w1_i05_markdown_green "${fixture_root}"
-  commit_w1_i05_repair_test "${fixture_root}"
-  commit_w1_i05_repair_verifier "${fixture_root}"
+  complete_w1_i05_repair_after_red "${fixture_root}"
   expect_w1_i05_repair_failure "${fixture_root}" \
     "W1-I05 review repair path must not contain NUL"
   negative_cases=$((negative_cases + 1))
