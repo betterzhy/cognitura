@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:tbl>
+      <w:tblGrid><w:gridCol/><w:gridCol/><w:gridCol/></w:tblGrid>
+      <w:tr>
+        <w:trPr><w:gridBefore w:val="1"/></w:trPr>
+        <w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>C</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+  </w:body>
+</w:document>

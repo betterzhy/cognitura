@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Before table</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tblGrid><w:gridCol/><w:gridCol/><w:gridCol/></w:tblGrid>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Rule</w:t></w:r></w:p></w:tc>
+        <w:tc>
+          <w:p><w:r><w:t>Condition</w:t><w:tab/><w:t>A</w:t></w:r></w:p>
+          <w:p><w:r><w:t>Result</w:t><w:br/><w:t>Line</w:t></w:r></w:p>
+        </w:tc>
+        <w:tc><w:p/></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Cafe&#x301;</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Cafe&#x301;</w:t><w:drawing/><w:t>B</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:hyperlink><w:r><w:t>End</w:t></w:r></w:hyperlink></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+    <w:sectPr/>
+  </w:body>
+</w:document>
