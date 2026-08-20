@@ -1771,10 +1771,14 @@ run_w1_i05_verifier_recovery_contract() {
   local output
   local recovery_path
   local recovery_mode
+  local recovery_test_count=0
+  local rejected_test_candidate_sha="4561f6de9bd61a85ad806f32608cd76288e9e9bc"
   local recovery_paths=(
     tests/ci/verify-markdown-links.sh
     docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-design.md
     docs/superpowers/plans/2026-08-20-cognitura-w1-i05-verifier-recovery.md
+    tests/task-cards/verify-wave1-implementation-cards.sh
+    docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-correction.md
     tests/task-cards/verify-wave1-implementation-cards.sh
     scripts/verify-wave1-implementation-cards
   )
@@ -1785,9 +1789,23 @@ run_w1_i05_verifier_recovery_contract() {
 
   for recovery_path in "${recovery_paths[@]:1}"; do
     mkdir -p "${fixture_root}/$(dirname "${recovery_path}")"
-    cp "${repo_root}/${recovery_path}" "${fixture_root}/${recovery_path}"
+    if [[ "${recovery_path}" == \
+          tests/task-cards/verify-wave1-implementation-cards.sh ]]; then
+      recovery_test_count=$((recovery_test_count + 1))
+      if [[ "${recovery_test_count}" -eq 1 ]]; then
+        git -C "${repo_root}" show \
+          "${rejected_test_candidate_sha}:${recovery_path}" > \
+          "${fixture_root}/${recovery_path}"
+      else
+        cp "${repo_root}/${recovery_path}" "${fixture_root}/${recovery_path}"
+      fi
+    else
+      cp "${repo_root}/${recovery_path}" "${fixture_root}/${recovery_path}"
+    fi
     recovery_mode=644
-    [[ "${recovery_path}" == scripts/* ]] && recovery_mode=755
+    case "${recovery_path}" in
+      tests/ci/*|tests/task-cards/*|scripts/*) recovery_mode=755 ;;
+    esac
     chmod "${recovery_mode}" "${fixture_root}/${recovery_path}"
     if git -C "${fixture_root}" diff --quiet -- "${recovery_path}"; then
       printf '%s\n' '# fixture-only recovery RED' >> \
