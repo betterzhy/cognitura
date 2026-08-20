@@ -2274,10 +2274,12 @@ complete_w1_i05_xml_copy_repair_after_spec() {
     "${w1_i05_xml_copy_correction_path}" "${w1_i05_xml_copy_correction_sha}" \
     "test: materialize I05 XML copy fixture correction"
   commit_w1_i05_xml_copy_repair_path "${fixture_root}" \
-    "${w1_i05_repair_test_path}" WORKTREE \
+    "${w1_i05_repair_test_path}" \
+    ee346dff798ef4ac77ea83686d8efa12aabcee43 \
     "test: materialize corrected I05 XML copy repair contract"
   commit_w1_i05_xml_copy_repair_path "${fixture_root}" \
-    "${w1_i05_repair_verifier_path}" WORKTREE \
+    "${w1_i05_repair_verifier_path}" \
+    f2f8faa005e2852000cd59cac0c5d9ec98fb6cfd \
     "test: materialize I05 XML copy repair verifier"
 }
 
@@ -2330,14 +2332,17 @@ run_w1_i05_xml_copy_repair_contract() {
 
   fixture_root="${test_tmp_root}/w1-i05-xml-copy-repair-spec-mismatch"
   new_w1_i05_xml_copy_repair_fixture "${fixture_root}"
-  commit_w1_i05_xml_copy_repair_spec "${fixture_root}"
+  mkdir -p "${fixture_root}/$(dirname "${w1_i05_xml_copy_repair_spec_path}")"
+  git -C "${repo_root}" show \
+    "${w1_i05_xml_copy_repair_spec_sha}:${w1_i05_xml_copy_repair_spec_path}" > \
+    "${fixture_root}/${w1_i05_xml_copy_repair_spec_path}"
   printf '%s\n' 'evidence drift' >> \
     "${fixture_root}/${w1_i05_xml_copy_repair_spec_path}"
   git -C "${fixture_root}" add "${w1_i05_xml_copy_repair_spec_path}"
-  git -C "${fixture_root}" commit -qm "test: drift I05 XML copy authority"
+  git -C "${fixture_root}" commit -qm "test: materialize wrong I05 XML copy authority"
   complete_w1_i05_xml_copy_repair_after_spec "${fixture_root}"
   expect_w1_i05_xml_copy_repair_failure "${fixture_root}" \
-    "W1-I05 XML copy repair paths must follow the fixed order"
+    "W1-I05 XML copy repair evidence mismatch: step 0"
   negative_cases=$((negative_cases + 1))
 
   fixture_root="${test_tmp_root}/w1-i05-xml-copy-repair-merge"
@@ -2386,6 +2391,168 @@ run_w1_i05_xml_copy_repair_contract() {
     "W1I05XmlCopyInferenceRepairNegativeCases = ${negative_cases}"
 }
 
+w1_i05_fixed_review_origin_sha="46c519f6dc79e9d12f4485a2ed9469c350b76a46"
+w1_i05_fixed_review_base_sha="f2f8faa005e2852000cd59cac0c5d9ec98fb6cfd"
+w1_i05_fixed_review_spec_path="docs/superpowers/specs/2026-08-21-cognitura-w1-i05-fixed-review-repair.md"
+w1_i05_fixed_review_spec_sha="91c9b30eaa791b23f36726a48ca3ac5dbaa49d20"
+
+new_w1_i05_fixed_review_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${w1_i05_fixed_review_origin_sha}"
+}
+
+commit_w1_i05_fixed_review_path() {
+  local fixture_root="$1"
+  local path="$2"
+  local source_commit="$3"
+  local message="$4"
+  local mode=644
+  mkdir -p "${fixture_root}/$(dirname "${path}")"
+  if [[ "${source_commit}" == WORKTREE ]]; then
+    cp "${repo_root}/${path}" "${fixture_root}/${path}"
+  else
+    git -C "${repo_root}" show "${source_commit}:${path}" > \
+      "${fixture_root}/${path}"
+  fi
+  case "${path}" in
+    tests/*|scripts/*) mode=755 ;;
+  esac
+  chmod "${mode}" "${fixture_root}/${path}"
+  if git -C "${fixture_root}" ls-files --error-unmatch -- \
+      "${path}" >/dev/null 2>&1 &&
+      git -C "${fixture_root}" diff --quiet -- "${path}"; then
+    printf '%s\n' '# fixed-review repair fixture materialization' >> \
+      "${fixture_root}/${path}"
+  fi
+  git -C "${fixture_root}" add "${path}"
+  git -C "${fixture_root}" commit -qm "${message}"
+}
+
+commit_w1_i05_fixed_review_spec() {
+  commit_w1_i05_fixed_review_path "$1" "${w1_i05_fixed_review_spec_path}" \
+    "${w1_i05_fixed_review_spec_sha}" \
+    "test: materialize W1-I05 fixed review repair authority"
+}
+
+complete_w1_i05_fixed_review_after_spec() {
+  local fixture_root="$1"
+  commit_w1_i05_fixed_review_path "${fixture_root}" \
+    "${w1_i05_repair_test_path}" WORKTREE \
+    "test: materialize W1-I05 fixed review repair contract"
+  commit_w1_i05_fixed_review_path "${fixture_root}" \
+    "${w1_i05_repair_verifier_path}" WORKTREE \
+    "test: materialize W1-I05 fixed review repair verifier"
+}
+
+build_legal_w1_i05_fixed_review_fixture() {
+  local fixture_root="$1"
+  new_w1_i05_fixed_review_fixture "${fixture_root}"
+  commit_w1_i05_fixed_review_spec "${fixture_root}"
+  complete_w1_i05_fixed_review_after_spec "${fixture_root}"
+}
+
+run_w1_i05_fixed_review_verifier() {
+  local fixture_root="$1"
+  "${fixture_root}/${w1_i05_repair_verifier_path}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+expect_w1_i05_fixed_review_failure() {
+  local fixture_root="$1"
+  local expected="$2"
+  local output
+  if output="$(run_w1_i05_fixed_review_verifier "${fixture_root}" 2>&1)"; then
+    fail "invalid W1-I05 fixed review fixture unexpectedly passed: ${fixture_root}"
+  fi
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i05_fixed_review_contract() {
+  local fixture_root output
+  local positive_cases=0
+  local negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i05-fixed-review-legal"
+  build_legal_w1_i05_fixed_review_fixture "${fixture_root}"
+  output="$(run_w1_i05_fixed_review_verifier "${fixture_root}" 2>&1)" ||
+    fail "legal W1-I05 fixed review repair was rejected: ${output}"
+  assert_contains "${output}" "W1I05FixedReviewRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  printf '%s\n' '<w:document/>' > \
+    "${fixture_root}/server/src/test/resources/docx/table/post-review.xml"
+  git -C "${fixture_root}" add \
+    server/src/test/resources/docx/table/post-review.xml
+  git -C "${fixture_root}" commit -qm "test: add legal post-review I05 fixture"
+  output="$(run_w1_i05_fixed_review_verifier "${fixture_root}" 2>&1)" ||
+    fail "legal post-review I05 descendant was rejected: ${output}"
+  assert_contains "${output}" "W1I05FixedReviewRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-fixed-review-spec-mismatch"
+  new_w1_i05_fixed_review_fixture "${fixture_root}"
+  mkdir -p "${fixture_root}/$(dirname "${w1_i05_fixed_review_spec_path}")"
+  git -C "${repo_root}" show \
+    "${w1_i05_fixed_review_spec_sha}:${w1_i05_fixed_review_spec_path}" > \
+    "${fixture_root}/${w1_i05_fixed_review_spec_path}"
+  printf '%s\n' 'evidence drift' >> \
+    "${fixture_root}/${w1_i05_fixed_review_spec_path}"
+  git -C "${fixture_root}" add "${w1_i05_fixed_review_spec_path}"
+  git -C "${fixture_root}" commit -qm "test: materialize wrong fixed review authority"
+  complete_w1_i05_fixed_review_after_spec "${fixture_root}"
+  expect_w1_i05_fixed_review_failure "${fixture_root}" \
+    "W1-I05 fixed review repair evidence mismatch: step 0"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-fixed-review-merge"
+  new_w1_i05_fixed_review_fixture "${fixture_root}"
+  git -C "${fixture_root}" switch -q -c fixed-review-side
+  commit_w1_i05_fixed_review_spec "${fixture_root}"
+  git -C "${fixture_root}" switch -q --detach HEAD^
+  git -C "${fixture_root}" merge -q --no-ff fixed-review-side \
+    -m "test: merge fixed review authority"
+  complete_w1_i05_fixed_review_after_spec "${fixture_root}"
+  expect_w1_i05_fixed_review_failure "${fixture_root}" \
+    "W1-I05 fixed review repair commit must have exactly one parent"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-fixed-review-substitute"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${w1_i05_fixed_review_base_sha}"
+  git -C "${fixture_root}" cherry-pick -n \
+    558ec44a0d35e0479940ebfb5fbd4c8f8c2f29b5
+  git -C "${fixture_root}" commit -qm "test: substitute W1-I05 finding RED identity"
+  git -C "${fixture_root}" cherry-pick \
+    46c519f6dc79e9d12f4485a2ed9469c350b76a46
+  commit_w1_i05_fixed_review_spec "${fixture_root}"
+  complete_w1_i05_fixed_review_after_spec "${fixture_root}"
+  expect_w1_i05_fixed_review_failure "${fixture_root}" \
+    "HEAD must descend from the fixed W1-I05 finding repair candidate"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-fixed-review-post-outside"
+  build_legal_w1_i05_fixed_review_fixture "${fixture_root}"
+  printf '%s\n' 'outside' > "${fixture_root}/post-fixed-review-outside.txt"
+  git -C "${fixture_root}" add post-fixed-review-outside.txt
+  git -C "${fixture_root}" commit -qm "test: add post-review outside path"
+  expect_w1_i05_fixed_review_failure "${fixture_root}" \
+    "post-I04-closure descendant changed a path outside the W1-I05 WriteSet"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "fixed review positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 4 ]] ||
+    fail "fixed review negative case count mismatch: ${negative_cases}"
+  printf '%s\n' \
+    "W1I05FixedReviewRepairContractTests = PASS" \
+    "W1I05FixedReviewRepairPositiveCases = ${positive_cases}" \
+    "W1I05FixedReviewRepairNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -2398,6 +2565,7 @@ fi
 
 if [[ "${w1_i05_verifier_recovery_contract_only}" == "1" ]]; then
   run_w1_i05_xml_copy_repair_contract
+  run_w1_i05_fixed_review_contract
   exit 0
 fi
 
