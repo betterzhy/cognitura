@@ -144,9 +144,25 @@ fi
    *"BROKEN_MARKDOWN_LINK: README.md -> missing.md"* ]] ||
   fail "masked tracked link failed for the wrong reason: ${masked_target_output}"
 
+literal_mask_root="${test_tmp_root}/literal-mask"
+mkdir -p "${literal_mask_root}"
+git -C "${literal_mask_root}" init -q
+printf '%s\n' '# Tracked target' >"${literal_mask_root}/README.md"
+printf '%s\n' '[mask](READM[E].md)' >"${literal_mask_root}/source.md"
+git -C "${literal_mask_root}" add README.md source.md
+printf '%s\n' '# Untracked pathspec mask' >"${literal_mask_root}/READM[E].md"
+if literal_mask_output="$(verify_markdown_tree \
+  "${literal_mask_root}" tracked 2>&1)"; then
+  fail "Git pathspec metacharacters masked an untracked Markdown target"
+fi
+[[ "${literal_mask_output}" == \
+   *"BROKEN_MARKDOWN_LINK: source.md -> READM[E].md"* ]] ||
+  fail "literal pathspec mask failed for the wrong reason: ${literal_mask_output}"
+
 printf '%s\n' \
   "MarkdownLinkContractTests = PASS" \
   "CanonicalMarkdownLinks = PASS" \
   "BrokenLinkNegativeCases = 1" \
   "UntrackedMarkdownIsolationCases = 1" \
-  "UntrackedTargetMaskingCases = 1"
+  "UntrackedTargetMaskingCases = 1" \
+  "LiteralPathspecMaskingCases = 1"
