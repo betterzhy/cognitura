@@ -1089,7 +1089,7 @@ run_w1_i03_closure_contract() {
     "W1I03ClosureNegativeCases = ${negative_cases}"
 }
 
-i04_closure_origin_sha="eb6613e66d5ac1c03d033a814c2413cc0c883226"
+i04_closure_origin_sha="e5c882f072db62d22b4de32b0aacb1d720a02154"
 i04_vsb_terminal_restore_sha="cc25439de8019a4434c2ab5aba8b32927240d8b4"
 i04_closure_tmpdir=""
 i04_closure_governance_paths=(
