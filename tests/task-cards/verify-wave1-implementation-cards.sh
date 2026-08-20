@@ -2216,6 +2216,167 @@ run_w1_i05_literal_repair_contract() {
     "W1I05LiteralPathspecRepairNegativeCases = ${negative_cases}"
 }
 
+w1_i05_xml_copy_repair_origin_sha="0f28f0802a894d3e3af127751b3ddddaab8ee840"
+w1_i05_xml_copy_repair_base_sha="f25b392edfb71ba634aa96ad815816eb7a8658fa"
+w1_i05_xml_copy_repair_spec_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i05-xml-copy-inference-repair.md"
+w1_i05_xml_copy_repair_spec_sha="5003776809d2354acf586d767f14f362eb4b612e"
+
+new_w1_i05_xml_copy_repair_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${w1_i05_xml_copy_repair_origin_sha}"
+}
+
+commit_w1_i05_xml_copy_repair_path() {
+  local fixture_root="$1"
+  local path="$2"
+  local source_commit="$3"
+  local message="$4"
+  local mode=644
+  mkdir -p "${fixture_root}/$(dirname "${path}")"
+  if [[ "${source_commit}" == WORKTREE ]]; then
+    cp "${repo_root}/${path}" "${fixture_root}/${path}"
+  else
+    git -C "${repo_root}" show "${source_commit}:${path}" > \
+      "${fixture_root}/${path}"
+  fi
+  case "${path}" in
+    tests/*|scripts/*) mode=755 ;;
+  esac
+  chmod "${mode}" "${fixture_root}/${path}"
+  if git -C "${fixture_root}" ls-files --error-unmatch -- \
+      "${path}" >/dev/null 2>&1 &&
+      git -C "${fixture_root}" diff --quiet -- "${path}"; then
+    printf '%s\n' '# XML-copy repair fixture materialization' >> \
+      "${fixture_root}/${path}"
+  fi
+  git -C "${fixture_root}" add "${path}"
+  git -C "${fixture_root}" commit -qm "${message}"
+}
+
+commit_w1_i05_xml_copy_repair_spec() {
+  commit_w1_i05_xml_copy_repair_path "$1" \
+    "${w1_i05_xml_copy_repair_spec_path}" \
+    "${w1_i05_xml_copy_repair_spec_sha}" \
+    "test: materialize I05 XML copy repair authority"
+}
+
+complete_w1_i05_xml_copy_repair_after_spec() {
+  local fixture_root="$1"
+  commit_w1_i05_xml_copy_repair_path "${fixture_root}" \
+    "${w1_i05_repair_test_path}" WORKTREE \
+    "test: materialize I05 XML copy repair contract"
+  commit_w1_i05_xml_copy_repair_path "${fixture_root}" \
+    "${w1_i05_repair_verifier_path}" WORKTREE \
+    "test: materialize I05 XML copy repair verifier"
+}
+
+build_legal_w1_i05_xml_copy_repair_fixture() {
+  local fixture_root="$1"
+  new_w1_i05_xml_copy_repair_fixture "${fixture_root}"
+  commit_w1_i05_xml_copy_repair_spec "${fixture_root}"
+  complete_w1_i05_xml_copy_repair_after_spec "${fixture_root}"
+}
+
+run_w1_i05_xml_copy_repair_verifier() {
+  local fixture_root="$1"
+  "${fixture_root}/${w1_i05_repair_verifier_path}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+expect_w1_i05_xml_copy_repair_failure() {
+  local fixture_root="$1"
+  local expected="$2"
+  local output
+  if output="$(run_w1_i05_xml_copy_repair_verifier \
+      "${fixture_root}" 2>&1)"; then
+    fail "invalid I05 XML copy repair fixture unexpectedly passed: ${fixture_root}"
+  fi
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i05_xml_copy_repair_contract() {
+  local fixture_root output
+  local positive_cases=0
+  local negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i05-xml-copy-repair-legal"
+  build_legal_w1_i05_xml_copy_repair_fixture "${fixture_root}"
+  output="$(run_w1_i05_xml_copy_repair_verifier "${fixture_root}" 2>&1)" ||
+    fail "legal I05 XML copy repair was rejected: ${output}"
+  assert_contains "${output}" "W1I05XmlCopyInferenceRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  printf '%s\n' '<w:document/>' > \
+    "${fixture_root}/server/src/test/resources/docx/table/post-repair.xml"
+  git -C "${fixture_root}" add \
+    server/src/test/resources/docx/table/post-repair.xml
+  git -C "${fixture_root}" commit -qm "test: add legal post-repair I05 fixture"
+  output="$(run_w1_i05_xml_copy_repair_verifier "${fixture_root}" 2>&1)" ||
+    fail "legal post-XML-copy-repair I05 descendant was rejected: ${output}"
+  assert_contains "${output}" "W1I05XmlCopyInferenceRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-xml-copy-repair-spec-mismatch"
+  new_w1_i05_xml_copy_repair_fixture "${fixture_root}"
+  commit_w1_i05_xml_copy_repair_spec "${fixture_root}"
+  printf '%s\n' 'evidence drift' >> \
+    "${fixture_root}/${w1_i05_xml_copy_repair_spec_path}"
+  git -C "${fixture_root}" add "${w1_i05_xml_copy_repair_spec_path}"
+  git -C "${fixture_root}" commit -qm "test: drift I05 XML copy authority"
+  complete_w1_i05_xml_copy_repair_after_spec "${fixture_root}"
+  expect_w1_i05_xml_copy_repair_failure "${fixture_root}" \
+    "W1-I05 XML copy repair paths must follow the fixed order"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-xml-copy-repair-merge"
+  new_w1_i05_xml_copy_repair_fixture "${fixture_root}"
+  git -C "${fixture_root}" switch -q -c xml-copy-repair-side
+  commit_w1_i05_xml_copy_repair_spec "${fixture_root}"
+  git -C "${fixture_root}" switch -q --detach HEAD^
+  git -C "${fixture_root}" merge -q --no-ff xml-copy-repair-side \
+    -m "test: merge I05 XML copy authority"
+  complete_w1_i05_xml_copy_repair_after_spec "${fixture_root}"
+  expect_w1_i05_xml_copy_repair_failure "${fixture_root}" \
+    "W1-I05 XML copy repair commit must have exactly one parent"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-xml-copy-repair-substitute"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${w1_i05_xml_copy_repair_base_sha}"
+  git -C "${fixture_root}" cherry-pick -n \
+    0e56cc854052b175f9389f7461912dab5b296c10
+  git -C "${fixture_root}" commit -qm "test: substitute I05 implementation identity"
+  git -C "${fixture_root}" cherry-pick -q \
+    0f28f0802a894d3e3af127751b3ddddaab8ee840
+  commit_w1_i05_xml_copy_repair_spec "${fixture_root}"
+  complete_w1_i05_xml_copy_repair_after_spec "${fixture_root}"
+  expect_w1_i05_xml_copy_repair_failure "${fixture_root}" \
+    "HEAD must descend from the fixed W1-I05 implementation candidate"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-xml-copy-repair-post-outside"
+  build_legal_w1_i05_xml_copy_repair_fixture "${fixture_root}"
+  printf '%s\n' 'outside' > "${fixture_root}/post-XML-copy-repair-outside.txt"
+  git -C "${fixture_root}" add post-XML-copy-repair-outside.txt
+  git -C "${fixture_root}" commit -qm "test: add post-XML-copy-repair outside path"
+  expect_w1_i05_xml_copy_repair_failure "${fixture_root}" \
+    "post-I04-closure descendant changed a path outside the W1-I05 WriteSet"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "I05 XML copy repair positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 4 ]] ||
+    fail "I05 XML copy repair negative case count mismatch: ${negative_cases}"
+  printf '%s\n' \
+    "W1I05XmlCopyInferenceRepairContractTests = PASS" \
+    "W1I05XmlCopyInferenceRepairPositiveCases = ${positive_cases}" \
+    "W1I05XmlCopyInferenceRepairNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -2227,7 +2388,7 @@ if [[ "${w1_i04_closure_contract_only}" == "1" ]]; then
 fi
 
 if [[ "${w1_i05_verifier_recovery_contract_only}" == "1" ]]; then
-  run_w1_i05_literal_repair_contract
+  run_w1_i05_xml_copy_repair_contract
   exit 0
 fi
 
