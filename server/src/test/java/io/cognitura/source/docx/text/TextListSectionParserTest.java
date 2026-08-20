@@ -16,6 +16,7 @@ import java.text.Normalizer;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
@@ -52,8 +53,7 @@ class TextListSectionParserTest {
             assertThat(blocks).extracting(DocumentBlockCandidate::sourcePart)
                     .containsOnly("word/document.xml");
             assertThat(blocks).extracting(DocumentBlockCandidate::sourceElementIndex)
-                    .isSorted()
-                    .doesNotHaveDuplicates();
+                    .containsExactly(2, 7, 17, 25, 33, 41, 49, 54, 59, 67, 72);
 
             assertHeading(blocks.get(0), "Overview", 1, List.of(), "Heading One");
             assertParagraph(blocks.get(1), "Alpha\tBeta\nGamma", List.of("Overview"), "Body Text");
@@ -102,7 +102,12 @@ class TextListSectionParserTest {
     @Test
     void rejectsUnsupportedMainFlowAndInlineNodesInsteadOfSilentlyDroppingThem() throws IOException {
         for (String fixture : List.of(
-                "unsupported-table.xml", "unsupported-inline.xml", "explicit-page-break.xml")) {
+                "unsupported-table.xml",
+                "unsupported-inline.xml",
+                "unsupported-text-child.xml",
+                "explicit-page-break.xml",
+                "explicit-page-break-before.xml",
+                "styled-page-break-before.xml")) {
             try (SafeDocxPackage safePackage = openFixture(fixture)) {
                 assertThatThrownBy(() -> new TextListSectionParser().parse(safePackage))
                         .isInstanceOf(SourceDomainException.class)
@@ -137,15 +142,65 @@ class TextListSectionParserTest {
         }
     }
 
+    @Test
+    void appliesDeterministicNumberingStartOverrideToMarkerText() throws IOException {
+        try (SafeDocxPackage safePackage =
+                openFixture("list-start-override.xml", "numbering-start-override.xml")) {
+            List<DocumentBlockCandidate> blocks = new TextListSectionParser().parse(safePackage);
+
+            assertThat(blocks).hasSize(1);
+            assertThat(blocks.getFirst().listSemantics())
+                    .isEqualTo(new ListSemantics("num-7-segment-0", 0, 0, "5."));
+        }
+    }
+
+    @Test
+    void rejectsDeepUnsupportedFlowWithoutExhaustingTheThreadStack() throws IOException {
+        int depth = 12_000;
+        String documentXml = """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+                """
+                + "<w:sdt>".repeat(depth)
+                + "<w:p><w:r><w:t>Unsupported</w:t></w:r></w:p>"
+                + "</w:sdt>".repeat(depth)
+                + "</w:body></w:document>";
+
+        try (SafeDocxPackage safePackage = openDocumentXml("deep-unsupported", documentXml)) {
+            assertThatThrownBy(() -> new TextListSectionParser().parse(safePackage))
+                    .isInstanceOf(SourceDomainException.class)
+                    .satisfies(error -> assertThat(((SourceDomainException) error).code())
+                            .isEqualTo(SourceDomainException.Code.PARSER_TERMINAL_FAILURE))
+                    .hasMessageContaining("UNSUPPORTED_DOCX_FLOW:sdt");
+        }
+    }
+
     private SafeDocxPackage openFixture(String documentResource) throws IOException {
+        return openFixture(documentResource, "numbering.xml");
+    }
+
+    private SafeDocxPackage openFixture(String documentResource, String numberingResource)
+            throws IOException {
+        return openDocumentXml(
+                documentResource,
+                resource("/docx/text/" + documentResource),
+                numberingResource);
+    }
+
+    private SafeDocxPackage openDocumentXml(String name, String documentXml) throws IOException {
+        return openDocumentXml(name, documentXml, "numbering.xml");
+    }
+
+    private SafeDocxPackage openDocumentXml(
+            String name, String documentXml, String numberingResource) throws IOException {
         LinkedHashMap<String, byte[]> entries = new LinkedHashMap<>();
         entries.put("[Content_Types].xml", bytes(CONTENT_TYPES));
         entries.put("_rels/.rels", bytes(ROOT_RELATIONSHIPS));
-        entries.put("word/document.xml", bytes(resource("/docx/text/" + documentResource)));
+        entries.put("word/document.xml", bytes(documentXml));
         entries.put("word/styles.xml", bytes(resource("/docx/text/styles.xml")));
-        entries.put("word/numbering.xml", bytes(resource("/docx/text/numbering.xml")));
+        entries.put("word/numbering.xml", bytes(resource("/docx/text/" + numberingResource)));
         entries.put("word/_rels/document.xml.rels", bytes(EMPTY_RELATIONSHIPS));
-        Path packagePath = temporaryDirectory.resolve(documentResource + ".docx");
+        Path packagePath = temporaryDirectory.resolve(name + ".docx");
         Files.write(packagePath, zip(entries));
         return new DocxSecurityGate().open(packagePath);
     }
@@ -190,6 +245,7 @@ class TextListSectionParserTest {
     private static byte[] zip(LinkedHashMap<String, byte[]> entries) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(output, StandardCharsets.UTF_8)) {
+            zip.setLevel(Deflater.NO_COMPRESSION);
             for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
                 zip.putNextEntry(new ZipEntry(entry.getKey()));
                 zip.write(entry.getValue());

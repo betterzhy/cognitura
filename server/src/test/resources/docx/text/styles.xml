@@ -11,4 +11,8 @@
   <w:style w:type="paragraph" w:styleId="BodyText">
     <w:name w:val="Body Text"/>
   </w:style>
+  <w:style w:type="paragraph" w:styleId="PageBreakBody">
+    <w:name w:val="Page Break Body"/>
+    <w:pPr><w:pageBreakBefore/></w:pPr>
+  </w:style>
 </w:styles>

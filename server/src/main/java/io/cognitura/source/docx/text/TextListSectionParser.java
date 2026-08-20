@@ -5,6 +5,7 @@ import io.cognitura.source.domain.SourceDomainException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.text.Normalizer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -92,6 +93,13 @@ public final class TextListSectionParser {
         Element properties = onlyDirectChild(paragraph, "pPr", false);
         String styleId = properties == null ? null : optionalVal(onlyDirectChild(properties, "pStyle", false));
         StyleDefinition style = styles.definition(styleId);
+        Boolean directPageBreakBefore = properties == null
+                ? null
+                : optionalOnOff(onlyDirectChild(properties, "pageBreakBefore", false));
+        if (Boolean.TRUE.equals(directPageBreakBefore)
+                || (directPageBreakBefore == null && style.pageBreakBefore())) {
+            throw terminal("UNSUPPORTED_DOCX_FLOW:paragraph/pageBreakBefore");
+        }
         Integer directOutlineLevel = properties == null
                 ? null
                 : optionalIntegerVal(onlyDirectChild(properties, "outlineLvl", false));
@@ -196,7 +204,7 @@ public final class TextListSectionParser {
                 case "rPr" -> {
                     // Formatting metadata does not create visible text.
                 }
-                case "t" -> text.append(element.getTextContent());
+                case "t" -> appendTextElement(element, text);
                 case "tab" -> text.append('\t');
                 case "br" -> appendBreak(element, text);
                 case "cr" -> text.append('\n');
@@ -204,6 +212,16 @@ public final class TextListSectionParser {
                 case "softHyphen" -> text.append('\u00ad');
                 default -> throw terminal("UNSUPPORTED_DOCX_FLOW:run/" + element.getLocalName());
             }
+        }
+    }
+
+    private static void appendTextElement(Element textElement, StringBuilder text) {
+        for (Node node = textElement.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node.getNodeType() == Node.TEXT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE) {
+                text.append(node.getNodeValue());
+                continue;
+            }
+            throw terminal("UNSUPPORTED_DOCX_FLOW:run/t/" + node.getNodeName());
         }
     }
 
@@ -250,18 +268,19 @@ public final class TextListSectionParser {
 
     private static IdentityHashMap<Element, Integer> preorderElementIndexes(Element root) {
         IdentityHashMap<Element, Integer> indexes = new IdentityHashMap<>();
-        indexElements(root, indexes, new int[] {0});
-        return indexes;
-    }
-
-    private static void indexElements(
-            Element element, IdentityHashMap<Element, Integer> indexes, int[] next) {
-        indexes.put(element, next[0]++);
-        for (Node node = element.getFirstChild(); node != null; node = node.getNextSibling()) {
-            if (node instanceof Element child) {
-                indexElements(child, indexes, next);
+        ArrayDeque<Element> pending = new ArrayDeque<>();
+        pending.push(root);
+        int next = 0;
+        while (!pending.isEmpty()) {
+            Element element = pending.pop();
+            indexes.put(element, next++);
+            for (Node node = element.getLastChild(); node != null; node = node.getPreviousSibling()) {
+                if (node instanceof Element child) {
+                    pending.push(child);
+                }
             }
         }
+        return indexes;
     }
 
     private static Element onlyDirectChild(Element parent, String localName, boolean required) {
@@ -306,6 +325,20 @@ public final class TextListSectionParser {
                 : requiredInteger(requiredVal(element), "DOCX_INTEGER_ATTRIBUTE_INVALID");
     }
 
+    private static Boolean optionalOnOff(Element element) {
+        if (element == null) {
+            return null;
+        }
+        String value = element.getAttributeNS(WORD_NAMESPACE, "val");
+        if (value.isEmpty() || "true".equals(value) || "1".equals(value) || "on".equals(value)) {
+            return true;
+        }
+        if ("false".equals(value) || "0".equals(value) || "off".equals(value)) {
+            return false;
+        }
+        throw terminal("DOCX_ON_OFF_ATTRIBUTE_INVALID:" + element.getLocalName());
+    }
+
     private static String requiredVal(Element element) {
         String value = element.getAttributeNS(WORD_NAMESPACE, "val");
         if (value == null || value.isBlank()) {
@@ -336,8 +369,8 @@ public final class TextListSectionParser {
                 detail == null || detail.isBlank() ? "DOCX_TEXT_PARSER_INVARIANT_FAILED" : detail);
     }
 
-    private record StyleDefinition(String styleName, Integer headingLevel) {
-        private static final StyleDefinition NONE = new StyleDefinition(null, null);
+    private record StyleDefinition(String styleName, Integer headingLevel, boolean pageBreakBefore) {
+        private static final StyleDefinition NONE = new StyleDefinition(null, null, false);
     }
 
     private record Styles(Map<String, StyleDefinition> definitions) {
@@ -373,11 +406,15 @@ public final class TextListSectionParser {
                 Integer outlineLevel = properties == null
                         ? null
                         : optionalIntegerVal(onlyDirectChild(properties, "outlineLvl", false));
+                Boolean pageBreakBefore = properties == null
+                        ? null
+                        : optionalOnOff(onlyDirectChild(properties, "pageBreakBefore", false));
                 StyleDefinition previous = definitions.put(
                         styleId,
                         new StyleDefinition(
                                 styleName,
-                                outlineLevel == null ? null : headingLevel(outlineLevel)));
+                                outlineLevel == null ? null : headingLevel(outlineLevel),
+                                Boolean.TRUE.equals(pageBreakBefore)));
                 if (previous != null) {
                     throw terminal("DUPLICATE_PARAGRAPH_STYLE_ID");
                 }
@@ -387,6 +424,8 @@ public final class TextListSectionParser {
     }
 
     private record MarkerPattern(String format, String levelText, int start) {}
+
+    private record NumberingInstance(String abstractId, Map<Integer, Integer> startOverrides) {}
 
     private record Numbering(Map<String, Map<Integer, MarkerPattern>> levelsByNumId) {
 
@@ -428,7 +467,7 @@ public final class TextListSectionParser {
             Element root = document.getDocumentElement();
             requireWordElement(root, "numbering", "NUMBERING_ROOT_INVALID");
             Map<String, Map<Integer, MarkerPattern>> abstractLevels = new HashMap<>();
-            Map<String, String> abstractByNumId = new HashMap<>();
+            Map<String, NumberingInstance> instancesByNumId = new HashMap<>();
             for (Node node = root.getFirstChild(); node != null; node = node.getNextSibling()) {
                 if (!(node instanceof Element element)
                         || !WORD_NAMESPACE.equals(element.getNamespaceURI())) {
@@ -443,20 +482,72 @@ public final class TextListSectionParser {
                 } else if ("num".equals(element.getLocalName())) {
                     String numId = requiredWordAttribute(element, "numId");
                     String abstractId = requiredVal(onlyDirectChild(element, "abstractNumId", true));
-                    if (abstractByNumId.put(numId, abstractId) != null) {
+                    NumberingInstance instance =
+                            new NumberingInstance(abstractId, parseStartOverrides(element));
+                    if (instancesByNumId.put(numId, instance) != null) {
                         throw terminal("DUPLICATE_NUMBERING_ID");
                     }
                 }
             }
             Map<String, Map<Integer, MarkerPattern>> levelsByNumId = new HashMap<>();
-            for (Map.Entry<String, String> entry : abstractByNumId.entrySet()) {
-                Map<Integer, MarkerPattern> levels = abstractLevels.get(entry.getValue());
+            for (Map.Entry<String, NumberingInstance> entry : instancesByNumId.entrySet()) {
+                NumberingInstance instance = entry.getValue();
+                Map<Integer, MarkerPattern> levels = abstractLevels.get(instance.abstractId());
                 if (levels == null) {
                     throw terminal("NUMBERING_ABSTRACT_DEFINITION_MISSING");
                 }
-                levelsByNumId.put(entry.getKey(), levels);
+                Map<Integer, MarkerPattern> effectiveLevels = new HashMap<>(levels);
+                for (Map.Entry<Integer, Integer> override : instance.startOverrides().entrySet()) {
+                    MarkerPattern inherited = effectiveLevels.get(override.getKey());
+                    if (inherited == null) {
+                        throw terminal("NUMBERING_OVERRIDE_LEVEL_MISSING");
+                    }
+                    effectiveLevels.put(
+                            override.getKey(),
+                            new MarkerPattern(
+                                    inherited.format(), inherited.levelText(), override.getValue()));
+                }
+                levelsByNumId.put(entry.getKey(), Map.copyOf(effectiveLevels));
             }
             return new Numbering(Map.copyOf(levelsByNumId));
+        }
+
+        private static Map<Integer, Integer> parseStartOverrides(Element numberingInstance) {
+            Map<Integer, Integer> overrides = new HashMap<>();
+            for (Node node = numberingInstance.getFirstChild(); node != null; node = node.getNextSibling()) {
+                if (!(node instanceof Element child)) {
+                    continue;
+                }
+                requireWordNamespace(child, "UNSUPPORTED_NUMBERING_INSTANCE_NAMESPACE");
+                if ("abstractNumId".equals(child.getLocalName())) {
+                    continue;
+                }
+                if (!"lvlOverride".equals(child.getLocalName())) {
+                    throw terminal("UNSUPPORTED_NUMBERING_INSTANCE_ELEMENT:" + child.getLocalName());
+                }
+                int level = requiredNonNegativeInteger(
+                        requiredWordAttribute(child, "ilvl"), "LIST_ITEM_LEVEL_INVALID");
+                if (level > 8 || overrides.containsKey(level)) {
+                    throw terminal("DUPLICATE_OR_INVALID_NUMBERING_OVERRIDE_LEVEL");
+                }
+                Element startOverride = onlyDirectChild(child, "startOverride", false);
+                for (Node overrideNode = child.getFirstChild();
+                        overrideNode != null;
+                        overrideNode = overrideNode.getNextSibling()) {
+                    if (overrideNode instanceof Element overrideElement
+                            && !(WORD_NAMESPACE.equals(overrideElement.getNamespaceURI())
+                                    && "startOverride".equals(overrideElement.getLocalName()))) {
+                        throw terminal("UNSUPPORTED_NUMBERING_LEVEL_OVERRIDE");
+                    }
+                }
+                if (startOverride == null) {
+                    throw terminal("UNSUPPORTED_NUMBERING_LEVEL_OVERRIDE");
+                }
+                overrides.put(
+                        level,
+                        requiredNonNegativeInteger(requiredVal(startOverride), "LIST_START_INVALID"));
+            }
+            return Map.copyOf(overrides);
         }
 
         private static Map<Integer, MarkerPattern> parseLevels(Element abstractNum) {
