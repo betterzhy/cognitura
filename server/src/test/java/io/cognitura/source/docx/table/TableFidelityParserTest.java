@@ -87,6 +87,24 @@ class TableFidelityParserTest {
             throws IOException {
         assertTerminal("missing-cell.xml", "TABLE_ROW_DOES_NOT_FILL_GRID");
         assertTerminal("nested-table.xml", "UNSUPPORTED_DOCX_TABLE_FLOW:nested-table");
+        assertTerminal(
+                "literal-image-placeholder.xml", "TABLE_LITERAL_IMAGE_PLACEHOLDER_FORBIDDEN");
+    }
+
+    @Test
+    void preservesGlobalContainerOrderAndUsesCodePointImageOffsets() throws IOException {
+        try (SafeDocxPackage safePackage =
+                openFixture(temporaryDirectory, "image-source-order.xml")) {
+            List<TableBlockCandidate> tables = new TableFidelityParser().parse(safePackage);
+
+            assertThat(tables).extracting(TableBlockCandidate::sourceOrder).containsExactly(2, 4);
+            assertThat(tables.getFirst().cells().getFirst().textEvidence())
+                    .singleElement()
+                    .satisfies(evidence -> {
+                        assertThat(evidence.text()).isEqualTo("😀￼");
+                        assertThat(evidence.inlineImageOffsets()).containsExactly(1);
+                    });
+        }
     }
 
     @Test
@@ -115,6 +133,12 @@ class TableFidelityParserTest {
                         List.of(new TableTextEvidence(0, "Café", List.of()))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("TABLE_CELL_TEXT_MUST_BE_NFC");
+
+        assertThatThrownBy(() -> new TableTextEvidence(0, "￼", List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("TABLE_IMAGE_ANCHOR_BIJECTION_INVALID");
+        assertThat(new TableTextEvidence(0, "😀￼", List.of(1)).inlineImageOffsets())
+                .containsExactly(1);
     }
 
     private void assertTerminal(String fixture, String detail) throws IOException {

@@ -119,6 +119,38 @@ class TableMergeProjectionTest {
                 .hasMessage("TABLE_CELL_GRID_OVERLAP");
     }
 
+    @Test
+    void candidatesRejectResourceAmplificationAndIntegerOverflow() {
+        TableCellCandidate origin = new TableCellCandidate(
+                0, 0, 1, 1, "A", List.of(new TableTextEvidence(0, "A", List.of())));
+        TableCellCandidate overflow = new TableCellCandidate(
+                Integer.MAX_VALUE,
+                0,
+                1,
+                1,
+                "B",
+                List.of(new TableTextEvidence(0, "B", List.of())));
+
+        assertThatThrownBy(() -> new TableBlockCandidate(
+                        0, "word/document.xml", 2, 10_001, 101, List.of(origin), List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("TABLE_GRID_SIZE_EXCEEDED");
+        assertThatThrownBy(() -> new TableBlockCandidate(
+                        0,
+                        "word/document.xml",
+                        2,
+                        1,
+                        1,
+                        List.of(origin, overflow),
+                        List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("TABLE_CELL_SPAN_OUT_OF_BOUNDS");
+        assertThatThrownBy(() -> new TableMergeProjection(
+                        Integer.MAX_VALUE, 0, 1, 2, List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("TABLE_MERGE_COORDINATE_INVALID");
+    }
+
     private void assertTerminal(String fixture, String detail) throws IOException {
         try (SafeDocxPackage safePackage =
                 TableFidelityParserTest.openFixture(temporaryDirectory, fixture)) {
