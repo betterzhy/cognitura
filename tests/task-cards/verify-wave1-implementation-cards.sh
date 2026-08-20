@@ -1089,11 +1089,11 @@ run_w1_i03_closure_contract() {
     "W1I03ClosureNegativeCases = ${negative_cases}"
 }
 
-i04_closure_origin_sha="4594406e9fd8a9ac380c3b2b880fda67271790bc"
+i04_closure_origin_sha="f9bef5a7f45ccd104d65b475f8bdabc6d2e6b9db"
 i04_closure_tmpdir=""
 i04_closure_governance_paths=(
-  docs/superpowers/specs/2026-08-20-cognitura-w1-i04-closure-design.md
-  docs/superpowers/plans/2026-08-20-cognitura-w1-i04-closure.md
+  docs/superpowers/specs/2026-08-20-cognitura-w1-i04-closure-successor-design.md
+  docs/superpowers/plans/2026-08-20-cognitura-w1-i04-closure-successor.md
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
