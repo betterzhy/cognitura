@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I05
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W1-IG5 TableFidelity
 Risk = HIGH
 DependsOn = W1-I04
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = TABLE_ROWS_CELLS_MERGES_AND_TEXT_EVIDENCE_PRESERVED
 NegativeVerification = CELL_ORDER_MERGE_AND_TEXT_FIDELITY_DRIFT_REJECTED
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer

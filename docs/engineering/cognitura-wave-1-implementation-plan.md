@@ -7,7 +7,7 @@ FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
 TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I04
+ActiveTaskCard = W1-I05
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
@@ -20,7 +20,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
 Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02 等待独立数据库 Gate，
-I03 已关闭，I04 为唯一 `READY` 卡。
+I03 和 I04 已关闭，I05 为唯一 `READY` 卡。
 
 ## 1. 实现卡
 
@@ -30,8 +30,8 @@ I03 已关闭，I04 为唯一 `READY` 卡。
 | `W1-I01` | Source domain | `I00` | `DONE` |
 | `W1-I02` | Source persistence | `I01` | `QUEUED` |
 | `W1-I03` | DOCX security | `I01` | `DONE` |
-| `W1-I04` | Text/list/section parser | `I03` | `READY` |
-| `W1-I05` | Table fidelity | `I04` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I04` | Text/list/section parser | `I03` | `DONE` |
+| `W1-I05` | Table fidelity | `I04` | `READY` |
 | `W1-I06` | Image/relationship projection | `I04,I05` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I08` | Stable reference/lineage | `I07` | `BLOCKED_BY_DEPENDENCY` |
@@ -135,6 +135,25 @@ P1 = 0
 P2 = 0
 Ultra = NOT_RUN
 I03ClosureReleasedTaskCard = W1-I04
+QueuedTaskCard = W1-I02
+QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED
+```
+
+## 9. I04 关闭收据
+
+```text
+W1-I04 = DONE
+ReviewedCandidate = 4594406e9fd8a9ac380c3b2b880fda67271790bc
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+I04ClosureReleasedTaskCard = W1-I05
 QueuedTaskCard = W1-I02
 QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED
 ```
