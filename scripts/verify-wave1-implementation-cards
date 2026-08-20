@@ -320,6 +320,649 @@ normalized_i03_digest() {
   sed -E 's/^Status = .*/Status = __MUTABLE__/' "${file}" | sha256_stream
 }
 
+w1_i03_closure_origin_sha="cc25439de8019a4434c2ab5aba8b32927240d8b4"
+w1_i03_reviewed_candidate_sha="4e63936c631ab34807e714b90d30415a959bc13d"
+w1_i03_closure_design_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i03-closure-design.md"
+w1_i03_closure_plan_path="docs/superpowers/plans/2026-08-20-cognitura-w1-i03-closure.md"
+w1_i03_card_path="docs/task-cards/wave-1-implementation/W1-I03-docx-security-gate.md"
+w1_i04_card_path="docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.md"
+w1_i03_closure_governance_paths=(
+  "${w1_i03_closure_design_path}"
+  "${w1_i03_closure_plan_path}"
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i03_closure_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  "${w1_i03_card_path}"
+  "${w1_i04_card_path}"
+)
+w1_i03_frozen_production_paths=(
+  server/src/main/java/io/cognitura/source/docx/security/DocxSecurityGate.java
+  server/src/main/java/io/cognitura/source/docx/security/DocxPackageLimits.java
+  server/src/main/java/io/cognitura/source/docx/security/DocxRelationshipClassifier.java
+  server/src/main/java/io/cognitura/source/docx/security/DocxSecurityViolation.java
+  server/src/main/java/io/cognitura/source/docx/security/SafeDocxPackage.java
+  server/src/test/java/io/cognitura/source/docx/security/DocxSecurityGateTest.java
+  server/src/test/java/io/cognitura/source/docx/security/ExternalRelationshipIsolationTest.java
+  server/src/test/resources/docx/security
+)
+w1_i04_ready_narratives=(
+  '`W1-I02` 等待独立数据库 Gate；`W1-I03` 已零发现关闭，`W1-I04` 为唯一 `READY` 业务卡。'
+  'I00、I01 和 I03 已关闭，当前已原子释放 I04；I02 保持等待独立数据库 Gate。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I04` 是唯一 `READY` 卡。'
+  '保持 `QUEUED` 等待独立数据库 Gate；`W1-I03` 已关闭，`W1-I04` 已释放为唯一 `READY` 业务卡。'
+  '  I01 和 I03 已关闭，I02 等待独立数据库 Gate，I04 为唯一 `READY` 卡。'
+  '`W1-I03` 已零发现关闭，`W1-I04` 已作为唯一 `READY` 卡释放。'
+  $'当前业务授权只按既定卡集串行推进至 `W1-I04`；I02 独立数据库 Gate、正式数据库\n写入和远程推送仍未授权。'
+  '固定候选深审并关闭；I02 等待独立数据库 Gate，I03 已关闭且 I04 为唯一 `READY` 卡，完整证据记录在'
+  '数据库 Gate；I03 已关闭，I04 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 已关闭，I04 为唯一 `READY` 卡。'
+  'I00、I01 和 I03 已关闭；I02 等待独立数据库 Gate，W1-I04 为唯一 `READY` 业务卡。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，I03 已关闭且 I04 已原子释放为唯一 `READY` 卡。'
+)
+
+w1_i03_closure_mode_for_path() {
+  case "$1" in
+    "${w1_i03_closure_design_path}"|"${w1_i03_closure_plan_path}") printf '%s\n' 100644 ;;
+    tests/task-cards/verify-wave1-implementation-cards.sh|scripts/verify-wave1-implementation-cards) printf '%s\n' 100755 ;;
+    *) fail "unsupported I03 closure governance path: $1" ;;
+  esac
+}
+
+git_tree_mode() {
+  local commit="$1"
+  local path="$2"
+  git -C "${repo_root}" ls-tree "${commit}" -- "${path}" | awk '{print $1}'
+}
+
+git_tree_field() {
+  local commit="$1"
+  local path="$2"
+  local key="$3"
+  local content count
+  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
+    fail "transition tree is missing ${path}"
+  count="$(printf '%s\n' "${content}" | grep -c "^${key} = " || true)"
+  [[ "${count}" -eq 1 ]] || fail "transition ${path}: ${key} must occur exactly once"
+  printf '%s\n' "${content}" | sed -n "s/^${key} = //p"
+}
+
+require_git_tree_field() {
+  local commit="$1"
+  local path="$2"
+  local key="$3"
+  local expected="$4"
+  [[ "$(git_tree_field "${commit}" "${path}" "${key}")" == "${expected}" ]] ||
+    fail "transition ${path}: ${key} must equal ${expected}"
+}
+
+require_git_blob_without_nul() {
+  local commit="$1"
+  local path="$2"
+  local failure_message="$3"
+  local raw_file clean_file
+  register_temporary_directory raw_file cognitura-i03-nul
+  clean_file="${raw_file}/clean"
+  git -C "${repo_root}" show "${commit}:${path}" > "${raw_file}/raw" 2>/dev/null || {
+    remove_temporary_directory "${raw_file}"
+    fail "${failure_message}"
+  }
+  LC_ALL=C tr -d '\000' < "${raw_file}/raw" > "${clean_file}" || {
+    remove_temporary_directory "${raw_file}"
+    fail "${failure_message}"
+  }
+  cmp -s "${raw_file}/raw" "${clean_file}" || {
+    remove_temporary_directory "${raw_file}"
+    fail "${failure_message}"
+  }
+  remove_temporary_directory "${raw_file}"
+}
+
+require_no_git_rename_or_copy() {
+  local base="$1"
+  local head="$2"
+  local failure_message="$3"
+  local status_file status
+  register_temporary_directory status_file cognitura-i03-name-status
+  git -C "${repo_root}" -c diff.renameLimit=0 diff-tree \
+    --no-commit-id --name-status -r -M -C --find-copies-harder \
+    "${base}" "${head}" > "${status_file}/status" || {
+    remove_temporary_directory "${status_file}"
+    fail "${failure_message}"
+  }
+  while IFS=$'\t' read -r status _; do
+    case "${status}" in
+      R*|C*)
+        remove_temporary_directory "${status_file}"
+        fail "${failure_message}"
+        ;;
+    esac
+  done < "${status_file}/status"
+  remove_temporary_directory "${status_file}"
+}
+
+validate_w1_i03_closure_governance_chain() {
+  local tip="$1"
+  local resolved_origin resolved_tip merge_commits commit parent changed_paths path
+  local commit_count=0 design_count=0 plan_count=0 test_count=0 verifier_count=0
+  resolved_origin="$(git -C "${repo_root}" rev-parse --verify \
+    "${w1_i03_closure_origin_sha}^{commit}" 2>/dev/null)" ||
+    fail "I03 closure origin commit is unavailable"
+  [[ "${resolved_origin}" == "${w1_i03_closure_origin_sha}" ]] ||
+    fail "I03 closure origin commit mismatch"
+  resolved_tip="$(git -C "${repo_root}" rev-parse --verify "${tip}^{commit}" 2>/dev/null)" ||
+    fail "I03 closure governance tip must resolve to a commit"
+  git -C "${repo_root}" merge-base --is-ancestor "${resolved_origin}" "${resolved_tip}" ||
+    fail "I03 closure governance tip must descend from the fixed origin"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i03_reviewed_candidate_sha}" "${resolved_tip}" ||
+    fail "reviewed W1-I03 candidate must be an ancestor of the closure governance tip"
+
+  merge_commits="$(git -C "${repo_root}" rev-list --min-parents=2 \
+    "${resolved_origin}..${resolved_tip}")"
+  [[ -z "${merge_commits}" ]] ||
+    fail "I03 closure governance commit must have exactly one parent"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i03_reviewed_candidate_sha}..${resolved_tip}" -- \
+    "${w1_i03_frozen_production_paths[@]}" ||
+    fail "reviewed W1-I03 production must remain byte-identical"
+
+  for commit in $(git -C "${repo_root}" rev-list --reverse \
+    "${resolved_origin}..${resolved_tip}"); do
+    commit_count=$((commit_count + 1))
+    parent="$(single_parent_of "${commit}" "I03 closure governance commit")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I03 closure governance commit must be nonempty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I03 closure governance commit must not rename or copy paths"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "$(printf '%s\n' "${changed_paths}" | awk 'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
+      fail "I03 closure governance changed a path outside the exact four-path WriteSet"
+    path="${changed_paths}"
+    case "${path}" in
+      "${w1_i03_closure_design_path}")
+        design_count=$((design_count + 1))
+        ;;
+      "${w1_i03_closure_plan_path}")
+        plan_count=$((plan_count + 1))
+        ;;
+      tests/task-cards/verify-wave1-implementation-cards.sh)
+        test_count=$((test_count + 1))
+        ;;
+      scripts/verify-wave1-implementation-cards)
+        verifier_count=$((verifier_count + 1))
+        ;;
+      *) fail "I03 closure governance changed a path outside the exact four-path WriteSet" ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${path}")" == \
+       "$(w1_i03_closure_mode_for_path "${path}")" ]] ||
+      fail "I03 closure governance path mode mismatch"
+    require_git_blob_without_nul "${commit}" "${path}" \
+      "I03 closure governance path must not contain NUL"
+    case "${path}" in
+      "${w1_i03_closure_design_path}")
+        [[ "${design_count}" -eq 1 ]] ||
+          fail "I03 closure governance path changed more than once"
+        ;;
+      "${w1_i03_closure_plan_path}")
+        [[ "${plan_count}" -eq 1 ]] ||
+          fail "I03 closure governance path changed more than once"
+        ;;
+      tests/task-cards/verify-wave1-implementation-cards.sh)
+        [[ "${test_count}" -eq 1 ]] ||
+          fail "I03 closure governance path changed more than once"
+        ;;
+      scripts/verify-wave1-implementation-cards)
+        [[ "${verifier_count}" -eq 1 ]] ||
+          fail "I03 closure governance path changed more than once"
+        ;;
+    esac
+  done
+
+  [[ "${commit_count}" -eq 4 && "${design_count}" -eq 1 && \
+     "${plan_count}" -eq 1 && "${test_count}" -eq 1 && \
+     "${verifier_count}" -eq 1 ]] ||
+    fail "I03 closure governance chain must have the exact four-path cumulative WriteSet"
+  for path in "${!w1_i03_closure_governance_paths[@]}"; do
+    commit="$(git -C "${repo_root}" rev-list --reverse \
+      "${resolved_origin}..${resolved_tip}" | sed -n "$((path + 1))p")"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "$(single_parent_of "${commit}" "I03 closure governance commit")..${commit}")"
+    [[ "${changed_paths}" == "${w1_i03_closure_governance_paths[${path}]}" ]] ||
+      fail "I03 closure governance paths must be introduced in canonical order"
+  done
+  require_git_tree_field "${resolved_tip}" "${w1_i03_closure_design_path}" \
+    ClosureOriginSHA "${w1_i03_closure_origin_sha}"
+  require_git_tree_field "${resolved_tip}" "${w1_i03_closure_design_path}" \
+    ReviewedCandidateSHA "${w1_i03_reviewed_candidate_sha}"
+  require_git_tree_field "${resolved_tip}" "${w1_i03_closure_design_path}" \
+    TransitionKind I03_CLOSE_ADVANCE
+}
+
+w1_i03_closure_schema_current() {
+  local commit="$1"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i03_closure_origin_sha}" "${commit}" 2>/dev/null || return 1
+  ! git -C "${repo_root}" diff --quiet \
+    "${w1_i03_closure_origin_sha}..${commit}" -- \
+    "${w1_i03_closure_governance_paths[@]}"
+}
+
+require_w1_i03_closure_review_receipt() {
+  local commit="$1"
+  local receipt_dir plan_file actual_block expected_block
+  register_temporary_directory receipt_dir cognitura-i03-review-receipt
+  plan_file="${receipt_dir}/plan"
+  git -C "${repo_root}" show \
+    "${commit}:docs/engineering/cognitura-wave-1-implementation-plan.md" > \
+    "${plan_file}" 2>/dev/null || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "I03 closure review receipt mismatch"
+  }
+  [[ "$(grep -c '^## 8\. I03 关闭收据$' "${plan_file}" || true)" -eq 1 ]] || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "I03 closure review receipt mismatch"
+  }
+  sed -n '/^## 8\. I03 关闭收据$/,$p' "${plan_file}" > "${receipt_dir}/actual"
+  cat > "${receipt_dir}/expected" <<'EOF'
+## 8. I03 关闭收据
+
+```text
+W1-I03 = DONE
+ReviewedCandidate = 4e63936c631ab34807e714b90d30415a959bc13d
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+I03ClosureReleasedTaskCard = W1-I04
+QueuedTaskCard = W1-I02
+QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED
+```
+EOF
+  cmp -s "${receipt_dir}/actual" "${receipt_dir}/expected" || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "I03 closure review receipt mismatch"
+  }
+  actual_block="$(sed -n '/^## 8\. I03 关闭收据$/,$p' "${plan_file}")"
+  expected_block="$(<"${receipt_dir}/expected")"
+  [[ "${actual_block}" == "${expected_block}" ]] || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "I03 closure review receipt mismatch"
+  }
+  remove_temporary_directory "${receipt_dir}"
+}
+
+require_w1_i03_closure_projection_field() {
+  local commit="$1"
+  local path="$2"
+  local field="$3"
+  local expected="$4"
+  [[ "$(git_tree_field "${commit}" "${path}" "${field}")" == "${expected}" ]] ||
+    fail "I03 closure projection field mismatch"
+}
+
+require_w1_i03_closure_projection_targets() {
+  local commit="$1"
+  require_w1_i03_closure_projection_field "${commit}" AGENTS.md \
+    ActiveImplementationTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" README.md \
+    ActiveImplementationTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/design/wave-1/README.md \
+    ActiveImplementationGovernanceTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/engineering/cognitura-design-index.md ActiveTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/engineering/cognitura-design-index.md \
+    ActiveImplementationTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/engineering/cognitura-wave-1-design-plan.md \
+    ActiveImplementationGovernanceTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/engineering/cognitura-wave-1-design-acceptance.md \
+    ImplementationTaskCardPlanStatus I03_COMPLETE_I04_READY
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/engineering/cognitura-wave-1-design-acceptance.md \
+    ActiveImplementationGovernanceTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/engineering/cognitura-wave-1-implementation-plan.md \
+    ActiveTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/task-cards/wave-1/README.md \
+    ActiveImplementationGovernanceTaskCard W1-I04
+  require_w1_i03_closure_projection_field "${commit}" \
+    docs/task-cards/wave-1-implementation/README.md ActiveTaskCard W1-I04
+
+  require_exact_git_tree_table_row \
+    "${commit}" docs/engineering/cognitura-wave-1-implementation-plan.md W1-I03 \
+    '| `W1-I03` | DOCX security | `I01` | `DONE` |' \
+    'I03 closure projection table mismatch'
+  require_exact_git_tree_table_row \
+    "${commit}" docs/engineering/cognitura-wave-1-implementation-plan.md W1-I04 \
+    '| `W1-I04` | Text/list/section parser | `I03` | `READY` |' \
+    'I03 closure projection table mismatch'
+  require_exact_git_tree_table_row \
+    "${commit}" docs/task-cards/wave-1-implementation/README.md W1-I03 \
+    '| `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `DONE` | `W1-I01` | `W1-IG3` | `HIGH` |' \
+    'I03 closure projection table mismatch'
+  require_exact_git_tree_table_row \
+    "${commit}" docs/task-cards/wave-1-implementation/README.md W1-I04 \
+    '| `W1-I04` | [文本、列表与章节](W1-I04-text-list-section-parser.md) | `READY` | `W1-I03` | `W1-IG4` | `HIGH` |' \
+    'I03 closure projection table mismatch'
+}
+
+require_working_w1_i03_production_frozen() {
+  local untracked ignored_untracked
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i03_reviewed_candidate_sha}" -- \
+    "${w1_i03_frozen_production_paths[@]}" ||
+    fail "working W1-I03 production must match the reviewed candidate"
+  untracked="$(git -C "${repo_root}" ls-files --others --exclude-standard -- \
+    "${w1_i03_frozen_production_paths[@]}")"
+  [[ -z "${untracked}" ]] ||
+    fail "working W1-I03 production must match the reviewed candidate"
+  ignored_untracked="$(git -C "${repo_root}" ls-files --others --ignored \
+    --exclude-standard -- "${w1_i03_frozen_production_paths[@]}")"
+  [[ -z "${ignored_untracked}" ]] ||
+    fail "working W1-I03 production must match the reviewed candidate"
+}
+
+is_w1_i03_closure_projection_path() {
+  local candidate_path="$1"
+  local projection_path
+  for projection_path in "${w1_i03_closure_projection_paths[@]}"; do
+    [[ "${candidate_path}" == "${projection_path}" ]] && return 0
+  done
+  return 1
+}
+
+is_w1_i04_descendant_path() {
+  case "$1" in
+    server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java|\
+    server/src/main/java/io/cognitura/source/docx/text/DocumentBlockCandidate.java|\
+    server/src/main/java/io/cognitura/source/docx/text/SectionPathTracker.java|\
+    server/src/main/java/io/cognitura/source/docx/text/ListSemantics.java|\
+    server/src/main/java/io/cognitura/source/docx/text/SourceOrderCursor.java|\
+    server/src/test/java/io/cognitura/source/docx/text/TextListSectionParserTest.java|\
+    server/src/test/java/io/cognitura/source/docx/text/SectionPathTrackerTest.java|\
+    server/src/test/resources/docx/text/*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+validate_post_w1_i03_closure_descendants() {
+  local receipt="$1"
+  local head="$2"
+  local commit parent changed_paths path
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${receipt}..${head}"); do
+    parent="$(single_parent_of "${commit}" "post-closure descendant commit")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "post-closure descendant commit must be nonempty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "post-closure descendant commit must not rename or copy paths"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      is_w1_i03_closure_projection_path "${path}" &&
+        fail "I03 closure is allowed exactly once"
+      is_w1_i04_descendant_path "${path}" ||
+        fail "post-closure descendant changed a path outside the W1-I04 WriteSet"
+    done <<< "${changed_paths}"
+  done
+}
+
+find_unique_w1_i03_closure_receipt() {
+  local head="$1"
+  local commit parent current_state parent_state
+  local receipt="" receipt_parent="" receipt_count=0
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i03_closure_origin_sha}..${head}"); do
+    parent="$(single_parent_of "${commit}" "I03 closure provenance commit")"
+    current_state="$(git_tree_field "${commit}" "${w1_i03_card_path}" Status):$(
+      git_tree_field "${commit}" "${w1_i04_card_path}" Status)"
+    parent_state="$(git_tree_field "${parent}" "${w1_i03_card_path}" Status):$(
+      git_tree_field "${parent}" "${w1_i04_card_path}" Status)"
+    if [[ "${parent_state}" == READY:BLOCKED_BY_DEPENDENCY && \
+          "${current_state}" == DONE:READY ]]; then
+      receipt_count=$((receipt_count + 1))
+      receipt_parent="${parent}"
+      receipt="${commit}"
+    fi
+  done
+  [[ "${receipt_count}" -eq 1 ]] || fail "I03 closure is allowed exactly once"
+  printf '%s %s\n' "${receipt_parent}" "${receipt}"
+}
+
+normalize_w1_i03_closure_narratives() {
+  local input_file="$1"
+  local output_file="$2"
+  local path="$3"
+  local state="$4"
+  local narrative_state narrative_index matched=0 current_file next_file
+  case "${state}" in
+    BASE) narrative_state=SUSPENDED ;;
+    HEAD) narrative_state=READY ;;
+    *) fail "unsupported I03 closure narrative state: ${state}" ;;
+  esac
+  current_file="${output_file}.nul-free"
+  copy_nul_free_file "${input_file}" "${current_file}" \
+    "I03 closure receipt projection must not contain NUL: ${path}"
+  for narrative_index in "${!ready_narratives[@]}"; do
+    [[ "${suspension_narrative_paths[${narrative_index}]}" == "${path}" ]] || continue
+    matched=1
+    next_file="${output_file}.narrative-${narrative_index}"
+    normalize_narrative_pair_file \
+      "${current_file}" "${next_file}" \
+      "${ready_narratives[${narrative_index}]}" \
+      "${w1_i04_ready_narratives[${narrative_index}]}" \
+      "__W1_I03_CLOSURE_NARRATIVE_${narrative_index}__" \
+      "${narrative_state}" \
+      "I03 closure narrative projection mismatch: ${path}"
+    current_file="${next_file}"
+  done
+  case "${path}" in
+    "${w1_i03_card_path}"|"${w1_i04_card_path}") ;;
+    *) [[ "${matched}" -eq 1 ]] || fail "missing I03 closure narrative contract for ${path}" ;;
+  esac
+  cp "${current_file}" "${output_file}" ||
+    fail "could not normalize I03 closure narrative projection: ${path}"
+}
+
+write_normalized_w1_i03_closure_file() {
+  local commit="$1"
+  local path="$2"
+  local output_file="$3"
+  local state="$4"
+  local raw_file narrative_file
+  raw_file="${output_file}.raw"
+  narrative_file="${output_file}.narratives"
+  git -C "${repo_root}" show "${commit}:${path}" > "${raw_file}" 2>/dev/null ||
+    fail "transition tree is missing ${path}"
+  if [[ "${state}" == HEAD && \
+        "${path}" == docs/engineering/cognitura-wave-1-implementation-plan.md ]]; then
+    sed -i.bak '/^## 8\. I03 关闭收据$/,$d' "${raw_file}"
+    rm "${raw_file}.bak"
+    sed -i.bak '${/^$/d;}' "${raw_file}"
+    rm "${raw_file}.bak"
+  fi
+  normalize_w1_i03_closure_narratives \
+    "${raw_file}" "${narrative_file}" "${path}" "${state}"
+  case "${path}" in
+    AGENTS.md|README.md)
+      sed -E 's/^ActiveImplementationTaskCard = .*/ActiveImplementationTaskCard = __I03_CLOSURE__/' \
+        "${narrative_file}" > "${output_file}"
+      ;;
+    docs/design/wave-1/README.md|docs/engineering/cognitura-wave-1-design-plan.md|docs/task-cards/wave-1/README.md)
+      sed -E 's/^ActiveImplementationGovernanceTaskCard = .*/ActiveImplementationGovernanceTaskCard = __I03_CLOSURE__/' \
+        "${narrative_file}" > "${output_file}"
+      ;;
+    docs/engineering/cognitura-design-index.md)
+      sed -E \
+        -e 's/^ActiveTaskCard = .*/ActiveTaskCard = __I03_CLOSURE__/' \
+        -e 's/^ActiveImplementationTaskCard = .*/ActiveImplementationTaskCard = __I03_CLOSURE__/' \
+        "${narrative_file}" > "${output_file}"
+      ;;
+    docs/engineering/cognitura-wave-1-design-acceptance.md)
+      sed -E \
+        -e 's/^ImplementationTaskCardPlanStatus = .*/ImplementationTaskCardPlanStatus = __I03_CLOSURE__/' \
+        -e 's/^ActiveImplementationGovernanceTaskCard = .*/ActiveImplementationGovernanceTaskCard = __I03_CLOSURE__/' \
+        "${narrative_file}" > "${output_file}"
+      ;;
+    docs/engineering/cognitura-wave-1-implementation-plan.md)
+      sed -E \
+        -e 's/^ActiveTaskCard = .*/ActiveTaskCard = __I03_CLOSURE__/' \
+        -e '/^\| `W1-I03` \|/ s/\| `(READY|DONE)` \|$/| `__I03_CLOSURE__` |/' \
+        -e '/^\| `W1-I04` \|/ s/\| `(BLOCKED_BY_DEPENDENCY|READY)` \|$/| `__I03_CLOSURE__` |/' \
+        "${narrative_file}" > "${output_file}"
+      ;;
+    docs/task-cards/wave-1-implementation/README.md)
+      sed -E \
+        -e 's/^ActiveTaskCard = .*/ActiveTaskCard = __I03_CLOSURE__/' \
+        -e '/^\| `W1-I03` \|/ s/\| `(READY|DONE)` \|/| `__I03_CLOSURE__` |/' \
+        -e '/^\| `W1-I04` \|/ s/\| `(BLOCKED_BY_DEPENDENCY|READY)` \|/| `__I03_CLOSURE__` |/' \
+        "${narrative_file}" > "${output_file}"
+      ;;
+    "${w1_i03_card_path}")
+      sed -E 's/^Status = .*/Status = __I03_CLOSURE__/' \
+        "${narrative_file}" > "${output_file}"
+      ;;
+    "${w1_i04_card_path}")
+      sed -E \
+        -e 's/^Status = .*/Status = __I03_CLOSURE__/' \
+        -e 's/^BusinessImplementationAuthorization = .*/BusinessImplementationAuthorization = __I03_CLOSURE__/' \
+        "${narrative_file}" > "${output_file}"
+      ;;
+    *) fail "unsupported I03 closure projection path: ${path}" ;;
+  esac
+}
+
+validate_w1_i03_closure_receipt() {
+  local base="$1"
+  local head="$2"
+  local require_working_tree="${3:-0}"
+  local resolved_base resolved_head expected_paths actual_paths path base_mode head_mode
+  local compare_dir compare_index=0 index_content ready_rows
+  resolved_base="$(git -C "${repo_root}" rev-parse --verify "${base}^{commit}" 2>/dev/null)" ||
+    fail "I03 closure receipt BASE must resolve to a commit"
+  resolved_head="$(git -C "${repo_root}" rev-parse --verify "${head}^{commit}" 2>/dev/null)" ||
+    fail "I03 closure receipt HEAD must resolve to a commit"
+  [[ "$(single_parent_of "${resolved_head}" "I03 closure receipt HEAD")" == \
+     "${resolved_base}" ]] ||
+    fail "I03 closure receipt HEAD must be the direct child of BASE"
+  validate_w1_i03_closure_governance_chain "${resolved_base}"
+  require_no_git_rename_or_copy "${resolved_base}" "${resolved_head}" \
+    "I03 closure receipt must not rename or copy paths"
+  expected_paths="$(printf '%s\n' "${w1_i03_closure_projection_paths[@]}" | LC_ALL=C sort)"
+  actual_paths="$(git -C "${repo_root}" diff --name-only \
+    "${resolved_base}..${resolved_head}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I03 closure receipt fixed diff must equal the exact eleven projection paths"
+  for path in "${w1_i03_closure_projection_paths[@]}"; do
+    base_mode="$(git_tree_mode "${resolved_base}" "${path}")"
+    head_mode="$(git_tree_mode "${resolved_head}" "${path}")"
+    [[ -n "${base_mode}" && "${base_mode}" == "${head_mode}" ]] ||
+      fail "I03 closure receipt must preserve every projection path mode"
+    require_git_blob_without_nul "${resolved_head}" "${path}" \
+      "I03 closure receipt projection must not contain NUL"
+  done
+
+  require_git_tree_field "${resolved_base}" "${w1_i03_card_path}" Status READY
+  require_git_tree_field "${resolved_base}" "${w1_i04_card_path}" Status BLOCKED_BY_DEPENDENCY
+  [[ "$(git_tree_field "${resolved_head}" \
+      docs/task-cards/wave-1-implementation/README.md ActiveTaskCard)" == W1-I04 ]] ||
+    fail "I03 closure receipt may release only W1-I04"
+  if [[ "$(git_tree_field "${resolved_head}" "${w1_i03_card_path}" Status)" != DONE ||
+        "$(git_tree_field "${resolved_head}" "${w1_i04_card_path}" Status)" != READY ]]; then
+    fail "I03 closure receipt must set I03 DONE and I04 READY"
+  fi
+
+  index_content="$(git -C "${repo_root}" show \
+    "${resolved_head}:docs/task-cards/wave-1-implementation/README.md")" ||
+    fail "transition tree is missing docs/task-cards/wave-1-implementation/README.md"
+  ready_rows="$(printf '%s\n' "${index_content}" | \
+    grep -c '| `READY` |' || true)"
+  [[ "${ready_rows}" -eq 1 ]] ||
+    fail "I03 closure receipt must release exactly one READY card"
+  require_exact_git_tree_table_row \
+    "${resolved_head}" docs/task-cards/wave-1-implementation/README.md W1-I04 \
+    '| `W1-I04` | [文本、列表与章节](W1-I04-text-list-section-parser.md) | `READY` | `W1-I03` | `W1-IG4` | `HIGH` |' \
+    'I03 closure receipt must set I03 DONE and I04 READY'
+  require_exact_git_tree_table_row \
+    "${resolved_head}" docs/task-cards/wave-1-implementation/README.md W1-I05 \
+    '| `W1-I05` | [表格保真](W1-I05-table-fidelity.md) | `BLOCKED_BY_DEPENDENCY` | `W1-I04` | `W1-IG5` | `HIGH` |' \
+    'I03 closure receipt may release only W1-I04'
+  require_exact_git_tree_table_row \
+    "${resolved_head}" docs/task-cards/wave-1-implementation/README.md W1-I02 \
+    '| `W1-I02` | [来源持久化](W1-I02-source-persistence.md) | `QUEUED` | `W1-I01` | `W1-IG2` | `HIGH` |' \
+    'I03 closure must keep W1-I02 queued behind its database gate'
+  require_exact_git_tree_table_row \
+    "${resolved_head}" docs/engineering/cognitura-wave-1-implementation-plan.md W1-I02 \
+    '| `W1-I02` | Source persistence | `I01` | `QUEUED` |' \
+    'I03 closure must keep W1-I02 queued behind its database gate'
+  require_git_tree_field "${resolved_head}" \
+    docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md Status QUEUED
+  [[ "$(git_tree_field "${resolved_head}" \
+      docs/task-cards/wave-1-implementation/README.md FormalDatabaseWrite)" == NOT_AUTHORIZED &&
+     "$(git_tree_field "${resolved_head}" \
+      docs/task-cards/wave-1-implementation/README.md RemotePush)" == NOT_AUTHORIZED ]] ||
+    fail "I03 closure must preserve database and push authorization boundaries"
+
+  require_git_tree_field "${resolved_head}" \
+    docs/task-cards/wave-1-implementation/README.md TaskCardSetStatus READY_FOR_EXECUTION
+  require_git_tree_field "${resolved_head}" \
+    docs/task-cards/wave-1-implementation/README.md ReadyTaskCardCount 1
+  require_git_tree_field "${resolved_head}" \
+    docs/task-cards/wave-1-implementation/README.md SuspendedTaskCardCount 0
+  require_git_tree_field "${resolved_head}" "${w1_i04_card_path}" \
+    BusinessImplementationAuthorization USER_AUTHORIZED
+  require_w1_i03_closure_projection_targets "${resolved_head}"
+  require_w1_i03_closure_review_receipt "${resolved_head}"
+
+  register_temporary_directory compare_dir cognitura-i03-closure-compare
+  for path in "${w1_i03_closure_projection_paths[@]}"; do
+    write_normalized_w1_i03_closure_file \
+      "${resolved_base}" "${path}" "${compare_dir}/base-${compare_index}" BASE
+    write_normalized_w1_i03_closure_file \
+      "${resolved_head}" "${path}" "${compare_dir}/head-${compare_index}" HEAD
+    cmp -s "${compare_dir}/base-${compare_index}" \
+      "${compare_dir}/head-${compare_index}" || {
+      remove_temporary_directory "${compare_dir}"
+      fail "I03 closure receipt must be an exact projection-only transform: ${path}"
+    }
+    compare_index=$((compare_index + 1))
+  done
+  remove_temporary_directory "${compare_dir}"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i03_reviewed_candidate_sha}..${resolved_head}" -- \
+    "${w1_i03_frozen_production_paths[@]}" ||
+    fail "reviewed W1-I03 production must remain byte-identical"
+  if [[ "${require_working_tree}" == 1 ]]; then
+    git -C "${repo_root}" diff --quiet "${resolved_head}" -- \
+      "${w1_i03_closure_projection_paths[@]}" ||
+      fail "working projection must match I03 closure receipt"
+    require_working_w1_i03_production_frozen
+  fi
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -356,12 +999,105 @@ done
 [[ -d "${repo_root}" ]] || fail "repo root does not exist: ${repo_root}"
 repo_root="$(cd "${repo_root}" && pwd -P)"
 [[ -d "${cards_dir}" ]] || fail "cards directory does not exist: ${cards_dir}"
+cards_dir="$(cd "${cards_dir}" && pwd -P)"
+canonical_w1_cards_dir="${repo_root}/docs/task-cards/wave-1-implementation"
+closure_cards_dir_is_canonical=0
+[[ "${cards_dir}" == "${canonical_w1_cards_dir}" ]] &&
+  closure_cards_dir_is_canonical=1
 if [[ -n "${transition_base}" || -n "${transition_head}" ]]; then
   [[ -n "${transition_base}" && -n "${transition_head}" ]] ||
     fail "transition-base and transition-head must be supplied together"
 fi
 index_file="${cards_dir}/README.md"
 [[ -f "${index_file}" ]] || fail "task card index is missing: README.md"
+
+current_repository_head="$(git -C "${repo_root}" rev-parse --verify HEAD^{commit} 2>/dev/null)" ||
+  fail "repository HEAD must resolve to a commit"
+if [[ -n "${transition_base}" && "${closure_cards_dir_is_canonical}" == 1 ]]; then
+  closure_transition_base="$(git -C "${repo_root}" rev-parse --verify \
+    "${transition_base}^{commit}" 2>/dev/null)" ||
+    fail "transition BASE must resolve to a commit"
+  if w1_i03_closure_schema_current "${closure_transition_base}"; then
+    closure_transition_head="$(git -C "${repo_root}" rev-parse --verify \
+      "${transition_head}^{commit}" 2>/dev/null)" ||
+      fail "transition HEAD must resolve to a commit"
+    closure_transition_state="$(git_tree_field "${closure_transition_base}" \
+      "${w1_i03_card_path}" Status):$(git_tree_field \
+      "${closure_transition_base}" "${w1_i04_card_path}" Status)"
+    case "${closure_transition_state}" in
+      READY:BLOCKED_BY_DEPENDENCY)
+        validate_w1_i03_closure_receipt \
+          "${closure_transition_base}" "${closure_transition_head}" 0
+        printf '%s\n' \
+          "Wave1ImplementationTaskCardValidation = PASS" \
+          "TaskCardCount = 14" \
+          "TaskCardSetStatus = READY_FOR_EXECUTION" \
+          "ActiveTaskCard = W1-I04" \
+          "W1I03ClosureStatus = PASS"
+        exit 0
+        ;;
+      DONE:READY)
+        git -C "${repo_root}" diff --quiet \
+          "${closure_transition_base}..${closure_transition_head}" -- \
+          "${w1_i03_closure_projection_paths[@]}" ||
+          fail "I03 closure is allowed exactly once"
+        ;;
+    esac
+  fi
+elif [[ -z "${transition_base}" && "${closure_cards_dir_is_canonical}" == 1 ]] &&
+  w1_i03_closure_schema_current "${current_repository_head}"; then
+  current_i03_status="$(git_tree_field "${current_repository_head}" \
+    "${w1_i03_card_path}" Status)"
+  current_i04_status="$(git_tree_field "${current_repository_head}" \
+    "${w1_i04_card_path}" Status)"
+  case "${current_i03_status}:${current_i04_status}" in
+    READY:BLOCKED_BY_DEPENDENCY)
+      validate_w1_i03_closure_governance_chain "${current_repository_head}"
+      git -C "${repo_root}" diff --quiet "${current_repository_head}" -- \
+        "${w1_i03_closure_projection_paths[@]}" ||
+        fail "working projection must match I03 closure governance tip"
+      require_working_w1_i03_production_frozen
+      printf '%s\n' \
+        "Wave1ImplementationTaskCardValidation = PASS" \
+        "TaskCardCount = 14" \
+        "TaskCardSetStatus = READY_FOR_EXECUTION" \
+        "ActiveTaskCard = W1-I03" \
+        "W1I03ClosureStatus = PENDING"
+      exit 0
+      ;;
+    DONE:READY)
+      closure_receipt_pair="$(find_unique_w1_i03_closure_receipt \
+        "${current_repository_head}")"
+      set -- ${closure_receipt_pair}
+      closure_receipt_parent="$1"
+      closure_receipt="$2"
+      validate_w1_i03_closure_receipt \
+        "${closure_receipt_parent}" "${closure_receipt}" 0
+      validate_post_w1_i03_closure_descendants \
+        "${closure_receipt}" "${current_repository_head}"
+      git -C "${repo_root}" diff --quiet \
+        "${closure_receipt}..${current_repository_head}" -- \
+        "${w1_i03_closure_projection_paths[@]}" ||
+        fail "I03 closure is allowed exactly once"
+      git -C "${repo_root}" diff --quiet \
+        "${w1_i03_reviewed_candidate_sha}..${current_repository_head}" -- \
+        "${w1_i03_frozen_production_paths[@]}" ||
+        fail "reviewed W1-I03 production must remain byte-identical"
+      git -C "${repo_root}" diff --quiet "${current_repository_head}" -- \
+        "${w1_i03_closure_projection_paths[@]}" ||
+        fail "working projection must match I03 closure receipt"
+      require_working_w1_i03_production_frozen
+      printf '%s\n' \
+        "Wave1ImplementationTaskCardValidation = PASS" \
+        "TaskCardCount = 14" \
+        "TaskCardSetStatus = READY_FOR_EXECUTION" \
+        "ActiveTaskCard = W1-I04" \
+        "W1I03ClosureStatus = PASS"
+      exit 0
+      ;;
+    *) fail "I03 closure current state has an unsupported I03/I04 status vector" ;;
+  esac
+fi
 
 expected_ids="W1-I00,W1-I01,W1-I02,W1-I03,W1-I04,W1-I05,W1-I06,W1-I07,W1-I08,W1-I09,W1-I10,W1-I11,W1-I12,W1-I13"
 expected_files=(
@@ -1268,27 +2004,6 @@ if [[ "${ready_count}" -eq 1 ]]; then
     fail "W1-I02 requires DatabaseGate PASS before READY"
   fi
 fi
-
-git_tree_field() {
-  local commit="$1"
-  local path="$2"
-  local key="$3"
-  local content count
-  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
-    fail "transition tree is missing ${path}"
-  count="$(printf '%s\n' "${content}" | grep -c "^${key} = " || true)"
-  [[ "${count}" -eq 1 ]] || fail "transition ${path}: ${key} must occur exactly once"
-  printf '%s\n' "${content}" | sed -n "s/^${key} = //p"
-}
-
-require_git_tree_field() {
-  local commit="$1"
-  local path="$2"
-  local key="$3"
-  local expected="$4"
-  [[ "$(git_tree_field "${commit}" "${path}" "${key}")" == "${expected}" ]] ||
-    fail "transition ${path}: ${key} must equal ${expected}"
-}
 
 require_all_git_tree_fields() {
   local commit="$1"
