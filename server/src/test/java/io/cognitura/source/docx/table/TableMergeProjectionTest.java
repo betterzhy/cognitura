@@ -149,6 +149,21 @@ class TableMergeProjectionTest {
                         Integer.MAX_VALUE, 0, 1, 2, List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("TABLE_MERGE_COVERAGE_INVALID");
+
+        assertThatThrownBy(() -> TableMergeProjection.requireGeometryWithinLimits(
+                        0, 0, 1, Integer.MAX_VALUE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("TABLE_MERGE_SPAN_EXCEEDED");
+        TableCellCandidate oversizedMerge = new TableCellCandidate(
+                0,
+                0,
+                1,
+                Integer.MAX_VALUE,
+                "A",
+                List.of(new TableTextEvidence(0, "A", List.of())));
+        assertThatThrownBy(() -> TableMergeProjection.fromCell(oversizedMerge))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("TABLE_MERGE_SPAN_EXCEEDED");
     }
 
     private void assertTerminal(String fixture, String detail) throws IOException {
