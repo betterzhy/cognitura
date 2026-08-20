@@ -2558,6 +2558,8 @@ run_w1_i05_fixed_review_contract() {
 }
 
 i05_reviewed_candidate_sha="b4132e988cd88dce74ae026a1b52a496188452fc"
+i05_closure_repair_origin_sha="07f871061770e594f9793a0babdd2d979b3752cf"
+i05_closure_plan_sha="11e5a2293f996728213f77ac85db88d5022bb2f6"
 i05_closure_projection_paths=(
   AGENTS.md
   README.md
@@ -2616,6 +2618,10 @@ i05_closure_head_narratives=(
 
 append_i05_review_receipt() {
   local fixture_root="$1"
+  local governance_candidate governance_parent governance_tree
+  governance_candidate="$(git -C "${fixture_root}" rev-parse HEAD)"
+  governance_parent="$(git -C "${fixture_root}" rev-parse HEAD^)"
+  governance_tree="$(git -C "${fixture_root}" rev-parse HEAD^{tree})"
   printf '%s\n' \
     '' \
     '## 10. I05 关闭收据' \
@@ -2623,6 +2629,9 @@ append_i05_review_receipt() {
     '```text' \
     'W1-I05 = DONE' \
     "ReviewedCandidate = ${i05_reviewed_candidate_sha}" \
+    "ReviewedGovernanceCandidate = ${governance_candidate}" \
+    "ReviewedGovernanceParent = ${governance_parent}" \
+    "ReviewedGovernanceTree = ${governance_tree}" \
     'ReviewLevel = L3' \
     'ReviewRoute = deep_reviewer' \
     'ReviewEffort = xhigh' \
@@ -2723,7 +2732,10 @@ run_w1_i05_closure_contract() {
   local negative_cases=0
   fixture_root="${test_tmp_root}/w1-i05-closure"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  base_sha="$(git -C "${fixture_root}" rev-list --first-parent --reverse \
+    "${i05_closure_repair_origin_sha}..HEAD" | sed -n '3p')"
+  [[ -n "${base_sha}" ]] || base_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  git -C "${fixture_root}" checkout -q --detach "${base_sha}"
   base_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
 
   commit_i05_closure_projection "${fixture_root}"
@@ -2811,15 +2823,30 @@ run_w1_i05_closure_contract() {
   negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${base_sha}"
-  make_i05_closure_projection "${fixture_root}"
-  printf '%s\n' '// forbidden product drift' >> \
+  printf '%s\n' '// forbidden pre-BASE product drift' >> \
     "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java"
-  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}" \
+  git -C "${fixture_root}" add \
     server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java
-  git -C "${fixture_root}" commit -qm "test: mix I05 product drift into closure"
-  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+  git -C "${fixture_root}" commit -qm "test: drift I05 product before closure BASE"
+  mutation_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  commit_i05_closure_projection "${fixture_root}"
+  expect_i05_closure_transition_failure "${fixture_root}" "${mutation_sha}" \
     "$(git -C "${fixture_root}" rev-parse HEAD)" \
-    "I05 closure receipt fixed diff must equal the exact eleven projection paths"
+    "reviewed W1-I05 production must remain byte-identical"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' outside > "${fixture_root}/post-i05-outside.txt"
+  git -C "${fixture_root}" add post-i05-outside.txt
+  git -C "${fixture_root}" commit -qm "test: add explicit post-I05 outside path"
+  expect_i05_closure_transition_failure "${fixture_root}" "${closure_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "post-I05-closure descendant changed a path outside the W1-I06 WriteSet"
+  negative_cases=$((negative_cases + 1))
+
+  expect_i05_closure_transition_failure "${fixture_root}" "${closure_sha}" \
+    "${base_sha}" \
+    "I05 post-closure transition HEAD must descend from BASE"
   negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${closure_sha}"
@@ -2838,7 +2865,7 @@ run_w1_i05_closure_contract() {
 
   [[ "${positive_cases}" -eq 2 ]] ||
     fail "I05 closure positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 8 ]] ||
+  [[ "${negative_cases}" -eq 10 ]] ||
     fail "I05 closure negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I05ClosureContractTests = PASS" \
