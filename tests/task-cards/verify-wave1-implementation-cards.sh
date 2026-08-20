@@ -20,10 +20,14 @@ fail() {
 }
 
 w1_i03_closure_contract_only=0
+w1_i04_closure_contract_only=0
 case "${1:-}" in
   "") ;;
   --w1-i03-closure-contract-only)
     w1_i03_closure_contract_only=1
+    ;;
+  --w1-i04-closure-contract-only)
+    w1_i04_closure_contract_only=1
     ;;
   *) fail "unknown argument: $1" ;;
 esac
@@ -515,7 +519,7 @@ expect_i03_closure_transition_failure() {
 
 run_w1_i03_closure_contract() {
   local fixture_root governance_tip closure_sha pending_output explicit_output static_output
-  local actual_paths expected_paths receipt_plan second_output mutation_sha side_sha
+  local actual_paths expected_paths receipt_plan second_output mutation_sha side_sha name_status
   local review_field_index review_field review_value projection_index
   local projection_path projection_field projection_value projection_task_id
   local projection_head_status projection_wrong_status projection_failure descendant_path
@@ -983,6 +987,59 @@ run_w1_i03_closure_contract() {
   positive_cases=$((positive_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  mkdir -p "${fixture_root}/server/src/test/resources/docx/text"
+  cp "${fixture_root}/server/src/test/resources/docx/security/minimal-document.xml" \
+    "${fixture_root}/server/src/test/resources/docx/text/copied-minimal.bin"
+  git -C "${fixture_root}" add \
+    server/src/test/resources/docx/text/copied-minimal.bin
+  git -C "${fixture_root}" commit -qm \
+    "test: reject non-XML inferred fixture copy"
+  name_status="$(git -C "${fixture_root}" -c diff.renameLimit=0 diff-tree \
+    --no-commit-id --name-status -r -M -C --find-copies-harder HEAD^ HEAD)"
+  [[ "${name_status}" == C100$'\t'server/src/test/resources/docx/security/minimal-document.xml$'\t'server/src/test/resources/docx/text/copied-minimal.bin ]] ||
+    fail "non-XML inferred fixture copy did not produce literal C100"
+  expect_i03_closure_static_failure "${fixture_root}" \
+    "post-closure descendant commit must not rename or copy paths"
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  mkdir -p "${fixture_root}/server/src/test/resources/docx/text"
+  printf '%s\n' '<unique-source/>' > \
+    "${fixture_root}/server/src/test/resources/docx/text/rename-source.xml"
+  git -C "${fixture_root}" add \
+    server/src/test/resources/docx/text/rename-source.xml
+  git -C "${fixture_root}" commit -qm "test: add rename source fixture"
+  git -C "${fixture_root}" mv \
+    server/src/test/resources/docx/text/rename-source.xml \
+    server/src/test/resources/docx/text/rename-target.xml
+  git -C "${fixture_root}" commit -qm "test: reject inferred fixture rename"
+  name_status="$(git -C "${fixture_root}" -c diff.renameLimit=0 diff-tree \
+    --no-commit-id --name-status -r -M -C --find-copies-harder HEAD^ HEAD)"
+  [[ "${name_status}" == R100$'\t'server/src/test/resources/docx/text/rename-source.xml$'\t'server/src/test/resources/docx/text/rename-target.xml ]] ||
+    fail "fixture rename did not produce literal R100"
+  expect_i03_closure_static_failure "${fixture_root}" \
+    "post-closure descendant commit must not rename or copy paths"
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  mkdir -p "${fixture_root}/server/src/test/resources/docx/text"
+  cp "${fixture_root}/server/src/test/resources/docx/security/minimal-document.xml" \
+    "${fixture_root}/server/src/test/resources/docx/text/copied-minimal.xml"
+  git -C "${fixture_root}" add \
+    server/src/test/resources/docx/text/copied-minimal.xml
+  git -C "${fixture_root}" commit -qm \
+    "test: accept inferred XML fixture copy without source mutation"
+  name_status="$(git -C "${fixture_root}" -c diff.renameLimit=0 diff-tree \
+    --no-commit-id --name-status -r -M -C --find-copies-harder HEAD^ HEAD)"
+  [[ "${name_status}" == C100$'\t'server/src/test/resources/docx/security/minimal-document.xml$'\t'server/src/test/resources/docx/text/copied-minimal.xml ]] ||
+    fail "legal inferred XML fixture copy did not produce literal C100"
+  static_output="$(TMPDIR="${i03_closure_tmpdir}" "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal inferred XML fixture copy was rejected"
+  assert_contains "${static_output}" "W1I03ClosureStatus = PASS"
+  assert_i03_closure_tmp_clean
+  positive_cases=$((positive_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
   set_field \
     "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" \
     Status DONE
@@ -1021,9 +1078,9 @@ run_w1_i03_closure_contract() {
   assert_i03_closure_tmp_clean
   negative_cases=$((negative_cases + 1))
 
-  [[ "${positive_cases}" -eq 4 ]] ||
+  [[ "${positive_cases}" -eq 5 ]] ||
     fail "I03 closure positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 63 ]] ||
+  [[ "${negative_cases}" -eq 65 ]] ||
     fail "I03 closure negative case count mismatch: ${negative_cases}"
 
   printf '%s\n' \
@@ -1032,8 +1089,395 @@ run_w1_i03_closure_contract() {
     "W1I03ClosureNegativeCases = ${negative_cases}"
 }
 
+i04_closure_origin_sha="4594406e9fd8a9ac380c3b2b880fda67271790bc"
+i04_closure_tmpdir=""
+i04_closure_governance_paths=(
+  docs/superpowers/specs/2026-08-20-cognitura-w1-i04-closure-design.md
+  docs/superpowers/plans/2026-08-20-cognitura-w1-i04-closure.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+i04_closure_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.md
+  docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md
+)
+i05_ready_narratives=(
+  '`W1-I02` 等待独立数据库 Gate；`W1-I03`、`W1-I04` 已零发现关闭，`W1-I05` 为唯一 `READY` 业务卡。'
+  'I00、I01、I03 和 I04 已关闭，当前已原子释放 I05；I02 保持等待独立数据库 Gate。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I05` 是唯一 `READY` 卡。'
+  '保持 `QUEUED` 等待独立数据库 Gate；`W1-I03`、`W1-I04` 已关闭，`W1-I05` 已释放为唯一 `READY` 业务卡。'
+  '  I01、I03 和 I04 已关闭，I02 等待独立数据库 Gate，I05 为唯一 `READY` 卡。'
+  '`W1-I04` 已零发现关闭，`W1-I05` 已作为唯一 `READY` 卡释放。'
+  $'当前业务授权只按既定卡集串行推进至 `W1-I05`；I02 独立数据库 Gate、正式数据库\n写入和远程推送仍未授权。'
+  '固定候选深审并关闭；I02 等待独立数据库 Gate，I03 和 I04 已关闭且 I05 为唯一 `READY` 卡，完整证据记录在'
+  '数据库 Gate；I03 和 I04 已关闭，I05 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 和 I04 已关闭，I05 为唯一 `READY` 卡。'
+  'I00、I01、I03 和 I04 已关闭；I02 等待独立数据库 Gate，W1-I05 为唯一 `READY` 业务卡。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，I03 和 I04 已关闭且 I05 已原子释放为唯一 `READY` 卡。'
+)
+i04_review_mutation_fields=(
+  ReviewLevel
+  ReviewRoute
+  ReviewEffort
+  ReviewMultiplicity
+  ReviewVerdict
+  P0
+  P1
+  P2
+  Ultra
+  I04ClosureReleasedTaskCard
+  QueuedTaskCard
+  QueuedReason
+)
+i04_review_mutation_values=(
+  L4
+  ultra_gatekeeper
+  high
+  TWO
+  NO_GO
+  1
+  1
+  1
+  EXECUTED
+  W1-I06
+  W1-I05
+  NONE
+)
+
+append_i04_review_receipt() {
+  local fixture_root="$1"
+  printf '%s\n' \
+    '' \
+    '## 9. I04 关闭收据' \
+    '' \
+    '```text' \
+    'W1-I04 = DONE' \
+    'ReviewedCandidate = 4594406e9fd8a9ac380c3b2b880fda67271790bc' \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0 = 0' \
+    'P1 = 0' \
+    'P2 = 0' \
+    'Ultra = NOT_RUN' \
+    'I04ClosureReleasedTaskCard = W1-I05' \
+    'QueuedTaskCard = W1-I02' \
+    'QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED' \
+    '```' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+}
+
+make_i04_closure_projection() {
+  local fixture_root="$1"
+  local narrative_index narrative_path
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I05
+  set_field "${fixture_root}/README.md" ActiveImplementationTaskCard W1-I05
+  set_field "${fixture_root}/docs/design/wave-1/README.md" \
+    ActiveImplementationGovernanceTaskCard W1-I05
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    ActiveTaskCard W1-I05
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    ActiveImplementationTaskCard W1-I05
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+    ActiveImplementationGovernanceTaskCard W1-I05
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    ImplementationTaskCardPlanStatus I04_COMPLETE_I05_READY
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    ActiveImplementationGovernanceTaskCard W1-I05
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    ActiveTaskCard W1-I05
+  set_table_status \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    W1-I04 READY DONE
+  set_table_status \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    W1-I05 BLOCKED_BY_DEPENDENCY READY
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" \
+    ActiveImplementationGovernanceTaskCard W1-I05
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    ActiveTaskCard W1-I05
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I04 READY DONE
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I05 BLOCKED_BY_DEPENDENCY READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.md" \
+    Status DONE
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md" \
+    Status READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md" \
+    BusinessImplementationAuthorization USER_AUTHORIZED
+  append_i04_review_receipt "${fixture_root}"
+  for narrative_index in "${!i04_ready_narratives[@]}"; do
+    narrative_path="${i03_ready_narrative_paths[${narrative_index}]}"
+    replace_i03_closure_text \
+      "${fixture_root}/${narrative_path}" \
+      "${i04_ready_narratives[${narrative_index}]}" \
+      "${i05_ready_narratives[${narrative_index}]}" \
+      "close I04 narrative ${narrative_path}"
+  done
+}
+
+assert_i04_closure_tmp_clean() {
+  local residue
+  residue="$(find "${i04_closure_tmpdir}" -mindepth 1 -maxdepth 1 \
+    ! -name sibling-marker -print -quit)"
+  [[ -z "${residue}" ]] || fail "I04 closure verifier left TMPDIR residue: ${residue}"
+  [[ -f "${i04_closure_tmpdir}/sibling-marker" ]] ||
+    fail "I04 closure verifier removed TMPDIR sibling marker"
+}
+
+expect_i04_closure_static_failure() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local output
+  if output="$(TMPDIR="${i04_closure_tmpdir}" "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
+    fail "invalid I04 closure static state unexpectedly passed: ${expected_message}"
+  fi
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "expected I04 closure static error '${expected_message}', got: ${output}"
+  assert_i04_closure_tmp_clean
+  i04_negative_cases=$((i04_negative_cases + 1))
+}
+
+expect_i04_closure_transition_failure() {
+  local fixture_root="$1"
+  local base_sha="$2"
+  local head_sha="$3"
+  local expected_message="$4"
+  local output
+  if output="$(TMPDIR="${i04_closure_tmpdir}" "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${base_sha}" \
+    --transition-head "${head_sha}" 2>&1)"; then
+    fail "invalid I04 closure transition unexpectedly passed: ${expected_message}"
+  fi
+  [[ "${output}" == *"${expected_message}"* ]] ||
+    fail "expected I04 closure transition error '${expected_message}', got: ${output}"
+  assert_i04_closure_tmp_clean
+  i04_negative_cases=$((i04_negative_cases + 1))
+}
+
+run_w1_i04_closure_contract() {
+  local fixture_root governance_tip closure_sha pending_output explicit_output static_output
+  local actual_paths expected_paths receipt_plan mutation_sha second_output
+  local review_field_index review_field review_value
+  local i04_positive_cases=0
+  i04_negative_cases=0
+  fixture_root="${test_tmp_root}/w1-i04-closure"
+  i04_closure_tmpdir="${test_tmp_root}/w1-i04-closure-tmp"
+  mkdir -p "${i04_closure_tmpdir}"
+  : > "${i04_closure_tmpdir}/sibling-marker"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${i04_closure_origin_sha}"
+
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[0]}" 644 "test: materialize I04 closure design"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[1]}" 644 "test: materialize I04 closure plan"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[2]}" 755 "test: materialize I04 closure contract"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[3]}" 755 "test: materialize I04 closure verifier"
+  governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  expected_paths="$(printf '%s\n' "${i04_closure_governance_paths[@]}" | LC_ALL=C sort)"
+  actual_paths="$(git -C "${fixture_root}" diff --name-only \
+    "${i04_closure_origin_sha}..${governance_tip}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I04 closure governance fixture WriteSet mismatch"
+
+  pending_output="$(TMPDIR="${i04_closure_tmpdir}" "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal I04 closure PENDING state was rejected"
+  assert_contains "${pending_output}" "W1I04ClosureStatus = PENDING"
+  assert_i04_closure_tmp_clean
+  i04_positive_cases=$((i04_positive_cases + 1))
+
+  make_i04_closure_projection "${fixture_root}"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: close I04 and release I05"
+  closure_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  actual_paths="$(git -C "${fixture_root}" diff --name-only \
+    "${governance_tip}..${closure_sha}" | LC_ALL=C sort)"
+  expected_paths="$(printf '%s\n' "${i04_closure_projection_paths[@]}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I04 closure receipt fixture WriteSet mismatch"
+
+  explicit_output="$(TMPDIR="${i04_closure_tmpdir}" "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${governance_tip}" \
+    --transition-head "${closure_sha}")" ||
+    fail "legal explicit I04 closure receipt was rejected"
+  assert_contains "${explicit_output}" "W1I04ClosureStatus = PASS"
+  assert_i04_closure_tmp_clean
+  i04_positive_cases=$((i04_positive_cases + 1))
+
+  static_output="$(TMPDIR="${i04_closure_tmpdir}" "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal static I04 closure receipt was rejected"
+  assert_contains "${static_output}" "W1I04ClosureStatus = PASS"
+  assert_contains "${static_output}" "ActiveTaskCard = W1-I05"
+  assert_i04_closure_tmp_clean
+  i04_positive_cases=$((i04_positive_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  git -C "${fixture_root}" restore --source="${governance_tip}" \
+    docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: omit I05 from I04 closure receipt"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt fixed diff must equal the exact eleven projection paths"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md" \
+    Status BLOCKED_BY_DEPENDENCY
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: keep I05 blocked during I04 closure"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt must set I04 DONE and I05 READY"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    FormalDatabaseWrite AUTHORIZED
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: authorize database during I04 closure"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure must preserve database and push authorization boundaries"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    RemotePush AUTHORIZED
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: authorize push during I04 closure"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure must preserve database and push authorization boundaries"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  receipt_plan="${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  sed -i.bak '/^## 9\. I04 关闭收据$/,$d' "${receipt_plan}"
+  rm "${receipt_plan}.bak"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: omit I04 closure review receipt"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" "I04 closure review receipt mismatch"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  append_i04_review_receipt "${fixture_root}"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: duplicate I04 closure review receipt"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" "I04 closure review receipt mismatch"
+
+  for review_field_index in "${!i04_review_mutation_fields[@]}"; do
+    review_field="${i04_review_mutation_fields[${review_field_index}]}"
+    review_value="${i04_review_mutation_values[${review_field_index}]}"
+    git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+    make_i04_closure_projection "${fixture_root}"
+    receipt_plan="${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+    set_field "${receipt_plan}" "${review_field}" "${review_value}"
+    git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+    git -C "${fixture_root}" commit -qm "test: mutate I04 review ${review_field}"
+    expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+      "$(git -C "${fixture_root}" rev-parse HEAD)" "I04 closure review receipt mismatch"
+  done
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  replace_i03_closure_text "${fixture_root}/README.md" \
+    "${i05_ready_narratives[2]}" "${i04_ready_narratives[2]}" \
+    "restore stale I04 READY narrative"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: retain stale I04 READY narrative"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure narrative projection mismatch"
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' 'working mask' >> "${fixture_root}/README.md"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "working projection must match I04 closure receipt"
+  git -C "${fixture_root}" restore README.md
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' '// working I04 production mask' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "working W1-I04 production must match the reviewed candidate"
+  git -C "${fixture_root}" restore \
+    server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' '' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: introduce I04 projection drift"
+  git -C "${fixture_root}" restore --source="${closure_sha}" README.md
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: restore I04 projection drift"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure is allowed exactly once"
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' '' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: attempt second I04 closure"
+  if second_output="$(TMPDIR="${i04_closure_tmpdir}" "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
+    fail "second I04 closure unexpectedly passed"
+  fi
+  assert_contains "${second_output}" "I04 closure is allowed exactly once"
+  assert_i04_closure_tmp_clean
+  i04_negative_cases=$((i04_negative_cases + 1))
+
+  [[ "${i04_positive_cases}" -eq 3 ]] ||
+    fail "I04 closure positive case count mismatch: ${i04_positive_cases}"
+  [[ "${i04_negative_cases}" -eq 22 ]] ||
+    fail "I04 closure negative case count mismatch: ${i04_negative_cases}"
+  printf '%s\n' \
+    "W1I04ClosureContractTests = PASS" \
+    "W1I04ClosurePositiveCases = ${i04_positive_cases}" \
+    "W1I04ClosureNegativeCases = ${i04_negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
+  exit 0
+fi
+
+if [[ "${w1_i04_closure_contract_only}" == "1" ]]; then
+  run_w1_i04_closure_contract
   exit 0
 fi
 
