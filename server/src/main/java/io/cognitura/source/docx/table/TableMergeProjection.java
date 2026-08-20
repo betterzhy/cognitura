@@ -20,15 +20,9 @@ public record TableMergeProjection(
         if (rowSpan == 1 && columnSpan == 1) {
             throw new IllegalArgumentException("TABLE_MERGE_SPAN_REQUIRED");
         }
+        requireGeometryWithinLimits(anchorRow, anchorColumn, rowSpan, columnSpan);
         long rowEnd = (long) anchorRow + rowSpan;
         long columnEnd = (long) anchorColumn + columnSpan;
-        if (rowEnd > (long) Integer.MAX_VALUE + 1
-                || columnEnd > (long) Integer.MAX_VALUE + 1) {
-            throw new IllegalArgumentException("TABLE_MERGE_COORDINATE_INVALID");
-        }
-        if ((long) rowSpan * columnSpan > MAX_MERGE_AREA) {
-            throw new IllegalArgumentException("TABLE_MERGE_SPAN_EXCEEDED");
-        }
         coveredPositions = List.copyOf(
                 Objects.requireNonNull(coveredPositions, "coveredPositions"));
         List<GridPosition> expected = new ArrayList<>();
@@ -46,6 +40,8 @@ public record TableMergeProjection(
 
     public static TableMergeProjection fromCell(TableCellCandidate cell) {
         Objects.requireNonNull(cell, "cell");
+        requireGeometryWithinLimits(
+                cell.rowIndex(), cell.columnIndex(), cell.rowSpan(), cell.columnSpan());
         List<GridPosition> covered = new ArrayList<>();
         long rowEnd = (long) cell.rowIndex() + cell.rowSpan();
         long columnEnd = (long) cell.columnIndex() + cell.columnSpan();
@@ -64,6 +60,22 @@ public record TableMergeProjection(
                 cell.rowSpan(),
                 cell.columnSpan(),
                 covered);
+    }
+
+    static void requireGeometryWithinLimits(
+            int anchorRow, int anchorColumn, int rowSpan, int columnSpan) {
+        if (anchorRow < 0 || anchorColumn < 0 || rowSpan < 1 || columnSpan < 1) {
+            throw new IllegalArgumentException("TABLE_MERGE_COORDINATE_INVALID");
+        }
+        long rowEnd = (long) anchorRow + rowSpan;
+        long columnEnd = (long) anchorColumn + columnSpan;
+        if (rowEnd > (long) Integer.MAX_VALUE + 1
+                || columnEnd > (long) Integer.MAX_VALUE + 1) {
+            throw new IllegalArgumentException("TABLE_MERGE_COORDINATE_INVALID");
+        }
+        if ((long) rowSpan * columnSpan > MAX_MERGE_AREA) {
+            throw new IllegalArgumentException("TABLE_MERGE_SPAN_EXCEEDED");
+        }
     }
 
     public record GridPosition(int rowIndex, int columnIndex) {
