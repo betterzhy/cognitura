@@ -81,10 +81,10 @@ verify_markdown_tree() {
         esac
         tracked_target=""
         if [[ -n "${relative_candidate}" && -d "${candidate}" ]]; then
-          tracked_target="$(git -C "${root}" ls-files -- \
+          tracked_target="$(git -C "${root}" --literal-pathspecs ls-files -- \
             "${relative_candidate}/" | sed -n '1p')"
         elif [[ -n "${relative_candidate}" ]]; then
-          tracked_target="$(git -C "${root}" ls-files --error-unmatch -- \
+          tracked_target="$(git -C "${root}" --literal-pathspecs ls-files --error-unmatch -- \
             "${relative_candidate}" 2>/dev/null || true)"
         fi
       else
