@@ -380,40 +380,59 @@ public final class TextListSectionParser {
         private static final StyleDefinition NONE = new StyleDefinition(null, null, false, null);
     }
 
-    private record Styles(Map<String, StyleDefinition> definitions) {
+    private record Styles(
+            Map<String, StyleDefinition> definitions,
+            Map<String, StyleDefinition> resolvedDefinitions) {
 
         private static Styles empty() {
-            return new Styles(Map.of());
+            return new Styles(Map.of(), new HashMap<>());
         }
 
         private StyleDefinition definition(String styleId) {
             if (styleId == null || !definitions.containsKey(styleId)) {
                 return StyleDefinition.NONE;
             }
-            return resolve(styleId, new HashSet<>());
+            StyleDefinition resolved = resolvedDefinitions.get(styleId);
+            return resolved == null ? resolve(styleId) : resolved;
         }
 
-        private StyleDefinition resolve(String styleId, Set<String> resolving) {
-            StyleDefinition direct = definitions.get(styleId);
-            if (direct == null) {
-                throw terminal("PARAGRAPH_STYLE_BASE_MISSING:" + styleId);
+        private StyleDefinition resolve(String styleId) {
+            List<String> inheritancePath = new ArrayList<>();
+            Set<String> resolving = new HashSet<>();
+            String currentStyleId = styleId;
+            StyleDefinition inherited = StyleDefinition.NONE;
+            while (currentStyleId != null) {
+                StyleDefinition cached = resolvedDefinitions.get(currentStyleId);
+                if (cached != null) {
+                    inherited = cached;
+                    break;
+                }
+                StyleDefinition direct = definitions.get(currentStyleId);
+                if (direct == null) {
+                    throw terminal("PARAGRAPH_STYLE_BASE_MISSING:" + currentStyleId);
+                }
+                if (!resolving.add(currentStyleId)) {
+                    throw terminal("PARAGRAPH_STYLE_INHERITANCE_CYCLE:" + currentStyleId);
+                }
+                inheritancePath.add(currentStyleId);
+                currentStyleId = direct.basedOn();
             }
-            if (!resolving.add(styleId)) {
-                throw terminal("PARAGRAPH_STYLE_INHERITANCE_CYCLE:" + styleId);
+
+            for (int index = inheritancePath.size() - 1; index >= 0; index--) {
+                String inheritedStyleId = inheritancePath.get(index);
+                StyleDefinition direct = definitions.get(inheritedStyleId);
+                inherited = new StyleDefinition(
+                        direct.styleName(),
+                        direct.headingLevel() == null
+                                ? inherited.headingLevel()
+                                : direct.headingLevel(),
+                        direct.pageBreakBefore() == null
+                                ? inherited.pageBreakBefore()
+                                : direct.pageBreakBefore(),
+                        null);
+                resolvedDefinitions.put(inheritedStyleId, inherited);
             }
-            StyleDefinition inherited = direct.basedOn() == null
-                    ? StyleDefinition.NONE
-                    : resolve(direct.basedOn(), resolving);
-            resolving.remove(styleId);
-            return new StyleDefinition(
-                    direct.styleName(),
-                    direct.headingLevel() == null
-                            ? inherited.headingLevel()
-                            : direct.headingLevel(),
-                    direct.pageBreakBefore() == null
-                            ? inherited.pageBreakBefore()
-                            : direct.pageBreakBefore(),
-                    null);
+            return resolvedDefinitions.get(styleId);
         }
 
         private static Styles parse(Document document) {
@@ -454,7 +473,7 @@ public final class TextListSectionParser {
                     throw terminal("DUPLICATE_PARAGRAPH_STYLE_ID");
                 }
             }
-            return new Styles(Map.copyOf(definitions));
+            return new Styles(Map.copyOf(definitions), new HashMap<>());
         }
     }
 

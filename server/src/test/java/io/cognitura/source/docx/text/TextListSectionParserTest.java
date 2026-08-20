@@ -216,6 +216,35 @@ class TextListSectionParserTest {
     }
 
     @Test
+    void resolvesDeepStyleInheritanceAndRejectsADeepCycleWithoutExhaustingTheThreadStack()
+            throws IOException {
+        int depth = 12_000;
+        String documentXml = """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                  <w:body><w:p><w:pPr><w:pStyle w:val="S00000"/></w:pPr><w:r><w:t>Deep style</w:t></w:r></w:p></w:body>
+                </w:document>
+                """;
+
+        try (SafeDocxPackage safePackage =
+                openDocumentAndStylesXml("deep-style-chain", documentXml, deepStyles(depth, false))) {
+            assertThat(new TextListSectionParser().parse(safePackage))
+                    .singleElement()
+                    .extracting(DocumentBlockCandidate::headingLevel)
+                    .isEqualTo(1);
+        }
+
+        try (SafeDocxPackage safePackage =
+                openDocumentAndStylesXml("deep-style-cycle", documentXml, deepStyles(depth, true))) {
+            assertThatThrownBy(() -> new TextListSectionParser().parse(safePackage))
+                    .isInstanceOf(SourceDomainException.class)
+                    .satisfies(error -> assertThat(((SourceDomainException) error).code())
+                            .isEqualTo(SourceDomainException.Code.PARSER_TERMINAL_FAILURE))
+                    .hasMessageContaining("PARAGRAPH_STYLE_INHERITANCE_CYCLE");
+        }
+    }
+
+    @Test
     void rejectsDeepUnsupportedFlowWithoutExhaustingTheThreadStack() throws IOException {
         int depth = 12_000;
         String documentXml = """
@@ -254,11 +283,26 @@ class TextListSectionParserTest {
 
     private SafeDocxPackage openDocumentXml(
             String name, String documentXml, String numberingResource) throws IOException {
+        return openDocumentXml(
+                name,
+                documentXml,
+                resource("/docx/text/styles.xml"),
+                numberingResource);
+    }
+
+    private SafeDocxPackage openDocumentAndStylesXml(
+            String name, String documentXml, String stylesXml) throws IOException {
+        return openDocumentXml(name, documentXml, stylesXml, "numbering.xml");
+    }
+
+    private SafeDocxPackage openDocumentXml(
+            String name, String documentXml, String stylesXml, String numberingResource)
+            throws IOException {
         LinkedHashMap<String, byte[]> entries = new LinkedHashMap<>();
         entries.put("[Content_Types].xml", bytes(CONTENT_TYPES));
         entries.put("_rels/.rels", bytes(ROOT_RELATIONSHIPS));
         entries.put("word/document.xml", bytes(documentXml));
-        entries.put("word/styles.xml", bytes(resource("/docx/text/styles.xml")));
+        entries.put("word/styles.xml", bytes(stylesXml));
         entries.put("word/numbering.xml", bytes(resource("/docx/text/" + numberingResource)));
         entries.put("word/_rels/document.xml.rels", bytes(EMPTY_RELATIONSHIPS));
         Path packagePath = temporaryDirectory.resolve(name + ".docx");
@@ -314,6 +358,29 @@ class TextListSectionParserTest {
             }
         }
         return output.toByteArray();
+    }
+
+    private static String deepStyles(int depth, boolean cycle) {
+        StringBuilder styles = new StringBuilder(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+                        + "<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">");
+        for (int index = 0; index < depth; index++) {
+            String styleId = "S%05d".formatted(index);
+            styles.append("<w:style w:type=\"paragraph\" w:styleId=\"")
+                    .append(styleId)
+                    .append("\">");
+            if (index + 1 < depth) {
+                styles.append("<w:basedOn w:val=\"S")
+                        .append("%05d".formatted(index + 1))
+                        .append("\"/>");
+            } else if (cycle) {
+                styles.append("<w:basedOn w:val=\"S00000\"/>");
+            } else {
+                styles.append("<w:pPr><w:outlineLvl w:val=\"0\"/></w:pPr>");
+            }
+            styles.append("</w:style>");
+        }
+        return styles.append("</w:styles>").toString();
     }
 
     private static byte[] bytes(String value) {
