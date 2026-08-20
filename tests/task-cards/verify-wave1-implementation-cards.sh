@@ -22,6 +22,7 @@ fail() {
 w1_i03_closure_contract_only=0
 w1_i04_closure_contract_only=0
 w1_i05_verifier_recovery_contract_only=0
+w1_i05_closure_contract_only=0
 case "${1:-}" in
   "") ;;
   --w1-i03-closure-contract-only)
@@ -32,6 +33,9 @@ case "${1:-}" in
     ;;
   --w1-i05-verifier-recovery-contract-only)
     w1_i05_verifier_recovery_contract_only=1
+    ;;
+  --w1-i05-closure-contract-only)
+    w1_i05_closure_contract_only=1
     ;;
   *) fail "unknown argument: $1" ;;
 esac
@@ -2553,6 +2557,295 @@ run_w1_i05_fixed_review_contract() {
     "W1I05FixedReviewRepairNegativeCases = ${negative_cases}"
 }
 
+i05_reviewed_candidate_sha="b4132e988cd88dce74ae026a1b52a496188452fc"
+i05_closure_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md
+  docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md
+)
+i05_closure_narrative_paths=(
+  AGENTS.md
+  AGENTS.md
+  README.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+)
+i05_closure_base_narratives=(
+  '`W1-I02` 等待独立数据库 Gate；`W1-I03`、`W1-I04` 已零发现关闭，`W1-I05` 为唯一 `READY` 业务卡。'
+  'I00、I01、I03 和 I04 已关闭，当前已原子释放 I05；I02 保持等待独立数据库 Gate。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I05` 是唯一 `READY` 卡。'
+  '保持 `QUEUED` 等待独立数据库 Gate；`W1-I03`、`W1-I04` 已关闭，`W1-I05` 已释放为唯一 `READY` 业务卡。'
+  '  I01、I03 和 I04 已关闭，I02 等待独立数据库 Gate，I05 为唯一 `READY` 卡。'
+  '`W1-I04` 已零发现关闭，`W1-I05` 已作为唯一 `READY` 卡释放。'
+  $'当前业务授权只按既定卡集串行推进至 `W1-I05`；I02 独立数据库 Gate、正式数据库\n写入和远程推送仍未授权。'
+  '固定候选深审并关闭；I02 等待独立数据库 Gate，I03 和 I04 已关闭且 I05 为唯一 `READY` 卡，完整证据记录在'
+  '数据库 Gate；I03 和 I04 已关闭，I05 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03 和 I04 已关闭，I05 为唯一 `READY` 卡。'
+  'I00、I01、I03 和 I04 已关闭；I02 等待独立数据库 Gate，W1-I05 为唯一 `READY` 业务卡。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，I03 和 I04 已关闭且 I05 已原子释放为唯一 `READY` 卡。'
+)
+i05_closure_head_narratives=(
+  '`W1-I02` 等待独立数据库 Gate；`W1-I03`、`W1-I04`、`W1-I05` 已零发现关闭，`W1-I06` 为唯一 `READY` 业务卡。'
+  'I00、I01、I03、I04 和 I05 已关闭，当前已原子释放 I06；I02 保持等待独立数据库 Gate。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，`W1-I06` 是唯一 `READY` 卡。'
+  '保持 `QUEUED` 等待独立数据库 Gate；`W1-I03`、`W1-I04`、`W1-I05` 已关闭，`W1-I06` 已释放为唯一 `READY` 业务卡。'
+  '  I01、I03、I04 和 I05 已关闭，I02 等待独立数据库 Gate，I06 为唯一 `READY` 卡。'
+  '`W1-I05` 已零发现关闭，`W1-I06` 已作为唯一 `READY` 卡释放。'
+  $'当前业务授权只按既定卡集串行推进至 `W1-I06`；I02 独立数据库 Gate、正式数据库\n写入和远程推送仍未授权。'
+  '固定候选深审并关闭；I02 等待独立数据库 Gate，I03、I04 和 I05 已关闭且 I06 为唯一 `READY` 卡，完整证据记录在'
+  '数据库 Gate；I03、I04 和 I05 已关闭，I06 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  'I03、I04 和 I05 已关闭，I06 为唯一 `READY` 卡。'
+  'I00、I01、I03、I04 和 I05 已关闭；I02 等待独立数据库 Gate，W1-I06 为唯一 `READY` 业务卡。'
+  '完成零发现深审并关闭；I02 等待独立数据库 Gate，I03、I04 和 I05 已关闭且 I06 已原子释放为唯一 `READY` 卡。'
+)
+
+append_i05_review_receipt() {
+  local fixture_root="$1"
+  printf '%s\n' \
+    '' \
+    '## 10. I05 关闭收据' \
+    '' \
+    '```text' \
+    'W1-I05 = DONE' \
+    "ReviewedCandidate = ${i05_reviewed_candidate_sha}" \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0 = 0' \
+    'P1 = 0' \
+    'P2 = 0' \
+    'Ultra = NOT_RUN' \
+    'I05ClosureReleasedTaskCard = W1-I06' \
+    'QueuedTaskCard = W1-I02' \
+    'QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED' \
+    '```' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+}
+
+make_i05_closure_projection() {
+  local fixture_root="$1"
+  local narrative_index narrative_path
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I06
+  set_field "${fixture_root}/README.md" ActiveImplementationTaskCard W1-I06
+  set_field "${fixture_root}/docs/design/wave-1/README.md" \
+    ActiveImplementationGovernanceTaskCard W1-I06
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    ActiveTaskCard W1-I06
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    ActiveImplementationTaskCard W1-I06
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+    ActiveImplementationGovernanceTaskCard W1-I06
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    ImplementationTaskCardPlanStatus I05_COMPLETE_I06_READY
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    ActiveImplementationGovernanceTaskCard W1-I06
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    ActiveTaskCard W1-I06
+  set_table_status \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    W1-I05 READY DONE
+  set_table_status \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    W1-I06 BLOCKED_BY_DEPENDENCY READY
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" \
+    ActiveImplementationGovernanceTaskCard W1-I06
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    ActiveTaskCard W1-I06
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I05 READY DONE
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I06 BLOCKED_BY_DEPENDENCY READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md" \
+    Status DONE
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md" \
+    Status READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md" \
+    BusinessImplementationAuthorization USER_AUTHORIZED
+  append_i05_review_receipt "${fixture_root}"
+  for narrative_index in "${!i05_closure_base_narratives[@]}"; do
+    narrative_path="${i05_closure_narrative_paths[${narrative_index}]}"
+    replace_i03_closure_text \
+      "${fixture_root}/${narrative_path}" \
+      "${i05_closure_base_narratives[${narrative_index}]}" \
+      "${i05_closure_head_narratives[${narrative_index}]}" \
+      "close I05 narrative ${narrative_path}"
+  done
+}
+
+commit_i05_closure_projection() {
+  local fixture_root="$1"
+  make_i05_closure_projection "${fixture_root}"
+  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: close W1-I05 and release W1-I06"
+}
+
+expect_i05_closure_transition_failure() {
+  local fixture_root="$1"
+  local base_sha="$2"
+  local head_sha="$3"
+  local expected_message="$4"
+  local output
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${base_sha}" \
+    --transition-head "${head_sha}" 2>&1)"; then
+    fail "invalid I05 closure transition unexpectedly passed: ${expected_message}"
+  fi
+  assert_contains "${output}" "${expected_message}"
+}
+
+run_w1_i05_closure_contract() {
+  local fixture_root base_sha closure_sha output mutation_sha
+  local positive_cases=0
+  local negative_cases=0
+  fixture_root="${test_tmp_root}/w1-i05-closure"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  base_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+
+  commit_i05_closure_projection "${fixture_root}"
+  closure_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${base_sha}" \
+    --transition-head "${closure_sha}")" ||
+    fail "legal explicit I05 closure receipt was rejected: ${output}"
+  assert_contains "${output}" "W1I05ClosureStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal static I05 closure receipt was rejected: ${output}"
+  assert_contains "${output}" "ActiveTaskCard = W1-I06"
+  assert_contains "${output}" "W1I05ClosureStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i05_closure_projection "${fixture_root}"
+  sed -i.bak "s/${i05_reviewed_candidate_sha}/0000000000000000000000000000000000000000/" \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: bind wrong I05 reviewed candidate"
+  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I05 closure review receipt mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i05_closure_projection "${fixture_root}"
+  git -C "${fixture_root}" restore --source="${base_sha}" \
+    docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md
+  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: omit I06 closure projection"
+  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I05 closure receipt fixed diff must equal the exact eleven projection paths"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i05_closure_projection "${fixture_root}"
+  printf '%s\n' extra > "${fixture_root}/i05-closure-extra.txt"
+  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}" i05-closure-extra.txt
+  git -C "${fixture_root}" commit -qm "test: add extra I05 closure projection"
+  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I05 closure receipt fixed diff must equal the exact eleven projection paths"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  git -C "${fixture_root}" commit --allow-empty -qm "test: insert non-direct I05 receipt ancestor"
+  commit_i05_closure_projection "${fixture_root}"
+  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I05 closure receipt HEAD must be the direct child of BASE"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i05_closure_projection "${fixture_root}"
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I03 DONE READY
+  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: release a second READY card with I06"
+  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I05 closure receipt must release exactly one READY card"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i05_closure_projection "${fixture_root}"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md" \
+    BusinessImplementationAuthorization REQUIRED_BEFORE_READY
+  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: release I06 without business authorization"
+  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I05 closure must explicitly authorize W1-I06"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i05_closure_projection "${fixture_root}"
+  printf '%s\n' '// forbidden product drift' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java"
+  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}" \
+    server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java
+  git -C "${fixture_root}" commit -qm "test: mix I05 product drift into closure"
+  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I05 closure receipt fixed diff must equal the exact eleven projection paths"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' '' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: replay I05 closure projection"
+  mutation_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
+    fail "post-I05 closure projection replay unexpectedly passed"
+  fi
+  assert_contains "${output}" "I05 closure is allowed exactly once"
+  negative_cases=$((negative_cases + 1))
+  [[ -n "${mutation_sha}" ]] || fail "I05 closure mutation SHA is missing"
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "I05 closure positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 8 ]] ||
+    fail "I05 closure negative case count mismatch: ${negative_cases}"
+  printf '%s\n' \
+    "W1I05ClosureContractTests = PASS" \
+    "W1I05ClosurePositiveCases = ${positive_cases}" \
+    "W1I05ClosureNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -2566,6 +2859,11 @@ fi
 if [[ "${w1_i05_verifier_recovery_contract_only}" == "1" ]]; then
   run_w1_i05_xml_copy_repair_contract
   run_w1_i05_fixed_review_contract
+  exit 0
+fi
+
+if [[ "${w1_i05_closure_contract_only}" == "1" ]]; then
+  run_w1_i05_closure_contract
   exit 0
 fi
 
