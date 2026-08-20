@@ -21,6 +21,7 @@ fail() {
 
 w1_i03_closure_contract_only=0
 w1_i04_closure_contract_only=0
+w1_i05_verifier_recovery_contract_only=0
 case "${1:-}" in
   "") ;;
   --w1-i03-closure-contract-only)
@@ -28,6 +29,9 @@ case "${1:-}" in
     ;;
   --w1-i04-closure-contract-only)
     w1_i04_closure_contract_only=1
+    ;;
+  --w1-i05-verifier-recovery-contract-only)
+    w1_i05_verifier_recovery_contract_only=1
     ;;
   *) fail "unknown argument: $1" ;;
 esac
@@ -1761,6 +1765,54 @@ I04ClosureUnknown = FORBIDDEN
     "W1I04ClosureNegativeCases = ${i04_negative_cases}"
 }
 
+run_w1_i05_verifier_recovery_contract() {
+  local fixture_root="${test_tmp_root}/w1-i05-verifier-recovery"
+  local fixture_verifier
+  local output
+  local recovery_path
+  local recovery_mode
+  local recovery_paths=(
+    tests/ci/verify-markdown-links.sh
+    docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-design.md
+    docs/superpowers/plans/2026-08-20-cognitura-w1-i05-verifier-recovery.md
+    tests/task-cards/verify-wave1-implementation-cards.sh
+    scripts/verify-wave1-implementation-cards
+  )
+
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    ac42f26230cec348f3933400d8cd581c6e27970d
+
+  for recovery_path in "${recovery_paths[@]:1}"; do
+    mkdir -p "${fixture_root}/$(dirname "${recovery_path}")"
+    cp "${repo_root}/${recovery_path}" "${fixture_root}/${recovery_path}"
+    recovery_mode=644
+    [[ "${recovery_path}" == scripts/* ]] && recovery_mode=755
+    chmod "${recovery_mode}" "${fixture_root}/${recovery_path}"
+    if git -C "${fixture_root}" diff --quiet -- "${recovery_path}"; then
+      printf '%s\n' '# fixture-only recovery RED' >> \
+        "${fixture_root}/${recovery_path}"
+    fi
+    git -C "${fixture_root}" add "${recovery_path}"
+    git -C "${fixture_root}" commit -qm \
+      "test: materialize W1-I05 verifier recovery ${recovery_path}"
+  done
+
+  fixture_verifier="${fixture_root}/scripts/verify-wave1-implementation-cards"
+  if ! output="$("${fixture_verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
+    fail "legal W1-I05 verifier recovery was rejected: ${output}"
+  fi
+  assert_contains "${output}" "Wave1ImplementationTaskCardValidation = PASS"
+  assert_contains "${output}" "ActiveTaskCard = W1-I05"
+  assert_contains "${output}" "W1I05VerifierRecoveryStatus = PASS"
+
+  printf '%s\n' \
+    "W1I05VerifierRecoveryContractTests = PASS" \
+    "W1I05VerifierRecoveryPositiveCases = 1"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -1768,6 +1820,11 @@ fi
 
 if [[ "${w1_i04_closure_contract_only}" == "1" ]]; then
   run_w1_i04_closure_contract
+  exit 0
+fi
+
+if [[ "${w1_i05_verifier_recovery_contract_only}" == "1" ]]; then
+  run_w1_i05_verifier_recovery_contract
   exit 0
 fi
 
