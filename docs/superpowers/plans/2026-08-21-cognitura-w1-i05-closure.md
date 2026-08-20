@@ -10,6 +10,14 @@
 
 **Spec:** `docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md`
 
+```text
+TransitionKind = I05_CLOSE_ADVANCE
+ClosureRepairOriginSHA = 07f871061770e594f9793a0babdd2d979b3752cf
+RejectedClosureCandidateSHA = 07f871061770e594f9793a0babdd2d979b3752cf
+ReviewedProductCandidateSHA = b4132e988cd88dce74ae026a1b52a496188452fc
+GovernanceCommitCount = 3
+```
+
 ## Global Constraints
 
 - Reviewed W1-I05 candidate: `b4132e988cd88dce74ae026a1b52a496188452fc`.
@@ -17,6 +25,8 @@
 - Preserve I02 as `QUEUED`; formal database writes and remote push remain `NOT_AUTHORIZED`.
 - Do not touch `raw/**`, `.idea/**`, deployment, database state, or Git history.
 - Do not add a generic lifecycle engine, second execution ledger, or Omin Harness integration.
+- Preserve `07f8710…` as immutable `NO_GO / P1=3 / P2=1` evidence.
+- The successor chain from `ClosureRepairOriginSHA` is exactly this plan, the RED contract, then the production verifier; each commit changes one canonical path.
 
 ---
 
@@ -36,6 +46,10 @@
 - [ ] **Step 2: Add mutation killers**
 
   Reject a wrong reviewed SHA, missing/extra projection path, non-direct receipt, second READY card, missing I06 authorization, changed I05 production byte, and post-receipt projection replay.
+
+  Also prove that full Gate fixture construction stays anchored to the pre-receipt governance tip,
+  explicit post-receipt transitions reject non-descendants and paths outside the I06 WriteSet, and a
+  product drift introduced before BASE reaches the production-freeze guard.
 
 - [ ] **Step 3: Run RED**
 
@@ -60,9 +74,15 @@
 
   Require a single-parent receipt, exact path/mode set, I05 DONE/I06 READY, one READY card, I06 `USER_AUTHORIZED`, exact review receipt, unchanged I05 product bytes, and preserved I02/database/push state.
 
+  Validate the exact three-commit successor chain from `ClosureRepairOriginSHA`. The receipt records
+  and verifies the governance BASE Candidate, Parent and Tree in addition to the reviewed product
+  candidate; no intervening unreviewed governance commit is admissible.
+
 - [ ] **Step 2: Admit only I06 descendants**
 
   After the receipt, reject any repeated closure projection or path outside the declared I06 WriteSet.
+  Apply the same descendant and WriteSet checks to explicit `--transition-base/--transition-head`
+  replay, not only static current-HEAD validation.
 
 - [ ] **Step 3: Run GREEN and regression**
 
@@ -97,7 +117,9 @@
 
 - [ ] **Step 2: Apply the exact projection**
 
-  Change only I05/I06 active-state narratives and fields, append the exact review receipt, preserve I02/database/push boundaries, and set I06 business authorization to `USER_AUTHORIZED`.
+  Change only I05/I06 active-state narratives and fields, append the exact review receipt with both
+  product and governance Candidate/Parent/Tree identities, preserve I02/database/push boundaries,
+  and set I06 business authorization to `USER_AUTHORIZED`.
 
 - [ ] **Step 3: Commit the direct-child receipt**
 
