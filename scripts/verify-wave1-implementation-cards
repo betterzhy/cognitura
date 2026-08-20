@@ -359,6 +359,19 @@ w1_i04_closure_governance_paths=(
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
+w1_i05_verifier_recovery_origin_sha="01cc567f31c104da2cc5699f3cb487324fae7963"
+w1_i05_required_first_recovery_sha="ac42f26230cec348f3933400d8cd581c6e27970d"
+w1_i05_rejected_test_candidate_sha="4561f6de9bd61a85ad806f32608cd76288e9e9bc"
+w1_i05_corrected_test_candidate_sha="dabb7d88de90b28e0cc7c1d99227427308edf717"
+w1_i05_verifier_recovery_paths=(
+  tests/ci/verify-markdown-links.sh
+  docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-design.md
+  docs/superpowers/plans/2026-08-20-cognitura-w1-i05-verifier-recovery.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-correction.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
 w1_i04_closure_projection_paths=(
   AGENTS.md
   README.md
@@ -434,6 +447,22 @@ w1_i04_closure_mode_for_path() {
     "${w1_i04_closure_design_path}"|"${w1_i04_closure_plan_path}") printf '%s\n' 100644 ;;
     tests/task-cards/verify-wave1-implementation-cards.sh|scripts/verify-wave1-implementation-cards) printf '%s\n' 100755 ;;
     *) fail "unsupported I04 closure governance path: $1" ;;
+  esac
+}
+
+w1_i05_verifier_recovery_mode_for_path() {
+  case "$1" in
+    docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-design.md|\
+    docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-correction.md|\
+    docs/superpowers/plans/2026-08-20-cognitura-w1-i05-verifier-recovery.md)
+      printf '%s\n' 100644
+      ;;
+    tests/ci/verify-markdown-links.sh|\
+    tests/task-cards/verify-wave1-implementation-cards.sh|\
+    scripts/verify-wave1-implementation-cards)
+      printf '%s\n' 100755
+      ;;
+    *) fail "unsupported W1-I05 verifier recovery path: $1" ;;
   esac
 }
 
@@ -1324,6 +1353,71 @@ validate_post_w1_i04_closure_descendants() {
   done
 }
 
+validate_w1_i05_verifier_recovery_and_descendants() {
+  local receipt="$1"
+  local head="$2"
+  local commit parent changed_paths path expected_path recovery_tip=""
+  local recovery_index=0
+  local expected_test_blob actual_blob
+
+  [[ "${receipt}" == "${w1_i05_verifier_recovery_origin_sha}" ]] ||
+    fail "W1-I05 verifier recovery must start at the fixed I04 closure receipt"
+  git -C "${repo_root}" merge-base --is-ancestor "${receipt}" "${head}" ||
+    fail "W1-I05 verifier recovery HEAD must descend from the fixed origin"
+
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${receipt}..${head}"); do
+    if [[ "${recovery_index}" -ge "${#w1_i05_verifier_recovery_paths[@]}" ]]; then
+      continue
+    fi
+    if [[ "${recovery_index}" -eq 0 &&
+          "${commit}" != "${w1_i05_required_first_recovery_sha}" ]]; then
+      fail "W1-I05 verifier recovery first commit mismatch"
+    fi
+    parent="$(single_parent_of "${commit}" "W1-I05 verifier recovery commit")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "W1-I05 verifier recovery commit must be nonempty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "W1-I05 verifier recovery commit must not rename or copy paths"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "$(printf '%s\n' "${changed_paths}" | awk \
+      'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
+      fail "W1-I05 verifier recovery commit must change exactly one declared path"
+    path="${changed_paths}"
+    expected_path="${w1_i05_verifier_recovery_paths[${recovery_index}]}"
+    [[ "${path}" == "${expected_path}" ]] ||
+      fail "W1-I05 verifier recovery paths must follow the fixed order"
+    [[ "$(git_tree_mode "${commit}" "${path}")" == \
+       "$(w1_i05_verifier_recovery_mode_for_path "${path}")" ]] ||
+      fail "W1-I05 verifier recovery path mode mismatch: ${path}"
+    require_git_blob_without_nul "${commit}" "${path}" \
+      "W1-I05 verifier recovery path must not contain NUL"
+    if [[ "${recovery_index}" -eq 3 || "${recovery_index}" -eq 5 ]]; then
+      if [[ "${recovery_index}" -eq 3 ]]; then
+        expected_test_blob="$(git -C "${repo_root}" rev-parse \
+          "${w1_i05_rejected_test_candidate_sha}:${path}" 2>/dev/null)" ||
+          fail "rejected W1-I05 recovery test evidence is unavailable"
+      else
+        expected_test_blob="$(git -C "${repo_root}" rev-parse \
+          "${w1_i05_corrected_test_candidate_sha}:${path}" 2>/dev/null)" ||
+          fail "corrected W1-I05 recovery test evidence is unavailable"
+      fi
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${path}" 2>/dev/null)" ||
+        fail "W1-I05 recovery test blob is unavailable"
+      [[ "${actual_blob}" == "${expected_test_blob}" ]] ||
+        fail "W1-I05 verifier recovery test evidence mismatch"
+    fi
+    recovery_tip="${commit}"
+    recovery_index=$((recovery_index + 1))
+  done
+
+  [[ "${recovery_index}" -eq "${#w1_i05_verifier_recovery_paths[@]}" ]] ||
+    fail "W1-I05 verifier recovery chain is incomplete"
+  validate_post_w1_i04_closure_descendants "${recovery_tip}" "${head}"
+}
+
 find_unique_w1_i04_closure_receipt() {
   local head="$1"
   local commit parent current_state parent_state
@@ -1649,7 +1743,7 @@ elif [[ -z "${transition_base}" && "${closure_cards_dir_is_canonical}" == 1 ]] &
       i04_closure_receipt="$2"
       validate_w1_i04_closure_receipt \
         "${i04_closure_receipt_parent}" "${i04_closure_receipt}" 0
-      validate_post_w1_i04_closure_descendants \
+      validate_w1_i05_verifier_recovery_and_descendants \
         "${i04_closure_receipt}" "${current_repository_head}"
       git -C "${repo_root}" diff --quiet \
         "${i04_closure_receipt}..${current_repository_head}" -- \
@@ -1669,7 +1763,8 @@ elif [[ -z "${transition_base}" && "${closure_cards_dir_is_canonical}" == 1 ]] &
         "TaskCardSetStatus = READY_FOR_EXECUTION" \
         "ActiveTaskCard = W1-I05" \
         "W1I03ClosureStatus = PASS" \
-        "W1I04ClosureStatus = PASS"
+        "W1I04ClosureStatus = PASS" \
+        "W1I05VerifierRecoveryStatus = PASS"
       exit 0
       ;;
     *) fail "I04 closure current state has an unsupported I04/I05 status vector" ;;
