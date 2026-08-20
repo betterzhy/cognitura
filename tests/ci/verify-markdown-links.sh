@@ -44,7 +44,12 @@ verify_markdown_tree() {
   local raw_link
   local link
   local candidate
+  local candidate_directory
+  local relative_candidate
+  local tracked_target
   local link_count=0
+
+  root="$(cd "${root}" && pwd -P)"
 
   while IFS= read -r -d '' markdown_file; do
     while IFS= read -r raw_link; do
@@ -66,7 +71,26 @@ verify_markdown_tree() {
       fi
 
       candidate="$(dirname "${markdown_file}")/${link}"
-      if [[ ! -e "${candidate}" ]]; then
+      if [[ "${scope}" == "tracked" ]]; then
+        candidate_directory="$(cd "$(dirname "${candidate}")" 2>/dev/null && pwd -P)" ||
+          candidate_directory=""
+        candidate="${candidate_directory}/$(basename "${candidate}")"
+        case "${candidate}" in
+          "${root}"/*) relative_candidate="${candidate#${root}/}" ;;
+          *) relative_candidate="" ;;
+        esac
+        tracked_target=""
+        if [[ -n "${relative_candidate}" && -d "${candidate}" ]]; then
+          tracked_target="$(git -C "${root}" ls-files -- \
+            "${relative_candidate}/" | sed -n '1p')"
+        elif [[ -n "${relative_candidate}" ]]; then
+          tracked_target="$(git -C "${root}" ls-files --error-unmatch -- \
+            "${relative_candidate}" 2>/dev/null || true)"
+        fi
+      else
+        tracked_target="${candidate}"
+      fi
+      if [[ ! -e "${candidate}" || -z "${tracked_target}" ]]; then
         printf 'BROKEN_MARKDOWN_LINK: %s -> %s\n' \
           "${markdown_file#${root}/}" "${link}" >&2
         return 1
