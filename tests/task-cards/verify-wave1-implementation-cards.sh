@@ -1312,6 +1312,87 @@ run_w1_i04_closure_contract() {
   assert_i04_closure_tmp_clean
   i04_positive_cases=$((i04_positive_cases + 1))
 
+  git -C "${fixture_root}" switch -q --detach "${i04_closure_origin_sha}"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[0]}" 644 "test: incomplete I04 design"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[1]}" 644 "test: incomplete I04 plan"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[2]}" 755 "test: incomplete I04 tests"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance chain must have the exact four-path cumulative WriteSet"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  printf '%s\n' 'repeat' >> \
+    "${fixture_root}/${i04_closure_governance_paths[0]}"
+  git -C "${fixture_root}" add "${i04_closure_governance_paths[0]}"
+  git -C "${fixture_root}" commit -qm "test: repeat I04 governance path"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance chain must have the exact four-path cumulative WriteSet"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  printf '%s\n' 'outside' > "${fixture_root}/docs/superpowers/specs/i04-outside.md"
+  git -C "${fixture_root}" add docs/superpowers/specs/i04-outside.md
+  git -C "${fixture_root}" commit -qm "test: add outside I04 governance path"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance chain must have the exact four-path cumulative WriteSet"
+
+  git -C "${fixture_root}" switch -q --detach "${i04_closure_origin_sha}"
+  mkdir -p "$(dirname "${fixture_root}/${i04_closure_governance_paths[0]}")"
+  cp "${repo_root}/${i04_closure_governance_paths[0]}" \
+    "${fixture_root}/${i04_closure_governance_paths[0]}"
+  chmod 755 "${fixture_root}/${i04_closure_governance_paths[0]}"
+  git -C "${fixture_root}" add "${i04_closure_governance_paths[0]}"
+  git -C "${fixture_root}" commit -qm "test: drift I04 governance mode"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance path mode mismatch"
+
+  git -C "${fixture_root}" switch -q --detach "${i04_closure_origin_sha}"
+  mkdir -p "$(dirname "${fixture_root}/${i04_closure_governance_paths[0]}")"
+  cp "${repo_root}/${i04_closure_governance_paths[0]}" \
+    "${fixture_root}/${i04_closure_governance_paths[0]}"
+  printf '\0' >> "${fixture_root}/${i04_closure_governance_paths[0]}"
+  git -C "${fixture_root}" add "${i04_closure_governance_paths[0]}"
+  git -C "${fixture_root}" commit -qm "test: add NUL to I04 governance"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance path must not contain NUL"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  git -C "${fixture_root}" mv "${i04_closure_governance_paths[1]}" \
+    "${i04_closure_governance_paths[1]}.moved"
+  git -C "${fixture_root}" commit -qm "test: rename I04 governance plan"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance commit must not rename or copy paths"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  cp "${fixture_root}/${i04_closure_governance_paths[0]}" \
+    "${fixture_root}/docs/superpowers/specs/i04-copy.md"
+  git -C "${fixture_root}" add docs/superpowers/specs/i04-copy.md
+  git -C "${fixture_root}" commit -qm "test: copy I04 governance design"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance commit must not rename or copy paths"
+
+  git -C "${fixture_root}" branch -D i04-merge-side >/dev/null 2>&1 || true
+  git -C "${fixture_root}" switch -q -c i04-merge-side "${governance_tip}"
+  printf '%s\n' 'side' > "${fixture_root}/docs/superpowers/specs/i04-side.md"
+  git -C "${fixture_root}" add docs/superpowers/specs/i04-side.md
+  git -C "${fixture_root}" commit -qm "test: create I04 merge side"
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  git -C "${fixture_root}" merge -q --no-ff i04-merge-side -m "test: merge I04 governance"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance commit must have exactly one parent"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  printf '%s\n' '// reviewed product drift' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java
+  git -C "${fixture_root}" commit -qm "test: drift reviewed I04 production"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "reviewed W1-I04 production must remain byte-identical"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+
   make_i04_closure_projection "${fixture_root}"
   git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: close I04 and release I05"
@@ -1341,6 +1422,28 @@ run_w1_i04_closure_contract() {
   assert_i04_closure_tmp_clean
   i04_positive_cases=$((i04_positive_cases + 1))
 
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  mkdir -p "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table"
+  printf '%s\n' 'package io.cognitura.source.docx.table;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java
+  git -C "${fixture_root}" commit -qm "test: add legal post-I04 I05 descendant"
+  static_output="$(TMPDIR="${i04_closure_tmpdir}" "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal post-I04 I05 descendant was rejected"
+  assert_contains "${static_output}" "W1I04ClosureStatus = PASS"
+  assert_i04_closure_tmp_clean
+  i04_positive_cases=$((i04_positive_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' 'outside' > "${fixture_root}/server/i04-outside.txt"
+  git -C "${fixture_root}" add server/i04-outside.txt
+  git -C "${fixture_root}" commit -qm "test: add post-I04 outside descendant"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "post-I04-closure descendant changed a path outside the W1-I05 WriteSet"
+
   git -C "${fixture_root}" switch -q --detach "${governance_tip}"
   make_i04_closure_projection "${fixture_root}"
   git -C "${fixture_root}" restore --source="${governance_tip}" \
@@ -1350,6 +1453,51 @@ run_w1_i04_closure_contract() {
   expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
     "$(git -C "${fixture_root}" rev-parse HEAD)" \
     "I04 closure receipt fixed diff must equal the exact eleven projection paths"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  printf '%s\n' 'extra' > "${fixture_root}/docs/task-cards/wave-1-implementation/i04-extra.md"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}" \
+    docs/task-cards/wave-1-implementation/i04-extra.md
+  git -C "${fixture_root}" commit -qm "test: add extra I04 receipt path"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt fixed diff must equal the exact eleven projection paths"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  printf '%s\n' '' >> \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.md"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.md" \
+    Status READY
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: keep I04 ready during closure"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt must set I04 DONE and I05 READY"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I03 DONE READY
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: create second READY row during I04 closure"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt must release exactly one READY card"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I02 QUEUED DONE
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: release I02 during I04 closure"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure must keep W1-I02 queued behind its database gate"
 
   git -C "${fixture_root}" switch -q --detach "${governance_tip}"
   make_i04_closure_projection "${fixture_root}"
@@ -1389,6 +1537,42 @@ run_w1_i04_closure_contract() {
   rm "${receipt_plan}.bak"
   git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: omit I04 closure review receipt"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" "I04 closure review receipt mismatch"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  receipt_plan="${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  perl -0777 -i.bak -pe '
+    s/(## 9\. I04 关闭收据.*?\n)ReviewLevel = L3\nReviewRoute = deep_reviewer\n/${1}ReviewRoute = deep_reviewer\nReviewLevel = L3\n/s
+  ' "${receipt_plan}"
+  rm "${receipt_plan}.bak"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: reorder I04 closure review receipt"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" "I04 closure review receipt mismatch"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  receipt_plan="${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  sed -i.bak '$i\
+I04ClosureUnknown = FORBIDDEN
+' "${receipt_plan}"
+  rm "${receipt_plan}.bak"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: add unknown I04 review field"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" "I04 closure review receipt mismatch"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  receipt_plan="${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  sed -i.bak \
+    's/^ReviewedCandidate = 4594406e/ReviewedCandidate = 00000000/' \
+    "${receipt_plan}"
+  rm "${receipt_plan}.bak"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: use wrong I04 reviewed candidate"
   expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
     "$(git -C "${fixture_root}" rev-parse HEAD)" "I04 closure review receipt mismatch"
 
@@ -1439,6 +1623,20 @@ run_w1_i04_closure_contract() {
     server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java
 
   git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' 'untracked' > \
+    "${fixture_root}/server/src/test/resources/docx/text/working-mask.bin"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "working W1-I04 production must match the reviewed candidate"
+  rm "${fixture_root}/server/src/test/resources/docx/text/working-mask.bin"
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' 'ignored' > \
+    "${fixture_root}/server/src/test/resources/docx/text/.DS_Store"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "working W1-I04 production must match the reviewed candidate"
+  rm "${fixture_root}/server/src/test/resources/docx/text/.DS_Store"
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
   printf '%s\n' '' >> "${fixture_root}/README.md"
   git -C "${fixture_root}" add README.md
   git -C "${fixture_root}" commit -qm "test: introduce I04 projection drift"
@@ -1461,9 +1659,9 @@ run_w1_i04_closure_contract() {
   assert_i04_closure_tmp_clean
   i04_negative_cases=$((i04_negative_cases + 1))
 
-  [[ "${i04_positive_cases}" -eq 3 ]] ||
+  [[ "${i04_positive_cases}" -eq 4 ]] ||
     fail "I04 closure positive case count mismatch: ${i04_positive_cases}"
-  [[ "${i04_negative_cases}" -eq 22 ]] ||
+  [[ "${i04_negative_cases}" -eq 42 ]] ||
     fail "I04 closure negative case count mismatch: ${i04_negative_cases}"
   printf '%s\n' \
     "W1I04ClosureContractTests = PASS" \
