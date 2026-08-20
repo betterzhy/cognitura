@@ -106,8 +106,23 @@ if ! tracked_output="$(verify_markdown_tree "${tracked_root}" tracked 2>&1)"; th
   fail "untracked Markdown affected tracked-only validation: ${tracked_output}"
 fi
 
+masked_target_root="${test_tmp_root}/masked-target"
+mkdir -p "${masked_target_root}"
+git -C "${masked_target_root}" init -q
+printf '%s\n' '[missing](missing.md)' >"${masked_target_root}/README.md"
+git -C "${masked_target_root}" add README.md
+printf '%s\n' '# Untracked mask' >"${masked_target_root}/missing.md"
+if masked_target_output="$(verify_markdown_tree \
+  "${masked_target_root}" tracked 2>&1)"; then
+  fail "untracked target masked a broken tracked link"
+fi
+[[ "${masked_target_output}" == \
+   *"BROKEN_MARKDOWN_LINK: README.md -> missing.md"* ]] ||
+  fail "masked tracked link failed for the wrong reason: ${masked_target_output}"
+
 printf '%s\n' \
   "MarkdownLinkContractTests = PASS" \
   "CanonicalMarkdownLinks = PASS" \
   "BrokenLinkNegativeCases = 1" \
-  "UntrackedMarkdownIsolationCases = 1"
+  "UntrackedMarkdownIsolationCases = 1" \
+  "UntrackedTargetMaskingCases = 1"
