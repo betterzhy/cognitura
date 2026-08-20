@@ -345,8 +345,11 @@ w1_i03_closure_projection_paths=(
   "${w1_i03_card_path}"
   "${w1_i04_card_path}"
 )
-w1_i04_closure_origin_sha="f9bef5a7f45ccd104d65b475f8bdabc6d2e6b9db"
+w1_i04_closure_origin_sha="e5c882f072db62d22b4de32b0aacb1d720a02154"
 w1_i04_reviewed_candidate_sha="4594406e9fd8a9ac380c3b2b880fda67271790bc"
+w1_i04_rejected_closure_candidate_sha="eb6613e66d5ac1c03d033a814c2413cc0c883226"
+w1_i04_vsb_terminal_restore_sha="cc25439de8019a4434c2ab5aba8b32927240d8b4"
+w1_i04_vsb_execution_ledger_blob="9e47af9f6047f4586f960b1512098c6cb8efc864"
 w1_i04_closure_design_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i04-closure-successor-design.md"
 w1_i04_closure_plan_path="docs/superpowers/plans/2026-08-20-cognitura-w1-i04-closure-successor.md"
 w1_i05_card_path="docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md"
@@ -1081,12 +1084,22 @@ validate_w1_i03_closure_receipt() {
 validate_w1_i04_closure_governance_chain() {
   local tip="$1"
   local origin resolved_tip commit parent changed_paths path expected_path
+  local vsb_ledger_path="docs/task-cards/visual-style-baseline/execution-state.md"
   local commit_index=0
   origin="$(git -C "${repo_root}" rev-parse --verify \
     "${w1_i04_closure_origin_sha}^{commit}" 2>/dev/null)" ||
     fail "I04 closure origin commit is unavailable"
   [[ "${origin}" == "${w1_i04_closure_origin_sha}" ]] ||
     fail "I04 closure origin commit mismatch"
+  [[ "$(git -C "${repo_root}" rev-parse --verify \
+      "${w1_i04_vsb_terminal_restore_sha}^{commit}" 2>/dev/null)" == \
+      "${w1_i04_vsb_terminal_restore_sha}" ]] ||
+    fail "fixed VSB terminal restore snapshot identity mismatch"
+  [[ "$(git_tree_mode "${w1_i04_vsb_terminal_restore_sha}" "${vsb_ledger_path}")" == 100644 &&
+     "$(git -C "${repo_root}" rev-parse \
+       "${w1_i04_vsb_terminal_restore_sha}:${vsb_ledger_path}" 2>/dev/null)" == \
+       "${w1_i04_vsb_execution_ledger_blob}" ]] ||
+    fail "fixed VSB terminal restore ledger identity mismatch"
   resolved_tip="$(git -C "${repo_root}" rev-parse --verify "${tip}^{commit}" 2>/dev/null)" ||
     fail "I04 closure governance tip must resolve to a commit"
   git -C "${repo_root}" merge-base --is-ancestor "${origin}" "${resolved_tip}" ||
@@ -1102,8 +1115,21 @@ validate_w1_i04_closure_governance_chain() {
     "${w1_i04_closure_projection_paths[@]}" ||
     fail "I04 closure projection must remain unchanged before receipt"
   git -C "${repo_root}" diff --quiet "${origin}..${resolved_tip}" -- \
-    docs/task-cards/visual-style-baseline/execution-state.md ||
+    "${vsb_ledger_path}" ||
     fail "I04 closure governance must not change the VSB execution ledger"
+  for commit in "${w1_i04_reviewed_candidate_sha}" "${origin}" "${resolved_tip}"; do
+    [[ "$(git_tree_mode "${commit}" "${vsb_ledger_path}")" == 100644 &&
+       "$(git -C "${repo_root}" rev-parse \
+         "${commit}:${vsb_ledger_path}" 2>/dev/null)" == \
+         "${w1_i04_vsb_execution_ledger_blob}" ]] ||
+      fail "I04 closure VSB execution ledger identity mismatch"
+  done
+  git -C "${repo_root}" diff --quiet "${resolved_tip}" -- "${vsb_ledger_path}" ||
+    fail "working VSB execution ledger must match the fixed closure state"
+  [[ "$(git -C "${repo_root}" hash-object \
+      "${repo_root}/${vsb_ledger_path}" 2>/dev/null)" == \
+      "${w1_i04_vsb_execution_ledger_blob}" ]] ||
+    fail "working VSB execution ledger must match the fixed closure state"
 
   for commit in $(git -C "${repo_root}" rev-list --reverse \
     "${origin}..${resolved_tip}"); do
@@ -1133,7 +1159,13 @@ validate_w1_i04_closure_governance_chain() {
   require_git_tree_field "${resolved_tip}" "${w1_i04_closure_design_path}" \
     ClosureOriginSHA "${w1_i04_closure_origin_sha}"
   require_git_tree_field "${resolved_tip}" "${w1_i04_closure_design_path}" \
+    RejectedClosureCandidateSHA "${w1_i04_rejected_closure_candidate_sha}"
+  require_git_tree_field "${resolved_tip}" "${w1_i04_closure_design_path}" \
     ReviewedCandidateSHA "${w1_i04_reviewed_candidate_sha}"
+  require_git_tree_field "${resolved_tip}" "${w1_i04_closure_design_path}" \
+    VSBTerminalRestoreSHA "${w1_i04_vsb_terminal_restore_sha}"
+  require_git_tree_field "${resolved_tip}" "${w1_i04_closure_design_path}" \
+    VSBExecutionLedgerBlob "${w1_i04_vsb_execution_ledger_blob}"
   require_git_tree_field "${resolved_tip}" "${w1_i04_closure_design_path}" \
     TransitionKind I04_CLOSE_ADVANCE
 }
