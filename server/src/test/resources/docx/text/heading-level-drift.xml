@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Root</w:t></w:r></w:p>
+    <w:p><w:pPr><w:outlineLvl w:val="2"/></w:pPr><w:r><w:t>Skipped level</w:t></w:r></w:p>
+  </w:body>
+</w:document>
