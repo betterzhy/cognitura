@@ -148,7 +148,7 @@ class TableMergeProjectionTest {
         assertThatThrownBy(() -> new TableMergeProjection(
                         Integer.MAX_VALUE, 0, 1, 2, List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("TABLE_MERGE_COORDINATE_INVALID");
+                .hasMessage("TABLE_MERGE_COVERAGE_INVALID");
     }
 
     private void assertTerminal(String fixture, String detail) throws IOException {

@@ -1,6 +1,7 @@
 package io.cognitura.source.docx.table;
 
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -17,16 +18,17 @@ public record TableTextEvidence(
         }
         inlineImageOffsets = List.copyOf(
                 Objects.requireNonNull(inlineImageOffsets, "inlineImageOffsets"));
-        int previous = -1;
-        for (Integer offset : inlineImageOffsets) {
-            if (offset == null
-                    || offset <= previous
-                    || offset < 0
-                    || offset >= text.length()
-                    || text.charAt(offset) != '\uFFFC') {
-                throw new IllegalArgumentException("TABLE_IMAGE_ANCHOR_OFFSET_INVALID");
+        List<Integer> expectedOffsets = new ArrayList<>();
+        int codePointOffset = 0;
+        for (int charOffset = 0; charOffset < text.length(); codePointOffset++) {
+            int codePoint = text.codePointAt(charOffset);
+            if (codePoint == 0xFFFC) {
+                expectedOffsets.add(codePointOffset);
             }
-            previous = offset;
+            charOffset += Character.charCount(codePoint);
+        }
+        if (!inlineImageOffsets.equals(expectedOffsets)) {
+            throw new IllegalArgumentException("TABLE_IMAGE_ANCHOR_BIJECTION_INVALID");
         }
     }
 }

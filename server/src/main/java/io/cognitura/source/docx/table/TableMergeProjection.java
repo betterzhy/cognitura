@@ -11,6 +11,8 @@ public record TableMergeProjection(
         int columnSpan,
         List<GridPosition> coveredPositions) {
 
+    private static final long MAX_MERGE_AREA = 1_000_000L;
+
     public TableMergeProjection {
         if (anchorRow < 0 || anchorColumn < 0 || rowSpan < 1 || columnSpan < 1) {
             throw new IllegalArgumentException("TABLE_MERGE_COORDINATE_INVALID");
@@ -18,13 +20,22 @@ public record TableMergeProjection(
         if (rowSpan == 1 && columnSpan == 1) {
             throw new IllegalArgumentException("TABLE_MERGE_SPAN_REQUIRED");
         }
+        long rowEnd = (long) anchorRow + rowSpan;
+        long columnEnd = (long) anchorColumn + columnSpan;
+        if (rowEnd > (long) Integer.MAX_VALUE + 1
+                || columnEnd > (long) Integer.MAX_VALUE + 1) {
+            throw new IllegalArgumentException("TABLE_MERGE_COORDINATE_INVALID");
+        }
+        if ((long) rowSpan * columnSpan > MAX_MERGE_AREA) {
+            throw new IllegalArgumentException("TABLE_MERGE_SPAN_EXCEEDED");
+        }
         coveredPositions = List.copyOf(
                 Objects.requireNonNull(coveredPositions, "coveredPositions"));
         List<GridPosition> expected = new ArrayList<>();
-        for (int row = anchorRow; row < anchorRow + rowSpan; row++) {
-            for (int column = anchorColumn; column < anchorColumn + columnSpan; column++) {
+        for (long row = anchorRow; row < rowEnd; row++) {
+            for (long column = anchorColumn; column < columnEnd; column++) {
                 if (row != anchorRow || column != anchorColumn) {
-                    expected.add(new GridPosition(row, column));
+                    expected.add(new GridPosition((int) row, (int) column));
                 }
             }
         }
@@ -36,12 +47,14 @@ public record TableMergeProjection(
     public static TableMergeProjection fromCell(TableCellCandidate cell) {
         Objects.requireNonNull(cell, "cell");
         List<GridPosition> covered = new ArrayList<>();
-        for (int row = cell.rowIndex(); row < cell.rowIndex() + cell.rowSpan(); row++) {
-            for (int column = cell.columnIndex();
-                    column < cell.columnIndex() + cell.columnSpan();
+        long rowEnd = (long) cell.rowIndex() + cell.rowSpan();
+        long columnEnd = (long) cell.columnIndex() + cell.columnSpan();
+        for (long row = cell.rowIndex(); row < rowEnd; row++) {
+            for (long column = cell.columnIndex();
+                    column < columnEnd;
                     column++) {
                 if (row != cell.rowIndex() || column != cell.columnIndex()) {
-                    covered.add(new GridPosition(row, column));
+                    covered.add(new GridPosition((int) row, (int) column));
                 }
             }
         }

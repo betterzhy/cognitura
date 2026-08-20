@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -53,9 +54,14 @@ public final class TableFidelityParser {
             }
             requireWordNamespace(element, "UNSUPPORTED_DOCX_TABLE_FLOW_NAMESPACE");
             switch (element.getLocalName()) {
-                case "p" -> sourceOrder++;
-                case "tbl" -> tables.add(parseTable(
-                        element, elementIndexes.get(element), sourceOrder++));
+                case "p" -> sourceOrder = advanceSourceOrder(
+                        sourceOrder, countInlineImageElements(element));
+                case "tbl" -> {
+                    TableBlockCandidate table = parseTable(
+                            element, elementIndexes.get(element), sourceOrder);
+                    tables.add(table);
+                    sourceOrder = advanceSourceOrder(sourceOrder, countInlineImages(table));
+                }
                 case "sectPr" -> {
                     // Section metadata is not a source block.
                 }
@@ -89,6 +95,7 @@ public final class TableFidelityParser {
         if (rows.isEmpty()) {
             throw terminal("TABLE_ROW_REQUIRED");
         }
+        TableBlockCandidate.requireGridWithinLimits(rows.size(), columnCount);
 
         List<MutableCell> cells = new ArrayList<>();
         Map<Integer, ActiveVerticalMerge> activeMerges = Map.of();
@@ -240,8 +247,7 @@ public final class TableFidelityParser {
         }
         String text = evidence.stream()
                 .map(TableTextEvidence::text)
-                .reduce((left, right) -> left + "\n" + right)
-                .orElseThrow();
+                .collect(Collectors.joining("\n"));
         return new ParsedCellText(text, List.copyOf(evidence));
     }
 
@@ -264,10 +270,15 @@ public final class TableFidelityParser {
         }
         String normalized = normalizeText(text.toString());
         List<Integer> normalizedImageOffsets = new ArrayList<>();
-        for (int index = 0; index < normalized.length(); index++) {
-            if (normalized.charAt(index) == INLINE_IMAGE_ANCHOR) {
-                normalizedImageOffsets.add(index);
+        int codePointOffset = 0;
+        for (int charOffset = 0;
+                charOffset < normalized.length();
+                codePointOffset++) {
+            int codePoint = normalized.codePointAt(charOffset);
+            if (codePoint == INLINE_IMAGE_ANCHOR) {
+                normalizedImageOffsets.add(codePointOffset);
             }
+            charOffset += Character.charCount(codePoint);
         }
         return new TableTextEvidence(paragraphIndex, normalized, normalizedImageOffsets);
     }
@@ -312,7 +323,11 @@ public final class TableFidelityParser {
     private static void appendTextElement(Element textElement, StringBuilder text) {
         for (Node node = textElement.getFirstChild(); node != null; node = node.getNextSibling()) {
             if (node.getNodeType() == Node.TEXT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE) {
-                text.append(node.getNodeValue());
+                String value = node.getNodeValue();
+                if (value.indexOf(INLINE_IMAGE_ANCHOR) >= 0) {
+                    throw terminal("TABLE_LITERAL_IMAGE_PLACEHOLDER_FORBIDDEN");
+                }
+                text.append(value);
                 continue;
             }
             if (node.getNodeType() == Node.COMMENT_NODE
@@ -440,6 +455,48 @@ public final class TableFidelityParser {
     private static String normalizeText(String text) {
         return Normalizer.normalize(
                 text.replace("\r\n", "\n").replace('\r', '\n'), Normalizer.Form.NFC);
+    }
+
+    private static int countInlineImageElements(Element container) {
+        int count = 0;
+        ArrayDeque<Element> pending = new ArrayDeque<>();
+        pending.push(container);
+        while (!pending.isEmpty()) {
+            Element element = pending.pop();
+            if (WORD_NAMESPACE.equals(element.getNamespaceURI())
+                    && ("drawing".equals(element.getLocalName())
+                            || "pict".equals(element.getLocalName()))) {
+                count++;
+                continue;
+            }
+            for (Node node = element.getLastChild();
+                    node != null;
+                    node = node.getPreviousSibling()) {
+                if (node instanceof Element child) {
+                    pending.push(child);
+                }
+            }
+        }
+        return count;
+    }
+
+    private static int countInlineImages(TableBlockCandidate table) {
+        long count = table.cells().stream()
+                .flatMap(cell -> cell.textEvidence().stream())
+                .mapToLong(evidence -> evidence.inlineImageOffsets().size())
+                .sum();
+        if (count > Integer.MAX_VALUE) {
+            throw terminal("TABLE_IMAGE_ANCHOR_COUNT_EXCEEDED");
+        }
+        return (int) count;
+    }
+
+    private static int advanceSourceOrder(int current, int inlineImageCount) {
+        long next = (long) current + 1 + inlineImageCount;
+        if (next > Integer.MAX_VALUE) {
+            throw terminal("SOURCE_ORDER_EXCEEDED");
+        }
+        return (int) next;
     }
 
     private static SourceDomainException terminal(String detail) {

@@ -13,6 +13,9 @@ public record TableBlockCandidate(
         List<TableCellCandidate> cells,
         List<TableMergeProjection> merges) {
 
+    private static final int MAX_GRID_DIMENSION = 10_000;
+    private static final long MAX_GRID_AREA = 1_000_000L;
+
     public TableBlockCandidate {
         if (sourceOrder < 0 || sourceElementIndex < 0) {
             throw new IllegalArgumentException("TABLE_SOURCE_POSITION_INVALID");
@@ -23,6 +26,7 @@ public record TableBlockCandidate(
         if (rowCount < 1 || columnCount < 1) {
             throw new IllegalArgumentException("TABLE_GRID_SIZE_INVALID");
         }
+        requireGridWithinLimits(rowCount, columnCount);
         cells = List.copyOf(Objects.requireNonNull(cells, "cells"));
         merges = List.copyOf(Objects.requireNonNull(merges, "merges"));
         if (cells.isEmpty()) {
@@ -30,16 +34,16 @@ public record TableBlockCandidate(
         }
 
         boolean[][] occupied = new boolean[rowCount][columnCount];
-        int previousAnchor = -1;
+        long previousAnchor = -1;
         List<TableMergeProjection> expectedMerges = new ArrayList<>();
         for (TableCellCandidate cell : cells) {
-            int anchor = cell.rowIndex() * columnCount + cell.columnIndex();
+            long anchor = (long) cell.rowIndex() * columnCount + cell.columnIndex();
             if (anchor <= previousAnchor) {
                 throw new IllegalArgumentException("TABLE_CELL_ORDER_INVALID");
             }
             previousAnchor = anchor;
-            if (cell.rowIndex() + cell.rowSpan() > rowCount
-                    || cell.columnIndex() + cell.columnSpan() > columnCount) {
+            if (cell.rowIndex() > rowCount - cell.rowSpan()
+                    || cell.columnIndex() > columnCount - cell.columnSpan()) {
                 throw new IllegalArgumentException("TABLE_CELL_SPAN_OUT_OF_BOUNDS");
             }
             for (int row = cell.rowIndex(); row < cell.rowIndex() + cell.rowSpan(); row++) {
@@ -65,6 +69,15 @@ public record TableBlockCandidate(
         }
         if (!merges.equals(expectedMerges)) {
             throw new IllegalArgumentException("TABLE_MERGE_PROJECTION_MISMATCH");
+        }
+    }
+
+    static void requireGridWithinLimits(int rowCount, int columnCount) {
+        long area = (long) rowCount * columnCount;
+        if (rowCount > MAX_GRID_DIMENSION
+                || columnCount > MAX_GRID_DIMENSION
+                || area > MAX_GRID_AREA) {
+            throw new IllegalArgumentException("TABLE_GRID_SIZE_EXCEEDED");
         }
     }
 }
