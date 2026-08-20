@@ -11,8 +11,15 @@
   <w:style w:type="paragraph" w:styleId="BodyText">
     <w:name w:val="Body Text"/>
   </w:style>
-  <w:style w:type="paragraph" w:styleId="PageBreakBody">
-    <w:name w:val="Page Break Body"/>
+  <w:style w:type="paragraph" w:styleId="PageBreakBase">
+    <w:name w:val="Page Break Base"/>
     <w:pPr><w:pageBreakBefore/></w:pPr>
   </w:style>
+  <w:style w:type="paragraph" w:styleId="PageBreakBody">
+    <w:name w:val="Page Break Body"/>
+    <w:basedOn w:val="PageBreakBase"/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="CycleA"><w:basedOn w:val="CycleB"/></w:style>
+  <w:style w:type="paragraph" w:styleId="CycleB"><w:basedOn w:val="CycleA"/></w:style>
+  <w:style w:type="paragraph" w:styleId="MissingBase"><w:basedOn w:val="AbsentStyle"/></w:style>
 </w:styles>

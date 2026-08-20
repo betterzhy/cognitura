@@ -8,11 +8,13 @@ import java.text.Normalizer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -97,7 +99,7 @@ public final class TextListSectionParser {
                 ? null
                 : optionalOnOff(onlyDirectChild(properties, "pageBreakBefore", false));
         if (Boolean.TRUE.equals(directPageBreakBefore)
-                || (directPageBreakBefore == null && style.pageBreakBefore())) {
+                || (directPageBreakBefore == null && Boolean.TRUE.equals(style.pageBreakBefore()))) {
             throw terminal("UNSUPPORTED_DOCX_FLOW:paragraph/pageBreakBefore");
         }
         Integer directOutlineLevel = properties == null
@@ -219,6 +221,10 @@ public final class TextListSectionParser {
         for (Node node = textElement.getFirstChild(); node != null; node = node.getNextSibling()) {
             if (node.getNodeType() == Node.TEXT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE) {
                 text.append(node.getNodeValue());
+                continue;
+            }
+            if (node.getNodeType() == Node.COMMENT_NODE
+                    || node.getNodeType() == Node.PROCESSING_INSTRUCTION_NODE) {
                 continue;
             }
             throw terminal("UNSUPPORTED_DOCX_FLOW:run/t/" + node.getNodeName());
@@ -369,8 +375,9 @@ public final class TextListSectionParser {
                 detail == null || detail.isBlank() ? "DOCX_TEXT_PARSER_INVARIANT_FAILED" : detail);
     }
 
-    private record StyleDefinition(String styleName, Integer headingLevel, boolean pageBreakBefore) {
-        private static final StyleDefinition NONE = new StyleDefinition(null, null, false);
+    private record StyleDefinition(
+            String styleName, Integer headingLevel, Boolean pageBreakBefore, String basedOn) {
+        private static final StyleDefinition NONE = new StyleDefinition(null, null, false, null);
     }
 
     private record Styles(Map<String, StyleDefinition> definitions) {
@@ -380,7 +387,33 @@ public final class TextListSectionParser {
         }
 
         private StyleDefinition definition(String styleId) {
-            return styleId == null ? StyleDefinition.NONE : definitions.getOrDefault(styleId, StyleDefinition.NONE);
+            if (styleId == null || !definitions.containsKey(styleId)) {
+                return StyleDefinition.NONE;
+            }
+            return resolve(styleId, new HashSet<>());
+        }
+
+        private StyleDefinition resolve(String styleId, Set<String> resolving) {
+            StyleDefinition direct = definitions.get(styleId);
+            if (direct == null) {
+                throw terminal("PARAGRAPH_STYLE_BASE_MISSING:" + styleId);
+            }
+            if (!resolving.add(styleId)) {
+                throw terminal("PARAGRAPH_STYLE_INHERITANCE_CYCLE:" + styleId);
+            }
+            StyleDefinition inherited = direct.basedOn() == null
+                    ? StyleDefinition.NONE
+                    : resolve(direct.basedOn(), resolving);
+            resolving.remove(styleId);
+            return new StyleDefinition(
+                    direct.styleName(),
+                    direct.headingLevel() == null
+                            ? inherited.headingLevel()
+                            : direct.headingLevel(),
+                    direct.pageBreakBefore() == null
+                            ? inherited.pageBreakBefore()
+                            : direct.pageBreakBefore(),
+                    null);
         }
 
         private static Styles parse(Document document) {
@@ -402,6 +435,7 @@ public final class TextListSectionParser {
                     throw terminal("PARAGRAPH_STYLE_ID_REQUIRED");
                 }
                 String styleName = optionalVal(onlyDirectChild(style, "name", false));
+                String basedOn = optionalVal(onlyDirectChild(style, "basedOn", false));
                 Element properties = onlyDirectChild(style, "pPr", false);
                 Integer outlineLevel = properties == null
                         ? null
@@ -414,7 +448,8 @@ public final class TextListSectionParser {
                         new StyleDefinition(
                                 styleName,
                                 outlineLevel == null ? null : headingLevel(outlineLevel),
-                                Boolean.TRUE.equals(pageBreakBefore)));
+                                pageBreakBefore,
+                                basedOn));
                 if (previous != null) {
                     throw terminal("DUPLICATE_PARAGRAPH_STYLE_ID");
                 }
@@ -423,7 +458,8 @@ public final class TextListSectionParser {
         }
     }
 
-    private record MarkerPattern(String format, String levelText, int start) {}
+    private record MarkerPattern(
+            String format, String levelText, int start, Integer restartAfterLevel) {}
 
     private record NumberingInstance(String abstractId, Map<Integer, Integer> startOverrides) {}
 
@@ -461,6 +497,16 @@ public final class TextListSectionParser {
                 }
             }
             return marker;
+        }
+
+        private void restartDisplayCounters(
+                String numId, int currentLevel, Map<Integer, Integer> displayOrdinals) {
+            for (Map.Entry<Integer, MarkerPattern> entry :
+                    levelsByNumId.getOrDefault(numId, Map.of()).entrySet()) {
+                if (Objects.equals(entry.getValue().restartAfterLevel(), currentLevel)) {
+                    displayOrdinals.remove(entry.getKey());
+                }
+            }
         }
 
         private static Numbering parse(Document document) {
@@ -505,7 +551,10 @@ public final class TextListSectionParser {
                     effectiveLevels.put(
                             override.getKey(),
                             new MarkerPattern(
-                                    inherited.format(), inherited.levelText(), override.getValue()));
+                                    inherited.format(),
+                                    inherited.levelText(),
+                                    override.getValue(),
+                                    inherited.restartAfterLevel()));
                 }
                 levelsByNumId.put(entry.getKey(), Map.copyOf(effectiveLevels));
             }
@@ -569,11 +618,31 @@ public final class TextListSectionParser {
                 int start = startElement == null
                         ? 1
                         : requiredNonNegativeInteger(requiredVal(startElement), "LIST_START_INVALID");
-                if (levels.put(itemLevel, new MarkerPattern(format, levelText, start)) != null) {
+                Element restartElement = onlyDirectChild(level, "lvlRestart", false);
+                Integer restartAfterLevel = defaultRestartAfterLevel(itemLevel, restartElement);
+                if (levels.put(
+                                itemLevel,
+                                new MarkerPattern(format, levelText, start, restartAfterLevel))
+                        != null) {
                     throw terminal("DUPLICATE_NUMBERING_LEVEL");
                 }
             }
             return Map.copyOf(levels);
+        }
+
+        private static Integer defaultRestartAfterLevel(int itemLevel, Element restartElement) {
+            if (restartElement == null) {
+                return itemLevel == 0 ? null : itemLevel - 1;
+            }
+            int oneBasedRestartLevel = requiredNonNegativeInteger(
+                    requiredVal(restartElement), "LIST_RESTART_LEVEL_INVALID");
+            if (oneBasedRestartLevel == 0) {
+                return null;
+            }
+            if (oneBasedRestartLevel > itemLevel) {
+                throw terminal("LIST_RESTART_LEVEL_INVALID");
+            }
+            return oneBasedRestartLevel - 1;
         }
 
         private static String requiredWordAttribute(Element element, String localName) {
@@ -605,17 +674,20 @@ public final class TextListSectionParser {
                 nextSegmentByNumId.put(numId, segment + 1);
                 active = new ActiveList(numId, "num-" + numId + "-segment-" + segment);
             }
-            int ordinal = active.ordinals.getOrDefault(level, 0);
-            active.ordinals.put(level, ordinal + 1);
-            Map<Integer, Integer> currentOrdinals = new HashMap<>();
-            for (Map.Entry<Integer, Integer> entry : active.ordinals.entrySet()) {
-                currentOrdinals.put(entry.getKey(), entry.getValue() - 1);
+            int ordinal = active.itemOrdinals.getOrDefault(level, 0);
+            active.itemOrdinals.put(level, ordinal + 1);
+            numbering.restartDisplayCounters(numId, level, active.displayOrdinals);
+            int displayOrdinal = active.displayOrdinals.getOrDefault(level, 0);
+            active.displayOrdinals.put(level, displayOrdinal + 1);
+            Map<Integer, Integer> currentDisplayOrdinals = new HashMap<>();
+            for (Map.Entry<Integer, Integer> entry : active.displayOrdinals.entrySet()) {
+                currentDisplayOrdinals.put(entry.getKey(), entry.getValue() - 1);
             }
             return new ListSemantics(
                     active.instanceId,
                     level,
                     ordinal,
-                    numbering.markerText(numId, level, currentOrdinals));
+                    numbering.markerText(numId, level, currentDisplayOrdinals));
         }
 
         private void endSegment() {
@@ -627,7 +699,8 @@ public final class TextListSectionParser {
 
         private final String numId;
         private final String instanceId;
-        private final Map<Integer, Integer> ordinals = new HashMap<>();
+        private final Map<Integer, Integer> itemOrdinals = new HashMap<>();
+        private final Map<Integer, Integer> displayOrdinals = new HashMap<>();
 
         private ActiveList(String numId, String instanceId) {
             this.numId = numId;

@@ -155,6 +155,67 @@ class TextListSectionParserTest {
     }
 
     @Test
+    void restartsDisplayMarkerAfterTheConfiguredHigherLevelWithoutResettingItemOrdinal()
+            throws IOException {
+        try (SafeDocxPackage safePackage =
+                openFixture("list-restart.xml", "numbering-default-restart.xml")) {
+            List<DocumentBlockCandidate> blocks = new TextListSectionParser().parse(safePackage);
+
+            assertThat(blocks).hasSize(4);
+            assertThat(blocks.get(1).listSemantics())
+                    .isEqualTo(new ListSemantics("num-7-segment-0", 1, 0, "1.1."));
+            assertThat(blocks.get(3).listSemantics())
+                    .isEqualTo(new ListSemantics("num-7-segment-0", 1, 1, "2.1."));
+        }
+    }
+
+    @Test
+    void preservesDisplayCounterWhenLevelRestartIsExplicitlyDisabled() throws IOException {
+        try (SafeDocxPackage safePackage =
+                openFixture("list-restart.xml", "numbering-no-restart.xml")) {
+            List<DocumentBlockCandidate> blocks = new TextListSectionParser().parse(safePackage);
+
+            assertThat(blocks).hasSize(4);
+            assertThat(blocks.get(3).listSemantics())
+                    .isEqualTo(new ListSemantics("num-7-segment-0", 1, 1, "2.2."));
+        }
+    }
+
+    @Test
+    void rejectsUnsupportedFullLevelNumberingOverride() throws IOException {
+        try (SafeDocxPackage safePackage =
+                openFixture("list-start-override.xml", "numbering-full-level-override.xml")) {
+            assertThatThrownBy(() -> new TextListSectionParser().parse(safePackage))
+                    .isInstanceOf(SourceDomainException.class)
+                    .satisfies(error -> assertThat(((SourceDomainException) error).code())
+                            .isEqualTo(SourceDomainException.Code.PARSER_TERMINAL_FAILURE))
+                    .hasMessageContaining("UNSUPPORTED_NUMBERING_LEVEL_OVERRIDE");
+        }
+    }
+
+    @Test
+    void preservesVisibleTextAcrossNonSemanticXmlMetadata() throws IOException {
+        try (SafeDocxPackage safePackage = openFixture("text-metadata.xml")) {
+            List<DocumentBlockCandidate> blocks = new TextListSectionParser().parse(safePackage);
+
+            assertThat(blocks).singleElement().extracting(DocumentBlockCandidate::text).isEqualTo("AB");
+        }
+    }
+
+    @Test
+    void rejectsCyclicOrMissingStyleInheritance() throws IOException {
+        for (String fixture : List.of("style-cycle.xml", "style-missing-base.xml")) {
+            try (SafeDocxPackage safePackage = openFixture(fixture)) {
+                assertThatThrownBy(() -> new TextListSectionParser().parse(safePackage))
+                        .isInstanceOf(SourceDomainException.class)
+                        .satisfies(error -> assertThat(((SourceDomainException) error).code())
+                                .isEqualTo(SourceDomainException.Code.PARSER_TERMINAL_FAILURE))
+                        .hasMessageContaining("PARAGRAPH_STYLE_");
+            }
+        }
+    }
+
+    @Test
     void rejectsDeepUnsupportedFlowWithoutExhaustingTheThreadStack() throws IOException {
         int depth = 12_000;
         String documentXml = """
