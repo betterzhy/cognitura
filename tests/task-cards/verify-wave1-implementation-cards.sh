@@ -1458,8 +1458,7 @@ run_w1_i04_closure_contract() {
   git -C "${fixture_root}" mv \
     docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.md \
     docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.moved
-  git -C "${fixture_root}" add -A -- "${i04_closure_projection_paths[@]}" \
-    docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.moved
+  git -C "${fixture_root}" add -A -- .
   git -C "${fixture_root}" commit -qm "test: rename I04 closure receipt path"
   expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
     "$(git -C "${fixture_root}" rev-parse HEAD)" \
