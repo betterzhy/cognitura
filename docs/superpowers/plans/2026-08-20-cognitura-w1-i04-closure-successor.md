@@ -8,7 +8,7 @@ the unchanged exact-eleven receipt.
 
 ## Constraints
 
-- Origin: `eb6613e66d5ac1c03d033a814c2413cc0c883226`.
+- Origin: `e5c882f072db62d22b4de32b0aacb1d720a02154`.
 - Rejected predecessor candidate: `eb6613e66d5ac1c03d033a814c2413cc0c883226`
   (`NO_GO / P1=2`), retained immutably.
 - Product review candidate: `4594406e9fd8a9ac380c3b2b880fda67271790bc`.
