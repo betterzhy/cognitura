@@ -4,7 +4,7 @@
 CanonicalProjectName = Cognitura
 DesignKind = ONE_TIME_W1_I04_CLOSURE_SUCCESSOR
 TransitionKind = I04_CLOSE_ADVANCE
-ClosureOriginSHA = eb6613e66d5ac1c03d033a814c2413cc0c883226
+ClosureOriginSHA = e5c882f072db62d22b4de32b0aacb1d720a02154
 RejectedClosureCandidateSHA = eb6613e66d5ac1c03d033a814c2413cc0c883226
 ReviewedCandidateSHA = 4594406e9fd8a9ac380c3b2b880fda67271790bc
 VSBTerminalRestoreSHA = cc25439de8019a4434c2ab5aba8b32927240d8b4
@@ -29,6 +29,10 @@ only accepts the terminal receipt or its exact Wave 1 restore, and its focused m
 required mutation killers. The earlier predecessor design, plans, RED commits and rejected
 candidate remain historical evidence before `ClosureOriginSHA`; none is amended or replayed as the
 new successor governance chain.
+
+The intervening tests-only commits are also immutable RED/fixture-repair evidence before the final
+`ClosureOriginSHA`. The final successor starts only after the corrected 4-positive/49-negative test
+body is complete, so each of the four governed paths is touched exactly once after the origin.
 
 All product, receipt, review, authorization, copy-classifier and test semantics from the predecessor
 design remain authoritative without change. In particular, the reviewed product candidate remains
