@@ -2220,6 +2220,9 @@ w1_i05_xml_copy_repair_origin_sha="0f28f0802a894d3e3af127751b3ddddaab8ee840"
 w1_i05_xml_copy_repair_base_sha="f25b392edfb71ba634aa96ad815816eb7a8658fa"
 w1_i05_xml_copy_repair_spec_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i05-xml-copy-inference-repair.md"
 w1_i05_xml_copy_repair_spec_sha="5003776809d2354acf586d767f14f362eb4b612e"
+w1_i05_xml_copy_rejected_test_sha="803642d1a4b1172f8c48df98b3dfb9c36e646c49"
+w1_i05_xml_copy_correction_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i05-xml-copy-fixture-correction.md"
+w1_i05_xml_copy_correction_sha="86c46d9239155b6694e678abd637a2470367411f"
 
 new_w1_i05_xml_copy_repair_fixture() {
   local fixture_root="$1"
@@ -2265,8 +2268,14 @@ commit_w1_i05_xml_copy_repair_spec() {
 complete_w1_i05_xml_copy_repair_after_spec() {
   local fixture_root="$1"
   commit_w1_i05_xml_copy_repair_path "${fixture_root}" \
+    "${w1_i05_repair_test_path}" "${w1_i05_xml_copy_rejected_test_sha}" \
+    "test: materialize rejected I05 XML copy repair contract"
+  commit_w1_i05_xml_copy_repair_path "${fixture_root}" \
+    "${w1_i05_xml_copy_correction_path}" "${w1_i05_xml_copy_correction_sha}" \
+    "test: materialize I05 XML copy fixture correction"
+  commit_w1_i05_xml_copy_repair_path "${fixture_root}" \
     "${w1_i05_repair_test_path}" WORKTREE \
-    "test: materialize I05 XML copy repair contract"
+    "test: materialize corrected I05 XML copy repair contract"
   commit_w1_i05_xml_copy_repair_path "${fixture_root}" \
     "${w1_i05_repair_verifier_path}" WORKTREE \
     "test: materialize I05 XML copy repair verifier"
@@ -2350,7 +2359,7 @@ run_w1_i05_xml_copy_repair_contract() {
   git -C "${fixture_root}" cherry-pick -n \
     0e56cc854052b175f9389f7461912dab5b296c10
   git -C "${fixture_root}" commit -qm "test: substitute I05 implementation identity"
-  git -C "${fixture_root}" cherry-pick -q \
+  git -C "${fixture_root}" cherry-pick \
     0f28f0802a894d3e3af127751b3ddddaab8ee840
   commit_w1_i05_xml_copy_repair_spec "${fixture_root}"
   complete_w1_i05_xml_copy_repair_after_spec "${fixture_root}"
