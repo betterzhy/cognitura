@@ -1765,70 +1765,261 @@ I04ClosureUnknown = FORBIDDEN
     "W1I04ClosureNegativeCases = ${i04_negative_cases}"
 }
 
-run_w1_i05_verifier_recovery_contract() {
-  local fixture_root="${test_tmp_root}/w1-i05-verifier-recovery"
-  local fixture_verifier
-  local output
-  local recovery_path
-  local recovery_mode
-  local recovery_test_count=0
-  local rejected_test_candidate_sha="4561f6de9bd61a85ad806f32608cd76288e9e9bc"
-  local recovery_paths=(
-    tests/ci/verify-markdown-links.sh
-    docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-design.md
-    docs/superpowers/plans/2026-08-20-cognitura-w1-i05-verifier-recovery.md
-    tests/task-cards/verify-wave1-implementation-cards.sh
-    docs/superpowers/specs/2026-08-20-cognitura-w1-i05-verifier-recovery-correction.md
-    tests/task-cards/verify-wave1-implementation-cards.sh
-    scripts/verify-wave1-implementation-cards
-  )
+w1_i05_repair_origin_sha="2fa4e067a213be03660384b4b32a9cb73c0ad64d"
+w1_i05_repair_spec_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i05-recovery-review-repair.md"
+w1_i05_markdown_path="tests/ci/verify-markdown-links.sh"
+w1_i05_repair_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
+w1_i05_repair_verifier_path="scripts/verify-wave1-implementation-cards"
+w1_i05_markdown_red_sha="a4d7173b9bfe07238db4f5427f3710bad40ba906"
+w1_i05_markdown_green_sha="c5cafcdfb27ea37ca7639127ee5eed23f42467f5"
 
+new_w1_i05_repair_fixture() {
+  local fixture_root="$1"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach \
-    ac42f26230cec348f3933400d8cd581c6e27970d
+  git -C "${fixture_root}" checkout -q --detach "${w1_i05_repair_origin_sha}"
+}
 
-  for recovery_path in "${recovery_paths[@]:1}"; do
-    mkdir -p "${fixture_root}/$(dirname "${recovery_path}")"
-    if [[ "${recovery_path}" == \
-          tests/task-cards/verify-wave1-implementation-cards.sh ]]; then
-      recovery_test_count=$((recovery_test_count + 1))
-      if [[ "${recovery_test_count}" -eq 1 ]]; then
-        git -C "${repo_root}" show \
-          "${rejected_test_candidate_sha}:${recovery_path}" > \
-          "${fixture_root}/${recovery_path}"
-      else
-        cp "${repo_root}/${recovery_path}" "${fixture_root}/${recovery_path}"
-      fi
-    else
-      cp "${repo_root}/${recovery_path}" "${fixture_root}/${recovery_path}"
-    fi
-    recovery_mode=644
-    case "${recovery_path}" in
-      tests/ci/*|tests/task-cards/*|scripts/*) recovery_mode=755 ;;
-    esac
-    chmod "${recovery_mode}" "${fixture_root}/${recovery_path}"
-    if git -C "${fixture_root}" diff --quiet -- "${recovery_path}"; then
-      printf '%s\n' '# fixture-only recovery RED' >> \
-        "${fixture_root}/${recovery_path}"
-    fi
-    git -C "${fixture_root}" add "${recovery_path}"
-    git -C "${fixture_root}" commit -qm \
-      "test: materialize W1-I05 verifier recovery ${recovery_path}"
-  done
-
-  fixture_verifier="${fixture_root}/scripts/verify-wave1-implementation-cards"
-  if ! output="$("${fixture_verifier}" \
-    --repo-root "${fixture_root}" \
-    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
-    fail "legal W1-I05 verifier recovery was rejected: ${output}"
+commit_w1_i05_repair_path() {
+  local fixture_root="$1"
+  local path="$2"
+  local source_commit="$3"
+  local message="$4"
+  local mode=644
+  mkdir -p "${fixture_root}/$(dirname "${path}")"
+  if [[ "${source_commit}" == WORKTREE ]]; then
+    cp "${repo_root}/${path}" "${fixture_root}/${path}"
+  else
+    git -C "${repo_root}" show "${source_commit}:${path}" > \
+      "${fixture_root}/${path}"
   fi
-  assert_contains "${output}" "Wave1ImplementationTaskCardValidation = PASS"
-  assert_contains "${output}" "ActiveTaskCard = W1-I05"
-  assert_contains "${output}" "W1I05VerifierRecoveryStatus = PASS"
+  case "${path}" in
+    tests/*|scripts/*) mode=755 ;;
+  esac
+  chmod "${mode}" "${fixture_root}/${path}"
+  if git -C "${fixture_root}" diff --quiet -- "${path}"; then
+    printf '%s\n' '# fixture-only repair RED' >> "${fixture_root}/${path}"
+  fi
+  git -C "${fixture_root}" add "${path}"
+  git -C "${fixture_root}" commit -qm "${message}"
+}
 
+commit_w1_i05_repair_spec() {
+  commit_w1_i05_repair_path "$1" "${w1_i05_repair_spec_path}" WORKTREE \
+    "test: materialize W1-I05 repair authority"
+}
+
+commit_w1_i05_markdown_red() {
+  commit_w1_i05_repair_path "$1" "${w1_i05_markdown_path}" \
+    "${w1_i05_markdown_red_sha}" "test: materialize Markdown masking RED"
+}
+
+commit_w1_i05_markdown_green() {
+  commit_w1_i05_repair_path "$1" "${w1_i05_markdown_path}" \
+    "${w1_i05_markdown_green_sha}" "test: materialize Markdown masking GREEN"
+}
+
+commit_w1_i05_repair_test() {
+  commit_w1_i05_repair_path "$1" "${w1_i05_repair_test_path}" WORKTREE \
+    "test: materialize W1-I05 repair contract"
+}
+
+commit_w1_i05_repair_verifier() {
+  commit_w1_i05_repair_path "$1" "${w1_i05_repair_verifier_path}" WORKTREE \
+    "test: materialize W1-I05 repair verifier"
+}
+
+complete_w1_i05_repair_after_spec() {
+  local fixture_root="$1"
+  commit_w1_i05_markdown_red "${fixture_root}"
+  commit_w1_i05_markdown_green "${fixture_root}"
+  commit_w1_i05_repair_test "${fixture_root}"
+  commit_w1_i05_repair_verifier "${fixture_root}"
+}
+
+build_legal_w1_i05_repair_fixture() {
+  local fixture_root="$1"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  complete_w1_i05_repair_after_spec "${fixture_root}"
+}
+
+run_w1_i05_repair_verifier() {
+  local fixture_root="$1"
+  "${fixture_root}/${w1_i05_repair_verifier_path}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+expect_w1_i05_repair_failure() {
+  local fixture_root="$1"
+  local expected="$2"
+  local output
+  if output="$(run_w1_i05_repair_verifier "${fixture_root}" 2>&1)"; then
+    fail "invalid W1-I05 repair fixture unexpectedly passed: ${fixture_root}"
+  fi
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i05_verifier_recovery_contract() {
+  local fixture_root
+  local output
+  local positive_cases=0
+  local negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-legal"
+  build_legal_w1_i05_repair_fixture "${fixture_root}"
+  output="$(run_w1_i05_repair_verifier "${fixture_root}" 2>&1)" ||
+    fail "legal W1-I05 repair was rejected: ${output}"
+  assert_contains "${output}" "W1I05VerifierRecoveryStatus = PASS"
+  assert_contains "${output}" "W1I05RecoveryReviewRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  mkdir -p "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table"
+  printf '%s\n' 'package io.cognitura.source.docx.table;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java
+  git -C "${fixture_root}" commit -qm "test: add legal post-repair I05 descendant"
+  output="$(run_w1_i05_repair_verifier "${fixture_root}" 2>&1)" ||
+    fail "legal post-repair I05 descendant was rejected: ${output}"
+  assert_contains "${output}" "W1I05RecoveryReviewRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-wrong-first"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  printf '%s\n' 'wrong first' > "${fixture_root}/repair-outside.txt"
+  git -C "${fixture_root}" add repair-outside.txt
+  git -C "${fixture_root}" commit -qm "test: wrong first repair path"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  complete_w1_i05_repair_after_spec "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair paths must follow the fixed order"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-missing"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  commit_w1_i05_markdown_green "${fixture_root}"
+  commit_w1_i05_repair_test "${fixture_root}"
+  commit_w1_i05_repair_verifier "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair Markdown RED evidence mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-extra"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  printf '%s\n' 'extra' > "${fixture_root}/repair-extra.txt"
+  git -C "${fixture_root}" add repair-extra.txt
+  git -C "${fixture_root}" commit -qm "test: add extra repair path"
+  complete_w1_i05_repair_after_spec "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair paths must follow the fixed order"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-repeat"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  commit_w1_i05_markdown_red "${fixture_root}"
+  printf '%s\n' '# repeated repair' >> "${fixture_root}/${w1_i05_markdown_path}"
+  git -C "${fixture_root}" add "${w1_i05_markdown_path}"
+  git -C "${fixture_root}" commit -qm "test: repeat repair path"
+  commit_w1_i05_markdown_green "${fixture_root}"
+  commit_w1_i05_repair_test "${fixture_root}"
+  commit_w1_i05_repair_verifier "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair Markdown GREEN evidence mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-merge"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  git -C "${fixture_root}" switch -q -c repair-side
+  commit_w1_i05_markdown_red "${fixture_root}"
+  git -C "${fixture_root}" switch -q --detach HEAD^
+  git -C "${fixture_root}" merge -q --no-ff repair-side -m "test: merge repair RED"
+  commit_w1_i05_markdown_green "${fixture_root}"
+  commit_w1_i05_repair_test "${fixture_root}"
+  commit_w1_i05_repair_verifier "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair commit must have exactly one parent"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-copy"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  cp "${fixture_root}/${w1_i05_repair_spec_path}" \
+    "${fixture_root}/repair-spec-copy.md"
+  git -C "${fixture_root}" add repair-spec-copy.md
+  git -C "${fixture_root}" commit -qm "test: copy repair authority"
+  complete_w1_i05_repair_after_spec "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair commit must not rename or copy paths"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-mode"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  git -C "${repo_root}" show \
+    "${w1_i05_markdown_red_sha}:${w1_i05_markdown_path}" > \
+    "${fixture_root}/${w1_i05_markdown_path}"
+  chmod 644 "${fixture_root}/${w1_i05_markdown_path}"
+  git -C "${fixture_root}" add "${w1_i05_markdown_path}"
+  git -C "${fixture_root}" commit -qm "test: drift repair mode"
+  commit_w1_i05_markdown_green "${fixture_root}"
+  commit_w1_i05_repair_test "${fixture_root}"
+  commit_w1_i05_repair_verifier "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair path mode mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-nul"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  git -C "${repo_root}" show \
+    "${w1_i05_markdown_red_sha}:${w1_i05_markdown_path}" > \
+    "${fixture_root}/${w1_i05_markdown_path}"
+  printf '\0' >> "${fixture_root}/${w1_i05_markdown_path}"
+  git -C "${fixture_root}" add "${w1_i05_markdown_path}"
+  git -C "${fixture_root}" commit -qm "test: add repair NUL"
+  commit_w1_i05_markdown_green "${fixture_root}"
+  commit_w1_i05_repair_test "${fixture_root}"
+  commit_w1_i05_repair_verifier "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair path must not contain NUL"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-early-i05"
+  new_w1_i05_repair_fixture "${fixture_root}"
+  commit_w1_i05_repair_spec "${fixture_root}"
+  mkdir -p "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table"
+  printf '%s\n' 'package io.cognitura.source.docx.table;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java
+  git -C "${fixture_root}" commit -qm "test: add I05 before repair tip"
+  complete_w1_i05_repair_after_spec "${fixture_root}"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "W1-I05 review repair paths must follow the fixed order"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-repair-post-outside"
+  build_legal_w1_i05_repair_fixture "${fixture_root}"
+  printf '%s\n' 'outside' > "${fixture_root}/post-repair-outside.txt"
+  git -C "${fixture_root}" add post-repair-outside.txt
+  git -C "${fixture_root}" commit -qm "test: add post-repair outside path"
+  expect_w1_i05_repair_failure "${fixture_root}" \
+    "post-I04-closure descendant changed a path outside the W1-I05 WriteSet"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "W1-I05 repair positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 10 ]] ||
+    fail "W1-I05 repair negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I05VerifierRecoveryContractTests = PASS" \
-    "W1I05VerifierRecoveryPositiveCases = 1"
+    "W1I05VerifierRecoveryPositiveCases = ${positive_cases}" \
+    "W1I05VerifierRecoveryNegativeCases = ${negative_cases}"
 }
 
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
