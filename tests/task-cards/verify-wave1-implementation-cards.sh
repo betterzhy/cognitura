@@ -2036,6 +2036,186 @@ run_w1_i05_verifier_recovery_contract() {
     "W1I05VerifierRecoveryNegativeCases = ${negative_cases}"
 }
 
+w1_i05_literal_repair_origin_sha="083a969b8a7d1468d0274e1ce227a46ceb16db30"
+w1_i05_literal_repair_spec_path="docs/superpowers/specs/2026-08-20-cognitura-w1-i05-literal-pathspec-repair.md"
+w1_i05_literal_repair_spec_sha="88ce9a0"
+w1_i05_literal_repair_markdown_red_sha="9435114"
+w1_i05_literal_repair_markdown_green_sha="1c90804"
+
+new_w1_i05_literal_repair_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${w1_i05_literal_repair_origin_sha}"
+}
+
+commit_w1_i05_literal_repair_path() {
+  local fixture_root="$1"
+  local path="$2"
+  local source_commit="$3"
+  local message="$4"
+  local mode=644
+  mkdir -p "${fixture_root}/$(dirname "${path}")"
+  if [[ "${source_commit}" == WORKTREE ]]; then
+    cp "${repo_root}/${path}" "${fixture_root}/${path}"
+  else
+    git -C "${repo_root}" show "${source_commit}:${path}" > \
+      "${fixture_root}/${path}"
+  fi
+  case "${path}" in
+    tests/*|scripts/*) mode=755 ;;
+  esac
+  chmod "${mode}" "${fixture_root}/${path}"
+  if git -C "${fixture_root}" ls-files --error-unmatch -- \
+      "${path}" >/dev/null 2>&1 &&
+      git -C "${fixture_root}" diff --quiet -- "${path}"; then
+    printf '%s\n' '# literal-repair fixture materialization' >> \
+      "${fixture_root}/${path}"
+  fi
+  git -C "${fixture_root}" add "${path}"
+  git -C "${fixture_root}" commit -qm "${message}"
+}
+
+commit_w1_i05_literal_repair_spec() {
+  commit_w1_i05_literal_repair_path "$1" \
+    "${w1_i05_literal_repair_spec_path}" \
+    "${w1_i05_literal_repair_spec_sha}" \
+    "test: materialize literal pathspec repair authority"
+}
+
+commit_w1_i05_literal_markdown_red() {
+  commit_w1_i05_literal_repair_path "$1" "${w1_i05_markdown_path}" \
+    "${w1_i05_literal_repair_markdown_red_sha}" \
+    "test: materialize literal pathspec RED"
+}
+
+commit_w1_i05_literal_markdown_green() {
+  commit_w1_i05_literal_repair_path "$1" "${w1_i05_markdown_path}" \
+    "${w1_i05_literal_repair_markdown_green_sha}" \
+    "test: materialize literal pathspec GREEN"
+}
+
+complete_w1_i05_literal_repair_after_green() {
+  local fixture_root="$1"
+  commit_w1_i05_literal_repair_path "${fixture_root}" \
+    "${w1_i05_repair_test_path}" WORKTREE \
+    "test: materialize literal pathspec repair contract"
+  commit_w1_i05_literal_repair_path "${fixture_root}" \
+    "${w1_i05_repair_verifier_path}" WORKTREE \
+    "test: materialize literal pathspec repair verifier"
+}
+
+complete_w1_i05_literal_repair_after_red() {
+  local fixture_root="$1"
+  commit_w1_i05_literal_markdown_green "${fixture_root}"
+  complete_w1_i05_literal_repair_after_green "${fixture_root}"
+}
+
+complete_w1_i05_literal_repair_after_spec() {
+  local fixture_root="$1"
+  commit_w1_i05_literal_markdown_red "${fixture_root}"
+  complete_w1_i05_literal_repair_after_red "${fixture_root}"
+}
+
+build_legal_w1_i05_literal_repair_fixture() {
+  local fixture_root="$1"
+  new_w1_i05_literal_repair_fixture "${fixture_root}"
+  commit_w1_i05_literal_repair_spec "${fixture_root}"
+  complete_w1_i05_literal_repair_after_spec "${fixture_root}"
+}
+
+run_w1_i05_literal_repair_verifier() {
+  local fixture_root="$1"
+  "${fixture_root}/${w1_i05_repair_verifier_path}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+expect_w1_i05_literal_repair_failure() {
+  local fixture_root="$1"
+  local expected="$2"
+  local output
+  if output="$(run_w1_i05_literal_repair_verifier \
+      "${fixture_root}" 2>&1)"; then
+    fail "invalid literal pathspec repair fixture unexpectedly passed: ${fixture_root}"
+  fi
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i05_literal_repair_contract() {
+  local fixture_root output
+  local positive_cases=0
+  local negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i05-literal-repair-legal"
+  build_legal_w1_i05_literal_repair_fixture "${fixture_root}"
+  output="$(run_w1_i05_literal_repair_verifier "${fixture_root}" 2>&1)" ||
+    fail "legal literal pathspec repair was rejected: ${output}"
+  assert_contains "${output}" "W1I05LiteralPathspecRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  mkdir -p "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table"
+  printf '%s\n' 'package io.cognitura.source.docx.table;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/docx/table/TableFidelityParser.java
+  git -C "${fixture_root}" commit -qm "test: add legal post-literal-repair I05 descendant"
+  output="$(run_w1_i05_literal_repair_verifier "${fixture_root}" 2>&1)" ||
+    fail "legal post-literal-repair I05 descendant was rejected: ${output}"
+  assert_contains "${output}" "W1I05LiteralPathspecRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-literal-repair-wrong-first"
+  new_w1_i05_literal_repair_fixture "${fixture_root}"
+  printf '%s\n' 'wrong first' > "${fixture_root}/literal-repair-outside.txt"
+  git -C "${fixture_root}" add literal-repair-outside.txt
+  git -C "${fixture_root}" commit -qm "test: wrong first literal repair path"
+  commit_w1_i05_literal_repair_spec "${fixture_root}"
+  complete_w1_i05_literal_repair_after_spec "${fixture_root}"
+  expect_w1_i05_literal_repair_failure "${fixture_root}" \
+    "W1-I05 literal pathspec repair paths must follow the fixed order"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-literal-repair-red-mismatch"
+  new_w1_i05_literal_repair_fixture "${fixture_root}"
+  commit_w1_i05_literal_repair_spec "${fixture_root}"
+  commit_w1_i05_literal_markdown_green "${fixture_root}"
+  complete_w1_i05_literal_repair_after_green "${fixture_root}"
+  expect_w1_i05_literal_repair_failure "${fixture_root}" \
+    "W1-I05 literal pathspec repair Markdown RED evidence mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-literal-repair-merge"
+  new_w1_i05_literal_repair_fixture "${fixture_root}"
+  git -C "${fixture_root}" switch -q -c literal-repair-side
+  commit_w1_i05_literal_repair_spec "${fixture_root}"
+  git -C "${fixture_root}" switch -q --detach HEAD^
+  git -C "${fixture_root}" merge -q --no-ff literal-repair-side \
+    -m "test: merge literal repair authority"
+  complete_w1_i05_literal_repair_after_spec "${fixture_root}"
+  expect_w1_i05_literal_repair_failure "${fixture_root}" \
+    "W1-I05 literal pathspec repair commit must have exactly one parent"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i05-literal-repair-post-outside"
+  build_legal_w1_i05_literal_repair_fixture "${fixture_root}"
+  printf '%s\n' 'outside' > "${fixture_root}/post-literal-repair-outside.txt"
+  git -C "${fixture_root}" add post-literal-repair-outside.txt
+  git -C "${fixture_root}" commit -qm "test: add post-literal-repair outside path"
+  expect_w1_i05_literal_repair_failure "${fixture_root}" \
+    "post-I04-closure descendant changed a path outside the W1-I05 WriteSet"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "literal repair positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 4 ]] ||
+    fail "literal repair negative case count mismatch: ${negative_cases}"
+  printf '%s\n' \
+    "W1I05LiteralPathspecRepairContractTests = PASS" \
+    "W1I05LiteralPathspecRepairPositiveCases = ${positive_cases}" \
+    "W1I05LiteralPathspecRepairNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -2047,7 +2227,7 @@ if [[ "${w1_i04_closure_contract_only}" == "1" ]]; then
 fi
 
 if [[ "${w1_i05_verifier_recovery_contract_only}" == "1" ]]; then
-  run_w1_i05_verifier_recovery_contract
+  run_w1_i05_literal_repair_contract
   exit 0
 fi
 
