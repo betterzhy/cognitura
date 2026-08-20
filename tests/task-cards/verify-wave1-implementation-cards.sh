@@ -1089,7 +1089,8 @@ run_w1_i03_closure_contract() {
     "W1I03ClosureNegativeCases = ${negative_cases}"
 }
 
-i04_closure_origin_sha="f9bef5a7f45ccd104d65b475f8bdabc6d2e6b9db"
+i04_closure_origin_sha="eb6613e66d5ac1c03d033a814c2413cc0c883226"
+i04_vsb_terminal_restore_sha="cc25439de8019a4434c2ab5aba8b32927240d8b4"
 i04_closure_tmpdir=""
 i04_closure_governance_paths=(
   docs/superpowers/specs/2026-08-20-cognitura-w1-i04-closure-successor-design.md
@@ -1279,6 +1280,7 @@ expect_i04_closure_transition_failure() {
 run_w1_i04_closure_contract() {
   local fixture_root governance_tip closure_sha pending_output explicit_output static_output
   local actual_paths expected_paths receipt_plan mutation_sha second_output
+  local vsb_snapshot_root vsb_snapshot_output
   local review_field_index review_field review_value
   local i04_positive_cases=0
   i04_negative_cases=0
@@ -1286,6 +1288,17 @@ run_w1_i04_closure_contract() {
   i04_closure_tmpdir="${test_tmp_root}/w1-i04-closure-tmp"
   mkdir -p "${i04_closure_tmpdir}"
   : > "${i04_closure_tmpdir}/sibling-marker"
+  vsb_snapshot_root="${test_tmp_root}/w1-i04-vsb-terminal-restore"
+  git clone --shared -q "${repo_root}" "${vsb_snapshot_root}"
+  git -C "${vsb_snapshot_root}" checkout -q --detach \
+    "${i04_vsb_terminal_restore_sha}"
+  vsb_snapshot_output="$(
+    "${vsb_snapshot_root}/scripts/verify-visual-style-baseline-cards" \
+      --repo-root "${vsb_snapshot_root}" \
+      --cards-dir "${vsb_snapshot_root}/docs/task-cards/visual-style-baseline"
+  )" || fail "fixed VSB terminal restore snapshot was rejected"
+  assert_contains "${vsb_snapshot_output}" "VisualStyleBaselineTaskCardValidation = PASS"
+  rm -rf -- "${vsb_snapshot_root}"
   git clone --shared -q "${repo_root}" "${fixture_root}"
   git -C "${fixture_root}" checkout -q --detach "${i04_closure_origin_sha}"
 
@@ -1311,6 +1324,33 @@ run_w1_i04_closure_contract() {
   assert_contains "${pending_output}" "W1I04ClosureStatus = PENDING"
   assert_i04_closure_tmp_clean
   i04_positive_cases=$((i04_positive_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${i04_closure_origin_sha}"
+
+  git -C "${fixture_root}" commit --allow-empty -qm \
+    "test: add empty I04 governance commit"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[0]}" 644 "test: materialize I04 closure design after empty"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[1]}" 644 "test: materialize I04 closure plan after empty"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[2]}" 755 "test: materialize I04 closure contract after empty"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[3]}" 755 "test: materialize I04 closure verifier after empty"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance commit must be nonempty"
+
+  git -C "${fixture_root}" switch -q --detach "${i04_closure_origin_sha}"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[1]}" 644 "test: materialize I04 closure plan first"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[0]}" 644 "test: materialize I04 closure design second"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[2]}" 755 "test: materialize reordered I04 closure contract"
+  materialize_i03_governance_path "${fixture_root}" \
+    "${i04_closure_governance_paths[3]}" 755 "test: materialize reordered I04 closure verifier"
+  expect_i04_closure_static_failure "${fixture_root}" \
+    "I04 closure governance paths must be introduced in canonical order"
 
   git -C "${fixture_root}" switch -q --detach "${i04_closure_origin_sha}"
   materialize_i03_governance_path "${fixture_root}" \
@@ -1402,6 +1442,59 @@ run_w1_i04_closure_contract() {
   expected_paths="$(printf '%s\n' "${i04_closure_projection_paths[@]}" | LC_ALL=C sort)"
   [[ "${actual_paths}" == "${expected_paths}" ]] ||
     fail "I04 closure receipt fixture WriteSet mismatch"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  git -C "${fixture_root}" commit --allow-empty -qm \
+    "test: insert non-direct I04 receipt ancestor"
+  make_i04_closure_projection "${fixture_root}"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: create non-direct I04 closure receipt"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt HEAD must be the direct child of BASE"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  git -C "${fixture_root}" mv \
+    docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.md \
+    docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.moved
+  git -C "${fixture_root}" add -A -- "${i04_closure_projection_paths[@]}" \
+    docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.moved
+  git -C "${fixture_root}" commit -qm "test: rename I04 closure receipt path"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt must not rename or copy paths"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  cp "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I04-text-list-section-parser.md" \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/i04-receipt-copy.md"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}" \
+    docs/task-cards/wave-1-implementation/i04-receipt-copy.md
+  git -C "${fixture_root}" commit -qm "test: copy I04 closure receipt path"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt must not rename or copy paths"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  printf '\0' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: add NUL to I04 closure receipt"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt projection must not contain NUL"
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_i04_closure_projection "${fixture_root}"
+  chmod 755 "${fixture_root}/README.md"
+  git -C "${fixture_root}" add "${i04_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: drift I04 closure receipt mode"
+  expect_i04_closure_transition_failure "${fixture_root}" "${governance_tip}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I04 closure receipt must preserve every projection path mode"
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
 
   explicit_output="$(TMPDIR="${i04_closure_tmpdir}" "${verifier}" \
     --repo-root "${fixture_root}" \
@@ -1661,7 +1754,7 @@ I04ClosureUnknown = FORBIDDEN
 
   [[ "${i04_positive_cases}" -eq 4 ]] ||
     fail "I04 closure positive case count mismatch: ${i04_positive_cases}"
-  [[ "${i04_negative_cases}" -eq 42 ]] ||
+  [[ "${i04_negative_cases}" -eq 49 ]] ||
     fail "I04 closure negative case count mismatch: ${i04_negative_cases}"
   printf '%s\n' \
     "W1I04ClosureContractTests = PASS" \
