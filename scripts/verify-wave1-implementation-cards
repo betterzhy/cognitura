@@ -435,6 +435,7 @@ w1_i05_xml_copy_repair_spec_sha="5003776809d2354acf586d767f14f362eb4b612e"
 w1_i05_xml_copy_rejected_test_sha="803642d1a4b1172f8c48df98b3dfb9c36e646c49"
 w1_i05_xml_copy_fixture_correction_sha="86c46d9239155b6694e678abd637a2470367411f"
 w1_i05_xml_copy_corrected_test_sha="ee346dff798ef4ac77ea83686d8efa12aabcee43"
+w1_i05_fixed_xml_copy_repair_tip_sha="f2f8faa005e2852000cd59cac0c5d9ec98fb6cfd"
 w1_i05_xml_copy_repair_paths=(
   docs/superpowers/specs/2026-08-20-cognitura-w1-i05-xml-copy-inference-repair.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -447,6 +448,23 @@ w1_i05_xml_copy_repair_evidence_shas=(
   "${w1_i05_xml_copy_rejected_test_sha}"
   "${w1_i05_xml_copy_fixture_correction_sha}"
   "${w1_i05_xml_copy_corrected_test_sha}"
+)
+w1_i05_finding_red_sha="558ec44a0d35e0479940ebfb5fbd4c8f8c2f29b5"
+w1_i05_finding_green_sha="46c519f6dc79e9d12f4485a2ed9469c350b76a46"
+w1_i05_fixed_finding_commits=(
+  "${w1_i05_finding_red_sha}"
+  "${w1_i05_finding_green_sha}"
+)
+w1_i05_fixed_review_spec_sha="91c9b30eaa791b23f36726a48ca3ac5dbaa49d20"
+w1_i05_fixed_review_test_sha="c7b000f63541cb739ec34ddb5c314e672abd528f"
+w1_i05_fixed_review_repair_paths=(
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i05-fixed-review-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i05_fixed_review_repair_evidence_shas=(
+  "${w1_i05_fixed_review_spec_sha}"
+  "${w1_i05_fixed_review_test_sha}"
 )
 w1_i04_closure_projection_paths=(
   AGENTS.md
@@ -582,6 +600,19 @@ w1_i05_xml_copy_repair_mode_for_path() {
       printf '%s\n' 100755
       ;;
     *) fail "unsupported W1-I05 XML copy repair path: $1" ;;
+  esac
+}
+
+w1_i05_fixed_review_repair_mode_for_path() {
+  case "$1" in
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i05-fixed-review-repair.md)
+      printf '%s\n' 100644
+      ;;
+    tests/task-cards/verify-wave1-implementation-cards.sh|\
+    scripts/verify-wave1-implementation-cards)
+      printf '%s\n' 100755
+      ;;
+    *) fail "unsupported W1-I05 fixed review repair path: $1" ;;
   esac
 }
 
@@ -1775,11 +1806,14 @@ validate_w1_i05_xml_copy_repair_and_descendants() {
 
   validate_w1_i05_literal_repair_and_descendants "${receipt}" "${head}"
   validate_fixed_w1_i05_implementation_candidate "${head}"
+  git -C "${repo_root}" cat-file -e \
+    "${w1_i05_fixed_xml_copy_repair_tip_sha}^{commit}" 2>/dev/null ||
+    fail "fixed W1-I05 XML copy repair candidate is unavailable"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i05_fixed_xml_copy_repair_tip_sha}" "${head}" ||
+    fail "HEAD must descend from the fixed W1-I05 XML copy repair candidate"
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i05_fixed_fixture_correction_sha}..${head}"); do
-    if [[ "${repair_index}" -ge "${#w1_i05_xml_copy_repair_paths[@]}" ]]; then
-      continue
-    fi
+    "${w1_i05_fixed_fixture_correction_sha}..${w1_i05_fixed_xml_copy_repair_tip_sha}"); do
     parent="$(single_parent_of "${commit}" "W1-I05 XML copy repair commit")"
     git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
       fail "W1-I05 XML copy repair commit must be nonempty"
@@ -1817,6 +1851,115 @@ validate_w1_i05_xml_copy_repair_and_descendants() {
 
   [[ "${repair_index}" -eq "${#w1_i05_xml_copy_repair_paths[@]}" ]] ||
     fail "W1-I05 XML copy repair chain is incomplete"
+  [[ "${repair_tip}" == "${w1_i05_fixed_xml_copy_repair_tip_sha}" ]] ||
+    fail "W1-I05 XML copy repair tip identity mismatch"
+}
+
+validate_fixed_w1_i05_finding_repair() {
+  local head="$1"
+  local actual_commits commit parent expected_commit expected_parent
+  local changed_paths path
+  local finding_index=0
+
+  git -C "${repo_root}" cat-file -e \
+    "${w1_i05_finding_green_sha}^{commit}" 2>/dev/null ||
+    fail "fixed W1-I05 finding repair candidate is unavailable"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i05_finding_green_sha}" "${head}" ||
+    fail "HEAD must descend from the fixed W1-I05 finding repair candidate"
+  actual_commits="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i05_fixed_xml_copy_repair_tip_sha}..${w1_i05_finding_green_sha}")"
+  [[ "$(printf '%s\n' "${actual_commits}" | awk \
+    'NF { count++ } END { print count + 0 }')" -eq \
+    "${#w1_i05_fixed_finding_commits[@]}" ]] ||
+    fail "fixed W1-I05 finding repair commit count mismatch"
+
+  for commit in ${actual_commits}; do
+    expected_commit="${w1_i05_fixed_finding_commits[${finding_index}]}"
+    [[ "${commit}" == "${expected_commit}" ]] ||
+      fail "fixed W1-I05 finding repair candidate identity mismatch"
+    parent="$(single_parent_of "${commit}" "fixed W1-I05 finding repair commit")"
+    if [[ "${finding_index}" -eq 0 ]]; then
+      expected_parent="${w1_i05_fixed_xml_copy_repair_tip_sha}"
+    else
+      expected_parent="${w1_i05_fixed_finding_commits[$((finding_index - 1))]}"
+    fi
+    [[ "${parent}" == "${expected_parent}" ]] ||
+      fail "fixed W1-I05 finding repair parent identity mismatch"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "fixed W1-I05 finding repair commit must be nonempty"
+    require_no_git_rename_or_copy_except_w1_i05_xml_fixture_copy \
+      "${parent}" "${commit}" \
+      "fixed W1-I05 finding repair commit must not rename or copy paths"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      is_w1_i05_descendant_path "${path}" ||
+        fail "fixed W1-I05 finding repair changed a path outside the WriteSet"
+      [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+        fail "fixed W1-I05 finding repair path mode mismatch"
+      require_git_blob_without_nul "${commit}" "${path}" \
+        "fixed W1-I05 finding repair path must not contain NUL"
+    done <<< "${changed_paths}"
+    finding_index=$((finding_index + 1))
+  done
+
+  [[ "${finding_index}" -eq "${#w1_i05_fixed_finding_commits[@]}" ]] ||
+    fail "fixed W1-I05 finding repair chain is incomplete"
+}
+
+validate_w1_i05_fixed_review_repair_and_descendants() {
+  local receipt="$1"
+  local head="$2"
+  local commit parent changed_paths path expected_path repair_tip=""
+  local expected_blob actual_blob
+  local repair_index=0
+
+  validate_w1_i05_xml_copy_repair_and_descendants "${receipt}" "${head}"
+  validate_fixed_w1_i05_finding_repair "${head}"
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i05_finding_green_sha}..${head}"); do
+    if [[ "${repair_index}" -ge "${#w1_i05_fixed_review_repair_paths[@]}" ]]; then
+      continue
+    fi
+    parent="$(single_parent_of "${commit}" "W1-I05 fixed review repair commit")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "W1-I05 fixed review repair commit must be nonempty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "W1-I05 fixed review repair commit must not rename or copy paths"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "$(printf '%s\n' "${changed_paths}" | awk \
+      'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
+      fail "W1-I05 fixed review repair commit must change exactly one declared path"
+    path="${changed_paths}"
+    expected_path="${w1_i05_fixed_review_repair_paths[${repair_index}]}"
+    [[ "${path}" == "${expected_path}" ]] ||
+      fail "W1-I05 fixed review repair paths must follow the fixed order"
+    [[ "$(git_tree_mode "${commit}" "${path}")" == \
+       "$(w1_i05_fixed_review_repair_mode_for_path "${path}")" ]] ||
+      fail "W1-I05 fixed review repair path mode mismatch"
+    require_git_blob_without_nul "${commit}" "${path}" \
+      "W1-I05 fixed review repair path must not contain NUL"
+    if [[ "${repair_index}" -lt \
+          "${#w1_i05_fixed_review_repair_evidence_shas[@]}" ]]; then
+      expected_blob="$(git -C "${repo_root}" rev-parse \
+        "${w1_i05_fixed_review_repair_evidence_shas[${repair_index}]}:${path}" \
+        2>/dev/null)" ||
+        fail "W1-I05 fixed review repair evidence is unavailable"
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${path}" 2>/dev/null)" ||
+        fail "W1-I05 fixed review repair blob is unavailable"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "W1-I05 fixed review repair evidence mismatch: step ${repair_index} ${path}"
+    fi
+    repair_tip="${commit}"
+    repair_index=$((repair_index + 1))
+  done
+
+  [[ "${repair_index}" -eq "${#w1_i05_fixed_review_repair_paths[@]}" ]] ||
+    fail "W1-I05 fixed review repair chain is incomplete"
   validate_post_w1_i04_closure_descendants "${repair_tip}" "${head}"
 }
 
@@ -2145,7 +2288,7 @@ elif [[ -z "${transition_base}" && "${closure_cards_dir_is_canonical}" == 1 ]] &
       i04_closure_receipt="$2"
       validate_w1_i04_closure_receipt \
         "${i04_closure_receipt_parent}" "${i04_closure_receipt}" 0
-      validate_w1_i05_xml_copy_repair_and_descendants \
+      validate_w1_i05_fixed_review_repair_and_descendants \
         "${i04_closure_receipt}" "${current_repository_head}"
       git -C "${repo_root}" diff --quiet \
         "${i04_closure_receipt}..${current_repository_head}" -- \
@@ -2169,7 +2312,8 @@ elif [[ -z "${transition_base}" && "${closure_cards_dir_is_canonical}" == 1 ]] &
         "W1I05VerifierRecoveryStatus = PASS" \
         "W1I05RecoveryReviewRepairStatus = PASS" \
         "W1I05LiteralPathspecRepairStatus = PASS" \
-        "W1I05XmlCopyInferenceRepairStatus = PASS"
+        "W1I05XmlCopyInferenceRepairStatus = PASS" \
+        "W1I05FixedReviewRepairStatus = PASS"
       exit 0
       ;;
     *) fail "I04 closure current state has an unsupported I04/I05 status vector" ;;
