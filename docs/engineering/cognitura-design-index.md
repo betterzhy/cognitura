@@ -287,6 +287,6 @@ Relation 主聚焦与完整来源核验的两张 1440×1100 证据，仅关闭�
 ```text
 W1I09RuntimeRebaseline = PASS
 W1I09RuntimeBoundary = SOURCE_COMMAND_RUNTIME
-W1I09ProductWriteSetCount = 28
+W1I09ProductWriteSetCount = 29
 ActiveTaskCard = W1-I09
 ```

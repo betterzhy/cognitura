@@ -321,7 +321,7 @@ Ultra = NOT_RUN
 ActiveTaskCard = W1-I09
 TaskCardCount = 14
 ReadyTaskCardCount = 1
-I09ProductWriteSetCount = 28
+I09ProductWriteSetCount = 29
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
@@ -334,6 +334,19 @@ ReviewedCanonicalBridgeCandidate = 2bdc9f7e04306b397dda07b7511f4e0bf831eeab
 ReviewedCanonicalBridgeParent = 05e35da426433d78ec8709f3a662ceab4a9736e8
 ReviewedCanonicalBridgeTree = 5815b367667c96f65b86bf336e5211f8a1441d5a
 I09ProductWriteSetCount = 28
+ProductionFileLimit = 20
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
+
+## 18. W1-I09 V2 migration compatibility receipt
+
+```text
+W1I09V2MigrationCompatibility = PASS
+ReviewedV2CompatibilityCandidate = e2ab972b52734a3e2ee2fa9a4f3fbf7c9ff4d3d8
+ReviewedV2CompatibilityParent = 63d7c4059cda353f53148867fe713df7d03f7176
+ReviewedV2CompatibilityTree = 40c861b5a6e1c6419085cf84d3b6147fb691201b
+I09ProductWriteSetCount = 29
 ProductionFileLimit = 20
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED

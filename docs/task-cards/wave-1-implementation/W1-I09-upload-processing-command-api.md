@@ -59,6 +59,7 @@ WriteSet = server/src/test/java/io/cognitura/source/application/command/TrustedR
 WriteSet = server/src/test/java/io/cognitura/source/storage/LocalContentAddressedSourceBinaryStoreTest.java
 WriteSet = server/src/test/java/io/cognitura/source/application/command/SourceUploadCommandIntegrationTest.java
 WriteSet = server/src/test/java/io/cognitura/source/persistence/JdbcProcessingPublicationPortIntegrationTest.java
+WriteSet = server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
 WriteSet = server/src/test/java/io/cognitura/source/runtime/SourceCommandRuntimeIntegrationTest.java
 WriteSet = server/src/test/java/io/cognitura/source/api/command/SourceUploadControllerTest.java
 WriteSet = server/src/test/java/io/cognitura/source/api/command/ProcessingCommandControllerTest.java
@@ -105,5 +106,5 @@ git diff --cached --name-only
 git commit -m "feat: add real source command runtime"
 ```
 
-暂存清单必须与 28 路径双向一致。只进行一次适用的 `deep_reviewer / sol xhigh`；
+暂存清单必须与 29 路径双向一致。只进行一次适用的 `deep_reviewer / sol xhigh`；
 零 finding GO 前不关闭 I09、不释放 I10。
