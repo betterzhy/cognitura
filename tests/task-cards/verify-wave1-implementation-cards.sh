@@ -24,6 +24,7 @@ w1_i04_closure_contract_only=0
 w1_i05_verifier_recovery_contract_only=0
 w1_i05_closure_contract_only=0
 w1_i06_entry_repair_contract_only=0
+w1_i06_copy_inference_repair_contract_only=0
 case "${1:-}" in
   "") ;;
   --w1-i03-closure-contract-only)
@@ -40,6 +41,9 @@ case "${1:-}" in
     ;;
   --w1-i06-entry-repair-contract-only)
     w1_i06_entry_repair_contract_only=1
+    ;;
+  --w1-i06-copy-inference-repair-contract-only)
+    w1_i06_copy_inference_repair_contract_only=1
     ;;
   *) fail "unknown argument: $1" ;;
 esac
@@ -3100,6 +3104,125 @@ run_w1_i06_entry_repair_contract() {
     "W1I06EntryRepairNegativeCases = ${negative_cases}"
 }
 
+i06_copy_repair_origin_sha="ee4740a22f103086c38ff27c2f0b9e02820cffcc"
+i06_internal_projection_red_sha="68c3fe77bd7cbe3a69d1dd294a6dc7d716d6b307"
+i06_internal_projection_green_sha="bb0c88128d7b58112bf20710d08cf7447c793685"
+i06_external_projection_red_sha="5e2c6c132fef438a5c7cb54c6de6c83ec77f85f9"
+i06_external_projection_green_sha="ee4740a22f103086c38ff27c2f0b9e02820cffcc"
+
+new_i06_copy_repair_fixture() {
+  local fixture_root="$1"
+  local checkout_sha="$2"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${checkout_sha}"
+}
+
+run_i06_copy_repair_verifier() {
+  local fixture_root="$1"
+  "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+materialize_i06_copy_repair_tip() {
+  local fixture_root="$1"
+  local repair_test_sha="$2"
+  git -C "${fixture_root}" cherry-pick -q "${repair_test_sha}"
+  cp "${verifier}" "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  chmod 755 "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
+  git -C "${fixture_root}" commit -qm "fix: admit fixed I06 copy inference"
+}
+
+expect_i06_copy_repair_failure() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local output
+  if output="$(run_i06_copy_repair_verifier "${fixture_root}" 2>&1)"; then
+    fail "invalid I06 copy-inference chain unexpectedly passed: ${expected_message}"
+  fi
+  assert_contains "${output}" "${expected_message}"
+}
+
+run_w1_i06_copy_inference_repair_contract() {
+  local fixture_root output repair_test_sha repair_tip substitute_sha
+  local positive_cases=0
+  local negative_cases=0
+
+  repair_test_sha="$(git -C "${repo_root}" log -1 --format=%H -- \
+    tests/task-cards/verify-wave1-implementation-cards.sh)"
+  [[ -n "${repair_test_sha}" ]] || fail "I06 copy-inference repair test SHA is missing"
+
+  fixture_root="${test_tmp_root}/w1-i06-copy-fixed-candidate"
+  new_i06_copy_repair_fixture "${fixture_root}" "${i06_copy_repair_origin_sha}"
+  output="$(run_i06_copy_repair_verifier "${fixture_root}")" ||
+    fail "fixed I06 copy-inference candidate was rejected: ${output}"
+  assert_contains "${output}" "W1I06EntryRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i06-copy-repair-tip"
+  new_i06_copy_repair_fixture "${fixture_root}" "${i06_copy_repair_origin_sha}"
+  materialize_i06_copy_repair_tip "${fixture_root}" "${repair_test_sha}"
+  repair_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  printf '%s\n' '// legal post-repair I06 descendant' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/image/MediaDigest.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/docx/image/MediaDigest.java
+  git -C "${fixture_root}" commit -qm "test: add legal post-repair I06 descendant"
+  output="$(run_i06_copy_repair_verifier "${fixture_root}")" ||
+    fail "legal post-repair I06 descendant was rejected: ${output}"
+  assert_contains "${output}" "W1I06EntryRepairStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i06-copy-substituted-identity"
+  new_i06_copy_repair_fixture "${fixture_root}" \
+    "982c04b708b4a9072e34f410eb6eebcb1be3411c"
+  git -C "${fixture_root}" cherry-pick -n "${i06_internal_projection_red_sha}"
+  git -C "${fixture_root}" commit -qm "test: substitute I06 internal projection RED"
+  substitute_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  [[ "${substitute_sha}" != "${i06_internal_projection_red_sha}" ]] ||
+    fail "substituted I06 copy commit retained the fixed identity"
+  git -C "${fixture_root}" cherry-pick -q "${i06_internal_projection_green_sha}"
+  git -C "${fixture_root}" cherry-pick -q "${i06_external_projection_red_sha}"
+  git -C "${fixture_root}" cherry-pick -q "${i06_external_projection_green_sha}"
+  expect_i06_copy_repair_failure "${fixture_root}" \
+    "post-W1-I06-entry-repair descendant commit must not rename or copy paths"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${test_tmp_root}/w1-i06-copy-repair-tip" switch -q --detach "${repair_tip}"
+  cp \
+    "${test_tmp_root}/w1-i06-copy-repair-tip/server/src/test/resources/docx/security/minimal-content-types.xml" \
+    "${test_tmp_root}/w1-i06-copy-repair-tip/server/src/test/resources/docx/image/future-copy.xml"
+  git -C "${test_tmp_root}/w1-i06-copy-repair-tip" add \
+    server/src/test/resources/docx/image/future-copy.xml
+  git -C "${test_tmp_root}/w1-i06-copy-repair-tip" commit -qm \
+    "test: infer a future I06 fixture copy"
+  expect_i06_copy_repair_failure \
+    "${test_tmp_root}/w1-i06-copy-repair-tip" \
+    "post-W1-I06-entry-repair descendant commit must not rename or copy paths"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${test_tmp_root}/w1-i06-copy-repair-tip" switch -q --detach "${repair_tip}"
+  git -C "${test_tmp_root}/w1-i06-copy-repair-tip" mv \
+    server/src/test/resources/docx/image/external-images-document.xml \
+    server/src/test/resources/docx/image/external-images-document-renamed.xml
+  git -C "${test_tmp_root}/w1-i06-copy-repair-tip" commit -qm \
+    "test: rename a future I06 fixture"
+  expect_i06_copy_repair_failure \
+    "${test_tmp_root}/w1-i06-copy-repair-tip" \
+    "post-W1-I06-entry-repair descendant commit must not rename or copy paths"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "I06 copy-inference positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 3 ]] ||
+    fail "I06 copy-inference negative case count mismatch: ${negative_cases}"
+  printf '%s\n' \
+    "W1I06CopyInferenceRepairContractTests = PASS" \
+    "W1I06CopyInferenceRepairPositiveCases = ${positive_cases}" \
+    "W1I06CopyInferenceRepairNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -3126,10 +3249,16 @@ if [[ "${w1_i06_entry_repair_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+if [[ "${w1_i06_copy_inference_repair_contract_only}" == "1" ]]; then
+  run_w1_i06_copy_inference_repair_contract
+  exit 0
+fi
+
 [[ -x "${verifier}" ]] || fail "Wave 1 implementation task-card verifier is missing or not executable"
 
 run_w1_i05_closure_contract
 run_w1_i06_entry_repair_contract
+run_w1_i06_copy_inference_repair_contract
 
 validation_output="$(
   "${verifier}" \
