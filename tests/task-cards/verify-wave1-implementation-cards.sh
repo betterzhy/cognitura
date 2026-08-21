@@ -2933,7 +2933,7 @@ w1_i06_entry_repair_green_paths=(
 w1_i06_entry_repair_governance_tip() {
   local tip
   tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i06_entry_repair_origin_sha}..HEAD" | sed -n '4p')"
+    "${w1_i06_entry_repair_origin_sha}..HEAD" | sed -n '5p')"
   [[ -n "${tip}" ]] || tip="$(git -C "${repo_root}" rev-parse HEAD)"
   printf '%s\n' "${tip}"
 }
@@ -2980,6 +2980,7 @@ expect_w1_i06_entry_repair_failure() {
 
 run_w1_i06_entry_repair_contract() {
   local fixture_root governance_tip output substitute_sha branch_sha
+  local test_sha correction_sha
   local positive_cases=0
   local negative_cases=0
 
@@ -3014,10 +3015,14 @@ run_w1_i06_entry_repair_contract() {
   substitute_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
   [[ "${substitute_sha}" != "${w1_i06_entry_repair_design_sha}" ]] ||
     fail "substituted W1-I06 entry-repair design retained the fixed identity"
-  git -C "${fixture_root}" cherry-pick -q \
+  test_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '1p')"
+  correction_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '2p')"
+  git -C "${fixture_root}" cherry-pick \
     "${w1_i06_entry_repair_plan_sha}" \
-    "$(git -C "${repo_root}" rev-list --first-parent --reverse \
-      "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '1p')" \
+    "${test_sha}" \
+    "${correction_sha}" \
     "${governance_tip}"
   expect_w1_i06_entry_repair_failure "${fixture_root}" \
     "W1-I06 entry-repair governance identity mismatch"
