@@ -2558,8 +2558,8 @@ run_w1_i05_fixed_review_contract() {
 }
 
 i05_reviewed_candidate_sha="b4132e988cd88dce74ae026a1b52a496188452fc"
-i05_closure_repair_origin_sha="07f871061770e594f9793a0babdd2d979b3752cf"
-i05_closure_plan_sha="11e5a2293f996728213f77ac85db88d5022bb2f6"
+i05_closure_repair_origin_sha="133e4370c7f05effc1e1b23d41fd597414c49bd3"
+i05_closure_plan_sha="946cdf575b8a00ebc0f6e46fab7300d2b6573fed"
 i05_closure_projection_paths=(
   AGENTS.md
   README.md
@@ -2849,6 +2849,26 @@ run_w1_i05_closure_contract() {
     "I05 post-closure transition HEAD must descend from BASE"
   negative_cases=$((negative_cases + 1))
 
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md" \
+    Status DONE
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md" \
+    Status READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md" \
+    BusinessImplementationAuthorization USER_AUTHORIZED
+  git -C "${fixture_root}" add \
+    docs/task-cards/wave-1-implementation/W1-I05-table-fidelity.md \
+    docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md
+  git -C "${fixture_root}" commit -qm "test: forge equal I05 closure BASE and HEAD"
+  mutation_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  expect_i05_closure_transition_failure "${fixture_root}" "${mutation_sha}" \
+    "${mutation_sha}" \
+    "I05 closure receipt fixed diff must equal the exact eleven projection paths"
+  negative_cases=$((negative_cases + 1))
+
   git -C "${fixture_root}" switch -q --detach "${closure_sha}"
   printf '%s\n' '' >> "${fixture_root}/README.md"
   git -C "${fixture_root}" add README.md
@@ -2865,7 +2885,7 @@ run_w1_i05_closure_contract() {
 
   [[ "${positive_cases}" -eq 2 ]] ||
     fail "I05 closure positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 10 ]] ||
+  [[ "${negative_cases}" -eq 11 ]] ||
     fail "I05 closure negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I05ClosureContractTests = PASS" \
