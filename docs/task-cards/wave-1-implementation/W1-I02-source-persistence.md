@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I02
 CardKind = IMPLEMENTATION
-Status = QUEUED
+Status = READY
 Gate = W1-IG2 SourcePersistence
 Risk = HIGH
 DependsOn = W1-I01
@@ -12,8 +12,8 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = ISOLATED_DATABASE_UNIQUE_AND_ROUND_TRIP
 NegativeVerification = CONSTRAINT_MAPPING_AND_FORMAL_DATABASE_ACCESS_REJECTION
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
-FormalDatabaseGate = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
+FormalDatabaseGate = PASS
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
 ```
@@ -26,7 +26,7 @@ ReviewRoute = deep_reviewer
 ## 2. 前置条件与输入
 
 - I01 已 DONE 且其领域类型固定。
-- 数据库 Gate 对物理 Schema、migration 顺序和隔离测试库给出明确 PASS。
+- 数据库 Gate 已对物理 Schema、migration 顺序和隔离测试库给出明确 PASS。
 - 正式数据库写入仍未授权，测试仅使用隔离临时 PostgreSQL。
 
 ## 3. 写集

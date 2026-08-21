@@ -5,12 +5,12 @@ CanonicalProjectName = Cognitura
 TaskCardSet = WAVE1_IMPLEMENTATION
 TaskCardIDs = W1-I00,W1-I01,W1-I02,W1-I03,W1-I04,W1-I05,W1-I06,W1-I07,W1-I08,W1-I09,W1-I10,W1-I11,W1-I12,W1-I13
 TaskCardCount = 14
-ActiveTaskCard = NONE
-TaskCardSetStatus = BLOCKED_BY_DATABASE_GATE
+ActiveTaskCard = W1-I02
+TaskCardSetStatus = READY_FOR_EXECUTION
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
-ReadyTaskCardCount = 0
+ReadyTaskCardCount = 1
 SuspendedTaskCardCount = 0
 BusinessImplementation = USER_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -21,7 +21,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 
 本集合落实已批准的 Wave 1 来源接入实现切片规格。bootstrap 已创建书面卡集并完成
 治理卡 I00。I01 已对固定候选 `6796079de8c919055ddc6538234254b50630a491`
-完成零发现深审并关闭；I02 保持 `QUEUED` 等待独立数据库 Gate，I03、I04、I05 和 I06 已关闭，当前无 `READY` 卡且 I07 未释放。
+完成零发现深审并关闭；I02 的独立数据库 Gate 已通过并成为唯一 `READY` 卡，I03、I04、I05 和 I06 已关闭，I07 仍未释放。
 
 ## 1. 任务卡清单
 
@@ -29,7 +29,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 |---|---|---|---|---|---|
 | `W1-I00` | [实现治理](W1-I00-implementation-governance.md) | `DONE` | `NONE` | `W1-IG0` | `HIGH` |
 | `W1-I01` | [来源领域内核](W1-I01-source-ingestion-domain.md) | `DONE` | `W1-I00` | `W1-IG1` | `HIGH` |
-| `W1-I02` | [来源持久化](W1-I02-source-persistence.md) | `QUEUED` | `W1-I01` | `W1-IG2` | `HIGH` |
+| `W1-I02` | [来源持久化](W1-I02-source-persistence.md) | `READY` | `W1-I01` | `W1-IG2` | `HIGH` |
 | `W1-I03` | [DOCX 安全闸](W1-I03-docx-security-gate.md) | `DONE` | `W1-I01` | `W1-IG3` | `HIGH` |
 | `W1-I04` | [文本、列表与章节](W1-I04-text-list-section-parser.md) | `DONE` | `W1-I03` | `W1-IG4` | `HIGH` |
 | `W1-I05` | [表格保真](W1-I05-table-fidelity.md) | `DONE` | `W1-I04` | `W1-IG5` | `HIGH` |

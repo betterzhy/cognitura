@@ -28,7 +28,7 @@ W0G6ReviewStatus = PASS
 Wave1FeatureDevelopmentEntry = GO
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
-Wave1ImplementationTaskCardSet = BLOCKED_BY_DATABASE_GATE
+Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
 ModuleDefaultReadingExecutionStateAuthority = docs/task-cards/module-default-reading-implementation/execution-state.md
 ModuleDefaultReadingImplementationTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 ModuleDefaultReadingImplementationTaskCardCount = 9
@@ -53,7 +53,7 @@ HighFidelityVisualValidation = PASS
 HighFidelityUsabilityValidation = PASS
 HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
-ActiveImplementationTaskCard = NONE
+ActiveImplementationTaskCard = W1-I02
 VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 VisualStyleBaselineTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 VisualStyleBaselineImplementationEntry = GOVERNED_BY_EXECUTION_STATE
@@ -74,7 +74,7 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 实现切片书面规格均已获用户批准；14 张实现卡已经 bootstrap，非业务治理卡 I00
 已完成固定候选零发现深审并关闭。用户已授权现有卡集持续串行实施；`W1-I01`
 已对固定候选 `6796079de8c919055ddc6538234254b50630a491` 完成零发现深审并关闭，
-`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06` 已零发现关闭；`W1-I02` 保持 `QUEUED` 等待独立数据库 Gate，当前无 `READY` 卡且 `W1-I07` 未释放。
+`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06` 已零发现关闭；`W1-I02` 的独立数据库 Gate 已通过并成为唯一 `READY` 卡，`W1-I07` 仍未释放。
 Visual Style Baseline 的唯一可变运行态由
 `docs/task-cards/visual-style-baseline/execution-state.md` 管理。
 
@@ -84,8 +84,8 @@ Visual Style Baseline 的唯一可变运行态由
 `gpt-5.6-sol/high` 零发现审查并把专项晋级 `FORMAL_SPECIALTY_BASELINE`。该晋级只
 关闭合同设计阶段，不制作视觉页面、原型或截图；该历史晋级本身未授权创建或释放
 `W1-I00`。当前 I00 的创建和释放来自后续用户授权的 bootstrap；当前用户
-授权只按已批准卡集串行推进，I02 的独立数据库 Gate、正式数据库写入和远程推送
-边界保持不变。
+授权只按已批准卡集串行推进；I02 的独立数据库 Gate 已通过，正式数据库写入和远程
+推送边界保持不变。
 `HF-D01` 仅关闭 Reading First 页面与呈现合同，`HF-D02` 仅关闭正交状态、持久化
 与恢复边界，`HF-D03` 仅关闭八类证据、20 项 RF-AC、20 异常、30 RM 和跨域场景
 的输入合同，`HF-D04` 仅关闭固定合同候选审查。`HV-D00` 已建立 docs-only
@@ -97,7 +97,7 @@ Visual Style Baseline 的唯一可变运行态由
 `62da1bc08a932bbfc76769a2add984dcec4160b7` 完成两个独立
 `gpt-5.6-sol/high` 零发现审查并关闭整体视觉与可用性阶段。其视觉晋级未授权业务
 实现、正式数据库写入或远程推送；后续 bootstrap 授权已完成并关闭非业务治理卡
-I00、I01、I03、I04、I05 和 I06 已关闭；I02 保持等待独立数据库 Gate，I07 未释放。
+I00、I01、I03、I04、I05 和 I06 已关闭；I02 为唯一 `READY` 卡，I07 未释放。
 开发入口仅由 `docs/engineering/cognitura-development-entry-prompt.md` 提供下一会话的
 书面任务卡规划提示。该提示现已用于建立独立的 `MDR-I00..MDR-I08` 书面卡集；
 卡片文本和自动串行治理规格现已获用户批准；唯一可变运行态由

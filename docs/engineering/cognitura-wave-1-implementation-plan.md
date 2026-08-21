@@ -6,8 +6,8 @@ PlanKind = EXECUTION_PROJECTION
 FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
-TaskCardSetStatus = BLOCKED_BY_DATABASE_GATE
-ActiveTaskCard = NONE
+TaskCardSetStatus = READY_FOR_EXECUTION
+ActiveTaskCard = W1-I02
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
@@ -19,8 +19,8 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 ```
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
-Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02 等待独立数据库 Gate，
-I03、I04、I05 和 I06 已关闭；当前无 `READY` 卡，I07 未释放。
+Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02 的独立数据库 Gate 已
+通过并成为唯一 `READY` 卡，I03、I04、I05 和 I06 已关闭；I07 仍未释放。
 
 ## 1. 实现卡
 
@@ -28,7 +28,7 @@ I03、I04、I05 和 I06 已关闭；当前无 `READY` 卡，I07 未释放。
 |---|---|---|---|
 | `W1-I00` | Task-card governance | `NONE` | `DONE` |
 | `W1-I01` | Source domain | `I00` | `DONE` |
-| `W1-I02` | Source persistence | `I01` | `QUEUED` |
+| `W1-I02` | Source persistence | `I01` | `READY` |
 | `W1-I03` | DOCX security | `I01` | `DONE` |
 | `W1-I04` | Text/list/section parser | `I03` | `DONE` |
 | `W1-I05` | Table fidelity | `I04` | `DONE` |
@@ -59,7 +59,7 @@ I00..I12 -> I13
 
 ```text
 I01BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
-I02DatabaseGate = REQUIRED_BEFORE_READY
+I02DatabaseGate = PASS
 FormalDatabaseWrite = NOT_AUTHORIZED
 DeploymentAndRelease = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
@@ -201,6 +201,30 @@ I06ClosureTaskCardSetStatus = BLOCKED_BY_DATABASE_GATE
 BlockedTaskCard = W1-I02
 BlockedReason = INDEPENDENT_DATABASE_GATE_REQUIRED
 ReleasedTaskCard = NONE
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
+
+## 12. I02 Database Gate Admission Receipt
+
+```text
+W1-I02DatabaseGate = PASS
+ReviewedGateCandidate = 042a039f8582a51e501530b629fb24fdb3b74c45
+ReviewedGateParent = 3bc773b0ba78662b5be370d54536f8650b205085
+ReviewedGateTree = 398b5eef25f7eddca01b3cad97a6df2acf3f0141
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0Findings = 0
+P1Findings = 0
+P2Findings = 0
+Ultra = NOT_RUN
+PostgreSQLTestImage = postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a
+ExpectedPostgreSQLMajor = 18
+IsolatedContainerLifecycle = PASS
+ReleasedTaskCard = W1-I02
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
