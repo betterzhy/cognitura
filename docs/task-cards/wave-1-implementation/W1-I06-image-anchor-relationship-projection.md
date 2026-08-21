@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I06
 CardKind = IMPLEMENTATION
-Status = READY
+Status = BLOCKED_BY_DEPENDENCY
 Gate = W1-IG6 ImageRelationshipProjection
 Risk = HIGH
 DependsOn = W1-I04,W1-I05
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = IMAGE_ANCHOR_MEDIA_REF_AND_LITERAL_RELATIONSHIP_PRESERVED
 NegativeVerification = MISSING_MEDIA_HASH_AND_EXTERNAL_TARGET_ACCESS_REJECTED
-BusinessImplementationAuthorization = USER_AUTHORIZED
+BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
