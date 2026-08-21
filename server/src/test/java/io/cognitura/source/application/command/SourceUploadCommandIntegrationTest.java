@@ -90,7 +90,7 @@ class SourceUploadCommandIntegrationTest {
         dataSource = new DriverManagerDataSource(
                 postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
         Flyway flyway = Flyway.configure().dataSource(dataSource).load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
 
         Configuration configuration = new Configuration(new Environment(
                 "w1-i09-isolated-postgres", new JdbcTransactionFactory(), dataSource));
