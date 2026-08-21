@@ -4189,6 +4189,9 @@ i07_closure_review_repair_sha="90d0620029dc291a79ec2ecced1e34f82c098f22"
 i07_closure_review_matrix_test_sha="d1b54a1aabc4982aeefd2749e5e85270947e4eb4"
 i07_closure_staging_repair_sha="b56b3abeedc60f9fd7a88e50bf6505cf6d8eb74e"
 i07_closure_staging_count_sha="c0f273b72d4011bfa28a979d297514e70c6247f7"
+i07_closure_staging_test_sha="b5a3e97c12b3103da2921cfde08d97aca3eaa0d9"
+i07_closure_review_green_sha="d59f444ad2d874d8d9dc10c3ade332c8da4ba0ae"
+i07_closure_oracle_repair_sha="32523b87d516654f439abf0dd702cbd279e1ddfe"
 i07_reviewed_candidate_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
 i07_reviewed_parent_sha="5433485e8f88f3846cbda722282223a3c8274b14"
 i07_reviewed_tree_sha="d82ece96e0e3dabdfef64a766179b711ea6d557f"
@@ -4205,6 +4208,46 @@ i07_closure_projection_paths=(
   docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md
   docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md
   docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+)
+i07_governance_fixture_paths=(
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md
+  docs/superpowers/plans/2026-08-21-cognitura-w1-i07-closure.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-contract-count-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-legacy-gate-fixture-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-fixture-staging-repair.md
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-staging-chain-count-clarification.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i07-closure-governance-oracle-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+i07_governance_fixture_sources=(
+  "${i07_closure_spec_sha}"
+  "${i07_closure_plan_sha}"
+  "${i07_closure_original_test_sha}"
+  "${i07_closure_count_repair_sha}"
+  "${i07_closure_count_corrected_test_sha}"
+  "${i07_closure_first_green_sha}"
+  "${i07_closure_legacy_gate_repair_sha}"
+  "${i07_closure_legacy_gate_test_sha}"
+  "${i07_closure_legacy_gate_green_sha}"
+  "${i07_closure_review_repair_sha}"
+  "${i07_closure_review_matrix_test_sha}"
+  "${i07_closure_staging_repair_sha}"
+  "${i07_closure_staging_count_sha}"
+  "${i07_closure_staging_test_sha}"
+  "${i07_closure_review_green_sha}"
+  "${i07_closure_oracle_repair_sha}"
+  WORKTREE_TEST
+  WORKTREE_VERIFIER
 )
 
 new_w1_i07_closure_fixture() {
@@ -4226,63 +4269,83 @@ commit_w1_i07_governance_path() {
 }
 
 materialize_w1_i07_governance_tip() {
+  materialize_w1_i07_governance_variant "$1" NONE
+}
+
+materialize_w1_i07_governance_variant() {
   local fixture_root="$1"
+  local mutation="$2"
   local test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
   local verifier_path="scripts/verify-wave1-implementation-cards"
-  commit_w1_i07_governance_path "${fixture_root}" "${i07_closure_spec_sha}" \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md \
-    "docs: design W1-I07 closure transition"
-  commit_w1_i07_governance_path "${fixture_root}" "${i07_closure_plan_sha}" \
-    docs/superpowers/plans/2026-08-21-cognitura-w1-i07-closure.md \
-    "docs: plan W1-I07 closure transition"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_original_test_sha}" "${test_path}" \
-    "test: define W1-I07 closure transition"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_count_repair_sha}" \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-contract-count-repair.md \
-    "docs: authorize I07 closure count correction"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_count_corrected_test_sha}" "${test_path}" \
-    "test: correct I07 closure negative count"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_first_green_sha}" "${verifier_path}" \
-    "feat: verify W1-I07 closure transition"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_legacy_gate_repair_sha}" \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-legacy-gate-fixture-repair.md \
-    "docs: authorize I07 legacy gate fixture correction"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_legacy_gate_test_sha}" "${test_path}" \
-    "test: pin historical I02 database gate tip"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_legacy_gate_green_sha}" "${verifier_path}" \
-    "fix: preserve historical I02 gate fixture"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_review_repair_sha}" \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md \
-    "docs: authorize I07 closure review finding repair"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_review_matrix_test_sha}" "${test_path}" \
-    "test: complete I07 closure negative matrix"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_staging_repair_sha}" \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-fixture-staging-repair.md \
-    "docs: authorize I07 review fixture staging repair"
-  commit_w1_i07_governance_path "${fixture_root}" \
-    "${i07_closure_staging_count_sha}" \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-staging-chain-count-clarification.md \
-    "docs: clarify I07 staging repair chain count"
-  cp -p "${repo_root}/${test_path}" "${fixture_root}/${test_path}"
-  chmod 755 "${fixture_root}/${test_path}"
-  git -C "${fixture_root}" add "${test_path}"
-  git -C "${fixture_root}" commit -qm "test: complete I07 closure negative matrix"
-  cp -p "${repo_root}/${verifier_path}" "${fixture_root}/${verifier_path}"
-  printf '%s\n' '# W1-I07 closure verifier fixture' >> \
-    "${fixture_root}/${verifier_path}"
-  chmod 755 "${fixture_root}/${verifier_path}"
-  git -C "${fixture_root}" add "${verifier_path}"
-  git -C "${fixture_root}" commit -qm "feat: verify W1-I07 closure transition"
+  local index fixture_path source_sha source_path
+  for index in "${!i07_governance_fixture_paths[@]}"; do
+    fixture_path="${i07_governance_fixture_paths[${index}]}"
+    source_sha="${i07_governance_fixture_sources[${index}]}"
+    if [[ "${mutation}" == WRONG_ORDER && "${index}" -eq 0 ]]; then
+      fixture_path="${i07_governance_fixture_paths[1]}"
+      source_sha="${i07_governance_fixture_sources[1]}"
+    elif [[ "${mutation}" == WRONG_ORDER && "${index}" -eq 1 ]]; then
+      fixture_path="${i07_governance_fixture_paths[0]}"
+      source_sha="${i07_governance_fixture_sources[0]}"
+    fi
+    if [[ "${mutation}" == REPEATED_PATH && "${index}" -eq 1 ]]; then
+      printf '%s\n' repeated >> \
+        "${fixture_root}/${i07_governance_fixture_paths[0]}"
+      git -C "${fixture_root}" add "${i07_governance_fixture_paths[0]}"
+      git -C "${fixture_root}" commit -qm "test: repeat I07 governance path"
+      continue
+    fi
+    if [[ "${mutation}" == EMPTY_COMMIT && "${index}" -eq 1 ]]; then
+      git -C "${fixture_root}" commit -q --allow-empty -m \
+        "test: add empty I07 governance commit"
+      continue
+    fi
+    if [[ "${mutation}" == RENAME && "${index}" -eq 1 ]]; then
+      git -C "${fixture_root}" mv "${i07_governance_fixture_paths[0]}" \
+        "${i07_governance_fixture_paths[1]}"
+      git -C "${fixture_root}" commit -qm "test: rename I07 governance evidence"
+      continue
+    fi
+    if [[ "${mutation}" == COPY && "${index}" -eq 1 ]]; then
+      cp -p "${fixture_root}/${i07_governance_fixture_paths[0]}" \
+        "${fixture_root}/${i07_governance_fixture_paths[1]}"
+      git -C "${fixture_root}" add "${i07_governance_fixture_paths[1]}"
+      git -C "${fixture_root}" commit -qm "test: copy I07 governance evidence"
+      continue
+    fi
+    mkdir -p "${fixture_root}/$(dirname "${fixture_path}")"
+    case "${source_sha}" in
+      WORKTREE_TEST)
+        cp -p "${repo_root}/${test_path}" "${fixture_root}/${fixture_path}"
+        ;;
+      WORKTREE_VERIFIER)
+        cp -p "${repo_root}/${verifier_path}" "${fixture_root}/${fixture_path}"
+        printf '%s\n' '# W1-I07 closure verifier fixture' >> \
+          "${fixture_root}/${fixture_path}"
+        ;;
+      *)
+        source_path="${i07_governance_fixture_paths[${index}]}"
+        git -C "${repo_root}" show "${source_sha}:${source_path}" > \
+          "${fixture_root}/${fixture_path}" ||
+          fail "could not materialize I07 governance path: ${fixture_path}"
+        ;;
+    esac
+    case "${fixture_path}" in
+      tests/*|scripts/*) chmod 755 "${fixture_root}/${fixture_path}" ;;
+    esac
+    if [[ "${mutation}" == MODE && "${index}" -eq 0 ]]; then
+      chmod 755 "${fixture_root}/${fixture_path}"
+    elif [[ "${mutation}" == NUL && "${index}" -eq 0 ]]; then
+      printf '\0' >> "${fixture_root}/${fixture_path}"
+    fi
+    git -C "${fixture_root}" add "${fixture_path}"
+    if [[ "${mutation}" == PROJECTION_DRIFT && "${index}" -eq 1 ]]; then
+      set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I08
+      git -C "${fixture_root}" add AGENTS.md
+    fi
+    git -C "${fixture_root}" commit -qm \
+      "test: materialize I07 governance step ${index}"
+  done
 }
 
 append_w1_i07_review_receipt() {
@@ -4495,68 +4558,51 @@ run_w1_i07_closure_contract() {
   positive_cases=$((positive_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
-  commit_w1_i07_governance_path "${fixture_root}" "${i07_closure_plan_sha}" \
-    docs/superpowers/plans/2026-08-21-cognitura-w1-i07-closure.md \
-    "test: place I07 closure plan before design"
-  commit_w1_i07_governance_path "${fixture_root}" "${i07_closure_spec_sha}" \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md \
-    "test: place I07 closure design after plan"
+  materialize_w1_i07_governance_variant "${fixture_root}" WRONG_ORDER
   expect_w1_i07_closure_failure "${fixture_root}" \
-    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:path order"
   negative_cases=$((negative_cases + 1))
 
-  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
-  printf '%s\n' repeated >> \
-    "${fixture_root}/docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md"
-  git -C "${fixture_root}" add \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md
-  git -C "${fixture_root}" commit -qm "test: repeat I07 governance path"
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
+  materialize_w1_i07_governance_variant "${fixture_root}" REPEATED_PATH
   expect_w1_i07_closure_failure "${fixture_root}" \
-    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:path order"
   negative_cases=$((negative_cases + 1))
 
-  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
-  git -C "${fixture_root}" commit -q --allow-empty -m \
-    "test: add empty I07 governance commit"
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
+  materialize_w1_i07_governance_variant "${fixture_root}" EMPTY_COMMIT
   expect_w1_i07_closure_failure "${fixture_root}" \
-    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:empty commit"
   negative_cases=$((negative_cases + 1))
 
-  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
-  git -C "${fixture_root}" mv \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair-renamed.md
-  git -C "${fixture_root}" commit -qm "test: rename I07 governance evidence"
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
+  materialize_w1_i07_governance_variant "${fixture_root}" RENAME
   expect_w1_i07_closure_failure "${fixture_root}" \
-    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:rename or copy"
   negative_cases=$((negative_cases + 1))
 
-  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
-  chmod 755 \
-    "${fixture_root}/docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md"
-  git -C "${fixture_root}" add \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md
-  git -C "${fixture_root}" commit -qm "test: drift I07 governance mode"
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
+  materialize_w1_i07_governance_variant "${fixture_root}" COPY
   expect_w1_i07_closure_failure "${fixture_root}" \
-    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:rename or copy"
   negative_cases=$((negative_cases + 1))
 
-  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
-  printf '\0' >> \
-    "${fixture_root}/docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md"
-  git -C "${fixture_root}" add \
-    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md
-  git -C "${fixture_root}" commit -qm "test: add NUL to I07 governance evidence"
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
+  materialize_w1_i07_governance_variant "${fixture_root}" MODE
   expect_w1_i07_closure_failure "${fixture_root}" \
-    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:mode"
   negative_cases=$((negative_cases + 1))
 
-  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
-  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I08
-  git -C "${fixture_root}" add AGENTS.md
-  git -C "${fixture_root}" commit -qm "test: drift predecessor projection"
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
+  materialize_w1_i07_governance_variant "${fixture_root}" NUL
   expect_w1_i07_closure_failure "${fixture_root}" \
-    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:NUL"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
+  materialize_w1_i07_governance_variant "${fixture_root}" PROJECTION_DRIFT
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:path order"
   negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}^"
@@ -4982,7 +5028,7 @@ run_w1_i07_closure_contract() {
 
   [[ "${positive_cases}" -eq 4 ]] ||
     fail "I07 closure positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 43 ]] ||
+  [[ "${negative_cases}" -eq 44 ]] ||
     fail "I07 closure negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I07ClosureContractTests = PASS" \
