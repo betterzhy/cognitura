@@ -27,6 +27,7 @@ w1_i06_entry_repair_contract_only=0
 w1_i06_copy_inference_repair_contract_only=0
 w1_i06_closure_contract_only=0
 w1_i02_database_gate_contract_only=0
+w1_i02_closure_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -53,6 +54,9 @@ case "${1:-}" in
     ;;
   --w1-i02-database-gate-contract-only)
     w1_i02_database_gate_contract_only=1
+    ;;
+  --w1-i02-closure-contract-only)
+    w1_i02_closure_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -3899,6 +3903,275 @@ FormalDatabaseWrite = AUTHORIZED/' \
     "W1I02DatabaseGateNegativeCases = ${negative_cases}"
 }
 
+i02_reviewed_candidate_sha="59144c9dfca4abacce62de41c7306021bf5b83f8"
+i02_reviewed_parent_sha="525e75efe99ad91419c4d455c04bf3744abc7490"
+i02_reviewed_tree_sha="592a1b5d427f61e24e7687a532ca8562070c0a8f"
+i02_closure_base_sha="f8ff463a45d2801b2833ec769f0a09390240e541"
+i02_closure_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md
+  docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md
+)
+i02_closure_commit_paths=(
+  "${i02_closure_projection_paths[@]}"
+  scripts/verify-wave1-implementation-cards
+  tests/task-cards/verify-wave1-implementation-cards.sh
+)
+
+append_i02_closure_receipt() {
+  local fixture_root="$1"
+  printf '%s\n' \
+    '' \
+    '## 13. I02 关闭收据' \
+    '' \
+    '```text' \
+    'W1-I02 = DONE' \
+    "ReviewedCandidate = ${i02_reviewed_candidate_sha}" \
+    "ReviewedParent = ${i02_reviewed_parent_sha}" \
+    "ReviewedTree = ${i02_reviewed_tree_sha}" \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0 = 0' \
+    'P1 = 0' \
+    'P2 = 0' \
+    'Ultra = NOT_RUN' \
+    'I02ClosureReleasedTaskCard = W1-I07' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+}
+
+make_i02_closure_projection() {
+  local fixture_root="$1"
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I07
+  set_field "${fixture_root}/README.md" ActiveImplementationTaskCard W1-I07
+  set_field "${fixture_root}/docs/design/wave-1/README.md" \
+    ActiveImplementationGovernanceTaskCard W1-I07
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    ActiveTaskCard W1-I07
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    ActiveTaskCardStatus READY
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    ActiveImplementationTaskCard W1-I07
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+    ActiveImplementationGovernanceTaskCard W1-I07
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    ImplementationTaskCardPlanStatus I02_DONE_I07_READY
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    ActiveImplementationGovernanceTaskCard W1-I07
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    ActiveTaskCard W1-I07
+  set_table_status \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    W1-I02 READY DONE
+  set_table_status \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    W1-I07 BLOCKED_BY_DEPENDENCY READY
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" \
+    ActiveImplementationGovernanceTaskCard W1-I07
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    ActiveTaskCard W1-I07
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I02 READY DONE
+  set_table_status \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I07 BLOCKED_BY_DEPENDENCY READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" \
+    Status DONE
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md" \
+    Status READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md" \
+    BusinessImplementationAuthorization USER_AUTHORIZED
+
+  replace_i03_closure_text "${fixture_root}/AGENTS.md" \
+    '`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06` 已零发现关闭；`W1-I02` 的独立数据库 Gate 已通过并成为唯一 `READY` 卡，`W1-I07` 仍未释放。' \
+    '`W1-I02` 已完成固定候选零发现深审并关闭；`W1-I07` 已作为唯一 `READY` 卡释放。' \
+    'I02 closure AGENTS primary narrative'
+  replace_i03_closure_text "${fixture_root}/AGENTS.md" \
+    'I00、I01、I03、I04、I05 和 I06 已关闭；I02 为唯一 `READY` 卡，I07 未释放。' \
+    'I00、I01、I02、I03、I04、I05 和 I06 已关闭；I07 为唯一 `READY` 卡。' \
+    'I02 closure AGENTS secondary narrative'
+  replace_i03_closure_text "${fixture_root}/README.md" \
+    '完成零发现深审并关闭；I02 的独立数据库 Gate 已通过并成为唯一 `READY` 卡，I07 仍未释放。' \
+    '完成零发现深审并关闭；I02 已关闭，I07 已释放为唯一 `READY` 卡。' \
+    'I02 closure README primary narrative'
+  replace_i03_closure_text "${fixture_root}/README.md" \
+    '的独立数据库 Gate 已通过并成为唯一 `READY` 卡；`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06` 已关闭，`W1-I07` 仍未释放。' \
+    '已完成固定候选零发现深审并关闭；`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06` 已关闭，`W1-I07` 为唯一 `READY` 卡。' \
+    'I02 closure README secondary narrative'
+  replace_i03_closure_text "${fixture_root}/docs/design/wave-1/README.md" \
+    '  I01、I03、I04、I05 和 I06 已关闭，I02 的独立数据库 Gate 已通过并成为唯一 `READY` 卡，I07 仍未释放。' \
+    '  I01、I02、I03、I04、I05 和 I06 已关闭，I07 已释放为唯一 `READY` 卡。' \
+    'I02 closure design README narrative'
+  replace_i03_closure_text "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    $'现有卡集。`W1-I01` 已完成固定候选零发现深审并关闭，I02 的独立数据库 Gate 已通过\n并成为唯一 `READY` 卡，`W1-I05` 和 `W1-I06` 已零发现关闭；`W1-I07` 仍未释放。' \
+    $'现有卡集。`W1-I01`、`W1-I02`、`W1-I05` 和 `W1-I06` 已完成固定候选零发现深审并关闭；\n`W1-I07` 已释放为唯一 `READY` 卡。' \
+    'I02 closure design index narrative'
+  replace_i03_closure_text "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+    '固定候选深审并关闭；I02 的独立数据库 Gate 已通过并成为唯一 `READY` 卡，I03、I04、I05 和 I06 已关闭，I07 仍未释放，完整证据记录在' \
+    '固定候选深审并关闭；I02、I03、I04、I05 和 I06 已关闭，I07 已释放为唯一 `READY` 卡，完整证据记录在' \
+    'I02 closure design plan narrative'
+  replace_i03_closure_text "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    $'数据库 Gate 已通过并成为唯一 `READY` 卡；I03、I04、I05 和 I06 已关闭，I07 仍未释放。正式数据库、Parser/Object Storage Provider、' \
+    $'数据库 Gate 和固定候选深审均已通过，I02、I03、I04、I05 和 I06 已关闭；I07 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、' \
+    'I02 closure design acceptance narrative'
+  replace_i03_closure_text "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    $'非业务治理卡 I00 和来源领域卡 I01 已关闭；I02 的独立数据库 Gate 已\n通过并成为唯一 `READY` 卡，I03、I04、I05 和 I06 已关闭；I07 仍未释放。' \
+    $'非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、I03、I04、I05 和 I06 已完成固定候选\n零发现深审并关闭；I07 已释放为唯一 `READY` 卡。' \
+    'I02 closure implementation plan narrative'
+  replace_i03_closure_text "${fixture_root}/docs/task-cards/wave-1/README.md" \
+    'I00、I01、I03、I04、I05 和 I06 已关闭；I02 的独立数据库 Gate 已通过并成为唯一 `READY` 业务卡，I07 仍未释放。' \
+    'I00、I01、I02、I03、I04、I05 和 I06 已关闭；I07 已释放为唯一 `READY` 业务卡。' \
+    'I02 closure Wave 1 README narrative'
+  replace_i03_closure_text "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    '完成零发现深审并关闭；I02 的独立数据库 Gate 已通过并成为唯一 `READY` 卡，I03、I04、I05 和 I06 已关闭，I07 仍未释放。' \
+    '完成零发现深审并关闭；I02、I03、I04、I05 和 I06 已关闭，I07 已释放为唯一 `READY` 卡。' \
+    'I02 closure implementation index narrative'
+  append_i02_closure_receipt "${fixture_root}"
+}
+
+prepare_i02_closure_projection() {
+  local fixture_root="$1"
+  make_i02_closure_projection "${fixture_root}"
+  cp -p "${repo_root}/scripts/verify-wave1-implementation-cards" \
+    "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  cp -p "${repo_root}/tests/task-cards/verify-wave1-implementation-cards.sh" \
+    "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
+}
+
+commit_i02_closure_projection() {
+  local fixture_root="$1"
+  prepare_i02_closure_projection "${fixture_root}"
+  git -C "${fixture_root}" add "${i02_closure_commit_paths[@]}"
+  git -C "${fixture_root}" commit -qm "docs: close W1-I02 and release W1-I07"
+}
+
+run_i02_closure_verifier() {
+  local fixture_root="$1"
+  shift
+  "${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    "$@"
+}
+
+expect_i02_closure_failure() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local output
+  if output="$(run_i02_closure_verifier "${fixture_root}" 2>&1)"; then
+    fail "invalid I02 closure unexpectedly passed: ${expected_message}"
+  fi
+  assert_contains "${output}" "${expected_message}"
+}
+
+run_w1_i02_closure_contract() {
+  local fixture_root closure_sha output
+  local positive_cases=0
+  local negative_cases=0
+  fixture_root="${test_tmp_root}/w1-i02-closure"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${i02_closure_base_sha}"
+
+  commit_i02_closure_projection "${fixture_root}"
+  closure_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  output="$(run_i02_closure_verifier "${fixture_root}" \
+    --transition-base "${i02_closure_base_sha}" \
+    --transition-head "${closure_sha}")" ||
+    fail "legal explicit I02 closure was rejected: ${output}"
+  assert_contains "${output}" "W1I02ClosureStatus = PASS"
+  assert_contains "${output}" "ActiveTaskCard = W1-I07"
+  positive_cases=$((positive_cases + 1))
+
+  output="$(run_i02_closure_verifier "${fixture_root}")" ||
+    fail "legal static I02 closure was rejected: ${output}"
+  assert_contains "${output}" "W1I02ClosureStatus = PASS"
+  assert_contains "${output}" "ReadyTaskCardCount = 1"
+  positive_cases=$((positive_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${i02_closure_base_sha}"
+  prepare_i02_closure_projection "${fixture_root}"
+  sed -i.bak "s/${i02_reviewed_candidate_sha}/0000000000000000000000000000000000000000/" \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i02_closure_commit_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: drift I02 review receipt"
+  expect_i02_closure_failure "${fixture_root}" "I02 closure review receipt mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${i02_closure_base_sha}"
+  prepare_i02_closure_projection "${fixture_root}"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md" \
+    BusinessImplementationAuthorization REQUIRED_BEFORE_READY
+  git -C "${fixture_root}" add "${i02_closure_commit_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: revoke I07 authorization"
+  expect_i02_closure_failure "${fixture_root}" \
+    "W1-I07 requires explicit business implementation authorization"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${i02_closure_base_sha}"
+  prepare_i02_closure_projection "${fixture_root}"
+  printf '%s\n' extra > "${fixture_root}/i02-closure-extra.txt"
+  git -C "${fixture_root}" add "${i02_closure_commit_paths[@]}" i02-closure-extra.txt
+  git -C "${fixture_root}" commit -qm "test: expand I02 closure scope"
+  expect_i02_closure_failure "${fixture_root}" \
+    "I02 closure fixed diff must equal the exact thirteen paths"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${i02_closure_base_sha}"
+  prepare_i02_closure_projection "${fixture_root}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    FormalDatabaseWrite AUTHORIZED
+  git -C "${fixture_root}" add "${i02_closure_commit_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: authorize formal database write"
+  expect_i02_closure_failure "${fixture_root}" \
+    "I02 closure must preserve database and push authorization boundaries"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${i02_closure_base_sha}"
+  prepare_i02_closure_projection "${fixture_root}"
+  printf '%s\n' 'nonterminal receipt drift' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  git -C "${fixture_root}" add "${i02_closure_commit_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: make I02 receipt nonterminal"
+  expect_i02_closure_failure "${fixture_root}" "I02 closure review receipt mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  printf '%s\n' outside > "${fixture_root}/outside-i07-write-set.txt"
+  git -C "${fixture_root}" add outside-i07-write-set.txt
+  git -C "${fixture_root}" commit -qm "test: change outside I07 WriteSet"
+  expect_i02_closure_failure "${fixture_root}" \
+    "post-I02-closure descendant changed a path outside the W1-I07 WriteSet"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "I02 closure positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 6 ]] ||
+    fail "I02 closure negative case count mismatch: ${negative_cases}"
+  printf '%s\n' \
+    "W1I02ClosureContractTests = PASS" \
+    "W1I02ClosurePositiveCases = ${positive_cases}" \
+    "W1I02ClosureNegativeCases = ${negative_cases}"
+}
+
 run_terra_first_routing_contract() {
   local predecessor_sha="59144c9dfca4abacce62de41c7306021bf5b83f8"
   local fixture_root output successor_sha
@@ -4017,6 +4290,11 @@ if [[ "${w1_i02_database_gate_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+if [[ "${w1_i02_closure_contract_only}" == "1" ]]; then
+  run_w1_i02_closure_contract
+  exit 0
+fi
+
 if [[ "${terra_first_routing_contract_only}" == "1" ]]; then
   run_terra_first_routing_contract
   exit 0
@@ -4029,6 +4307,7 @@ run_w1_i06_entry_repair_contract
 run_w1_i06_copy_inference_repair_contract
 run_w1_i06_closure_contract
 run_w1_i02_database_gate_contract
+run_w1_i02_closure_contract
 
 validation_output="$(
   "${verifier}" \
