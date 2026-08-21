@@ -919,6 +919,8 @@ w1_i09_product_copy_reentry_paths=(
 w1_i09_canonical_bridge_origin_sha="3fccd70661333115703205d8217ced77171c98a7"
 w1_i09_canonical_bridge_spec_sha="d85bd11ce84059dc722044b05e6410bffbd42571"
 w1_i09_canonical_bridge_test_sha="05e35da426433d78ec8709f3a662ceab4a9736e8"
+w1_i09_canonical_bridge_projection_sha="90a77d73f1389593930d8fbd468f0f06238b1c1b"
+w1_i09_canonical_bridge_freeze_fix_spec_sha="be5a8678d030abc3ed02e93f0c5da3ec11c438ed"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -930,6 +932,10 @@ w1_i09_canonical_bridge_projection_paths=(
   docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
 )
 w1_i09_canonical_bridge_product_path="server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
+w1_i09_canonical_bridge_freeze_fix_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bridge-projection-freeze-fix.md
+  scripts/verify-wave1-implementation-cards
+)
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
   docs/engineering/cognitura-design-index.md
@@ -6202,6 +6208,7 @@ validate_post_w1_i09_runtime_projection_descendants() {
   local commit parent changed_paths path expected_path expected_mode
   local copy_repair_state="BEFORE" verifier_steps=0 finding_verifier_steps=0
   local reentry_verifier_steps=0 bridge_verifier_steps=0 bridge_product_seen=0
+  local bridge_freeze_fix_steps=0 bridge_projection=""
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
       "${projection}..${head}"); do
@@ -6358,6 +6365,22 @@ validate_post_w1_i09_runtime_projection_descendants() {
       copy_repair_state="BRIDGE_TEST"
       continue
     fi
+    if [[ "${commit}" == "${w1_i09_canonical_bridge_freeze_fix_spec_sha}" ]]; then
+      [[ "${copy_repair_state}" == "BRIDGE_PROJECTED" && \
+         "${parent}" == "${w1_i09_canonical_bridge_projection_sha}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:order"
+      expected_path="${w1_i09_canonical_bridge_freeze_fix_paths[0]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100644 ]] ||
+        fail "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:NUL"
+      copy_repair_state="BRIDGE_FIX_SPEC"
+      continue
+    fi
     if [[ "${copy_repair_state}" == "BRIDGE_TEST" ]]; then
       expected_path="${w1_i09_canonical_bridge_paths[2]}"
       [[ "${changed_paths}" == "${expected_path}" ]] ||
@@ -6373,8 +6396,26 @@ validate_post_w1_i09_runtime_projection_descendants() {
       continue
     elif [[ "${copy_repair_state}" == "BRIDGE_VERIFIER" ]]; then
       validate_w1_i09_canonical_bridge_projection "${parent}" "${commit}"
+      [[ "${commit}" == "${w1_i09_canonical_bridge_projection_sha}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:identity"
+      bridge_projection="${commit}"
       copy_repair_state="BRIDGE_PROJECTED"
       continue
+    elif [[ "${copy_repair_state}" == "BRIDGE_FIX_SPEC" ]]; then
+      expected_path="${w1_i09_canonical_bridge_freeze_fix_paths[1]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:NUL"
+      bridge_freeze_fix_steps=1
+      copy_repair_state="BRIDGE_FIXED"
+      continue
+    elif [[ "${copy_repair_state}" == "BRIDGE_FIXED" ]]; then
+      copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "BRIDGE_PROJECTED" ]]; then
       copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "BRIDGE_SPEC" ]]; then
@@ -6483,6 +6524,9 @@ validate_post_w1_i09_runtime_projection_descendants() {
     BRIDGE_SPEC|BRIDGE_TEST)
       fail "I09_CANONICAL_BRIDGE_INVALID:incomplete"
       ;;
+    BRIDGE_FIX_SPEC)
+      fail "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:incomplete"
+      ;;
     VERIFIER)
       [[ "${verifier_steps}" -ge 1 ]] ||
         fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
@@ -6502,8 +6546,15 @@ validate_post_w1_i09_runtime_projection_descendants() {
       [[ "${bridge_verifier_steps}" -eq 1 ]] ||
         fail "I09_CANONICAL_BRIDGE_INVALID:missing verifier"
       ;;
+    BRIDGE_FIXED)
+      [[ "${bridge_freeze_fix_steps}" -eq 1 ]] ||
+        fail "I09_CANONICAL_BRIDGE_FREEZE_FIX_INVALID:missing verifier"
+      ;;
   esac
-  git -C "${repo_root}" diff --quiet "${projection}..${head}" -- \
+  if [[ -z "${bridge_projection}" ]]; then
+    bridge_projection="${projection}"
+  fi
+  git -C "${repo_root}" diff --quiet "${bridge_projection}..${head}" -- \
     "${w1_i09_runtime_projection_paths[@]}" ||
     fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path:projection"
 }
