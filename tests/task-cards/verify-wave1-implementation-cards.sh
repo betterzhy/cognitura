@@ -3813,6 +3813,25 @@ FormalDatabaseWrite = AUTHORIZED/' \
     "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT"
   expect_w1_i02_database_gate_failure "${fixture_root}" \
     "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT"
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  sed -i.bak \
+    '1,/^## 1\. 实现卡$/ s/^## 1\. 实现卡$/```text\
+FormalDatabaseWrite = NOT_AUTHORIZED\
+```\
+\
+## 1. 实现卡/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: add a second current authority block"
+  expect_w1_i02_database_gate_transition_failure "${fixture_root}" \
+    "${gate_tip}" "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT"
   negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${gate_tip}"
