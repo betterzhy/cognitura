@@ -3802,11 +3802,15 @@ run_w1_i02_database_gate_contract() {
   make_w1_i02_database_gate_release "${fixture_root}" \
     "${gate_tip}" "${gate_parent}" "${gate_tree}"
   sed -i.bak \
-    '1,/^FormalDatabaseWrite = / s/^FormalDatabaseWrite = .*$/FormalDatabaseWrite = AUTHORIZED/' \
+    '1,/^FormalDatabaseWrite = / s/^FormalDatabaseWrite = .*$/FormalDatabaseWrite = NOT_AUTHORIZED\
+FormalDatabaseWrite = AUTHORIZED/' \
     "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
   rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
   git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
-  git -C "${fixture_root}" commit -qm "test: drift current formal database authority"
+  git -C "${fixture_root}" commit -qm "test: mask current formal database authority drift"
+  expect_w1_i02_database_gate_transition_failure "${fixture_root}" \
+    "${gate_tip}" "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT"
   expect_w1_i02_database_gate_failure "${fixture_root}" \
     "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT"
   negative_cases=$((negative_cases + 1))
