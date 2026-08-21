@@ -737,6 +737,12 @@ w1_i07_closure_governance_paths=(
   docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-legacy-gate-fixture-repair.md
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-fixture-staging-repair.md
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-staging-chain-count-clarification.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
 )
 w1_i07_closure_projection_paths=(
   AGENTS.md
@@ -4426,7 +4432,7 @@ validate_w1_i07_closure_governance_chain() {
     done <<< "${changed_paths}"
   done
   [[ "${#commits[@]}" -eq "${#w1_i07_closure_governance_paths[@]}" ]] ||
-    fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:exact nine commits"
+    fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:exact fifteen commits"
   previous="${w1_i07_closure_origin_sha}"
   for index in "${!w1_i07_closure_governance_paths[@]}"; do
     commit="${commits[${index}]}"
@@ -4623,6 +4629,12 @@ validate_w1_i07_closure_receipt() {
      "$(git_tree_field "${receipt}" "${w1_i09_card_path}" \
       BusinessImplementationAuthorization)" == REQUIRED_BEFORE_READY ]] ||
     fail "I07_CLOSURE_STATE_VECTOR_INVALID:authorization vector"
+  [[ "$(git_tree_field "${receipt}" \
+      docs/task-cards/wave-1-implementation/README.md ActiveTaskCard)" == W1-I08 ]] ||
+    fail "I07_CLOSURE_STATE_VECTOR_INVALID:ActiveTaskCard = W1-I08"
+  [[ "$(git_tree_field "${receipt}" \
+      docs/task-cards/wave-1-implementation/README.md ReadyTaskCardCount)" == 1 ]] ||
+    fail "I07_CLOSURE_STATE_VECTOR_INVALID:ReadyTaskCardCount = 1"
   require_git_tree_field "${receipt}" \
     docs/task-cards/wave-1-implementation/README.md \
     TaskCardSetStatus READY_FOR_EXECUTION
