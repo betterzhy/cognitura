@@ -916,6 +916,20 @@ w1_i09_product_copy_reentry_paths=(
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
+w1_i09_canonical_bridge_origin_sha="3fccd70661333115703205d8217ced77171c98a7"
+w1_i09_canonical_bridge_spec_sha="d85bd11ce84059dc722044b05e6410bffbd42571"
+w1_i09_canonical_bridge_test_sha="05e35da426433d78ec8709f3a662ceab4a9736e8"
+w1_i09_canonical_bridge_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i09_canonical_bridge_projection_paths=(
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+)
+w1_i09_canonical_bridge_product_path="server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
   docs/engineering/cognitura-design-index.md
@@ -924,6 +938,7 @@ w1_i09_runtime_projection_paths=(
   "${w1_i09_card_path}"
 )
 w1_i09_runtime_product_paths=(
+  "${w1_i09_canonical_bridge_product_path}"
   server/src/main/java/io/cognitura/source/application/command/TrustedRequestContext.java
   server/src/main/java/io/cognitura/source/application/command/TrustedRequestContextProvider.java
   server/src/main/java/io/cognitura/source/application/command/SourceBinaryStore.java
@@ -6048,12 +6063,145 @@ validate_w1_i09_runtime_projection() {
   remove_temporary_directory "${expected_root}"
 }
 
+materialize_w1_i09_canonical_bridge_projection() {
+  local bridge_tip="$1"
+  local destination_root="$2"
+  local path bridge_parent bridge_tree card_file plan_file index_file temporary
+  bridge_parent="$(single_parent_of "${bridge_tip}" \
+    "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:bridge parent")"
+  bridge_tree="$(git -C "${repo_root}" rev-parse \
+    "${bridge_tip}^{tree}" 2>/dev/null)" ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:bridge tree"
+  for path in "${w1_i09_canonical_bridge_projection_paths[@]}"; do
+    mkdir -p "${destination_root}/${path%/*}"
+    git -C "${repo_root}" show "${bridge_tip}:${path}" > \
+      "${destination_root}/${path}" ||
+      fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:source"
+  done
+  index_file="${destination_root}/${w1_i09_canonical_bridge_projection_paths[0]}"
+  plan_file="${destination_root}/${w1_i09_canonical_bridge_projection_paths[1]}"
+  card_file="${destination_root}/${w1_i09_canonical_bridge_projection_paths[2]}"
+  [[ "$(grep -Fc 'W1I09ProductWriteSetCount = 27' "${index_file}" || true)" -eq 1 ]] ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:index source"
+  sed -i.bak 's/W1I09ProductWriteSetCount = 27/W1I09ProductWriteSetCount = 28/' \
+    "${index_file}"
+  rm "${index_file}.bak"
+  [[ "$(grep -Fc 'I09ProductWriteSetCount = 27' "${plan_file}" || true)" -eq 1 ]] ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:plan source"
+  sed -i.bak 's/I09ProductWriteSetCount = 27/I09ProductWriteSetCount = 28/' \
+    "${plan_file}"
+  rm "${plan_file}.bak"
+  printf '%s\n' \
+    '' \
+    '## 17. W1-I09 canonical bytes bridge receipt' \
+    '' \
+    '```text' \
+    'W1I09CanonicalBytesBridge = PASS' \
+    "ReviewedCanonicalBridgeCandidate = ${bridge_tip}" \
+    "ReviewedCanonicalBridgeParent = ${bridge_parent}" \
+    "ReviewedCanonicalBridgeTree = ${bridge_tree}" \
+    'I09ProductWriteSetCount = 28' \
+    'ProductionFileLimit = 20' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> "${plan_file}"
+  [[ "$(grep -Fc 'ProductionFileLimit = 19' "${card_file}" || true)" -eq 1 ]] ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:card limit source"
+  [[ "$(grep -Fc '暂存清单必须与 27 路径双向一致' "${card_file}" || true)" -eq 1 ]] ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:card count source"
+  [[ "$(grep -Fc \
+      'WriteSet = server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java' \
+      "${card_file}" || true)" -eq 0 ]] ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:duplicate bridge path"
+  sed -i.bak \
+    -e 's/ProductionFileLimit = 19/ProductionFileLimit = 20/' \
+    -e 's/暂存清单必须与 27 路径双向一致/暂存清单必须与 28 路径双向一致/' \
+    "${card_file}"
+  rm "${card_file}.bak"
+  temporary="${destination_root}/card-with-bridge"
+  awk -v bridge='WriteSet = server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java' '
+    { print }
+    $0 == "WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceCommandException.java" {
+      print bridge
+      inserted++
+    }
+    END { if (inserted != 1) exit 1 }
+  ' "${card_file}" > "${temporary}" ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:card insertion"
+  mv "${temporary}" "${card_file}"
+}
+
+validate_w1_i09_canonical_bridge_projection() {
+  local bridge_tip="$1"
+  local projection="$2"
+  local parent expected_root expected_paths actual_paths path index=0 actual_file
+  parent="$(single_parent_of "${projection}" \
+    "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:single parent")"
+  [[ "${parent}" == "${bridge_tip}" ]] ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:direct child"
+  git -C "${repo_root}" diff-tree --quiet "${parent}" "${projection}" &&
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:empty"
+  require_no_git_rename_or_copy "${parent}" "${projection}" \
+    "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:rename or copy"
+  expected_paths="$(printf '%s\n' \
+    "${w1_i09_canonical_bridge_projection_paths[@]}" | LC_ALL=C sort)"
+  actual_paths="$(git -C "${repo_root}" diff --name-only \
+    "${parent}..${projection}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:exact paths"
+  register_temporary_directory expected_root cognitura-i09-canonical-bridge-projection
+  materialize_w1_i09_canonical_bridge_projection "${bridge_tip}" "${expected_root}"
+  for path in "${w1_i09_canonical_bridge_projection_paths[@]}"; do
+    [[ "$(git_tree_mode "${projection}" "${path}")" == 100644 ]] ||
+      fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:mode"
+    require_git_blob_without_nul "${projection}" "${path}" \
+      "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:NUL"
+    actual_file="${expected_root}/actual-${index}"
+    git -C "${repo_root}" show "${projection}:${path}" > "${actual_file}" ||
+      fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:content"
+    cmp -s "${expected_root}/${path}" "${actual_file}" ||
+      fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:content"
+    index=$((index + 1))
+  done
+  remove_temporary_directory "${expected_root}"
+}
+
+validate_w1_i09_canonical_bridge_product() {
+  local parent="$1"
+  local commit="$2"
+  local expected_root expected_file actual_file
+  register_temporary_directory expected_root cognitura-i09-canonical-bridge-product
+  expected_file="${expected_root}/expected"
+  actual_file="${expected_root}/actual"
+  git -C "${repo_root}" show \
+    "${parent}:${w1_i09_canonical_bridge_product_path}" > "${expected_file}" ||
+    fail "I09_CANONICAL_BRIDGE_PRODUCT_INVALID:source"
+  [[ "$(grep -Fc '    byte[] canonicalOmissionsBytes()' "${expected_file}" || true)" -eq 1 ]] ||
+    fail "I09_CANONICAL_BRIDGE_PRODUCT_INVALID:source"
+  [[ "$(grep -Fc '    byte[] canonicalRevisionDiagnosticsBytes()' "${expected_file}" || true)" -eq 1 ]] ||
+    fail "I09_CANONICAL_BRIDGE_PRODUCT_INVALID:source"
+  [[ "$(grep -Fc '        byte[] canonicalBytes()' "${expected_file}" || true)" -eq 1 ]] ||
+    fail "I09_CANONICAL_BRIDGE_PRODUCT_INVALID:source"
+  sed -i.bak \
+    -e 's/^    byte\[\] canonicalOmissionsBytes()/    public byte[] canonicalOmissionsBytes()/' \
+    -e 's/^    byte\[\] canonicalRevisionDiagnosticsBytes()/    public byte[] canonicalRevisionDiagnosticsBytes()/' \
+    -e 's/^        byte\[\] canonicalBytes()/        public byte[] canonicalBytes()/' \
+    "${expected_file}"
+  rm "${expected_file}.bak"
+  git -C "${repo_root}" show \
+    "${commit}:${w1_i09_canonical_bridge_product_path}" > "${actual_file}" ||
+    fail "I09_CANONICAL_BRIDGE_PRODUCT_INVALID:content"
+  cmp -s "${expected_file}" "${actual_file}" ||
+    fail "I09_CANONICAL_BRIDGE_PRODUCT_INVALID:content"
+  remove_temporary_directory "${expected_root}"
+}
+
 validate_post_w1_i09_runtime_projection_descendants() {
   local projection="$1"
   local head="$2"
   local commit parent changed_paths path expected_path expected_mode
   local copy_repair_state="BEFORE" verifier_steps=0 finding_verifier_steps=0
-  local reentry_verifier_steps=0
+  local reentry_verifier_steps=0 bridge_verifier_steps=0 bridge_product_seen=0
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
       "${projection}..${head}"); do
@@ -6178,6 +6326,60 @@ validate_post_w1_i09_runtime_projection_descendants() {
       copy_repair_state="REENTRY_TEST"
       continue
     fi
+    if [[ "${commit}" == "${w1_i09_canonical_bridge_spec_sha}" ]]; then
+      [[ "${copy_repair_state}" == "REENTRY_VERIFIER" && \
+         "${parent}" == "${w1_i09_canonical_bridge_origin_sha}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:order"
+      expected_path="${w1_i09_canonical_bridge_paths[0]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_CANONICAL_BRIDGE_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100644 ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_CANONICAL_BRIDGE_INVALID:NUL"
+      copy_repair_state="BRIDGE_SPEC"
+      continue
+    fi
+    if [[ "${commit}" == "${w1_i09_canonical_bridge_test_sha}" ]]; then
+      [[ "${copy_repair_state}" == "BRIDGE_SPEC" && \
+         "${parent}" == "${w1_i09_canonical_bridge_spec_sha}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:order"
+      expected_path="${w1_i09_canonical_bridge_paths[1]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_CANONICAL_BRIDGE_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_CANONICAL_BRIDGE_INVALID:NUL"
+      copy_repair_state="BRIDGE_TEST"
+      continue
+    fi
+    if [[ "${copy_repair_state}" == "BRIDGE_TEST" ]]; then
+      expected_path="${w1_i09_canonical_bridge_paths[2]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_CANONICAL_BRIDGE_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_CANONICAL_BRIDGE_INVALID:NUL"
+      bridge_verifier_steps=1
+      copy_repair_state="BRIDGE_VERIFIER"
+      continue
+    elif [[ "${copy_repair_state}" == "BRIDGE_VERIFIER" ]]; then
+      validate_w1_i09_canonical_bridge_projection "${parent}" "${commit}"
+      copy_repair_state="BRIDGE_PROJECTED"
+      continue
+    elif [[ "${copy_repair_state}" == "BRIDGE_PROJECTED" ]]; then
+      copy_repair_state="COMPLETE"
+    elif [[ "${copy_repair_state}" == "BRIDGE_SPEC" ]]; then
+      fail "I09_CANONICAL_BRIDGE_INVALID:order"
+    fi
     if [[ "${copy_repair_state}" == "REENTRY_TEST" ]]; then
       expected_path="${w1_i09_product_copy_reentry_paths[2]}"
       [[ "${changed_paths}" == "${expected_path}" ]] ||
@@ -6242,6 +6444,12 @@ validate_post_w1_i09_runtime_projection_descendants() {
       require_no_git_rename_or_copy "${parent}" "${commit}" \
         "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy"
     fi
+    if [[ "${changed_paths}" == "${w1_i09_canonical_bridge_product_path}" ]]; then
+      [[ "${bridge_product_seen}" -eq 0 ]] ||
+        fail "I09_CANONICAL_BRIDGE_PRODUCT_INVALID:second modification"
+      validate_w1_i09_canonical_bridge_product "${parent}" "${commit}"
+      bridge_product_seen=1
+    fi
     while IFS= read -r path; do
       [[ -n "${path}" ]] || continue
       if is_w1_i08_descendant_path "${path}"; then
@@ -6272,6 +6480,9 @@ validate_post_w1_i09_runtime_projection_descendants() {
     REENTRY_SPEC|REENTRY_TEST)
       fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:incomplete"
       ;;
+    BRIDGE_SPEC|BRIDGE_TEST)
+      fail "I09_CANONICAL_BRIDGE_INVALID:incomplete"
+      ;;
     VERIFIER)
       [[ "${verifier_steps}" -ge 1 ]] ||
         fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
@@ -6284,6 +6495,13 @@ validate_post_w1_i09_runtime_projection_descendants() {
       [[ "${reentry_verifier_steps}" -eq 1 ]] ||
         fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:missing verifier"
       ;;
+    BRIDGE_VERIFIER)
+      fail "I09_CANONICAL_BRIDGE_PROJECTION_INVALID:missing"
+      ;;
+    BRIDGE_PROJECTED)
+      [[ "${bridge_verifier_steps}" -eq 1 ]] ||
+        fail "I09_CANONICAL_BRIDGE_INVALID:missing verifier"
+      ;;
   esac
   git -C "${repo_root}" diff --quiet "${projection}..${head}" -- \
     "${w1_i09_runtime_projection_paths[@]}" ||
@@ -6292,7 +6510,7 @@ validate_post_w1_i09_runtime_projection_descendants() {
 
 route_w1_i09_runtime_repair() {
   local head="$1"
-  local repair_tip projection
+  local repair_tip projection product_write_set_count=27
   repair_tip="$(validate_w1_i09_runtime_repair_chain "${head}")"
   if [[ "${head}" == "${repair_tip}" ]]; then
     printf '%s\n' \
@@ -6315,6 +6533,10 @@ route_w1_i09_runtime_repair() {
   validate_w1_i09_runtime_projection "${repair_tip}" "${projection}"
   validate_post_w1_i09_runtime_projection_descendants \
     "${projection}" "${head}"
+  if git -C "${repo_root}" merge-base --is-ancestor \
+      "${w1_i09_canonical_bridge_spec_sha}" "${head}"; then
+    product_write_set_count=28
+  fi
   printf '%s\n' \
     "Wave1ImplementationTaskCardValidation = PASS" \
     "TaskCardCount = 14" \
@@ -6324,7 +6546,7 @@ route_w1_i09_runtime_repair() {
     "W1I07ClosureStatus = PASS" \
     "W1I08ClosureStatus = PASS" \
     "W1I09RuntimeRebaselineStatus = PASS" \
-    "I09ProductWriteSetCount = 27" \
+    "I09ProductWriteSetCount = ${product_write_set_count}" \
     "FormalDatabaseWrite = NOT_AUTHORIZED" \
     "RemotePush = NOT_AUTHORIZED"
 }
