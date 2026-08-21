@@ -107,7 +107,7 @@ class SourcePersistenceIntegrationTest {
     void resetFacts() throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
             ScriptUtils.executeSqlScript(
-                    connection, new ClassPathResource("db/source-persistence-fixture.sql"));
+                    connection, new ClassPathResource("db/source-command-runtime-fixture.sql"));
         }
     }
 
