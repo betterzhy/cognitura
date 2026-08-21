@@ -492,6 +492,7 @@ w1_i06_entry_review_contract_test_sha="2662f55aaf03111bc297c221d5069171a0f734ba"
 w1_i06_internal_projection_red_sha="68c3fe77bd7cbe3a69d1dd294a6dc7d716d6b307"
 w1_i06_external_projection_red_sha="5e2c6c132fef438a5c7cb54c6de6c83ec77f85f9"
 w1_i06_copy_repair_test_sha="61cbb3136ffaf3f0ba3b6b4f4acef57ba4fabdca"
+w1_i06_copy_repair_green_sha="71fa70e11f7adf88096839f0fef5e148ba83e989"
 w1_i06_entry_repair_governance_paths=(
   docs/superpowers/specs/2026-08-21-cognitura-w1-i06-entry-repair-design.md
   docs/superpowers/plans/2026-08-21-cognitura-w1-i06-entry-repair-and-implementation.md
@@ -2920,12 +2921,16 @@ validate_w1_i06_entry_repair_and_descendants() {
             "W1-I06 entry-repair GREEN path must not contain NUL"
         done
         ;;
-      17|18)
+      17|18|19)
         parent="$(single_parent_of "${commit}" \
           "W1-I06 copy-inference repair governance commit")"
         if [[ "${commit_index}" -eq 17 && \
               "${commit}" != "${w1_i06_copy_repair_test_sha}" ]]; then
           fail "W1-I06 copy-inference repair test identity mismatch"
+        fi
+        if [[ "${commit_index}" -eq 18 && \
+              "${commit}" != "${w1_i06_copy_repair_green_sha}" ]]; then
+          fail "W1-I06 copy-inference repair GREEN identity mismatch"
         fi
         git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
           fail "W1-I06 copy-inference repair governance commit must be nonempty"
@@ -2985,8 +2990,11 @@ validate_w1_i06_entry_repair_and_descendants() {
   else
     w1_i06_entry_repair_status=PASS
   fi
-  [[ "${commit_index}" -ne 18 ]] ||
-    fail "W1-I06 copy-inference repair chain must include the verifier"
+  case "${commit_index}" in
+    18|19)
+      fail "W1-I06 copy-inference repair chain must include the fixed correction"
+      ;;
+  esac
 }
 
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"

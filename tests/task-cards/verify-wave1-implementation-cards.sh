@@ -3109,6 +3109,8 @@ i06_internal_projection_red_sha="68c3fe77bd7cbe3a69d1dd294a6dc7d716d6b307"
 i06_internal_projection_green_sha="bb0c88128d7b58112bf20710d08cf7447c793685"
 i06_external_projection_red_sha="5e2c6c132fef438a5c7cb54c6de6c83ec77f85f9"
 i06_external_projection_green_sha="ee4740a22f103086c38ff27c2f0b9e02820cffcc"
+i06_copy_repair_test_sha="61cbb3136ffaf3f0ba3b6b4f4acef57ba4fabdca"
+i06_copy_repair_green_sha="71fa70e11f7adf88096839f0fef5e148ba83e989"
 
 new_i06_copy_repair_fixture() {
   local fixture_root="$1"
@@ -3126,8 +3128,7 @@ run_i06_copy_repair_verifier() {
 
 materialize_i06_copy_repair_tip() {
   local fixture_root="$1"
-  local repair_test_sha="$2"
-  git -C "${fixture_root}" checkout -q --detach "${repair_test_sha}"
+  git -C "${fixture_root}" checkout -q --detach "${i06_copy_repair_green_sha}"
   cp \
     "${repo_root}/tests/task-cards/verify-wave1-implementation-cards.sh" \
     "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
@@ -3151,13 +3152,9 @@ expect_i06_copy_repair_failure() {
 }
 
 run_w1_i06_copy_inference_repair_contract() {
-  local fixture_root output repair_test_sha repair_tip substitute_sha
+  local fixture_root output repair_tip substitute_sha
   local positive_cases=0
   local negative_cases=0
-
-  repair_test_sha="$(git -C "${repo_root}" log -1 --format=%H -- \
-    tests/task-cards/verify-wave1-implementation-cards.sh)"
-  [[ -n "${repair_test_sha}" ]] || fail "I06 copy-inference repair test SHA is missing"
 
   fixture_root="${test_tmp_root}/w1-i06-copy-fixed-candidate"
   new_i06_copy_repair_fixture "${fixture_root}" "${i06_copy_repair_origin_sha}"
@@ -3168,7 +3165,7 @@ run_w1_i06_copy_inference_repair_contract() {
 
   fixture_root="${test_tmp_root}/w1-i06-copy-repair-tip"
   new_i06_copy_repair_fixture "${fixture_root}" "${i06_copy_repair_origin_sha}"
-  materialize_i06_copy_repair_tip "${fixture_root}" "${repair_test_sha}"
+  materialize_i06_copy_repair_tip "${fixture_root}"
   repair_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
   printf '%s\n' '// legal post-repair I06 descendant' >> \
     "${fixture_root}/server/src/main/java/io/cognitura/source/docx/image/MediaDigest.java"
