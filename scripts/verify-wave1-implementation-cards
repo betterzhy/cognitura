@@ -478,6 +478,26 @@ w1_i05_closure_governance_paths=(
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
+w1_i06_entry_repair_origin_sha="5937fe6845f3cd7759dcaa5156bfc9f9060b5407"
+w1_i06_entry_repair_design_sha="d8c0614d736126cdb914508084d0c84c61420d88"
+w1_i06_entry_repair_plan_sha="c5d86bdf29edf790a154ba784592743211a958e0"
+w1_i06_entry_repair_test_sha="9f26431f29043f66ba224d1ccc347d70bdccb0ce"
+w1_i06_entry_repair_test_correction_sha="3c3f0fc68670939c6a68ed1cc7a739dce9948e44"
+w1_i06_entry_repair_governance_paths=(
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i06-entry-repair-design.md
+  docs/superpowers/plans/2026-08-21-cognitura-w1-i06-entry-repair-and-implementation.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i06_entry_repair_red_paths=(
+  server/src/test/java/io/cognitura/source/docx/text/TextListSectionParserTest.java
+  server/src/test/resources/docx/text/inline-images.xml
+)
+w1_i06_entry_repair_green_paths=(
+  server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java
+  server/src/main/java/io/cognitura/source/docx/text/SourceOrderCursor.java
+)
 w1_i05_closure_projection_paths=(
   AGENTS.md
   README.md
@@ -2643,6 +2663,135 @@ validate_post_w1_i05_closure_descendants() {
   done
 }
 
+validate_w1_i06_entry_repair_and_descendants() {
+  local receipt="$1"
+  local head="$2"
+  local commit parent changed_paths expected_paths path expected_path expected_commit
+  local commit_index=0
+  local fixed_governance_commits=(
+    "${w1_i06_entry_repair_design_sha}"
+    "${w1_i06_entry_repair_plan_sha}"
+    "${w1_i06_entry_repair_test_sha}"
+    "${w1_i06_entry_repair_test_correction_sha}"
+  )
+
+  if [[ "${receipt}" != "${w1_i06_entry_repair_origin_sha}" ]]; then
+    validate_post_w1_i05_closure_descendants "${receipt}" "${head}"
+    w1_i06_entry_repair_status=PENDING
+    return
+  fi
+  git -C "${repo_root}" merge-base --is-ancestor "${receipt}" "${head}" ||
+    fail "W1-I06 entry-repair HEAD must descend from the fixed I05 closure receipt"
+
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${receipt}..${head}"); do
+    case "${commit_index}" in
+      0|1|2|3|4)
+        parent="$(single_parent_of "${commit}" \
+          "W1-I06 entry-repair governance commit")"
+        if [[ "${commit_index}" -eq 0 ]]; then
+          [[ "${parent}" == "${receipt}" ]] ||
+            fail "W1-I06 entry-repair governance origin mismatch"
+        fi
+        if [[ "${commit_index}" -lt "${#fixed_governance_commits[@]}" ]]; then
+          expected_commit="${fixed_governance_commits[${commit_index}]}"
+          [[ "${commit}" == "${expected_commit}" ]] ||
+            fail "W1-I06 entry-repair governance identity mismatch"
+        fi
+        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+          fail "W1-I06 entry-repair governance commit must be nonempty"
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "W1-I06 entry-repair governance commit must not rename or copy paths"
+        changed_paths="$(git -C "${repo_root}" diff --name-only \
+          "${parent}..${commit}")"
+        [[ "$(printf '%s\n' "${changed_paths}" | awk \
+          'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
+          fail "W1-I06 entry-repair governance commit must change exactly one path"
+        path="${changed_paths}"
+        expected_path="${w1_i06_entry_repair_governance_paths[${commit_index}]}"
+        [[ "${path}" == "${expected_path}" ]] ||
+          fail "W1-I06 entry-repair governance paths must follow the fixed order"
+        case "${path}" in
+          docs/superpowers/*)
+            [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+              fail "W1-I06 entry-repair governance path mode mismatch"
+            ;;
+          *)
+            [[ "$(git_tree_mode "${commit}" "${path}")" == 100755 ]] ||
+              fail "W1-I06 entry-repair governance path mode mismatch"
+            ;;
+        esac
+        require_git_blob_without_nul "${commit}" "${path}" \
+          "W1-I06 entry-repair governance path must not contain NUL"
+        ;;
+      5)
+        parent="$(single_parent_of "${commit}" \
+          "W1-I06 entry-repair RED commit")"
+        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+          fail "W1-I06 entry-repair RED commit must be nonempty"
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "W1-I06 entry-repair RED commit must not rename or copy paths"
+        expected_paths="$(printf '%s\n' \
+          "${w1_i06_entry_repair_red_paths[@]}" | LC_ALL=C sort)"
+        changed_paths="$(git -C "${repo_root}" diff --name-only \
+          "${parent}..${commit}" | LC_ALL=C sort)"
+        [[ "${changed_paths}" == "${expected_paths}" ]] ||
+          fail "W1-I06 entry-repair RED commit must change exactly the declared test paths"
+        for path in "${w1_i06_entry_repair_red_paths[@]}"; do
+          [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+            fail "W1-I06 entry-repair RED path mode mismatch"
+          require_git_blob_without_nul "${commit}" "${path}" \
+            "W1-I06 entry-repair RED path must not contain NUL"
+        done
+        ;;
+      6)
+        parent="$(single_parent_of "${commit}" \
+          "W1-I06 entry-repair GREEN commit")"
+        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+          fail "W1-I06 entry-repair GREEN commit must be nonempty"
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "W1-I06 entry-repair GREEN commit must not rename or copy paths"
+        expected_paths="$(printf '%s\n' \
+          "${w1_i06_entry_repair_green_paths[@]}" | LC_ALL=C sort)"
+        changed_paths="$(git -C "${repo_root}" diff --name-only \
+          "${parent}..${commit}" | LC_ALL=C sort)"
+        [[ "${changed_paths}" == "${expected_paths}" ]] ||
+          fail "W1-I06 entry-repair GREEN commit must change exactly the declared production paths"
+        for path in "${w1_i06_entry_repair_green_paths[@]}"; do
+          [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+            fail "W1-I06 entry-repair GREEN path mode mismatch"
+          require_git_blob_without_nul "${commit}" "${path}" \
+            "W1-I06 entry-repair GREEN path must not contain NUL"
+        done
+        ;;
+      *)
+        parent="$(single_parent_of "${commit}" \
+          "post-W1-I06-entry-repair descendant commit")"
+        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+          fail "post-W1-I06-entry-repair descendant commit must be nonempty"
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "post-W1-I06-entry-repair descendant commit must not rename or copy paths"
+        changed_paths="$(git -C "${repo_root}" diff --name-only \
+          "${parent}..${commit}")"
+        while IFS= read -r path; do
+          [[ -n "${path}" ]] || continue
+          is_w1_i06_descendant_path "${path}" ||
+            fail "post-W1-I06-entry-repair descendant changed a path outside the W1-I06 WriteSet"
+        done <<< "${changed_paths}"
+        ;;
+    esac
+    commit_index=$((commit_index + 1))
+  done
+
+  [[ "${commit_index}" -ge 5 ]] ||
+    fail "W1-I06 entry-repair governance chain must have exactly five commits"
+  if [[ "${commit_index}" -lt 7 ]]; then
+    w1_i06_entry_repair_status=PENDING
+  else
+    w1_i06_entry_repair_status=PASS
+  fi
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -2723,7 +2872,7 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
           i05_base_receipt="$2"
           validate_w1_i05_closure_receipt \
             "${i05_base_receipt_parent}" "${i05_base_receipt}"
-          validate_post_w1_i05_closure_descendants \
+          validate_w1_i06_entry_repair_and_descendants \
             "${i05_base_receipt}" "${transition_base}"
           git -C "${repo_root}" merge-base --is-ancestor \
             "${transition_base}" "${transition_head}" ||
@@ -2732,8 +2881,8 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
             "${transition_base}..${transition_head}" -- \
             "${w1_i05_closure_projection_paths[@]}" ||
             fail "I05 closure is allowed exactly once"
-          validate_post_w1_i05_closure_descendants \
-            "${transition_base}" "${transition_head}"
+          validate_w1_i06_entry_repair_and_descendants \
+            "${i05_base_receipt}" "${transition_head}"
           printf '%s\n' \
             "Wave1ImplementationTaskCardValidation = PASS" \
             "TaskCardCount = 14" \
@@ -2741,7 +2890,8 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
             "ActiveTaskCard = W1-I06" \
             "W1I03ClosureStatus = PASS" \
             "W1I04ClosureStatus = PASS" \
-            "W1I05ClosureStatus = PASS"
+            "W1I05ClosureStatus = PASS" \
+            "W1I06EntryRepairStatus = ${w1_i06_entry_repair_status}"
           exit 0
           ;;
       esac
@@ -2779,7 +2929,7 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
           i05_closure_receipt="$2"
           validate_w1_i05_closure_receipt \
             "${i05_closure_receipt_parent}" "${i05_closure_receipt}"
-          validate_post_w1_i05_closure_descendants \
+          validate_w1_i06_entry_repair_and_descendants \
             "${i05_closure_receipt}" "${current_repository_head}"
           git -C "${repo_root}" diff --quiet "${current_repository_head}" -- \
             "${w1_i05_closure_projection_paths[@]}" ||
@@ -2795,7 +2945,8 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
             "ActiveTaskCard = W1-I06" \
             "W1I03ClosureStatus = PASS" \
             "W1I04ClosureStatus = PASS" \
-            "W1I05ClosureStatus = PASS"
+            "W1I05ClosureStatus = PASS" \
+            "W1I06EntryRepairStatus = ${w1_i06_entry_repair_status}"
           exit 0
           ;;
         *) fail "I05 closure current state has an unsupported I05/I06 status vector" ;;
