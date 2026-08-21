@@ -7,7 +7,7 @@ FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
 TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I05
+ActiveTaskCard = W1-I06
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
@@ -20,7 +20,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
 Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02 等待独立数据库 Gate，
-I03 和 I04 已关闭，I05 为唯一 `READY` 卡。
+I03、I04 和 I05 已关闭，I06 为唯一 `READY` 卡。
 
 ## 1. 实现卡
 
@@ -31,8 +31,8 @@ I03 和 I04 已关闭，I05 为唯一 `READY` 卡。
 | `W1-I02` | Source persistence | `I01` | `QUEUED` |
 | `W1-I03` | DOCX security | `I01` | `DONE` |
 | `W1-I04` | Text/list/section parser | `I03` | `DONE` |
-| `W1-I05` | Table fidelity | `I04` | `READY` |
-| `W1-I06` | Image/relationship projection | `I04,I05` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I05` | Table fidelity | `I04` | `DONE` |
+| `W1-I06` | Image/relationship projection | `I04,I05` | `READY` |
 | `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I08` | Stable reference/lineage | `I07` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I09` | Upload/processing command API | `I07` | `BLOCKED_BY_DEPENDENCY` |
@@ -116,6 +116,28 @@ P0 = 0
 P1 = 0
 P2 = 0
 I01ClosureReleasedTaskCard = W1-I03
+QueuedTaskCard = W1-I02
+QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED
+```
+
+## 10. I05 关闭收据
+
+```text
+W1-I05 = DONE
+ReviewedCandidate = b4132e988cd88dce74ae026a1b52a496188452fc
+ReviewedGovernanceCandidate = e7b1d0750a96037410b94778f84512a123a970f0
+ReviewedGovernanceParent = c8e850f17e580ead5ce8f4d6dc5a92fcbfc1cda9
+ReviewedGovernanceTree = 9ddc2d0e616b385ceb3099307840129b1868ca4e
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+I05ClosureReleasedTaskCard = W1-I06
 QueuedTaskCard = W1-I02
 QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED
 ```
