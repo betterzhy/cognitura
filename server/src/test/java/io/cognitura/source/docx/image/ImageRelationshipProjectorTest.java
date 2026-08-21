@@ -161,6 +161,58 @@ class ImageRelationshipProjectorTest {
     }
 
     @Test
+    void rejectsMissingMediaAndDuplicateRelationshipIdentifiersAtTheSecurityBoundary()
+            throws IOException {
+        LinkedHashMap<String, byte[]> missingMedia = baseEntries();
+        missingMedia.remove("word/media/paragraph.png");
+        Path missingMediaPath = temporaryDirectory.resolve("missing-media.docx");
+        Files.write(missingMediaPath, zipBytes(missingMedia));
+
+        assertThatThrownBy(() -> new DocxSecurityGate().open(missingMediaPath))
+                .isInstanceOf(SourceDomainException.class)
+                .hasMessageContaining("DOCX_FORMAT_INVALID");
+
+        LinkedHashMap<String, byte[]> duplicateRelationship = baseEntries();
+        duplicateRelationship.put(
+                "word/_rels/document.xml.rels",
+                resource("internal-images-document.xml.rels")
+                        .replace("Id=\"rIdJpeg\"", "Id=\"rIdPng\"")
+                        .getBytes(StandardCharsets.UTF_8));
+        Path duplicatePath = temporaryDirectory.resolve("duplicate-relationship.docx");
+        Files.write(duplicatePath, zipBytes(duplicateRelationship));
+
+        assertThatThrownBy(() -> new DocxSecurityGate().open(duplicatePath))
+                .isInstanceOf(SourceDomainException.class)
+                .hasMessageContaining("DOCX_FORMAT_INVALID");
+    }
+
+    @Test
+    void rejectsMalformedImagePayloadAndDrawingRelationshipModeMismatch() throws IOException {
+        String document = resource("internal-images-document.xml");
+        List<String> invalidDocuments = List.of(
+                document.replace(
+                        "<a:blip r:embed=\"rIdPng\"/>",
+                        "<a:blip r:embed=\"rIdPng\"/><a:blip r:embed=\"rIdPng\"/>"),
+                document.replace(
+                        "<a:blip r:embed=\"rIdPng\"/>",
+                        "<a:blip r:link=\"rIdPng\"/>"));
+
+        for (int index = 0; index < invalidDocuments.size(); index++) {
+            LinkedHashMap<String, byte[]> entries = baseEntries();
+            entries.put(
+                    "word/document.xml",
+                    invalidDocuments.get(index).getBytes(StandardCharsets.UTF_8));
+            try (SafeDocxPackage safePackage = openPackage("invalid-image-" + index + ".docx", entries)) {
+                assertThatThrownBy(() -> project(safePackage))
+                        .isInstanceOf(SourceDomainException.class)
+                        .hasMessageContaining(index == 0
+                                ? "IMAGE_PAYLOAD_EVIDENCE_INVALID"
+                                : "IMAGE_RELATIONSHIP_MODE_MISMATCH");
+            }
+        }
+    }
+
+    @Test
     void changesBinaryAndCanonicalDigestsWhenVerifiedMediaBytesDrift() throws IOException {
         ImageRelationshipProjector.Projection original;
         try (SafeDocxPackage safePackage = openPackage("original.docx", baseEntries())) {

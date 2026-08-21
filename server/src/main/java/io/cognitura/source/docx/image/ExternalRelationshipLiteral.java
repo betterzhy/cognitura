@@ -13,7 +13,7 @@ public record ExternalRelationshipLiteral(
         String securityDisclosure) {
 
     public ExternalRelationshipLiteral {
-        requireText(sourcePart, "EXTERNAL_RELATIONSHIP_SOURCE_PART_REQUIRED");
+        Objects.requireNonNull(sourcePart, "sourcePart");
         requireText(relationshipId, "EXTERNAL_RELATIONSHIP_ID_REQUIRED");
         requireText(relationshipType, "EXTERNAL_RELATIONSHIP_TYPE_REQUIRED");
         if (relationshipMode != DocxRelationshipClassifier.Mode.EXTERNAL) {

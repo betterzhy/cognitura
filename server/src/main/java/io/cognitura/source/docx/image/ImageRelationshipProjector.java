@@ -137,6 +137,8 @@ public final class ImageRelationshipProjector {
                     parseXml(safePackage.readVerifiedEntry(CONTENT_TYPES_PART)));
             Map<String, RelationshipMetadata> relationships = imageRelationships(safePackage);
             List<TableBlockCandidate> tables = new TableFidelityParser().parse(safePackage);
+            List<ExternalRelationshipLiteral> revisionDiagnostics =
+                    externalRelationshipDiagnostics(safePackage);
             return projectDocument(
                     safePackage,
                     document,
@@ -144,7 +146,8 @@ public final class ImageRelationshipProjector {
                     relationships,
                     tables,
                     parentBlockIds,
-                    mediaSink);
+                    mediaSink,
+                    revisionDiagnostics);
         } catch (SourceDomainException error) {
             throw error;
         } catch (IllegalArgumentException error) {
@@ -159,7 +162,8 @@ public final class ImageRelationshipProjector {
             Map<String, RelationshipMetadata> relationships,
             List<TableBlockCandidate> tables,
             ParentBlockIdResolver parentBlockIds,
-            ImmutableMediaSink mediaSink) {
+            ImmutableMediaSink mediaSink,
+            List<ExternalRelationshipLiteral> revisionDiagnostics) {
         Element root = document.getDocumentElement();
         requireElement(root, WORD_NAMESPACE, "document", "MAIN_DOCUMENT_ROOT_INVALID");
         Element body = onlyDirectChild(root, WORD_NAMESPACE, "body", true);
@@ -232,7 +236,7 @@ public final class ImageRelationshipProjector {
                 throw new IllegalArgumentException("IMAGE_SOURCE_ORDER_INVALID");
             }
         }
-        return new Projection(projected, List.of());
+        return new Projection(projected, revisionDiagnostics);
     }
 
     private static void appendParagraphImages(
@@ -355,8 +359,38 @@ public final class ImageRelationshipProjector {
         if (!IMAGE_RELATIONSHIP_TYPE.equals(relationship.relationshipType())) {
             throw new IllegalArgumentException("IMAGE_RELATIONSHIP_TYPE_INVALID");
         }
+        if (occurrence.expectedMode() != null
+                && occurrence.expectedMode() != relationship.mode()) {
+            throw new IllegalArgumentException("IMAGE_RELATIONSHIP_MODE_MISMATCH");
+        }
         if (relationship.mode() == DocxRelationshipClassifier.Mode.EXTERNAL) {
-            throw new IllegalArgumentException("EXTERNAL_IMAGE_PROJECTION_NOT_IMPLEMENTED");
+            SourceHash literalDigest = relationship.externalTargetLiteralSha256().orElseThrow(
+                    () -> new IllegalArgumentException("EXTERNAL_IMAGE_LITERAL_DIGEST_REQUIRED"));
+            String disclosure = relationship.securityDisclosure().orElseThrow(
+                    () -> new IllegalArgumentException("EXTERNAL_IMAGE_DISCLOSURE_REQUIRED"));
+            SourceHash contentHash = payloadContentHash(
+                    relationship.relationshipId(),
+                    relationship.mode(),
+                    literalDigest,
+                    null,
+                    null,
+                    null,
+                    null,
+                    disclosure);
+            return new ProjectedImage(
+                    sourceOrder,
+                    MAIN_DOCUMENT_PART,
+                    occurrence.sourceElementIndex(),
+                    anchor,
+                    relationship.relationshipId(),
+                    relationship.mode(),
+                    literalDigest,
+                    null,
+                    null,
+                    null,
+                    null,
+                    disclosure,
+                    contentHash);
         }
         String targetPart = relationship.internalTargetPart().orElseThrow(
                 () -> new IllegalArgumentException("IMAGE_INTERNAL_TARGET_REQUIRED"));
@@ -483,6 +517,7 @@ public final class ImageRelationshipProjector {
         }
         Element payload = payloads.get(0);
         String relationshipId;
+        DocxRelationshipClassifier.Mode expectedMode = null;
         if ("drawing".equals(imageElement.getLocalName())) {
             String embedded = payload.getAttributeNS(RELATIONSHIPS_NAMESPACE, "embed");
             String linked = payload.getAttributeNS(RELATIONSHIPS_NAMESPACE, "link");
@@ -490,6 +525,9 @@ public final class ImageRelationshipProjector {
                 throw new IllegalArgumentException("IMAGE_RELATIONSHIP_REFERENCE_INVALID");
             }
             relationshipId = embedded.isBlank() ? linked : embedded;
+            expectedMode = embedded.isBlank()
+                    ? DocxRelationshipClassifier.Mode.EXTERNAL
+                    : DocxRelationshipClassifier.Mode.INTERNAL;
         } else {
             relationshipId = payload.getAttributeNS(RELATIONSHIPS_NAMESPACE, "id");
             if (relationshipId.isBlank()) {
@@ -500,7 +538,7 @@ public final class ImageRelationshipProjector {
         if (elementIndex == null) {
             throw new IllegalArgumentException("IMAGE_SOURCE_ELEMENT_INDEX_MISSING");
         }
-        return new ImageOccurrence(relationshipId, elementIndex);
+        return new ImageOccurrence(relationshipId, elementIndex, expectedMode);
     }
 
     private static boolean isSupportedWrapper(Element imageElement, Element child) {
@@ -592,6 +630,28 @@ public final class ImageRelationshipProjector {
             }
         }
         return Map.copyOf(relationships);
+    }
+
+    private static List<ExternalRelationshipLiteral> externalRelationshipDiagnostics(
+            SafeDocxPackage safePackage) {
+        List<ExternalRelationshipLiteral> diagnostics = new ArrayList<>();
+        for (RelationshipMetadata relationship : safePackage.relationships()) {
+            if (relationship.mode() != DocxRelationshipClassifier.Mode.EXTERNAL) {
+                continue;
+            }
+            diagnostics.add(new ExternalRelationshipLiteral(
+                    relationship.sourcePart(),
+                    relationship.relationshipId(),
+                    relationship.relationshipType(),
+                    relationship.mode(),
+                    relationship.externalTargetLiteralSha256().orElseThrow(
+                            () -> new IllegalArgumentException(
+                                    "EXTERNAL_RELATIONSHIP_LITERAL_DIGEST_REQUIRED")),
+                    relationship.securityDisclosure().orElseThrow(
+                            () -> new IllegalArgumentException(
+                                    "EXTERNAL_RELATIONSHIP_DISCLOSURE_REQUIRED"))));
+        }
+        return List.copyOf(diagnostics);
     }
 
     private static SourceHash payloadContentHash(
@@ -802,7 +862,10 @@ public final class ImageRelationshipProjector {
         }
     }
 
-    private record ImageOccurrence(String relationshipId, int sourceElementIndex) {}
+    private record ImageOccurrence(
+            String relationshipId,
+            int sourceElementIndex,
+            DocxRelationshipClassifier.Mode expectedMode) {}
 
     private record TableImageOccurrence(
             int rowIndex,

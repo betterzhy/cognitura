@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -85,7 +86,7 @@ class ExternalRelationshipNoAccessTest {
                         "BLOCKED_CANARIES=4",
                         "OPERATION_ATTEMPTS=0",
                         "PROJECTED_IMAGES=3",
-                        "DIAGNOSTICS=3",
+                        "DIAGNOSTICS=4",
                         "DIGESTS_VERIFIED=3");
         assertThat(httpAccessCount).hasValue(0);
         assertThat(Files.readString(fileCanary, StandardCharsets.UTF_8))
@@ -146,6 +147,8 @@ class ExternalRelationshipNoAccessTest {
                 """ + relationship("rFile", fileTarget)
                 + relationship("rHttp", httpTarget)
                 + relationship("rDns", dnsTarget)
+                + "<Relationship Id=\"rOther\" Type=\"urn:cognitura:test:external\" "
+                + "Target=\"urn:cognitura:external-literal\" TargetMode=\"External\"/>"
                 + "</Relationships>";
     }
 
@@ -202,8 +205,13 @@ class ExternalRelationshipNoAccessTest {
             }
             try {
                 Path candidate = Path.of(file).toAbsolutePath().normalize();
+                Path jaxpProviderLookup = Path.of("")
+                        .toAbsolutePath()
+                        .normalize()
+                        .resolve("META-INF/services/javax.xml.parsers.DocumentBuilderFactory");
                 return candidate.equals(allowedPackage)
                         || candidate.startsWith(javaHome)
+                        || candidate.equals(jaxpProviderLookup)
                         || runtimeClasspath.stream().anyMatch(root -> root.directory()
                                 ? candidate.startsWith(root.path())
                                 : candidate.equals(root.path()))
@@ -272,6 +280,7 @@ class ExternalRelationshipNoAccessTest {
             try (Socket ignored = new Socket()) {
                 SourceHash.sha256("warm-up".getBytes(StandardCharsets.UTF_8));
             }
+            DocumentBuilderFactory.newInstance().newDocumentBuilder();
 
             SecurityManager previous = System.getSecurityManager();
             ExternalAccessAudit calibrationAudit = new ExternalAccessAudit(packagePath);
@@ -322,7 +331,7 @@ class ExternalRelationshipNoAccessTest {
             if (operationAudit.attemptCount() != 0) {
                 throw new AssertionError("EXTERNAL_ACCESS_OBSERVED:" + operationAudit.attemptSummary());
             }
-            if (projection.images().size() != 3 || projection.revisionDiagnostics().size() != 3) {
+            if (projection.images().size() != 3 || projection.revisionDiagnostics().size() != 4) {
                 throw new AssertionError("EXTERNAL_PROJECTION_CARDINALITY_INVALID");
             }
             for (int index = 0; index < literalTargets.size(); index++) {
