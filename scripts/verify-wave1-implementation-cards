@@ -886,6 +886,16 @@ w1_i09_runtime_large_blob_repair_evidence_shas=(
   "${w1_i09_runtime_large_blob_repair_spec_sha}"
   "${w1_i09_runtime_large_blob_repair_test_sha}"
 )
+w1_i09_product_copy_candidate_sha="c934ff7a10a30ed58584d2e5eb0654d2161add70"
+w1_i09_product_copy_parent_sha="1732c6821d93bcc9f121ba221adff2d137ffd6d0"
+w1_i09_product_copy_tree_sha="2ca9c7169d6d3586d39721d7f1874a0dd491df98"
+w1_i09_product_copy_repair_spec_sha="8b26b59bc758c3895540e4ceffa295c1e5366a3d"
+w1_i09_product_copy_repair_test_sha="bd5f49fa62e47c45559feb0b64ea73a5c3ee0532"
+w1_i09_product_copy_repair_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-product-copy-inference-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
   docs/engineering/cognitura-design-index.md
@@ -1465,6 +1475,77 @@ require_no_git_rename_or_copy_except_fixed_w1_i06_test_copy() {
     esac
   done < "${status_file}/status"
   remove_temporary_directory "${status_file}"
+}
+
+is_fixed_w1_i09_inferred_product_copy() {
+  local base="$1"
+  local head="$2"
+  local status="$3"
+  local source="$4"
+  local target="$5"
+  local base_source_blob head_source_blob base_source_mode head_source_mode
+  [[ "${head}" == "${w1_i09_product_copy_candidate_sha}" ]] || return 1
+  [[ "${status}" == C* ]] || return 1
+  case "${source}|${target}" in
+    "server/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java|server/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java"|\
+    "server/src/test/resources/db/source-persistence-fixture.sql|server/src/test/resources/db/source-command-runtime-fixture.sql") ;;
+    *) return 1 ;;
+  esac
+  git -C "${repo_root}" cat-file -e "${base}:${target}" 2>/dev/null && return 1
+  [[ "$(git_tree_mode "${head}" "${target}")" == 100644 ]] || return 1
+  base_source_blob="$(git -C "${repo_root}" rev-parse \
+    "${base}:${source}" 2>/dev/null)" || return 1
+  head_source_blob="$(git -C "${repo_root}" rev-parse \
+    "${head}:${source}" 2>/dev/null)" || return 1
+  [[ "${base_source_blob}" == "${head_source_blob}" ]] || return 1
+  base_source_mode="$(git_tree_mode "${base}" "${source}")"
+  head_source_mode="$(git_tree_mode "${head}" "${source}")"
+  [[ -n "${base_source_mode}" && \
+     "${base_source_mode}" == "${head_source_mode}" ]]
+}
+
+require_no_git_rename_or_copy_except_fixed_w1_i09_product_copy() {
+  local base="$1"
+  local head="$2"
+  local failure_message="$3"
+  local status_file status source target
+  local mapper_pair=0 fixture_pair=0 copy_count=0
+  [[ "${head}" == "${w1_i09_product_copy_candidate_sha}" ]] ||
+    fail "${failure_message}"
+  [[ "${base}" == "${w1_i09_product_copy_parent_sha}" ]] ||
+    fail "${failure_message}"
+  [[ "$(git -C "${repo_root}" rev-parse "${head}^{tree}" 2>/dev/null)" == \
+      "${w1_i09_product_copy_tree_sha}" ]] || fail "${failure_message}"
+  register_temporary_directory status_file cognitura-i09-product-copy-status
+  git -C "${repo_root}" -c diff.renameLimit=0 diff-tree \
+    --no-commit-id --name-status -r -M -C --find-copies-harder \
+    "${base}" "${head}" > "${status_file}/status" || {
+    remove_temporary_directory "${status_file}"
+    fail "${failure_message}"
+  }
+  while IFS=$'\t' read -r status source target; do
+    case "${status}" in
+      R*)
+        remove_temporary_directory "${status_file}"
+        fail "${failure_message}"
+        ;;
+      C*)
+        is_fixed_w1_i09_inferred_product_copy \
+          "${base}" "${head}" "${status}" "${source}" "${target}" || {
+          remove_temporary_directory "${status_file}"
+          fail "${failure_message}"
+        }
+        case "${source}|${target}" in
+          "server/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java|server/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java") mapper_pair=1 ;;
+          "server/src/test/resources/db/source-persistence-fixture.sql|server/src/test/resources/db/source-command-runtime-fixture.sql") fixture_pair=1 ;;
+        esac
+        copy_count=$((copy_count + 1))
+        ;;
+    esac
+  done < "${status_file}/status"
+  remove_temporary_directory "${status_file}"
+  [[ "${copy_count}" -eq 2 && "${mapper_pair}" -eq 1 && \
+     "${fixture_pair}" -eq 1 ]] || fail "${failure_message}"
 }
 
 validate_w1_i03_closure_governance_chain() {
@@ -5950,7 +6031,8 @@ validate_w1_i09_runtime_projection() {
 validate_post_w1_i09_runtime_projection_descendants() {
   local projection="$1"
   local head="$2"
-  local commit parent changed_paths path
+  local commit parent changed_paths path expected_path expected_mode
+  local copy_repair_state="BEFORE" verifier_steps=0
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
       "${projection}..${head}"); do
@@ -5958,10 +6040,73 @@ validate_post_w1_i09_runtime_projection_descendants() {
       "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:single parent")"
     git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
       fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:empty"
-    require_no_git_rename_or_copy "${parent}" "${commit}" \
-      "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy"
     changed_paths="$(git -C "${repo_root}" diff --name-only \
       "${parent}..${commit}")"
+
+    if [[ "${commit}" == "${w1_i09_product_copy_repair_spec_sha}" ]]; then
+      [[ "${copy_repair_state}" == "ORIGIN" && \
+         "${parent}" == "${w1_i09_product_copy_candidate_sha}" ]] ||
+        fail "I09_PRODUCT_COPY_REPAIR_INVALID:order"
+      expected_path="${w1_i09_product_copy_repair_paths[0]}"
+      expected_mode=100644
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_PRODUCT_COPY_REPAIR_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_PRODUCT_COPY_REPAIR_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == \
+          "${expected_mode}" ]] || fail "I09_PRODUCT_COPY_REPAIR_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_PRODUCT_COPY_REPAIR_INVALID:NUL"
+      copy_repair_state="SPEC"
+      continue
+    fi
+    if [[ "${commit}" == "${w1_i09_product_copy_repair_test_sha}" ]]; then
+      [[ "${copy_repair_state}" == "SPEC" && \
+         "${parent}" == "${w1_i09_product_copy_repair_spec_sha}" ]] ||
+        fail "I09_PRODUCT_COPY_REPAIR_INVALID:order"
+      expected_path="${w1_i09_product_copy_repair_paths[1]}"
+      expected_mode=100755
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_PRODUCT_COPY_REPAIR_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_PRODUCT_COPY_REPAIR_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == \
+          "${expected_mode}" ]] || fail "I09_PRODUCT_COPY_REPAIR_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_PRODUCT_COPY_REPAIR_INVALID:NUL"
+      copy_repair_state="TEST"
+      continue
+    fi
+    if [[ "${copy_repair_state}" == "TEST" || \
+          "${copy_repair_state}" == "VERIFIER" ]]; then
+      expected_path="${w1_i09_product_copy_repair_paths[2]}"
+      if [[ "${changed_paths}" == "${expected_path}" ]]; then
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "I09_PRODUCT_COPY_REPAIR_INVALID:rename or copy"
+        [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+          fail "I09_PRODUCT_COPY_REPAIR_INVALID:mode"
+        require_git_blob_without_nul "${commit}" "${expected_path}" \
+          "I09_PRODUCT_COPY_REPAIR_INVALID:NUL"
+        verifier_steps=$((verifier_steps + 1))
+        copy_repair_state="VERIFIER"
+        continue
+      fi
+      [[ "${copy_repair_state}" == "VERIFIER" && "${verifier_steps}" -ge 1 ]] ||
+        fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
+      copy_repair_state="COMPLETE"
+    elif [[ "${copy_repair_state}" == "ORIGIN" || \
+            "${copy_repair_state}" == "SPEC" ]]; then
+      fail "I09_PRODUCT_COPY_REPAIR_INVALID:order"
+    fi
+
+    if [[ "${commit}" == "${w1_i09_product_copy_candidate_sha}" ]]; then
+      require_no_git_rename_or_copy_except_fixed_w1_i09_product_copy \
+        "${parent}" "${commit}" \
+        "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy"
+    else
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy"
+    fi
     while IFS= read -r path; do
       [[ -n "${path}" ]] || continue
       if is_w1_i08_descendant_path "${path}"; then
@@ -5978,7 +6123,19 @@ validate_post_w1_i09_runtime_projection_descendants() {
         fail "I09_RUNTIME_REBASELINE_FORMAL_DATABASE_LOCATION"
       fi
     done <<< "${changed_paths}"
+    if [[ "${commit}" == "${w1_i09_product_copy_candidate_sha}" ]]; then
+      [[ "${copy_repair_state}" == "BEFORE" ]] ||
+        fail "I09_PRODUCT_COPY_REPAIR_INVALID:duplicate origin"
+      copy_repair_state="ORIGIN"
+    fi
   done
+  case "${copy_repair_state}" in
+    ORIGIN|SPEC|TEST) fail "I09_PRODUCT_COPY_REPAIR_INVALID:incomplete" ;;
+    VERIFIER)
+      [[ "${verifier_steps}" -ge 1 ]] ||
+        fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
+      ;;
+  esac
   git -C "${repo_root}" diff --quiet "${projection}..${head}" -- \
     "${w1_i09_runtime_projection_paths[@]}" ||
     fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path:projection"
