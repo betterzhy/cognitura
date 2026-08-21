@@ -2558,8 +2558,8 @@ run_w1_i05_fixed_review_contract() {
 }
 
 i05_reviewed_candidate_sha="b4132e988cd88dce74ae026a1b52a496188452fc"
-i05_closure_repair_origin_sha="133e4370c7f05effc1e1b23d41fd597414c49bd3"
-i05_closure_plan_sha="946cdf575b8a00ebc0f6e46fab7300d2b6573fed"
+i05_closure_repair_origin_sha="b1648392f1ce02673d234287cd212a477993316d"
+i05_closure_plan_sha="adac0dd30843b8b15ac393f3af30a76ae00b136f"
 i05_closure_projection_paths=(
   AGENTS.md
   README.md
@@ -2646,6 +2646,17 @@ append_i05_review_receipt() {
     'QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED' \
     '```' >> \
     "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+}
+
+misorder_i05_review_receipt() {
+  local fixture_root="$1"
+  perl -0777 -i -pe '
+    my ($block) = /(## 10\. I05 关闭收据\n.*)\z/s;
+    die "terminal I05 receipt is missing\n" unless defined $block;
+    s/\Q$block\E\z//s or die "terminal I05 receipt cannot be removed\n";
+    s/(## 8\. I03 关闭收据)/$block . "\n\n" . $1/e or
+      die "I03 receipt anchor is missing\n";
+  ' "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
 }
 
 make_i05_closure_projection() {
@@ -2782,6 +2793,16 @@ run_w1_i05_closure_contract() {
 
   git -C "${fixture_root}" switch -q --detach "${base_sha}"
   make_i05_closure_projection "${fixture_root}"
+  misorder_i05_review_receipt "${fixture_root}"
+  git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: misorder I05 closure receipt"
+  expect_i05_closure_transition_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I05 closure review receipt mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i05_closure_projection "${fixture_root}"
   printf '%s\n' extra > "${fixture_root}/i05-closure-extra.txt"
   git -C "${fixture_root}" add "${i05_closure_projection_paths[@]}" i05-closure-extra.txt
   git -C "${fixture_root}" commit -qm "test: add extra I05 closure projection"
@@ -2885,7 +2906,7 @@ run_w1_i05_closure_contract() {
 
   [[ "${positive_cases}" -eq 2 ]] ||
     fail "I05 closure positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 11 ]] ||
+  [[ "${negative_cases}" -eq 12 ]] ||
     fail "I05 closure negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I05ClosureContractTests = PASS" \
