@@ -550,6 +550,39 @@ w1_i06_closure_projection_paths=(
   docs/task-cards/wave-1-implementation/README.md
   "${w1_i06_card_path}"
 )
+w1_i02_database_gate_origin_sha="8175f340c4f3d116a7aa5bc1f6ee5f67b489dee6"
+w1_i02_database_gate_design_sha="97504c281b61f6d15ca347c1e0d0369e44819110"
+w1_i02_database_gate_plan_sha="1fc1eb6c1d4493e62c8a55979a404f1fff199920"
+w1_i02_database_gate_test_sha="2a5f936a3ae9a8e873299b88fea6c59dd8986df7"
+w1_i02_postgres_image="postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a"
+w1_i02_database_gate_governance_paths=(
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i02-database-gate-design.md
+  docs/superpowers/plans/2026-08-21-cognitura-w1-i02-database-gate.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i02_release_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  "${w1_i02_card_path}"
+)
+w1_i02_product_paths=(
+  server/src/main/resources/db/migration/V1__create_source_intake.sql
+  server/src/main/java/io/cognitura/source/persistence/SourceDocumentRow.java
+  server/src/main/java/io/cognitura/source/persistence/SourceBinaryRow.java
+  server/src/main/java/io/cognitura/source/persistence/ProcessingRevisionRow.java
+  server/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java
+  server/src/main/java/io/cognitura/source/persistence/SourcePersistenceAdapter.java
+  server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+  server/src/test/resources/db/source-persistence-fixture.sql
+)
 w1_i06_frozen_product_paths=(
   server/src/main/java/io/cognitura/source/docx/image/ImageRelationshipProjector.java
   server/src/main/java/io/cognitura/source/docx/image/ImageAnchor.java
@@ -2380,6 +2413,22 @@ is_w1_i06_descendant_path() {
   return 1
 }
 
+is_w1_i02_descendant_path() {
+  case "$1" in
+    server/src/main/resources/db/migration/V1__create_source_intake.sql|\
+    server/src/main/java/io/cognitura/source/persistence/SourceDocumentRow.java|\
+    server/src/main/java/io/cognitura/source/persistence/SourceBinaryRow.java|\
+    server/src/main/java/io/cognitura/source/persistence/ProcessingRevisionRow.java|\
+    server/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java|\
+    server/src/main/java/io/cognitura/source/persistence/SourcePersistenceAdapter.java|\
+    server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java|\
+    server/src/test/resources/db/source-persistence-fixture.sql)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 require_w1_i05_closure_review_receipt() {
   local commit="$1"
   local governance_base="$2"
@@ -3248,6 +3297,255 @@ validate_post_w1_i06_closure_verifier_correction() {
     fail "post-I06-closure verifier correction must be exactly one commit"
 }
 
+validate_w1_i02_database_gate_governance() {
+  local gate_tip="$1"
+  local resolved_tip commit parent changed_paths expected_path expected_mode
+  local commit_index=0
+  resolved_tip="$(git -C "${repo_root}" rev-parse --verify \
+    "${gate_tip}^{commit}" 2>/dev/null)" ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:tip must resolve"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i02_database_gate_test_sha}" "${resolved_tip}" ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:fixed test is not an ancestor"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i02_database_gate_origin_sha}..${resolved_tip}" -- \
+    "${w1_i06_closure_projection_paths[@]}" ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:I06 closure projection drifted"
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i02_database_gate_origin_sha}..${resolved_tip}"); do
+    parent="$(single_parent_of "${commit}" "W1-I02 database gate governance commit")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:empty governance commit"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "W1_I02_DATABASE_GATE_CHANGE_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    case "${commit_index}" in
+      0)
+        [[ "${commit}" == "${w1_i02_database_gate_design_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_origin_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:design identity"
+        expected_path="${w1_i02_database_gate_governance_paths[0]}"
+        expected_mode=100644
+        ;;
+      1)
+        [[ "${commit}" == "${w1_i02_database_gate_plan_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_design_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:plan identity"
+        expected_path="${w1_i02_database_gate_governance_paths[1]}"
+        expected_mode=100644
+        ;;
+      2)
+        [[ "${commit}" == "${w1_i02_database_gate_test_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_plan_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:test identity"
+        expected_path="${w1_i02_database_gate_governance_paths[2]}"
+        expected_mode=100755
+        ;;
+      3)
+        [[ "${parent}" == "${w1_i02_database_gate_test_sha}" &&
+           "${commit}" == "${resolved_tip}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:verifier identity"
+        expected_path="${w1_i02_database_gate_governance_paths[3]}"
+        expected_mode=100755
+        ;;
+      *) fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:extra governance commit" ;;
+    esac
+    [[ "${changed_paths}" == "${expected_path}" ]] ||
+      fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:wrong governance path"
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "W1_I02_DATABASE_GATE_CHANGE_INVALID:path mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "W1_I02_DATABASE_GATE_CHANGE_INVALID:NUL"
+    commit_index=$((commit_index + 1))
+  done
+  [[ "${commit_index}" -eq 4 ]] ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:governance commit count"
+}
+
+find_w1_i02_database_gate_tip() {
+  local head="$1"
+  local commit gate_tip="" commit_count=0
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i02_database_gate_test_sha}" "${head}" ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:fixed test is not an ancestor"
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i02_database_gate_test_sha}..${head}"); do
+    commit_count=$((commit_count + 1))
+    if [[ "${commit_count}" -eq 1 ]]; then
+      gate_tip="${commit}"
+      break
+    fi
+  done
+  [[ -n "${gate_tip}" ]] ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:verifier commit unavailable"
+  validate_w1_i02_database_gate_governance "${gate_tip}"
+  printf '%s\n' "${gate_tip}"
+}
+
+require_w1_i02_database_gate_review_receipt() {
+  local receipt="$1"
+  local gate_tip="$2"
+  local gate_parent gate_tree receipt_dir plan_file actual_candidate
+  gate_parent="$(single_parent_of "${gate_tip}" \
+    "reviewed W1-I02 database gate candidate")"
+  gate_tree="$(git -C "${repo_root}" rev-parse "${gate_tip}^{tree}")" ||
+    fail "W1_I02_DATABASE_GATE_REVIEW_IDENTITY_MISMATCH:tree unavailable"
+  register_temporary_directory receipt_dir cognitura-i02-database-gate-receipt
+  plan_file="${receipt_dir}/plan"
+  git -C "${repo_root}" show \
+    "${receipt}:docs/engineering/cognitura-wave-1-implementation-plan.md" > \
+    "${plan_file}" 2>/dev/null || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "W1_I02_DATABASE_GATE_REVIEW_RECEIPT_INVALID:plan unavailable"
+  }
+  [[ "$(grep -c '^## 12\. I02 Database Gate Admission Receipt$' \
+      "${plan_file}" || true)" -eq 1 ]] || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "W1_I02_DATABASE_GATE_REVIEW_RECEIPT_INVALID:heading count"
+  }
+  sed -n '/^## 12\. I02 Database Gate Admission Receipt$/,$p' \
+    "${plan_file}" > "${receipt_dir}/actual"
+  actual_candidate="$(sed -n 's/^ReviewedGateCandidate = //p' \
+    "${receipt_dir}/actual")"
+  [[ "${actual_candidate}" == "${gate_tip}" ]] || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "W1_I02_DATABASE_GATE_REVIEW_IDENTITY_MISMATCH:candidate"
+  }
+  printf '%s\n' \
+    '## 12. I02 Database Gate Admission Receipt' \
+    '' \
+    '```text' \
+    'W1-I02DatabaseGate = PASS' \
+    "ReviewedGateCandidate = ${gate_tip}" \
+    "ReviewedGateParent = ${gate_parent}" \
+    "ReviewedGateTree = ${gate_tree}" \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0Findings = 0' \
+    'P1Findings = 0' \
+    'P2Findings = 0' \
+    'Ultra = NOT_RUN' \
+    "PostgreSQLTestImage = ${w1_i02_postgres_image}" \
+    'ExpectedPostgreSQLMajor = 18' \
+    'IsolatedContainerLifecycle = PASS' \
+    'ReleasedTaskCard = W1-I02' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' > "${receipt_dir}/expected"
+  cmp -s "${receipt_dir}/actual" "${receipt_dir}/expected" || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "W1_I02_DATABASE_GATE_REVIEW_RECEIPT_INVALID:receipt mismatch"
+  }
+  remove_temporary_directory "${receipt_dir}"
+}
+
+validate_w1_i02_database_gate_release() {
+  local gate_tip="$1"
+  local receipt="$2"
+  local actual_paths expected_paths path base_mode head_mode index_content
+  [[ "$(single_parent_of "${receipt}" "W1-I02 database gate release")" == \
+     "${gate_tip}" ]] ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:release must directly follow gate tip"
+  git -C "${repo_root}" diff-tree --quiet "${gate_tip}" "${receipt}" &&
+    fail "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID:empty release"
+  require_no_git_rename_or_copy "${gate_tip}" "${receipt}" \
+    "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID:rename or copy"
+  expected_paths="$(printf '%s\n' "${w1_i02_release_projection_paths[@]}" | LC_ALL=C sort)"
+  actual_paths="$(git -C "${repo_root}" diff --name-only \
+    "${gate_tip}..${receipt}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID:exact ten paths"
+  for path in "${w1_i02_release_projection_paths[@]}"; do
+    base_mode="$(git_tree_mode "${gate_tip}" "${path}")"
+    head_mode="$(git_tree_mode "${receipt}" "${path}")"
+    [[ -n "${base_mode}" && "${base_mode}" == "${head_mode}" ]] ||
+      fail "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID:path mode"
+    require_git_blob_without_nul "${receipt}" "${path}" \
+      "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID:NUL"
+  done
+  require_git_tree_field "${gate_tip}" "${w1_i02_card_path}" Status QUEUED
+  [[ "$(git_tree_field "${receipt}" "${w1_i02_card_path}" Status)" == READY &&
+     "$(git_tree_field "${receipt}" "${w1_i02_card_path}" \
+       BusinessImplementationAuthorization)" == USER_AUTHORIZED &&
+     "$(git_tree_field "${receipt}" "${w1_i02_card_path}" \
+       FormalDatabaseGate)" == PASS ]] ||
+    fail "I02_READY_REQUIRES_DATABASE_GATE"
+  [[ "$(git_tree_field "${receipt}" \
+       docs/task-cards/wave-1-implementation/README.md FormalDatabaseWrite)" == NOT_AUTHORIZED &&
+     "$(git_tree_field "${receipt}" \
+       docs/task-cards/wave-1-implementation/README.md RemotePush)" == NOT_AUTHORIZED ]] ||
+    fail "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT"
+  require_git_tree_field "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md \
+    TaskCardSetStatus READY_FOR_EXECUTION
+  require_git_tree_field "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md ActiveTaskCard W1-I02
+  require_git_tree_field "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md ReadyTaskCardCount 1
+  require_git_tree_field "${receipt}" \
+    docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md \
+    Status BLOCKED_BY_DEPENDENCY
+  index_content="$(git -C "${repo_root}" show \
+    "${receipt}:docs/task-cards/wave-1-implementation/README.md")" ||
+    fail "W1_I02_DATABASE_GATE_RELEASE_SCOPE_INVALID:index unavailable"
+  [[ "$(printf '%s\n' "${index_content}" | grep -c '| `READY` |' || true)" -eq 1 ]] ||
+    fail "W1_I02_DATABASE_GATE_RELEASE_SCOPE_INVALID:READY count"
+  require_exact_git_tree_table_row \
+    "${receipt}" docs/task-cards/wave-1-implementation/README.md W1-I02 \
+    '| `W1-I02` | [来源持久化](W1-I02-source-persistence.md) | `READY` | `W1-I01` | `W1-IG2` | `HIGH` |' \
+    'W1_I02_DATABASE_GATE_RELEASE_SCOPE_INVALID:I02 row'
+  require_exact_git_tree_table_row \
+    "${receipt}" docs/task-cards/wave-1-implementation/README.md W1-I07 \
+    '| `W1-I07` | [处理发布](W1-I07-revision-attempt-fencing-publication.md) | `BLOCKED_BY_DEPENDENCY` | `W1-I02,W1-I04,W1-I05,W1-I06` | `W1-IG7` | `HIGH` |' \
+    'W1_I02_DATABASE_GATE_RELEASE_SCOPE_INVALID:I07 row'
+  require_w1_i02_database_gate_review_receipt "${receipt}" "${gate_tip}"
+}
+
+find_unique_w1_i02_database_gate_release() {
+  local gate_tip="$1"
+  local head="$2"
+  local commit parent current_state parent_state receipt="" receipt_count=0
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${gate_tip}..${head}"); do
+    parent="$(single_parent_of "${commit}" "W1-I02 database gate release provenance")"
+    current_state="$(git_tree_field "${commit}" "${w1_i02_card_path}" Status)"
+    parent_state="$(git_tree_field "${parent}" "${w1_i02_card_path}" Status)"
+    if [[ "${parent_state}" == QUEUED && "${current_state}" == READY ]]; then
+      receipt_count=$((receipt_count + 1))
+      receipt="${commit}"
+    fi
+  done
+  [[ "${receipt_count}" -eq 1 ]] ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:release must occur exactly once"
+  printf '%s\n' "${receipt}"
+}
+
+validate_post_w1_i02_database_gate_descendants() {
+  local receipt="$1"
+  local head="$2"
+  local commit parent changed_paths path
+  [[ "${receipt}" != "${head}" ]] || return 0
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${receipt}..${head}"); do
+    parent="$(single_parent_of "${commit}" "post-W1-I02 database gate descendant")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "W1_I02_DATABASE_GATE_DESCENDANT_OUTSIDE_WRITE_SET:empty commit"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "W1_I02_DATABASE_GATE_DESCENDANT_OUTSIDE_WRITE_SET:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      is_w1_i02_descendant_path "${path}" ||
+        fail "W1_I02_DATABASE_GATE_DESCENDANT_OUTSIDE_WRITE_SET:${path}"
+    done <<< "${changed_paths}"
+  done
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -3366,6 +3664,46 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
             "W1I06EntryRepairStatus = ${w1_i06_entry_repair_status}"
           exit 0
           ;;
+        DONE:DONE)
+          if git -C "${repo_root}" merge-base --is-ancestor \
+              "${w1_i02_database_gate_test_sha}" "${transition_base}" 2>/dev/null; then
+            i05_base_receipt_pair="$(find_unique_w1_i05_closure_receipt \
+              "${transition_base}")"
+            set -- ${i05_base_receipt_pair}
+            validate_w1_i05_closure_receipt "$1" "$2"
+            i06_base_receipt_pair="$(find_unique_w1_i06_closure_receipt \
+              "${transition_base}")"
+            set -- ${i06_base_receipt_pair}
+            i06_base_receipt_parent="$1"
+            i06_base_receipt="$2"
+            validate_w1_i06_entry_repair_and_descendants \
+              "$(printf '%s\n' "${i05_base_receipt_pair}" | awk '{print $2}')" \
+              "${i06_base_receipt_parent}"
+            validate_w1_i06_closure_receipt \
+              "${i06_base_receipt_parent}" "${i06_base_receipt}"
+            validate_post_w1_i06_closure_verifier_correction \
+              "${i06_base_receipt}" "${w1_i02_database_gate_origin_sha}"
+            w1_i02_gate_tip="$(find_w1_i02_database_gate_tip \
+              "${transition_base}")"
+            [[ "$(git_tree_field "${transition_base}" \
+                  "${w1_i02_card_path}" Status)" == QUEUED &&
+               "$(git_tree_field "${transition_head}" \
+                  "${w1_i02_card_path}" Status)" == READY ]] ||
+              fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:unsupported explicit transition"
+            validate_w1_i02_database_gate_release \
+              "${w1_i02_gate_tip}" "${transition_head}"
+            printf '%s\n' \
+              "Wave1ImplementationTaskCardValidation = PASS" \
+              "TaskCardCount = 14" \
+              "TaskCardSetStatus = READY_FOR_EXECUTION" \
+              "ActiveTaskCard = W1-I02" \
+              "ReadyTaskCardCount = 1" \
+              "W1I02DatabaseGateStatus = PASS" \
+              "FormalDatabaseWrite = NOT_AUTHORIZED" \
+              "RemotePush = NOT_AUTHORIZED"
+            exit 0
+          fi
+          ;;
       esac
     else
       case "${i05_route_status}" in
@@ -3438,6 +3776,68 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
             "${i05_closure_receipt}" "${i06_closure_receipt_parent}"
           validate_w1_i06_closure_receipt \
             "${i06_closure_receipt_parent}" "${i06_closure_receipt}"
+          if git -C "${repo_root}" merge-base --is-ancestor \
+              "${w1_i02_database_gate_test_sha}" \
+              "${current_repository_head}" 2>/dev/null; then
+            validate_post_w1_i06_closure_verifier_correction \
+              "${i06_closure_receipt}" "${w1_i02_database_gate_origin_sha}"
+            w1_i02_gate_tip="$(find_w1_i02_database_gate_tip \
+              "${current_repository_head}")"
+            w1_i02_current_status="$(git_tree_field \
+              "${current_repository_head}" "${w1_i02_card_path}" Status)"
+            case "${w1_i02_current_status}" in
+              QUEUED)
+                [[ "${current_repository_head}" == "${w1_i02_gate_tip}" ]] ||
+                  fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:unexpected pre-release descendant"
+                git -C "${repo_root}" diff --quiet "${i06_closure_receipt}" -- \
+                  "${w1_i06_closure_projection_paths[@]}" ||
+                  fail "working projection must match I06 closure receipt"
+                printf '%s\n' \
+                  "Wave1ImplementationTaskCardValidation = PASS" \
+                  "TaskCardCount = 14" \
+                  "TaskCardSetStatus = BLOCKED_BY_DATABASE_GATE" \
+                  "ActiveTaskCard = NONE" \
+                  "ReadyTaskCardCount = 0" \
+                  "W1I03ClosureStatus = PASS" \
+                  "W1I04ClosureStatus = PASS" \
+                  "W1I05ClosureStatus = PASS" \
+                  "W1I06EntryRepairStatus = ${w1_i06_entry_repair_status}" \
+                  "W1I06ClosureStatus = PASS" \
+                  "W1I02DatabaseGateStatus = PENDING_REVIEW" \
+                  "FormalDatabaseWrite = NOT_AUTHORIZED" \
+                  "RemotePush = NOT_AUTHORIZED"
+                exit 0
+                ;;
+              READY)
+                w1_i02_release_receipt="$(find_unique_w1_i02_database_gate_release \
+                  "${w1_i02_gate_tip}" "${current_repository_head}")"
+                validate_w1_i02_database_gate_release \
+                  "${w1_i02_gate_tip}" "${w1_i02_release_receipt}"
+                validate_post_w1_i02_database_gate_descendants \
+                  "${w1_i02_release_receipt}" "${current_repository_head}"
+                git -C "${repo_root}" diff --quiet \
+                  "${w1_i02_release_receipt}" -- \
+                  "${w1_i02_release_projection_paths[@]}" ||
+                  fail "working projection must match W1-I02 database gate receipt"
+                printf '%s\n' \
+                  "Wave1ImplementationTaskCardValidation = PASS" \
+                  "TaskCardCount = 14" \
+                  "TaskCardSetStatus = READY_FOR_EXECUTION" \
+                  "ActiveTaskCard = W1-I02" \
+                  "ReadyTaskCardCount = 1" \
+                  "W1I03ClosureStatus = PASS" \
+                  "W1I04ClosureStatus = PASS" \
+                  "W1I05ClosureStatus = PASS" \
+                  "W1I06EntryRepairStatus = ${w1_i06_entry_repair_status}" \
+                  "W1I06ClosureStatus = PASS" \
+                  "W1I02DatabaseGateStatus = PASS" \
+                  "FormalDatabaseWrite = NOT_AUTHORIZED" \
+                  "RemotePush = NOT_AUTHORIZED"
+                exit 0
+                ;;
+              *) fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:unsupported I02 state" ;;
+            esac
+          fi
           validate_post_w1_i06_closure_verifier_correction \
             "${i06_closure_receipt}" "${current_repository_head}"
           git -C "${repo_root}" diff --quiet "${i06_closure_receipt}" -- \
