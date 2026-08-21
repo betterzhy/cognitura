@@ -934,6 +934,8 @@ w1_i09_post_product_fixture_origin_sha="0741e535650ad8cd24f9fe00b6eadb2ddf547126
 w1_i09_post_product_fixture_rejected_spec_sha="8ada14b09873a691161bc3dc4dbb39775dbc301a"
 w1_i09_post_product_fixture_correction_sha="abb3646ea6c244464b84fce46964d1d474d22dc0"
 w1_i09_post_product_fixture_test_sha="caa7aa8c70a5ccaa3f53ec80162f164899fcdfa4"
+w1_i09_fixture_diagnostic_origin_sha="848f151a1248594f063a3f9665f1fecc0b42558c"
+w1_i09_fixture_diagnostic_spec_sha="7030dd87403f496469e6a436ec9119ed57afdb07"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -974,6 +976,10 @@ w1_i09_post_product_fixture_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-post-product-fixture-finding.md
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-post-product-fixture-origin-correction.md
   tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i09_fixture_diagnostic_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-fixture-diagnostic-correction.md
   scripts/verify-wave1-implementation-cards
 )
 w1_i09_runtime_projection_paths=(
@@ -6420,6 +6426,7 @@ validate_post_w1_i09_runtime_projection_descendants() {
   local bridge_freeze_fix_steps=0 bridge_selector_steps=0 bridge_review_steps=0
   local v2_compatibility_steps=0 v2_compatibility_product_seen=0
   local post_product_fixture_steps=0 post_product_fixture_seen=0
+  local fixture_diagnostic_steps=0
   local bridge_projection=""
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
@@ -6737,6 +6744,22 @@ validate_post_w1_i09_runtime_projection_descendants() {
       copy_repair_state="POST_FIXTURE_TEST"
       continue
     fi
+    if [[ "${commit}" == "${w1_i09_fixture_diagnostic_spec_sha}" ]]; then
+      [[ "${copy_repair_state}" == "POST_FIXTURE_VERIFIER" && \
+         "${parent}" == "${w1_i09_fixture_diagnostic_origin_sha}" ]] ||
+        fail "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:order"
+      expected_path="${w1_i09_fixture_diagnostic_paths[0]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100644 ]] ||
+        fail "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:NUL"
+      copy_repair_state="FIXTURE_DIAGNOSTIC_SPEC"
+      continue
+    fi
     if [[ "${copy_repair_state}" == "BRIDGE_TEST" ]]; then
       expected_path="${w1_i09_canonical_bridge_paths[2]}"
       [[ "${changed_paths}" == "${expected_path}" ]] ||
@@ -6829,6 +6852,21 @@ validate_post_w1_i09_runtime_projection_descendants() {
       post_product_fixture_steps=1
       copy_repair_state="POST_FIXTURE_VERIFIER"
       continue
+    elif [[ "${copy_repair_state}" == "FIXTURE_DIAGNOSTIC_SPEC" ]]; then
+      expected_path="${w1_i09_fixture_diagnostic_paths[1]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:NUL"
+      fixture_diagnostic_steps=1
+      copy_repair_state="FIXTURE_DIAGNOSTIC_VERIFIER"
+      continue
+    elif [[ "${copy_repair_state}" == "FIXTURE_DIAGNOSTIC_VERIFIER" ]]; then
+      copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "POST_FIXTURE_VERIFIER" ]]; then
       copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "BRIDGE_REVIEW_VERIFIER" ]]; then
@@ -6920,6 +6958,8 @@ validate_post_w1_i09_runtime_projection_descendants() {
               "${post_product_fixture_steps}" -eq 1 ]]; then
         validate_w1_i09_post_product_fixture "${parent}" "${commit}"
         post_product_fixture_seen=1
+      elif [[ "${post_product_fixture_steps}" -eq 0 ]]; then
+        fail "I09_V2_COMPATIBILITY_PRODUCT_INVALID:second modification"
       else
         fail "I09_POST_PRODUCT_FIXTURE_INVALID:second modification"
       fi
@@ -6972,6 +7012,9 @@ validate_post_w1_i09_runtime_projection_descendants() {
     POST_FIXTURE_REJECTED_SPEC|POST_FIXTURE_CORRECTION|POST_FIXTURE_TEST)
       fail "I09_POST_PRODUCT_FIXTURE_GOVERNANCE_INVALID:incomplete"
       ;;
+    FIXTURE_DIAGNOSTIC_SPEC)
+      fail "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:incomplete"
+      ;;
     VERIFIER)
       [[ "${verifier_steps}" -ge 1 ]] ||
         fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
@@ -7013,6 +7056,10 @@ validate_post_w1_i09_runtime_projection_descendants() {
     POST_FIXTURE_VERIFIER)
       [[ "${post_product_fixture_steps}" -eq 1 ]] ||
         fail "I09_POST_PRODUCT_FIXTURE_GOVERNANCE_INVALID:missing verifier"
+      ;;
+    FIXTURE_DIAGNOSTIC_VERIFIER)
+      [[ "${fixture_diagnostic_steps}" -eq 1 ]] ||
+        fail "I09_FIXTURE_DIAGNOSTIC_CORRECTION_INVALID:missing verifier"
       ;;
   esac
   if [[ -z "${bridge_projection}" ]]; then
