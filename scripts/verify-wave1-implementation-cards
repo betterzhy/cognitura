@@ -604,6 +604,16 @@ w1_i02_release_projection_paths=(
   docs/task-cards/wave-1-implementation/README.md
   "${w1_i02_card_path}"
 )
+terra_first_routing_predecessor_sha="59144c9dfca4abacce62de41c7306021bf5b83f8"
+terra_first_routing_agents_blob="7804d024703d30848b0acad2f8a38771bbc32099"
+terra_first_routing_authority_blob="fdd877b114bc21d9acecddb176515573fdbd8ce5"
+terra_first_routing_authority_path="docs/superpowers/specs/2026-08-21-cognitura-terra-first-model-routing-design.md"
+terra_first_routing_successor_paths=(
+  AGENTS.md
+  "${terra_first_routing_authority_path}"
+  scripts/verify-wave1-implementation-cards
+  tests/task-cards/verify-wave1-implementation-cards.sh
+)
 w1_i02_product_paths=(
   server/src/main/resources/db/migration/V1__create_source_intake.sql
   server/src/main/java/io/cognitura/source/persistence/SourceDocumentRow.java
@@ -3759,6 +3769,85 @@ find_unique_w1_i02_database_gate_release() {
   printf '%s\n' "${receipt}"
 }
 
+validate_terra_first_routing_successor_commit() {
+  local parent="$1"
+  local commit="$2"
+  local actual_paths expected_paths path expected_mode
+  [[ "${parent}" == "${terra_first_routing_predecessor_sha}" ]] ||
+    fail "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:predecessor"
+  git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+    fail "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:empty commit"
+  require_no_git_rename_or_copy "${parent}" "${commit}" \
+    "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:rename or copy"
+  actual_paths="$(git -C "${repo_root}" diff --name-only \
+    "${parent}..${commit}" | LC_ALL=C sort)"
+  expected_paths="$(printf '%s\n' \
+    "${terra_first_routing_successor_paths[@]}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:exact four paths"
+  for path in "${terra_first_routing_successor_paths[@]}"; do
+    case "${path}" in
+      AGENTS.md|docs/superpowers/specs/*) expected_mode=100644 ;;
+      scripts/*|tests/*) expected_mode=100755 ;;
+      *) fail "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:unknown path" ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${path}")" == "${expected_mode}" ]] ||
+      fail "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:path mode"
+    require_git_blob_without_nul "${commit}" "${path}" \
+      "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:NUL"
+  done
+  [[ "$(git -C "${repo_root}" rev-parse \
+      "${commit}:AGENTS.md")" == "${terra_first_routing_agents_blob}" ]] ||
+    fail "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:AGENTS.md blob"
+  [[ "$(git -C "${repo_root}" rev-parse \
+      "${commit}:${terra_first_routing_authority_path}")" == \
+      "${terra_first_routing_authority_blob}" ]] ||
+    fail "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:Authority blob"
+}
+
+terra_first_routing_successor_for_head() {
+  local head="$1"
+  local successor parent
+  [[ "${head}" != "${terra_first_routing_predecessor_sha}" ]] || return 1
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${terra_first_routing_predecessor_sha}" "${head}" || return 1
+  successor="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${terra_first_routing_predecessor_sha}..${head}" | sed -n '1p')"
+  [[ -n "${successor}" ]] || return 1
+  parent="$(single_parent_of "${successor}" \
+    "Terra-first routing successor")"
+  validate_terra_first_routing_successor_commit "${parent}" "${successor}"
+  printf '%s\n' "${successor}"
+}
+
+validate_terra_first_routing_worktree() {
+  local head="$1"
+  local successor path
+  successor="$(terra_first_routing_successor_for_head "${head}")" || return 1
+  for path in "${terra_first_routing_successor_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet "${successor}" -- "${path}" ||
+      fail "TERRA_FIRST_ROUTING_WORKTREE_DRIFT:${path}"
+  done
+}
+
+validate_w1_i02_ready_working_projection() {
+  local receipt="$1"
+  local head="$2"
+  local path successor=""
+  successor="$(terra_first_routing_successor_for_head "${head}")" || true
+  for path in "${w1_i02_release_projection_paths[@]}"; do
+    if [[ "${path}" == AGENTS.md && -n "${successor}" ]]; then
+      continue
+    fi
+    git -C "${repo_root}" diff --quiet "${receipt}" -- "${path}" ||
+      fail "working projection must match W1-I02 database gate receipt"
+  done
+  if [[ -n "${successor}" ]]; then
+    validate_terra_first_routing_worktree "${head}" ||
+      fail "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:working tree"
+  fi
+}
+
 validate_post_w1_i02_database_gate_descendants() {
   local receipt="$1"
   local head="$2"
@@ -3771,6 +3860,10 @@ validate_post_w1_i02_database_gate_descendants() {
       fail "W1_I02_DATABASE_GATE_DESCENDANT_OUTSIDE_WRITE_SET:empty commit"
     require_no_git_rename_or_copy "${parent}" "${commit}" \
       "W1_I02_DATABASE_GATE_DESCENDANT_OUTSIDE_WRITE_SET:rename or copy"
+    if [[ "${parent}" == "${terra_first_routing_predecessor_sha}" ]]; then
+      validate_terra_first_routing_successor_commit "${parent}" "${commit}"
+      continue
+    fi
     changed_paths="$(git -C "${repo_root}" diff --name-only \
       "${parent}..${commit}")"
     while IFS= read -r path; do
@@ -4055,10 +4148,8 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
                   "${w1_i02_gate_tip}" "${w1_i02_release_receipt}"
                 validate_post_w1_i02_database_gate_descendants \
                   "${w1_i02_release_receipt}" "${current_repository_head}"
-                git -C "${repo_root}" diff --quiet \
-                  "${w1_i02_release_receipt}" -- \
-                  "${w1_i02_release_projection_paths[@]}" ||
-                  fail "working projection must match W1-I02 database gate receipt"
+                validate_w1_i02_ready_working_projection \
+                  "${w1_i02_release_receipt}" "${current_repository_head}"
                 printf '%s\n' \
                   "Wave1ImplementationTaskCardValidation = PASS" \
                   "TaskCardCount = 14" \

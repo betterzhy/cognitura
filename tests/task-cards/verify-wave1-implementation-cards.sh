@@ -27,6 +27,7 @@ w1_i06_entry_repair_contract_only=0
 w1_i06_copy_inference_repair_contract_only=0
 w1_i06_closure_contract_only=0
 w1_i02_database_gate_contract_only=0
+terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
   --w1-i03-closure-contract-only)
@@ -52,6 +53,9 @@ case "${1:-}" in
     ;;
   --w1-i02-database-gate-contract-only)
     w1_i02_database_gate_contract_only=1
+    ;;
+  --terra-first-routing-contract-only)
+    terra_first_routing_contract_only=1
     ;;
   *) fail "unknown argument: $1" ;;
 esac
@@ -3895,6 +3899,83 @@ FormalDatabaseWrite = AUTHORIZED/' \
     "W1I02DatabaseGateNegativeCases = ${negative_cases}"
 }
 
+run_terra_first_routing_contract() {
+  local predecessor_sha="59144c9dfca4abacce62de41c7306021bf5b83f8"
+  local fixture_root output successor_sha
+  local positive_cases=0
+  local negative_cases=0
+  local successor_paths=(
+    AGENTS.md
+    docs/superpowers/specs/2026-08-21-cognitura-terra-first-model-routing-design.md
+    scripts/verify-wave1-implementation-cards
+    tests/task-cards/verify-wave1-implementation-cards.sh
+  )
+
+  fixture_root="${test_tmp_root}/terra-first-routing"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+
+  materialize_terra_first_successor() {
+    local path
+    git -C "${fixture_root}" checkout -q --detach "${predecessor_sha}"
+    for path in "${successor_paths[@]}"; do
+      mkdir -p "${fixture_root}/$(dirname "${path}")"
+      cp -p "${repo_root}/${path}" "${fixture_root}/${path}"
+    done
+  }
+
+  materialize_terra_first_successor
+  git -C "${fixture_root}" add "${successor_paths[@]}"
+  git -C "${fixture_root}" commit -qm "governance: adopt Terra-first model routing"
+  successor_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal Terra-first routing successor was rejected: ${output}"
+  assert_contains "${output}" "Wave1ImplementationTaskCardValidation = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  materialize_terra_first_successor
+  git -C "${fixture_root}" add \
+    AGENTS.md \
+    scripts/verify-wave1-implementation-cards \
+    tests/task-cards/verify-wave1-implementation-cards.sh
+  git -C "${fixture_root}" commit -qm "test: omit Terra-first Authority"
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
+    fail "incomplete Terra-first routing successor unexpectedly passed"
+  fi
+  assert_contains "${output}" "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:exact four paths"
+  negative_cases=$((negative_cases + 1))
+
+  materialize_terra_first_successor
+  printf '\nTerraFirstRoutingExtra = FORBIDDEN\n' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add "${successor_paths[@]}" README.md
+  git -C "${fixture_root}" commit -qm "test: expand Terra-first governance scope"
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
+    fail "expanded Terra-first routing successor unexpectedly passed"
+  fi
+  assert_contains "${output}" "TERRA_FIRST_ROUTING_SUCCESSOR_INVALID:exact four paths"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" checkout -q --detach "${successor_sha}"
+  printf '\nCurrentRoute = gpt-5.6-sol/high\n' >> "${fixture_root}/AGENTS.md"
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
+    fail "working Terra-first route drift unexpectedly passed"
+  fi
+  assert_contains "${output}" "TERRA_FIRST_ROUTING_WORKTREE_DRIFT:AGENTS.md"
+  negative_cases=$((negative_cases + 1))
+
+  printf '%s\n' \
+    "TerraFirstRoutingContractTests = PASS" \
+    "TerraFirstRoutingPositiveCases = ${positive_cases}" \
+    "TerraFirstRoutingNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -3933,6 +4014,11 @@ fi
 
 if [[ "${w1_i02_database_gate_contract_only}" == "1" ]]; then
   run_w1_i02_database_gate_contract
+  exit 0
+fi
+
+if [[ "${terra_first_routing_contract_only}" == "1" ]]; then
+  run_terra_first_routing_contract
   exit 0
 fi
 

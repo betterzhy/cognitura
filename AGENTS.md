@@ -206,17 +206,28 @@ V1Architecture = MODULAR_MONOLITH
 ## 8. Agent 路由
 
 - 主 Agent 负责共享写集、实现决策、最终整合与用户授权边界。
-- `L0` 只读代码搜索、大文件扫描、日志与测试输出归纳使用
-  `fast_explorer / gpt-5.6-terra / medium`；不得拥有实现决策或最终裁决。
-- `L1`／`L2` 普通实现、受限调试、测试与本地整合使用
-  `main_or_worker / gpt-5.6-sol / high`。
+- 当前操作路由 Authority 是
+  `docs/superpowers/specs/2026-08-21-cognitura-terra-first-model-routing-design.md`；它只前向
+  迁移模型选择，不追溯改写历史审查、固定 VSB Authority 或已完成回执。
+- `L0` 精确只读搜索、大文件扫描、日志与测试输出归纳统一使用
+  `fast_explorer / gpt-5.6-terra / medium`（该角色固定为 medium）。L0 不得拥有写入、
+  实现决策、Authority 解释或最终裁决。
+- `L1` 文档、测试、确定性 fixture、格式、局部 Bash 兼容和其他可逆工作，默认使用
+  `main_or_worker / gpt-5.6-terra / medium`；涉及可观察行为时提升为 `terra / high`。
+- `L2` 边界明确、单 Owner、可安全回退且不触及 R2 风险面的实现，默认使用
+  `main_or_worker / gpt-5.6-terra / high`。
+- `L2` 一旦涉及跨 Owner 核心语义、状态机、身份、幂等、并发、租约、CAS、恢复、
+  审计、公共 API、Schema、SQL、DDL、Migration、持久化、安全边界、Authority、治理、
+  发布、外部写入、破坏性操作，或连续两轮仍无法解释根因，必须由
+  `main_or_worker / gpt-5.6-sol / high` 接管关键实现决策与整合。Terra 仍可承担其只读
+  搜索、fixture 准备和输出归纳。
 - `L3` 固定候选深审使用
   `deep_reviewer / gpt-5.6-sol / xhigh`，并且只执行一次适用的最高门禁。
 - `L4` 最终 GO/NO-GO 默认仍使用
   `deep_reviewer / gpt-5.6-sol / xhigh`，并且只执行一次适用的最终门禁；L4
   不要求先叠加同一未变候选的 L3 审查。
 - 只有主 Agent 先记录
-  `docs/superpowers/specs/2026-08-13-cognitura-model-gate-routing-design.md`
+  当前操作路由 Authority
   允许的明确升级原因时，`ultra_gatekeeper / gpt-5.6-sol / ultra` 才可替代
   默认 L4 门禁；禁止自动叠加 `deep_reviewer + ultra_gatekeeper`。
 - W0-08 采用用户于 `2026-07-30` 明确指定的例外：一般审查与最终门禁均使用
