@@ -6021,6 +6021,29 @@ run_w1_i09_runtime_rebaseline_repair_contract() {
     'I09_RUNTIME_REBASELINE_FORMAL_DATABASE_LOCATION'
   negative_cases=$((negative_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i09-repair-formal-large-java"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  commit_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  mkdir -p \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/runtime"
+  printf '%s\n' \
+    'package io.cognitura.source.runtime;' \
+    'final class SourceCommandRuntimeConfiguration {' \
+    '  static final String URL = "jdbc:postgresql://formal-db/cognitura";' \
+    '}' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/runtime/SourceCommandRuntimeConfiguration.java"
+  awk 'BEGIN { for (i = 0; i < 200000; i++) print "// padding " i }' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/runtime/SourceCommandRuntimeConfiguration.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/runtime/SourceCommandRuntimeConfiguration.java
+  git -C "${fixture_root}" commit -qm \
+    "test: add formal database location in large Java blob"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_FORMAL_DATABASE_LOCATION'
+  negative_cases=$((negative_cases + 1))
+
   fixture_root="${test_tmp_root}/w1-i09-repair-formal-java"
   new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
   materialize_i09_runtime_rebaseline_repair "${fixture_root}"
@@ -6128,7 +6151,7 @@ run_w1_i09_runtime_rebaseline_repair_contract() {
 
   [[ "${positive_cases}" -eq 3 ]] ||
     fail "I09 runtime repair positive count mismatch"
-  [[ "${negative_cases}" -eq 15 ]] ||
+  [[ "${negative_cases}" -eq 16 ]] ||
     fail "I09 runtime repair negative count mismatch"
   printf '%s\n' \
     'W1I09RuntimeRebaselineRepairContractTests = PASS' \
