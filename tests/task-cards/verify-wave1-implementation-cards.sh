@@ -5179,9 +5179,12 @@ fi
 
 i08_closure_origin_sha="4890c8ec6af72e57e696845e8fc06a5552aafd45"
 i08_closure_spec_sha="ce3545b699a9a38d63ace8de18a117ed322a3054"
+i08_rejected_governance_sha="6dfc075be803277c695b729001997345c512c34d"
+i08_repair_spec_sha="a5d3954f7f1f2e3cf1b4b887a23ed2b7cf399ec9"
 i08_reviewed_parent_sha="c06ea6ed7efcb2ef04c085e3976d42814af0b3ea"
 i08_reviewed_tree_sha="7db68e968432b8b7218a63aba9ea06d6a93a5782"
 i08_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i08-closure-design.md"
+i08_repair_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i08-closure-review-finding-repair.md"
 i08_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
 i08_verifier_path="scripts/verify-wave1-implementation-cards"
 i08_card_path="docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md"
@@ -5203,21 +5206,21 @@ i08_projection_paths=(
 new_i08_closure_fixture() {
   local fixture_root="$1"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach "${i08_closure_origin_sha}"
+  git -C "${fixture_root}" checkout -q --detach "${i08_rejected_governance_sha}"
 }
 
 materialize_i08_closure_governance() {
   local fixture_root="$1"
   local mutation="${2:-NONE}"
-  mkdir -p "${fixture_root}/$(dirname "${i08_spec_path}")"
-  git -C "${repo_root}" show "${i08_closure_spec_sha}:${i08_spec_path}" > \
-    "${fixture_root}/${i08_spec_path}"
-  git -C "${fixture_root}" add "${i08_spec_path}"
+  mkdir -p "${fixture_root}/$(dirname "${i08_repair_spec_path}")"
+  git -C "${repo_root}" show "${i08_repair_spec_sha}:${i08_repair_spec_path}" > \
+    "${fixture_root}/${i08_repair_spec_path}"
+  git -C "${fixture_root}" add "${i08_repair_spec_path}"
   if [[ "${mutation}" == GOVERNANCE_EXTRA_PATH ]]; then
     printf '%s\n' 'I08 closure governance drift' >> "${fixture_root}/README.md"
     git -C "${fixture_root}" add README.md
   fi
-  git -C "${fixture_root}" commit -qm "docs: define minimal W1-I08 closure"
+  git -C "${fixture_root}" commit -qm "docs: define W1-I08 closure finding repair"
 
   cp -p "${repo_root}/${i08_test_path}" "${fixture_root}/${i08_test_path}"
   chmod 755 "${fixture_root}/${i08_test_path}"
@@ -5255,9 +5258,10 @@ append_i08_closure_receipt() {
     "ReviewedCandidate = ${i08_closure_origin_sha}" \
     "ReviewedParent = ${i08_reviewed_parent_sha}" \
     "ReviewedTree = ${i08_reviewed_tree_sha}" \
-    "ReviewedGovernanceCandidate = ${governance_tip}" \
-    "ReviewedGovernanceParent = ${governance_parent}" \
-    "ReviewedGovernanceTree = ${governance_tree}" \
+    "ReviewedGovernanceCandidate = ${i08_rejected_governance_sha}" \
+    "ReviewedVerifierCorrectionCandidate = ${governance_tip}" \
+    "ReviewedVerifierCorrectionParent = ${governance_parent}" \
+    "ReviewedVerifierCorrectionTree = ${governance_tree}" \
     'ReviewLevel = L3' \
     'ReviewRoute = deep_reviewer' \
     'ReviewEffort = xhigh' \
@@ -5272,6 +5276,15 @@ append_i08_closure_receipt() {
     'RemotePush = NOT_AUTHORIZED' \
     '```' >> \
     "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+}
+
+replace_i08_projection_text() {
+  local file="$1"
+  local old_text="$2"
+  local new_text="$3"
+  I08_OLD_TEXT="${old_text}" I08_NEW_TEXT="${new_text}" \
+    perl -0777 -i.bak -pe 's/\Q$ENV{I08_OLD_TEXT}\E/$ENV{I08_NEW_TEXT}/g' "${file}"
+  rm "${file}.bak"
 }
 
 make_i08_closure_projection() {
@@ -5309,6 +5322,39 @@ make_i08_closure_projection() {
   set_field "${fixture_root}/${i09_card_path}" Status READY
   set_field "${fixture_root}/${i09_card_path}" \
     BusinessImplementationAuthorization USER_AUTHORIZED
+  replace_i08_projection_text "${fixture_root}/AGENTS.md" \
+    '`W1-I02` 和 `W1-I07` 已完成固定候选零发现深审并关闭；`W1-I08` 已作为唯一 `READY` 卡释放，`W1-I09` 保持 `QUEUED`。' \
+    '`W1-I02`、`W1-I07` 和 `W1-I08` 已完成固定候选零发现深审并关闭；`W1-I09` 已作为唯一 `READY` 卡释放。'
+  replace_i08_projection_text "${fixture_root}/AGENTS.md" \
+    'I00、I01、I02、I03、I04、I05、I06 和 I07 已关闭；I08 为唯一 `READY` 卡，I09 保持 `QUEUED`。' \
+    'I00、I01、I02、I03、I04、I05、I06、I07 和 I08 已关闭；I09 为唯一 `READY` 卡。'
+  replace_i08_projection_text "${fixture_root}/README.md" \
+    '完成零发现深审并关闭；I02 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。' \
+    '完成零发现深审并关闭；I02、I07 和 I08 已关闭，I09 已释放为唯一 `READY` 卡。'
+  replace_i08_projection_text "${fixture_root}/README.md" \
+    '已完成固定候选零发现深审并关闭；`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06`、`W1-I07` 已关闭，`W1-I08` 为唯一 `READY` 卡，`W1-I09` 保持 `QUEUED`。' \
+    '已完成固定候选零发现深审并关闭；`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06`、`W1-I07`、`W1-I08` 已关闭，`W1-I09` 为唯一 `READY` 卡。'
+  replace_i08_projection_text "${fixture_root}/docs/design/wave-1/README.md" \
+    '  I01、I02、I03、I04、I05、I06 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。' \
+    '  I01、I02、I03、I04、I05、I06、I07 和 I08 已关闭，I09 已释放为唯一 `READY` 卡。'
+  replace_i08_projection_text "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+    '`W1-I08` 已释放为唯一 `READY` 卡，`W1-I09` 保持 `QUEUED`。' \
+    '`W1-I08` 已关闭，`W1-I09` 已释放为唯一 `READY` 卡。'
+  replace_i08_projection_text "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+    '固定候选深审并关闭；I02、I03、I04、I05、I06 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`，完整证据记录在' \
+    '固定候选深审并关闭；I02、I03、I04、I05、I06、I07 和 I08 已关闭，I09 已释放为唯一 `READY` 卡，完整证据记录在'
+  replace_i08_projection_text "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+    '数据库 Gate 和固定候选深审均已通过，I02、I03、I04、I05、I06 和 I07 已关闭；I08 为唯一 `READY` 卡，I09 保持 `QUEUED`。正式数据库、Parser/Object Storage Provider、' \
+    '数据库 Gate 和固定候选深审均已通过，I02、I03、I04、I05、I06、I07 和 I08 已关闭；I09 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  replace_i08_projection_text "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+    '零发现深审并关闭；I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。' \
+    '零发现深审并关闭；I08 已关闭，I09 已释放为唯一 `READY` 卡。'
+  replace_i08_projection_text "${fixture_root}/docs/task-cards/wave-1/README.md" \
+    'I00、I01、I02、I03、I04、I05、I06 和 I07 已关闭；I08 已释放为唯一 `READY` 业务卡，I09 保持 `QUEUED`。' \
+    'I00、I01、I02、I03、I04、I05、I06、I07 和 I08 已关闭；I09 已释放为唯一 `READY` 业务卡。'
+  replace_i08_projection_text "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    '完成零发现深审并关闭；I02、I03、I04、I05、I06 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。' \
+    '完成零发现深审并关闭；I02、I03、I04、I05、I06、I07 和 I08 已关闭，I09 已释放为唯一 `READY` 卡。'
   append_i08_closure_receipt "${fixture_root}" "${governance_tip}"
 }
 
@@ -5375,6 +5421,35 @@ run_w1_i08_closure_contract() {
     --transition-base "${governance_tip}" --transition-head HEAD
   negative_cases=$((negative_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i08-closure-permission-drift"
+  new_i08_closure_fixture "${fixture_root}"
+  materialize_i08_closure_governance "${fixture_root}"
+  governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  make_i08_closure_projection "${fixture_root}" "${governance_tip}"
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+    FormalDatabaseWrite AUTHORIZED
+  git -C "${fixture_root}" add "${i08_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: drift I08 closure database authority"
+  expect_i08_closure_failure "${fixture_root}" \
+    "I08_CLOSURE_PROJECTION_MISMATCH" \
+    --transition-base "${governance_tip}" --transition-head HEAD
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i08-closure-i09-contract-drift"
+  new_i08_closure_fixture "${fixture_root}"
+  materialize_i08_closure_governance "${fixture_root}"
+  governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  make_i08_closure_projection "${fixture_root}" "${governance_tip}"
+  printf '%s\n' \
+    'WriteSet = server/src/main/java/io/cognitura/source/api/command/Unexpected.java' >> \
+    "${fixture_root}/${i09_card_path}"
+  git -C "${fixture_root}" add "${i08_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: drift I09 closure contract"
+  expect_i08_closure_failure "${fixture_root}" \
+    "I08_CLOSURE_PROJECTION_MISMATCH" \
+    --transition-base "${governance_tip}" --transition-head HEAD
+  negative_cases=$((negative_cases + 1))
+
   fixture_root="${test_tmp_root}/w1-i08-closure-state"
   new_i08_closure_fixture "${fixture_root}"
   materialize_i08_closure_governance "${fixture_root}"
@@ -5427,7 +5502,7 @@ run_w1_i08_closure_contract() {
   negative_cases=$((negative_cases + 1))
 
   [[ "${positive_cases}" -eq 2 ]] || fail "I08 closure positive count mismatch"
-  [[ "${negative_cases}" -eq 6 ]] || fail "I08 closure negative count mismatch"
+  [[ "${negative_cases}" -eq 8 ]] || fail "I08 closure negative count mismatch"
   printf '%s\n' \
     "W1I08ClosureContractTests = PASS" \
     "W1I08ClosurePositiveCases = ${positive_cases}" \
