@@ -12,8 +12,8 @@
 
 ```text
 TransitionKind = I05_CLOSE_ADVANCE
-ClosureRepairOriginSHA = 133e4370c7f05effc1e1b23d41fd597414c49bd3
-RejectedClosureCandidateSHA = 133e4370c7f05effc1e1b23d41fd597414c49bd3
+ClosureRepairOriginSHA = b1648392f1ce02673d234287cd212a477993316d
+RejectedClosureCandidateSHA = b5990ae66121ceeeafd3b302939af05f2f596bb9
 ReviewedProductCandidateSHA = b4132e988cd88dce74ae026a1b52a496188452fc
 GovernanceCommitCount = 3
 ```
@@ -27,6 +27,8 @@ GovernanceCommitCount = 3
 - Do not add a generic lifecycle engine, second execution ledger, or Omin Harness integration.
 - Preserve `07f8710…` as immutable `NO_GO / P1=3 / P2=1` evidence and
   `133e437…` as immutable `NO_GO / P1=1 / P2=0` evidence.
+- Preserve malformed receipt `b5990ae…` and its append-only recovery
+  `b164839…`; the failure was an out-of-order I05 receipt block, not a reviewed product defect.
 - The successor chain from `ClosureRepairOriginSHA` is exactly this plan, the RED contract, then the production verifier; each commit changes one canonical path.
 
 ---
@@ -43,6 +45,9 @@ GovernanceCommitCount = 3
 - [ ] **Step 1: Add a legal direct-child fixture**
 
   Materialize the exact eleven projection paths, set I05 `DONE`, I06 `READY`, bind the receipt to the reviewed candidate, preserve I02/database/push boundaries, and expect `W1I05ClosureStatus = PASS`.
+
+  Require `## 10. I05 关闭收据` to be the terminal review block after the historical I03/I04
+  receipts; inserting it between earlier receipts must fail the exact receipt contract.
 
 - [ ] **Step 2: Add mutation killers**
 
