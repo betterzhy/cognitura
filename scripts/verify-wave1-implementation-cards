@@ -565,6 +565,8 @@ w1_i02_database_gate_historical_receipt_test_sha="f79e85c28d18ea52be79cf9fbac692
 w1_i02_database_gate_rejected_first_field_sha="8846ba109e564330c6704353fdad2d4e7e5eb849"
 w1_i02_database_gate_header_anchor_test_sha="84e9fe6e6c81fb335a42ff64bf4e17ee6e88765a"
 w1_i02_database_gate_rejected_first_block_sha="d2a95102706123a2246de94e56aa8de42d6ea6d2"
+w1_i02_database_gate_rejected_section_candidate_sha="27dd920f782de41f6e55629975429ee55a88ceb6"
+w1_i02_database_gate_section_checkpoint_test_sha="1b5e0278b1eb6bb41229e82d866005e3d69a1763"
 w1_i02_card_path="docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md"
 w1_i02_postgres_image="postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a"
 w1_i02_database_gate_governance_paths=(
@@ -582,6 +584,8 @@ w1_i02_database_gate_governance_paths=(
   scripts/verify-wave1-implementation-cards
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
+  scripts/verify-wave1-implementation-cards
+  tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
 w1_i02_release_projection_paths=(
@@ -3490,10 +3494,24 @@ validate_w1_i02_database_gate_governance() {
         expected_mode=100755
         ;;
       14)
-        [[ "${parent}" == "${w1_i02_database_gate_rejected_first_block_sha}" &&
+        [[ "${commit}" == "${w1_i02_database_gate_rejected_section_candidate_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_rejected_first_block_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:rejected section candidate identity"
+        expected_path="${w1_i02_database_gate_governance_paths[14]}"
+        expected_mode=100755
+        ;;
+      15)
+        [[ "${commit}" == "${w1_i02_database_gate_section_checkpoint_test_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_rejected_section_candidate_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority section checkpoint identity"
+        expected_path="${w1_i02_database_gate_governance_paths[15]}"
+        expected_mode=100755
+        ;;
+      16)
+        [[ "${parent}" == "${w1_i02_database_gate_section_checkpoint_test_sha}" &&
            "${commit}" == "${resolved_tip}" ]] ||
           fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority section verifier identity"
-        expected_path="${w1_i02_database_gate_governance_paths[14]}"
+        expected_path="${w1_i02_database_gate_governance_paths[16]}"
         expected_mode=100755
         ;;
       *) fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:extra governance commit" ;;
@@ -3506,7 +3524,7 @@ validate_w1_i02_database_gate_governance() {
       "W1_I02_DATABASE_GATE_CHANGE_INVALID:NUL"
     commit_index=$((commit_index + 1))
   done
-  [[ "${commit_index}" -eq 15 ]] ||
+  [[ "${commit_index}" -eq 17 ]] ||
     fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:governance commit count"
 }
 
@@ -3514,10 +3532,10 @@ find_w1_i02_database_gate_tip() {
   local head="$1"
   local commit gate_tip="" commit_count=0
   git -C "${repo_root}" merge-base --is-ancestor \
-    "${w1_i02_database_gate_header_anchor_test_sha}" "${head}" ||
-    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority header anchor test is not an ancestor"
+    "${w1_i02_database_gate_section_checkpoint_test_sha}" "${head}" ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority section checkpoint is not an ancestor"
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i02_database_gate_header_anchor_test_sha}..${head}"); do
+    "${w1_i02_database_gate_section_checkpoint_test_sha}..${head}"); do
     commit_count=$((commit_count + 1))
     if [[ "${commit_count}" -eq 1 ]]; then
       gate_tip="${commit}"
