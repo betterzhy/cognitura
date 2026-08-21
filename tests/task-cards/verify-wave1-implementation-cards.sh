@@ -3127,10 +3127,16 @@ run_i06_copy_repair_verifier() {
 materialize_i06_copy_repair_tip() {
   local fixture_root="$1"
   local repair_test_sha="$2"
-  git -C "${fixture_root}" cherry-pick -q "${repair_test_sha}"
+  git -C "${fixture_root}" checkout -q --detach "${repair_test_sha}"
+  cp \
+    "${repo_root}/tests/task-cards/verify-wave1-implementation-cards.sh" \
+    "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
+  chmod 755 "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
   cp "${verifier}" "${fixture_root}/scripts/verify-wave1-implementation-cards"
   chmod 755 "${fixture_root}/scripts/verify-wave1-implementation-cards"
-  git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
+  git -C "${fixture_root}" add \
+    tests/task-cards/verify-wave1-implementation-cards.sh \
+    scripts/verify-wave1-implementation-cards
   git -C "${fixture_root}" commit -qm "fix: admit fixed I06 copy inference"
 }
 
@@ -3182,9 +3188,9 @@ run_w1_i06_copy_inference_repair_contract() {
   substitute_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
   [[ "${substitute_sha}" != "${i06_internal_projection_red_sha}" ]] ||
     fail "substituted I06 copy commit retained the fixed identity"
-  git -C "${fixture_root}" cherry-pick -q "${i06_internal_projection_green_sha}"
-  git -C "${fixture_root}" cherry-pick -q "${i06_external_projection_red_sha}"
-  git -C "${fixture_root}" cherry-pick -q "${i06_external_projection_green_sha}"
+  git -C "${fixture_root}" cherry-pick "${i06_internal_projection_green_sha}" >/dev/null
+  git -C "${fixture_root}" cherry-pick "${i06_external_projection_red_sha}" >/dev/null
+  git -C "${fixture_root}" cherry-pick "${i06_external_projection_green_sha}" >/dev/null
   expect_i06_copy_repair_failure "${fixture_root}" \
     "post-W1-I06-entry-repair descendant commit must not rename or copy paths"
   negative_cases=$((negative_cases + 1))

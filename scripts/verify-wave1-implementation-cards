@@ -489,6 +489,9 @@ w1_i06_entry_repair_review_verifier_sha="53e273c5176ee9934980fbe386e50d92c549692
 w1_i06_entry_repair_red_sha="d64176093392e9ec8e909c2b1e0964fd9b677485"
 w1_i06_entry_repair_rejected_green_sha="55b0648148a6db7942fab3547560d45b865cc267"
 w1_i06_entry_review_contract_test_sha="2662f55aaf03111bc297c221d5069171a0f734ba"
+w1_i06_internal_projection_red_sha="68c3fe77bd7cbe3a69d1dd294a6dc7d716d6b307"
+w1_i06_external_projection_red_sha="5e2c6c132fef438a5c7cb54c6de6c83ec77f85f9"
+w1_i06_copy_repair_test_sha="61cbb3136ffaf3f0ba3b6b4f4acef57ba4fabdca"
 w1_i06_entry_repair_governance_paths=(
   docs/superpowers/specs/2026-08-21-cognitura-w1-i06-entry-repair-design.md
   docs/superpowers/plans/2026-08-21-cognitura-w1-i06-entry-repair-and-implementation.md
@@ -878,6 +881,67 @@ require_no_git_rename_or_copy_except_w1_i05_xml_fixture_copy() {
         ;;
       C*)
         is_w1_i05_inferred_xml_fixture_copy \
+          "${base}" "${head}" "${status}" "${source}" "${target}" || {
+          remove_temporary_directory "${status_file}"
+          fail "${failure_message}"
+        }
+        ;;
+    esac
+  done < "${status_file}/status"
+  remove_temporary_directory "${status_file}"
+}
+
+is_fixed_w1_i06_inferred_test_copy() {
+  local base="$1"
+  local head="$2"
+  local status="$3"
+  local source="$4"
+  local target="$5"
+  local base_source_blob head_source_blob base_source_mode head_source_mode
+  [[ "${status}" == C* ]] || return 1
+  case "${head}|${source}|${target}" in
+    "${w1_i06_internal_projection_red_sha}|server/src/test/resources/docx/security/minimal-content-types.xml|server/src/test/resources/docx/image/internal-images-content-types.xml"|\
+    "${w1_i06_external_projection_red_sha}|server/src/test/java/io/cognitura/source/docx/security/ExternalRelationshipIsolationTest.java|server/src/test/java/io/cognitura/source/docx/image/ExternalRelationshipNoAccessTest.java"|\
+    "${w1_i06_external_projection_red_sha}|server/src/test/resources/docx/security/minimal-content-types.xml|server/src/test/resources/docx/image/external-images-content-types.xml") ;;
+    *) return 1 ;;
+  esac
+  git -C "${repo_root}" cat-file -e "${base}:${target}" 2>/dev/null && return 1
+  [[ "$(git_tree_mode "${head}" "${target}")" == 100644 ]] || return 1
+  base_source_blob="$(git -C "${repo_root}" rev-parse \
+    "${base}:${source}" 2>/dev/null)" || return 1
+  head_source_blob="$(git -C "${repo_root}" rev-parse \
+    "${head}:${source}" 2>/dev/null)" || return 1
+  [[ "${base_source_blob}" == "${head_source_blob}" ]] || return 1
+  base_source_mode="$(git_tree_mode "${base}" "${source}")"
+  head_source_mode="$(git_tree_mode "${head}" "${source}")"
+  [[ -n "${base_source_mode}" && \
+     "${base_source_mode}" == "${head_source_mode}" ]]
+}
+
+require_no_git_rename_or_copy_except_fixed_w1_i06_test_copy() {
+  local base="$1"
+  local head="$2"
+  local failure_message="$3"
+  local status_file status source target
+  case "${head}" in
+    "${w1_i06_internal_projection_red_sha}"|"${w1_i06_external_projection_red_sha}") ;;
+    *) fail "${failure_message}" ;;
+  esac
+  register_temporary_directory status_file cognitura-i06-name-status
+  git -C "${repo_root}" -c diff.renameLimit=0 diff-tree \
+    --no-commit-id --name-status -r -M -C --find-copies-harder \
+    "${base}" "${head}" > "${status_file}/status" || {
+    remove_temporary_directory "${status_file}"
+    fail "${failure_message}"
+  }
+  while IFS=$'\t' read -r status source target; do
+    case "${status}" in
+      R*)
+        remove_temporary_directory "${status_file}"
+        fail "${failure_message}"
+        ;;
+      C*)
+        is_fixed_w1_i06_inferred_test_copy \
           "${base}" "${head}" "${status}" "${source}" "${target}" || {
           remove_temporary_directory "${status_file}"
           fail "${failure_message}"
@@ -2856,13 +2920,52 @@ validate_w1_i06_entry_repair_and_descendants() {
             "W1-I06 entry-repair GREEN path must not contain NUL"
         done
         ;;
+      17|18)
+        parent="$(single_parent_of "${commit}" \
+          "W1-I06 copy-inference repair governance commit")"
+        if [[ "${commit_index}" -eq 17 && \
+              "${commit}" != "${w1_i06_copy_repair_test_sha}" ]]; then
+          fail "W1-I06 copy-inference repair test identity mismatch"
+        fi
+        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+          fail "W1-I06 copy-inference repair governance commit must be nonempty"
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "W1-I06 copy-inference repair governance commit must not rename or copy paths"
+        changed_paths="$(git -C "${repo_root}" diff --name-only \
+          "${parent}..${commit}")"
+        if [[ "${commit_index}" -eq 17 ]]; then
+          expected_paths="tests/task-cards/verify-wave1-implementation-cards.sh"
+        else
+          expected_paths="$(printf '%s\n' \
+            scripts/verify-wave1-implementation-cards \
+            tests/task-cards/verify-wave1-implementation-cards.sh | LC_ALL=C sort)"
+        fi
+        [[ "$(printf '%s\n' "${changed_paths}" | LC_ALL=C sort)" == "${expected_paths}" ]] ||
+          fail "W1-I06 copy-inference repair governance paths must follow the fixed order"
+        while IFS= read -r path; do
+          [[ -n "${path}" ]] || continue
+          [[ "$(git_tree_mode "${commit}" "${path}")" == 100755 ]] ||
+            fail "W1-I06 copy-inference repair governance path mode mismatch"
+          require_git_blob_without_nul "${commit}" "${path}" \
+            "W1-I06 copy-inference repair governance path must not contain NUL"
+        done <<< "${changed_paths}"
+        ;;
       *)
         parent="$(single_parent_of "${commit}" \
           "post-W1-I06-entry-repair descendant commit")"
         git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
           fail "post-W1-I06-entry-repair descendant commit must be nonempty"
-        require_no_git_rename_or_copy "${parent}" "${commit}" \
-          "post-W1-I06-entry-repair descendant commit must not rename or copy paths"
+        case "${commit}" in
+          "${w1_i06_internal_projection_red_sha}"|"${w1_i06_external_projection_red_sha}")
+            require_no_git_rename_or_copy_except_fixed_w1_i06_test_copy \
+              "${parent}" "${commit}" \
+              "post-W1-I06-entry-repair descendant commit must not rename or copy paths"
+            ;;
+          *)
+            require_no_git_rename_or_copy "${parent}" "${commit}" \
+              "post-W1-I06-entry-repair descendant commit must not rename or copy paths"
+            ;;
+        esac
         changed_paths="$(git -C "${repo_root}" diff --name-only \
           "${parent}..${commit}")"
         while IFS= read -r path; do
@@ -2882,6 +2985,8 @@ validate_w1_i06_entry_repair_and_descendants() {
   else
     w1_i06_entry_repair_status=PASS
   fi
+  [[ "${commit_index}" -ne 18 ]] ||
+    fail "W1-I06 copy-inference repair chain must include the verifier"
 }
 
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
