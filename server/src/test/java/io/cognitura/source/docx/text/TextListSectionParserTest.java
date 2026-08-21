@@ -135,6 +135,50 @@ class TextListSectionParserTest {
     }
 
     @Test
+    void rejectsImageWrappersWithoutExactlyOneSupportedImagePayload() throws IOException {
+        List<String> invalidInlineImages = List.of(
+                "<w:drawing><wp:inline/></w:drawing>",
+                """
+                <w:drawing><wp:inline><a:graphic><a:graphicData>
+                  <c:chart r:id="rId-chart"/>
+                </a:graphicData></a:graphic></wp:inline></w:drawing>
+                """,
+                "<w:pict><v:shape/></w:pict>",
+                """
+                <w:drawing><wp:inline>
+                  <a:blip r:embed="rId-image-1"/><a:blip r:embed="rId-image-2"/>
+                </wp:inline></w:drawing>
+                """,
+                """
+                <w:pict><v:shape>
+                  <v:imagedata r:id="rId-image-1"/><v:imagedata r:id="rId-image-2"/>
+                </v:shape></w:pict>
+                """);
+
+        for (int index = 0; index < invalidInlineImages.size(); index++) {
+            String documentXml = """
+                    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                                xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                                xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+                                xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+                                xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+                                xmlns:v="urn:schemas-microsoft-com:vml">
+                      <w:body><w:p><w:r>%s</w:r></w:p></w:body>
+                    </w:document>
+                    """.formatted(invalidInlineImages.get(index));
+            try (SafeDocxPackage safePackage =
+                    openDocumentXml("invalid-image-payload-" + index, documentXml)) {
+                assertThatThrownBy(() -> new TextListSectionParser().parse(safePackage))
+                        .isInstanceOf(SourceDomainException.class)
+                        .satisfies(error -> assertThat(((SourceDomainException) error).code())
+                                .isEqualTo(SourceDomainException.Code.PARSER_TERMINAL_FAILURE))
+                        .hasMessageContaining("IMAGE_PAYLOAD_EVIDENCE_INVALID");
+            }
+        }
+    }
+
+    @Test
     void sourceOrderCursorRejectsInvalidReservationsAndNonIssuedBlockSequences()
             throws Exception {
         Method nextBlock = SourceOrderCursor.class.getDeclaredMethod("nextBlock");
