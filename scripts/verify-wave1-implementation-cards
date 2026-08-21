@@ -5425,6 +5425,7 @@ validate_w1_i09_runtime_rebaseline_chain() {
   local commits commit parent changed_paths path expected_path
   local expected_mode expected_blob actual_blob evidence_sha
   local index=0
+  local verifier_steps=0
 
   git -C "${repo_root}" merge-base --is-ancestor \
     "${w1_i09_runtime_rebaseline_origin_sha}" "${head}" ||
@@ -5447,7 +5448,16 @@ validate_w1_i09_runtime_rebaseline_chain() {
     if [[ "${index}" -lt 3 ]]; then
       expected_path="${w1_i09_runtime_rebaseline_paths[${index}]}"
     else
-      expected_path="${w1_i09_runtime_rebaseline_paths[3]}"
+      case "${path}" in
+        "${w1_i09_runtime_rebaseline_paths[2]}")
+          expected_path="${w1_i09_runtime_rebaseline_paths[2]}"
+          ;;
+        "${w1_i09_runtime_rebaseline_paths[3]}")
+          expected_path="${w1_i09_runtime_rebaseline_paths[3]}"
+          verifier_steps=$((verifier_steps + 1))
+          ;;
+        *) fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order" ;;
+      esac
     fi
     [[ "${path}" == "${expected_path}" ]] ||
       fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
@@ -5473,6 +5483,8 @@ validate_w1_i09_runtime_rebaseline_chain() {
     index=$((index + 1))
   done
   [[ "${index}" -ge "${#w1_i09_runtime_rebaseline_paths[@]}" ]] ||
+    fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
+  [[ "${verifier_steps}" -ge 1 ]] ||
     fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
   git -C "${repo_root}" diff --quiet \
     "${w1_i09_runtime_rebaseline_origin_sha}..${head}" -- \
