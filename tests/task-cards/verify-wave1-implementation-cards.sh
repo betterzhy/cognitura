@@ -25,6 +25,7 @@ w1_i05_verifier_recovery_contract_only=0
 w1_i05_closure_contract_only=0
 w1_i06_entry_repair_contract_only=0
 w1_i06_copy_inference_repair_contract_only=0
+w1_i06_closure_contract_only=0
 case "${1:-}" in
   "") ;;
   --w1-i03-closure-contract-only)
@@ -44,6 +45,9 @@ case "${1:-}" in
     ;;
   --w1-i06-copy-inference-repair-contract-only)
     w1_i06_copy_inference_repair_contract_only=1
+    ;;
+  --w1-i06-closure-contract-only)
+    w1_i06_closure_contract_only=1
     ;;
   *) fail "unknown argument: $1" ;;
 esac
@@ -3226,6 +3230,189 @@ run_w1_i06_copy_inference_repair_contract() {
     "W1I06CopyInferenceRepairNegativeCases = ${negative_cases}"
 }
 
+i06_reviewed_candidate_sha="2a7e1cec184ea50d9e0a5c37d6f3acfa63c955ea"
+i06_reviewed_parent_sha="091cccd28216dc9d69588874d82a65548e8a389a"
+i06_reviewed_tree_sha="d87740229c75f8411347f291abdc2a5faf44e9cf"
+i06_closure_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md
+)
+
+append_i06_review_receipt() {
+  local fixture_root="$1"
+  printf '%s\n' \
+    '' \
+    '## 11. I06 关闭收据' \
+    '' \
+    '```text' \
+    'W1-I06 = DONE' \
+    "ReviewedCandidate = ${i06_reviewed_candidate_sha}" \
+    "ReviewedGovernanceCandidate = ${i06_reviewed_candidate_sha}" \
+    "ReviewedGovernanceParent = ${i06_reviewed_parent_sha}" \
+    "ReviewedGovernanceTree = ${i06_reviewed_tree_sha}" \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0 = 0' \
+    'P1 = 0' \
+    'P2 = 0' \
+    'Ultra = NOT_RUN' \
+    'I06ClosureTaskCardSetStatus = BLOCKED_BY_DATABASE_GATE' \
+    'BlockedTaskCard = W1-I02' \
+    'BlockedReason = INDEPENDENT_DATABASE_GATE_REQUIRED' \
+    'ReleasedTaskCard = NONE' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+}
+
+make_i06_closure_projection() {
+  local fixture_root="$1"
+  set_field "${fixture_root}/AGENTS.md" Wave1ImplementationTaskCardSet BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard NONE
+  set_field "${fixture_root}/README.md" Wave1ImplementationTaskCardSet BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/README.md" ActiveImplementationTaskCard NONE
+  set_field "${fixture_root}/docs/design/wave-1/README.md" Wave1ImplementationTaskCardSet BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/docs/design/wave-1/README.md" ActiveImplementationGovernanceTaskCard NONE
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" Wave1ImplementationTaskCardSet BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" ActiveTaskCard NONE
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" ActiveTaskCardStatus NONE
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" ActiveImplementationTaskCard NONE
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" Wave1ImplementationTaskCardSet BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" ActiveImplementationGovernanceTaskCard NONE
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" ImplementationTaskCardPlanStatus I06_COMPLETE_BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" Wave1ImplementationTaskCardSet BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" ActiveImplementationGovernanceTaskCard NONE
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" TaskCardSetStatus BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" ActiveTaskCard NONE
+  set_table_status "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" W1-I06 READY DONE
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" Wave1ImplementationTaskCardSet BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" ActiveImplementationGovernanceTaskCard NONE
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" TaskCardSetStatus BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" ActiveTaskCard NONE
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" ReadyTaskCardCount 0
+  set_table_status "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" W1-I06 READY DONE
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I06-image-anchor-relationship-projection.md" Status DONE
+  append_i06_review_receipt "${fixture_root}"
+}
+
+commit_i06_closure_projection() {
+  local fixture_root="$1"
+  make_i06_closure_projection "${fixture_root}"
+  git -C "${fixture_root}" add "${i06_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: close W1-I06 behind database gate"
+}
+
+expect_i06_closure_failure() {
+  local fixture_root="$1"
+  local base_sha="$2"
+  local head_sha="$3"
+  local expected_message="$4"
+  local output
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${base_sha}" \
+    --transition-head "${head_sha}" 2>&1)"; then
+    fail "invalid I06 closure unexpectedly passed: ${expected_message}"
+  fi
+  assert_contains "${output}" "${expected_message}"
+}
+
+run_w1_i06_closure_contract() {
+  local fixture_root base_sha closure_sha output
+  local positive_cases=0
+  local negative_cases=0
+  fixture_root="${test_tmp_root}/w1-i06-closure"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${i06_reviewed_candidate_sha}"
+  base_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+
+  commit_i06_closure_projection "${fixture_root}"
+  closure_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${base_sha}" \
+    --transition-head "${closure_sha}")" ||
+    fail "legal explicit I06 closure was rejected: ${output}"
+  assert_contains "${output}" "W1I06ClosureStatus = PASS"
+  assert_contains "${output}" "TaskCardSetStatus = BLOCKED_BY_DATABASE_GATE"
+  positive_cases=$((positive_cases + 1))
+
+  output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal static I06 closure was rejected: ${output}"
+  assert_contains "${output}" "ActiveTaskCard = NONE"
+  assert_contains "${output}" "W1I06ClosureStatus = PASS"
+  positive_cases=$((positive_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i06_closure_projection "${fixture_root}"
+  sed -i.bak "s/${i06_reviewed_candidate_sha}/0000000000000000000000000000000000000000/" \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i06_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: bind wrong I06 reviewed candidate"
+  expect_i06_closure_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I06 closure review receipt mismatch"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i06_closure_projection "${fixture_root}"
+  set_table_status "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I07 BLOCKED_BY_DEPENDENCY READY
+  git -C "${fixture_root}" add "${i06_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: release I07 without database gate"
+  expect_i06_closure_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I06 closure must not release a READY card"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i06_closure_projection "${fixture_root}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    FormalDatabaseWrite AUTHORIZED
+  git -C "${fixture_root}" add "${i06_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: authorize database write during I06 closure"
+  expect_i06_closure_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I06 closure must preserve database and push authorization boundaries"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${base_sha}"
+  make_i06_closure_projection "${fixture_root}"
+  printf '%s\n' extra > "${fixture_root}/i06-closure-extra.txt"
+  git -C "${fixture_root}" add "${i06_closure_projection_paths[@]}" i06-closure-extra.txt
+  git -C "${fixture_root}" commit -qm "test: add extra I06 closure path"
+  expect_i06_closure_failure "${fixture_root}" "${base_sha}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "I06 closure receipt fixed diff must equal the exact ten projection paths"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "I06 closure positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 4 ]] ||
+    fail "I06 closure negative case count mismatch: ${negative_cases}"
+  printf '%s\n' \
+    "W1I06ClosureContractTests = PASS" \
+    "W1I06ClosurePositiveCases = ${positive_cases}" \
+    "W1I06ClosureNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -3257,11 +3444,17 @@ if [[ "${w1_i06_copy_inference_repair_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+if [[ "${w1_i06_closure_contract_only}" == "1" ]]; then
+  run_w1_i06_closure_contract
+  exit 0
+fi
+
 [[ -x "${verifier}" ]] || fail "Wave 1 implementation task-card verifier is missing or not executable"
 
 run_w1_i05_closure_contract
 run_w1_i06_entry_repair_contract
 run_w1_i06_copy_inference_repair_contract
+run_w1_i06_closure_contract
 
 validation_output="$(
   "${verifier}" \
