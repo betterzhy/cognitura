@@ -39,9 +39,10 @@ public interface ProcessingPublicationPort {
             Instant claimDeadline) {
 
         public BeginAttempt {
-            sourceDocumentId = requireText(sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
-            revisionId = requireText(revisionId, "REVISION_ID_REQUIRED");
-            attemptId = requireText(attemptId, "ATTEMPT_ID_REQUIRED");
+            sourceDocumentId = requireArtifactId(
+                    sourceDocumentId, "SOURCE_DOCUMENT_ID_INVALID");
+            revisionId = requireArtifactId(revisionId, "REVISION_ID_INVALID");
+            attemptId = requireArtifactId(attemptId, "ATTEMPT_ID_INVALID");
             contentSha256 = requireText(contentSha256, "CONTENT_SHA256_REQUIRED");
             if (!SHA_256.matcher(contentSha256).matches()) {
                 throw new IllegalArgumentException("CONTENT_SHA256_MUST_BE_64_LOWERCASE_HEX");
@@ -438,5 +439,13 @@ public interface ProcessingPublicationPort {
             throw new IllegalArgumentException(code);
         }
         return value;
+    }
+
+    private static String requireArtifactId(String value, String code) {
+        String artifactId = requireText(value, code);
+        if (!ARTIFACT_ID.matcher(artifactId).matches()) {
+            throw new IllegalArgumentException(code);
+        }
+        return artifactId;
     }
 }

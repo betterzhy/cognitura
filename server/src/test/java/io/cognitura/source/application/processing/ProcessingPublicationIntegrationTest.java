@@ -396,6 +396,28 @@ class ProcessingPublicationIntegrationTest {
     }
 
     @Test
+    void invalidArtifactIdentityIsRejectedBeforeAnyDatabaseFact() {
+        assertThatThrownBy(() -> service.beginInitial(
+                        "bad source id", "revision-a", "attempt-a", CONTENT_SHA256,
+                        PARSER_PROFILE_VERSION, STARTED_AT, CLAIM_DEADLINE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("SOURCE_DOCUMENT_ID_INVALID");
+        assertThatThrownBy(() -> service.beginInitial(
+                        SOURCE_DOCUMENT_ID, "bad revision id", "attempt-a", CONTENT_SHA256,
+                        PARSER_PROFILE_VERSION, STARTED_AT, CLAIM_DEADLINE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("REVISION_ID_INVALID");
+        assertThatThrownBy(() -> service.beginInitial(
+                        SOURCE_DOCUMENT_ID, "revision-a", "bad attempt id", CONTENT_SHA256,
+                        PARSER_PROFILE_VERSION, STARTED_AT, CLAIM_DEADLINE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ATTEMPT_ID_INVALID");
+
+        assertThat(adapter.revisionCount()).isZero();
+        assertThat(adapter.totalAttemptCount()).isZero();
+    }
+
+    @Test
     void concurrentInitialBeginCreatesExactlyOneActiveAttempt() throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
@@ -1768,6 +1790,14 @@ class ProcessingPublicationIntegrationTest {
                     revisionId);
         }
 
+        int revisionCount() {
+            return count("select count(*) from i07_revision", null);
+        }
+
+        int totalAttemptCount() {
+            return count("select count(*) from i07_attempt", null);
+        }
+
         long currentGeneration(String revisionId) {
             return Long.parseLong(queryText(
                             "select current_generation::text from i07_revision where revision_id = ?",
@@ -2168,7 +2198,7 @@ class ProcessingPublicationIntegrationTest {
         private java.util.Optional<String> queryText(String sql, String identity) {
             try (Connection connection = openConnection();
                     PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setString(1, identity);
+                if (identity != null) statement.setString(1, identity);
                 try (ResultSet result = statement.executeQuery()) {
                     return result.next()
                             ? java.util.Optional.ofNullable(result.getString(1))
@@ -2186,7 +2216,7 @@ class ProcessingPublicationIntegrationTest {
         private int count(String sql, String identity) {
             try (Connection connection = openConnection();
                     PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setString(1, identity);
+                if (identity != null) statement.setString(1, identity);
                 try (ResultSet result = statement.executeQuery()) {
                     if (!result.next()) {
                         throw new SQLException("COUNT_RESULT_REQUIRED");
