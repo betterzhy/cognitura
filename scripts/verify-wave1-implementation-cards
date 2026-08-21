@@ -829,6 +829,21 @@ w1_i09_product_paths=(
   server/src/test/java/io/cognitura/source/api/command/SourceUploadControllerTest.java
   server/src/test/java/io/cognitura/source/api/command/ProcessingCommandControllerTest.java
 )
+w1_i09_runtime_rebaseline_origin_sha="ae6d0ba7c1caf6365825909f39ccc3e71da9e966"
+w1_i09_runtime_rebaseline_design_sha="2a5f818f22673e3af20bce369e99810e21f0095d"
+w1_i09_runtime_rebaseline_plan_sha="7574bfd68f6fe9f0cbce3933dce986401054b61c"
+w1_i09_runtime_rebaseline_test_sha="835e6baf7b2df36e696ee1b1248edd491743e8de"
+w1_i09_runtime_rebaseline_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-real-command-runtime-rebaseline-design.md
+  docs/superpowers/plans/2026-08-22-cognitura-w1-i09-real-command-runtime-rebaseline.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i09_runtime_rebaseline_evidence_shas=(
+  "${w1_i09_runtime_rebaseline_design_sha}"
+  "${w1_i09_runtime_rebaseline_plan_sha}"
+  "${w1_i09_runtime_rebaseline_test_sha}"
+)
 w1_i07_closure_pair_paths=(
   AGENTS.md AGENTS.md AGENTS.md
   README.md README.md README.md
@@ -5405,6 +5420,68 @@ validate_w1_i08_closed_worktree() {
   done
 }
 
+validate_w1_i09_runtime_rebaseline_chain() {
+  local head="$1"
+  local commits commit parent changed_paths path expected_path
+  local expected_mode expected_blob actual_blob evidence_sha
+  local index=0
+
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i09_runtime_rebaseline_origin_sha}" "${head}" ||
+    fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:origin"
+  commits="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i09_runtime_rebaseline_origin_sha}..${head}")"
+  for commit in ${commits}; do
+    [[ "${index}" -lt "${#w1_i09_runtime_rebaseline_paths[@]}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
+    parent="$(single_parent_of "${commit}" \
+      "I09_RUNTIME_REBASELINE_CHAIN_INVALID:single parent")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I09_RUNTIME_REBASELINE_CHAIN_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "$(printf '%s\n' "${changed_paths}" | awk \
+      'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
+      fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:exact path"
+    path="$(printf '%s\n' "${changed_paths}" | awk 'NF { print; exit }')"
+    expected_path="${w1_i09_runtime_rebaseline_paths[${index}]}"
+    [[ "${path}" == "${expected_path}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
+    case "${path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+      *) expected_mode=100644 ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${path}")" == "${expected_mode}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${path}" \
+      "I09_RUNTIME_REBASELINE_CHAIN_INVALID:NUL"
+    if [[ "${index}" -lt "${#w1_i09_runtime_rebaseline_evidence_shas[@]}" ]]; then
+      evidence_sha="${w1_i09_runtime_rebaseline_evidence_shas[${index}]}"
+      expected_blob="$(git -C "${repo_root}" rev-parse \
+        "${evidence_sha}:${path}" 2>/dev/null)" ||
+        fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:evidence"
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${path}" 2>/dev/null)" ||
+        fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:evidence"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:evidence"
+    fi
+    index=$((index + 1))
+  done
+  [[ "${index}" -eq "${#w1_i09_runtime_rebaseline_paths[@]}" ]] ||
+    fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i09_runtime_rebaseline_origin_sha}..${head}" -- \
+    "${w1_i08_product_paths[@]}" "${w1_i08_closure_projection_paths[@]}" ||
+    fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:I08 drift"
+  for path in "${w1_i09_runtime_rebaseline_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet "${head}" -- "${path}" ||
+      fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:worktree:${path}"
+  done
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -5516,6 +5593,24 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
           "I08_CLOSURE_RECEIPT_PATHS_INVALID:governance tip")"
         validate_w1_i08_closure_receipt \
           "${i08_governance_tip}" "${i08_closure_receipt}"
+        if git -C "${repo_root}" merge-base --is-ancestor \
+            "${w1_i09_runtime_rebaseline_design_sha}" \
+            "${current_repository_head}" 2>/dev/null; then
+          validate_w1_i09_runtime_rebaseline_chain \
+            "${current_repository_head}"
+          printf '%s\n' \
+            "Wave1ImplementationTaskCardValidation = PASS" \
+            "TaskCardCount = 14" \
+            "TaskCardSetStatus = READY_FOR_EXECUTION" \
+            "ActiveTaskCard = W1-I09" \
+            "ReadyTaskCardCount = 1" \
+            "W1I07ClosureStatus = PASS" \
+            "W1I08ClosureStatus = PASS" \
+            "W1I09RuntimeRebaselineStatus = PENDING_PROJECTION" \
+            "FormalDatabaseWrite = NOT_AUTHORIZED" \
+            "RemotePush = NOT_AUTHORIZED"
+          exit 0
+        fi
         validate_post_w1_i08_closure_descendants \
           "${i08_closure_receipt}" "${current_repository_head}"
         validate_w1_i08_closed_worktree \
