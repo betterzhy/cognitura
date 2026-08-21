@@ -6173,6 +6173,31 @@ if [[ "${w1_i09_runtime_rebaseline_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+materialize_i09_substituted_product_candidate() {
+  local fixture_root="$1"
+  local mutation="${2:-IDENTITY_ONLY}"
+  local path
+  for path in $(git -C "${repo_root}" diff --name-only \
+      1732c6821d93bcc9f121ba221adff2d137ffd6d0..c934ff7a10a30ed58584d2e5eb0654d2161add70); do
+    mkdir -p "${fixture_root}/${path%/*}"
+    git -C "${repo_root}" show \
+      "c934ff7a10a30ed58584d2e5eb0654d2161add70:${path}" > \
+      "${fixture_root}/${path}"
+    git -C "${fixture_root}" add "${path}"
+  done
+  if [[ "${mutation}" == "SOURCE_DRIFT" ]]; then
+    printf '%s\n' '// forbidden fixed-copy source drift' >> \
+      "${fixture_root}/server/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java"
+    printf '%s\n' '-- forbidden fixed-copy source drift' >> \
+      "${fixture_root}/server/src/test/resources/db/source-persistence-fixture.sql"
+    git -C "${fixture_root}" add \
+      server/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java \
+      server/src/test/resources/db/source-persistence-fixture.sql
+  fi
+  git -C "${fixture_root}" commit -qm \
+    "test: substitute fixed I09 product candidate"
+}
+
 run_w1_i09_product_copy_inference_contract() {
   local fixture_root output status
   local positive_cases=0 negative_cases=0
@@ -6234,9 +6259,62 @@ run_w1_i09_product_copy_inference_contract() {
     'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
   negative_cases=$((negative_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i09-copy-substituted-identity"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    1732c6821d93bcc9f121ba221adff2d137ffd6d0
+  materialize_i09_substituted_product_candidate "${fixture_root}"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-copy-source-drift"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    1732c6821d93bcc9f121ba221adff2d137ffd6d0
+  materialize_i09_substituted_product_candidate "${fixture_root}" SOURCE_DRIFT
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-copy-spec-evidence"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    c934ff7a10a30ed58584d2e5eb0654d2161add70
+  mkdir -p \
+    "${fixture_root}/docs/superpowers/specs"
+  git -C "${repo_root}" show \
+    8b26b59bc758c3895540e4ceffa295c1e5366a3d:docs/superpowers/specs/2026-08-22-cognitura-w1-i09-product-copy-inference-repair.md > \
+    "${fixture_root}/docs/superpowers/specs/2026-08-22-cognitura-w1-i09-product-copy-inference-repair.md"
+  printf '%s\n' 'RepairEvidenceDrift = YES' >> \
+    "${fixture_root}/docs/superpowers/specs/2026-08-22-cognitura-w1-i09-product-copy-inference-repair.md"
+  git -C "${fixture_root}" add \
+    docs/superpowers/specs/2026-08-22-cognitura-w1-i09-product-copy-inference-repair.md
+  git -C "${fixture_root}" commit -qm "test: drift I09 copy repair spec evidence"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_PRODUCT_COPY_REPAIR_INVALID:order'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-copy-test-evidence"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    8b26b59bc758c3895540e4ceffa295c1e5366a3d
+  git -C "${repo_root}" show \
+    bd5f49fa62e47c45559feb0b64ea73a5c3ee0532:tests/task-cards/verify-wave1-implementation-cards.sh > \
+    "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
+  printf '%s\n' '# RepairEvidenceDrift = YES' >> \
+    "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
+  chmod 755 \
+    "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
+  git -C "${fixture_root}" add tests/task-cards/verify-wave1-implementation-cards.sh
+  git -C "${fixture_root}" commit -qm "test: drift I09 copy repair test evidence"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_PRODUCT_COPY_REPAIR_INVALID:order'
+  negative_cases=$((negative_cases + 1))
+
   [[ "${positive_cases}" -eq 2 ]] ||
     fail "I09 product copy-inference positive count mismatch"
-  [[ "${negative_cases}" -eq 3 ]] ||
+  [[ "${negative_cases}" -eq 7 ]] ||
     fail "I09 product copy-inference negative count mismatch"
   printf '%s\n' \
     'W1I09ProductCopyInferenceContractTests = PASS' \
