@@ -2933,7 +2933,7 @@ w1_i06_entry_repair_green_paths=(
 w1_i06_entry_repair_governance_tip() {
   local tip
   tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i06_entry_repair_origin_sha}..HEAD" | sed -n '5p')"
+    "${w1_i06_entry_repair_origin_sha}..HEAD" | sed -n '7p')"
   [[ -n "${tip}" ]] || tip="$(git -C "${repo_root}" rev-parse HEAD)"
   printf '%s\n' "${tip}"
 }
@@ -2980,7 +2980,8 @@ expect_w1_i06_entry_repair_failure() {
 
 run_w1_i06_entry_repair_contract() {
   local fixture_root governance_tip output substitute_sha branch_sha
-  local test_sha correction_sha
+  local test_sha correction_sha first_verifier_sha review_test_sha
+  local synthetic_base_sha
   local positive_cases=0
   local negative_cases=0
 
@@ -3006,6 +3007,26 @@ run_w1_i06_entry_repair_contract() {
   assert_contains "${output}" "W1I06EntryRepairStatus = PASS"
   positive_cases=$((positive_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i06-entry-repair-nonfixed-receipt"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  synthetic_base_sha="$(git -C "${fixture_root}" rev-list --first-parent --reverse \
+    "${i05_closure_repair_origin_sha}..HEAD" | sed -n '3p')"
+  [[ -n "${synthetic_base_sha}" ]] ||
+    fail "synthetic I05 closure base is unavailable"
+  git -C "${fixture_root}" checkout -q --detach "${synthetic_base_sha}"
+  commit_i05_closure_projection "${fixture_root}"
+  mkdir -p \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/image"
+  printf '%s\n' 'package io.cognitura.source.docx.image;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/image/ImageAnchor.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/docx/image/ImageAnchor.java
+  git -C "${fixture_root}" commit -qm \
+    "test: bypass entry repair after non-fixed I05 receipt"
+  expect_w1_i06_entry_repair_failure "${fixture_root}" \
+    "non-fixed I05 closure receipt must not have descendants"
+  negative_cases=$((negative_cases + 1))
+
   fixture_root="${test_tmp_root}/w1-i06-entry-repair-substitute"
   git clone --shared -q "${repo_root}" "${fixture_root}"
   git -C "${fixture_root}" checkout -q --detach \
@@ -3019,10 +3040,16 @@ run_w1_i06_entry_repair_contract() {
     "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '1p')"
   correction_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '2p')"
+  first_verifier_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '3p')"
+  review_test_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '4p')"
   git -C "${fixture_root}" cherry-pick \
     "${w1_i06_entry_repair_plan_sha}" \
     "${test_sha}" \
     "${correction_sha}" \
+    "${first_verifier_sha}" \
+    "${review_test_sha}" \
     "${governance_tip}"
   expect_w1_i06_entry_repair_failure "${fixture_root}" \
     "W1-I06 entry-repair governance identity mismatch"
@@ -3083,7 +3110,7 @@ run_w1_i06_entry_repair_contract() {
 
   [[ "${positive_cases}" -eq 2 ]] ||
     fail "W1-I06 entry-repair positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 6 ]] ||
+  [[ "${negative_cases}" -eq 7 ]] ||
     fail "W1-I06 entry-repair negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I06EntryRepairContractTests = PASS" \
