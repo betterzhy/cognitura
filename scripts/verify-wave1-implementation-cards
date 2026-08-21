@@ -485,6 +485,10 @@ w1_i06_entry_repair_test_sha="9f26431f29043f66ba224d1ccc347d70bdccb0ce"
 w1_i06_entry_repair_test_correction_sha="3c3f0fc68670939c6a68ed1cc7a739dce9948e44"
 w1_i06_entry_repair_rejected_verifier_sha="0d455da25da0cf6ad4ee756c2560869126e2b334"
 w1_i06_entry_repair_review_test_sha="3f3a26576b82a8fa73970921c41e4390cf524c63"
+w1_i06_entry_repair_review_verifier_sha="53e273c5176ee9934980fbe386e50d92c549692b"
+w1_i06_entry_repair_red_sha="d64176093392e9ec8e909c2b1e0964fd9b677485"
+w1_i06_entry_repair_rejected_green_sha="55b0648148a6db7942fab3547560d45b865cc267"
+w1_i06_entry_review_contract_test_sha="2662f55aaf03111bc297c221d5069171a0f734ba"
 w1_i06_entry_repair_governance_paths=(
   docs/superpowers/specs/2026-08-21-cognitura-w1-i06-entry-repair-design.md
   docs/superpowers/plans/2026-08-21-cognitura-w1-i06-entry-repair-and-implementation.md
@@ -501,6 +505,16 @@ w1_i06_entry_repair_red_paths=(
 w1_i06_entry_repair_green_paths=(
   server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java
   server/src/main/java/io/cognitura/source/docx/text/SourceOrderCursor.java
+)
+w1_i06_entry_review_governance_paths=(
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i06_entry_review_red_paths=(
+  server/src/test/java/io/cognitura/source/docx/text/TextListSectionParserTest.java
+)
+w1_i06_entry_review_green_paths=(
+  server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java
 )
 w1_i05_closure_projection_paths=(
   AGENTS.md
@@ -2679,6 +2693,7 @@ validate_w1_i06_entry_repair_and_descendants() {
     "${w1_i06_entry_repair_test_correction_sha}"
     "${w1_i06_entry_repair_rejected_verifier_sha}"
     "${w1_i06_entry_repair_review_test_sha}"
+    "${w1_i06_entry_repair_review_verifier_sha}"
   )
 
   if [[ "${receipt}" != "${w1_i06_entry_repair_origin_sha}" ]]; then
@@ -2735,6 +2750,8 @@ validate_w1_i06_entry_repair_and_descendants() {
       7)
         parent="$(single_parent_of "${commit}" \
           "W1-I06 entry-repair RED commit")"
+        [[ "${commit}" == "${w1_i06_entry_repair_red_sha}" ]] ||
+          fail "W1-I06 entry-repair RED commit identity mismatch"
         git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
           fail "W1-I06 entry-repair RED commit must be nonempty"
         require_no_git_rename_or_copy "${parent}" "${commit}" \
@@ -2755,6 +2772,8 @@ validate_w1_i06_entry_repair_and_descendants() {
       8)
         parent="$(single_parent_of "${commit}" \
           "W1-I06 entry-repair GREEN commit")"
+        [[ "${commit}" == "${w1_i06_entry_repair_rejected_green_sha}" ]] ||
+          fail "W1-I06 entry-repair GREEN commit identity mismatch"
         git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
           fail "W1-I06 entry-repair GREEN commit must be nonempty"
         require_no_git_rename_or_copy "${parent}" "${commit}" \
@@ -2766,6 +2785,71 @@ validate_w1_i06_entry_repair_and_descendants() {
         [[ "${changed_paths}" == "${expected_paths}" ]] ||
           fail "W1-I06 entry-repair GREEN commit must change exactly the declared production paths"
         for path in "${w1_i06_entry_repair_green_paths[@]}"; do
+          [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+            fail "W1-I06 entry-repair GREEN path mode mismatch"
+          require_git_blob_without_nul "${commit}" "${path}" \
+            "W1-I06 entry-repair GREEN path must not contain NUL"
+        done
+        ;;
+      9|10)
+        parent="$(single_parent_of "${commit}" \
+          "W1-I04 image-payload finding governance commit")"
+        if [[ "${commit_index}" -eq 9 && \
+              "${commit}" != "${w1_i06_entry_review_contract_test_sha}" ]]; then
+          fail "W1-I04 image-payload finding governance identity mismatch"
+        fi
+        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+          fail "W1-I04 image-payload finding governance commit must be nonempty"
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "W1-I04 image-payload finding governance commit must not rename or copy paths"
+        changed_paths="$(git -C "${repo_root}" diff --name-only \
+          "${parent}..${commit}")"
+        [[ "$(printf '%s\n' "${changed_paths}" | awk \
+          'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
+          fail "W1-I04 image-payload finding governance commit must change exactly one path"
+        path="${changed_paths}"
+        expected_path="${w1_i06_entry_review_governance_paths[$((commit_index - 9))]}"
+        [[ "${path}" == "${expected_path}" ]] ||
+          fail "W1-I04 image-payload finding governance paths must follow the fixed order"
+        [[ "$(git_tree_mode "${commit}" "${path}")" == 100755 ]] ||
+          fail "W1-I04 image-payload finding governance path mode mismatch"
+        require_git_blob_without_nul "${commit}" "${path}" \
+          "W1-I04 image-payload finding governance path must not contain NUL"
+        ;;
+      11)
+        parent="$(single_parent_of "${commit}" \
+          "W1-I06 entry-repair RED commit")"
+        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+          fail "W1-I06 entry-repair RED commit must be nonempty"
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "W1-I06 entry-repair RED commit must not rename or copy paths"
+        expected_paths="$(printf '%s\n' \
+          "${w1_i06_entry_review_red_paths[@]}" | LC_ALL=C sort)"
+        changed_paths="$(git -C "${repo_root}" diff --name-only \
+          "${parent}..${commit}" | LC_ALL=C sort)"
+        [[ "${changed_paths}" == "${expected_paths}" ]] ||
+          fail "W1-I06 entry-repair RED commit must change exactly the declared test paths"
+        for path in "${w1_i06_entry_review_red_paths[@]}"; do
+          [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+            fail "W1-I06 entry-repair RED path mode mismatch"
+          require_git_blob_without_nul "${commit}" "${path}" \
+            "W1-I06 entry-repair RED path must not contain NUL"
+        done
+        ;;
+      12)
+        parent="$(single_parent_of "${commit}" \
+          "W1-I06 entry-repair GREEN commit")"
+        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+          fail "W1-I06 entry-repair GREEN commit must be nonempty"
+        require_no_git_rename_or_copy "${parent}" "${commit}" \
+          "W1-I06 entry-repair GREEN commit must not rename or copy paths"
+        expected_paths="$(printf '%s\n' \
+          "${w1_i06_entry_review_green_paths[@]}" | LC_ALL=C sort)"
+        changed_paths="$(git -C "${repo_root}" diff --name-only \
+          "${parent}..${commit}" | LC_ALL=C sort)"
+        [[ "${changed_paths}" == "${expected_paths}" ]] ||
+          fail "W1-I06 entry-repair GREEN commit must change exactly the declared production paths"
+        for path in "${w1_i06_entry_review_green_paths[@]}"; do
           [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
             fail "W1-I06 entry-repair GREEN path mode mismatch"
           require_git_blob_without_nul "${commit}" "${path}" \
@@ -2791,9 +2875,9 @@ validate_w1_i06_entry_repair_and_descendants() {
     commit_index=$((commit_index + 1))
   done
 
-  [[ "${commit_index}" -ge 7 ]] ||
-    fail "W1-I06 entry-repair governance chain must have exactly seven commits"
-  if [[ "${commit_index}" -lt 9 ]]; then
+  [[ "${commit_index}" -ge 11 ]] ||
+    fail "W1-I06 entry-repair governance chain must include the finding repair admission"
+  if [[ "${commit_index}" -lt 13 ]]; then
     w1_i06_entry_repair_status=PENDING
   else
     w1_i06_entry_repair_status=PASS
