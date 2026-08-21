@@ -6381,7 +6381,8 @@ run_w1_i09_canonical_bridge_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-legal"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach \
+    90a77d73f1389593930d8fbd468f0f06238b1c1b
   sed -i.bak \
     -e 's/^    byte\[\] canonicalOmissionsBytes()/    public byte[] canonicalOmissionsBytes()/' \
     -e 's/^    byte\[\] canonicalRevisionDiagnosticsBytes()/    public byte[] canonicalRevisionDiagnosticsBytes()/' \
@@ -6419,7 +6420,8 @@ run_w1_i09_canonical_bridge_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-extra-semantics"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach \
+    90a77d73f1389593930d8fbd468f0f06238b1c1b
   sed -i.bak \
     's/^    byte\[\] canonicalOmissionsBytes()/    public byte[] canonicalOmissionsBytes()/' \
     "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
@@ -6551,7 +6553,7 @@ commit_fixed_i09_v2_compatibility_projection() {
 }
 
 run_w1_i09_v2_compatibility_contract() {
-  local fixture_root output projection projection_parent
+  local fixture_root output projection projection_parent fixture_verifier
   local positive_cases=0 negative_cases=0
   projection="$(find_fixed_i09_v2_compatibility_projection)"
   projection_parent="$(git -C "${repo_root}" rev-parse "${projection}^")"
@@ -6563,7 +6565,7 @@ run_w1_i09_v2_compatibility_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-legal"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${projection}"
   sed -i.bak \
     's/assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);/assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);/' \
     "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
@@ -6587,7 +6589,7 @@ run_w1_i09_v2_compatibility_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-extra"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${projection}"
   printf '%s\n' '// extra semantic drift' >> \
     "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
   git -C "${fixture_root}" add \
@@ -6631,8 +6633,54 @@ run_w1_i09_v2_compatibility_contract() {
     'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
   negative_cases=$((negative_cases + 1))
 
-  [[ "${positive_cases}" -eq 2 ]] || fail "I09 V2 compatibility positive count mismatch"
-  [[ "${negative_cases}" -eq 5 ]] || fail "I09 V2 compatibility negative count mismatch"
+  fixture_verifier="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    abb3646ea6c244464b84fce46964d1d474d22dc0..HEAD | while IFS= read -r commit; do
+      parent="$(git -C "${repo_root}" rev-parse "${commit}^")"
+      if [[ "$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")" == \
+          'scripts/verify-wave1-implementation-cards' ]]; then
+        printf '%s\n' "${commit}"
+      fi
+    done | tail -n 1)"
+  [[ -n "${fixture_verifier}" ]] || fail "I09 post-product fixture verifier is unavailable"
+
+  fixture_root="${test_tmp_root}/w1-i09-post-product-fixture-legal"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${fixture_verifier}"
+  sed -i.bak \
+    's#new ClassPathResource("db/source-persistence-fixture.sql")#new ClassPathResource("db/source-command-runtime-fixture.sql")#' \
+    "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
+  rm "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java.bak"
+  git -C "${fixture_root}" add \
+    server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+  git -C "${fixture_root}" commit -qm "test: reset I02 facts through complete V2 fixture"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal post-product fixture repair was rejected: ${output}"
+  assert_contains "${output}" 'I09ProductWriteSetCount = 29'
+  positive_cases=$((positive_cases + 1))
+
+  printf '%s\n' '// forbidden fixture drift' >> \
+    "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
+  git -C "${fixture_root}" add \
+    server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+  git -C "${fixture_root}" commit -qm "test: drift fixture repair twice"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_POST_PRODUCT_FIXTURE_INVALID'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-post-product-fixture-extra"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${fixture_verifier}"
+  printf '%s\n' '// extra fixture semantics' >> \
+    "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
+  git -C "${fixture_root}" add \
+    server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+  git -C "${fixture_root}" commit -qm "test: add invalid fixture repair"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_POST_PRODUCT_FIXTURE_INVALID'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 3 ]] || fail "I09 V2 compatibility positive count mismatch"
+  [[ "${negative_cases}" -eq 7 ]] || fail "I09 V2 compatibility negative count mismatch"
   printf '%s\n' \
     'W1I09V2CompatibilityContractTests = PASS' \
     "W1I09V2CompatibilityPositiveCases = ${positive_cases}" \
