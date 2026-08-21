@@ -31,6 +31,7 @@ w1_i02_closure_contract_only=0
 w1_i07_closure_contract_only=0
 w1_i08_closure_contract_only=0
 w1_i09_runtime_rebaseline_contract_only=0
+w1_i09_product_copy_inference_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -69,6 +70,9 @@ case "${1:-}" in
     ;;
   --w1-i09-runtime-rebaseline-contract-only)
     w1_i09_runtime_rebaseline_contract_only=1
+    ;;
+  --w1-i09-product-copy-inference-contract-only)
+    w1_i09_product_copy_inference_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -6169,6 +6173,82 @@ if [[ "${w1_i09_runtime_rebaseline_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+run_w1_i09_product_copy_inference_contract() {
+  local fixture_root output status
+  local positive_cases=0 negative_cases=0
+
+  status="$(git -C "${repo_root}" -c diff.renameLimit=0 diff-tree \
+    --no-commit-id --name-status -r -M -C --find-copies-harder \
+    c934ff7a10a30ed58584d2e5eb0654d2161add70^ \
+    c934ff7a10a30ed58584d2e5eb0654d2161add70)"
+  assert_contains "${status}" $'C051\tserver/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java\tserver/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java'
+  assert_contains "${status}" $'C077\tserver/src/test/resources/db/source-persistence-fixture.sql\tserver/src/test/resources/db/source-command-runtime-fixture.sql'
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
+    fail "fixed I09 inferred-copy repair was rejected: ${output}"
+  assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-copy-legal-descendant"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  printf '%s\n' '// legal post-repair I09 product descendant' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/application/command/SourceCommandService.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/application/command/SourceCommandService.java
+  git -C "${fixture_root}" commit -qm "test: add legal post-repair I09 product"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I09 product descendant after copy repair was rejected: ${output}"
+  assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-copy-extra"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  cp "${fixture_root}/server/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java" \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/persistence/UnexpectedCopy.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/persistence/UnexpectedCopy.java
+  git -C "${fixture_root}" commit -qm "test: add forbidden I09 inferred copy"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-copy-rename"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" mv \
+    server/src/main/java/io/cognitura/source/application/command/SourceCommandException.java \
+    server/src/main/java/io/cognitura/source/application/command/RenamedSourceCommandException.java
+  git -C "${fixture_root}" commit -qm "test: rename I09 product path"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-copy-outside"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  printf '%s\n' 'forbidden post-repair drift' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: exceed I09 product WriteSet after copy repair"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "I09 product copy-inference positive count mismatch"
+  [[ "${negative_cases}" -eq 3 ]] ||
+    fail "I09 product copy-inference negative count mismatch"
+  printf '%s\n' \
+    'W1I09ProductCopyInferenceContractTests = PASS' \
+    "W1I09ProductCopyInferencePositiveCases = ${positive_cases}" \
+    "W1I09ProductCopyInferenceNegativeCases = ${negative_cases}"
+}
+
+if [[ "${w1_i09_product_copy_inference_contract_only}" == "1" ]]; then
+  run_w1_i09_product_copy_inference_contract
+  exit 0
+fi
+
 if [[ "${terra_first_routing_contract_only}" == "1" ]]; then
   run_terra_first_routing_contract
   exit 0
@@ -6185,6 +6265,7 @@ run_w1_i02_closure_contract
 run_w1_i07_closure_contract
 run_w1_i08_closure_contract
 run_w1_i09_runtime_rebaseline_repair_contract
+run_w1_i09_product_copy_inference_contract
 
 validation_output="$(
   "${verifier}" \
