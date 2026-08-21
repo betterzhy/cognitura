@@ -6295,6 +6295,17 @@ run_w1_i09_product_copy_inference_contract() {
     'I09_PRODUCT_COPY_REPAIR_INVALID:order'
   negative_cases=$((negative_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i09-copy-verifier-reentry"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  printf '%s\n' '# forbidden verifier reentry after fixed repair' >> \
+    "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
+  git -C "${fixture_root}" commit -qm "test: reenter I09 copy repair verifier"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
   fixture_root="${test_tmp_root}/w1-i09-copy-test-evidence"
   git clone --shared -q "${repo_root}" "${fixture_root}"
   git -C "${fixture_root}" checkout -q --detach \
@@ -6314,7 +6325,7 @@ run_w1_i09_product_copy_inference_contract() {
 
   [[ "${positive_cases}" -eq 2 ]] ||
     fail "I09 product copy-inference positive count mismatch"
-  [[ "${negative_cases}" -eq 7 ]] ||
+  [[ "${negative_cases}" -eq 8 ]] ||
     fail "I09 product copy-inference negative count mismatch"
   printf '%s\n' \
     'W1I09ProductCopyInferenceContractTests = PASS' \
