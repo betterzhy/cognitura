@@ -924,6 +924,9 @@ w1_i09_canonical_bridge_freeze_fix_spec_sha="be5a8678d030abc3ed02e93f0c5da3ec11c
 w1_i09_canonical_bridge_selector_origin_sha="2ce9f2d44f08421e886b09f3d52b3c673924d928"
 w1_i09_canonical_bridge_selector_spec_sha="a4a5dc264f079ce0bd0c68cce9bf1ca371866334"
 w1_i09_canonical_bridge_selector_test_sha="8e13400b30df21cc8366d88bc76d34eeff238d0d"
+w1_i09_canonical_bridge_review_origin_sha="2c5f825edb1f959d9f2cb5d1daf3532b18654ebc"
+w1_i09_canonical_bridge_review_spec_sha="3fb483b1ea6fd02d64ecb8d5c2528927843d5d79"
+w1_i09_canonical_bridge_review_test_sha="40c269ab493d010de330f4bca25fe7a55fbc4074"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -941,6 +944,11 @@ w1_i09_canonical_bridge_freeze_fix_paths=(
 )
 w1_i09_canonical_bridge_selector_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bridge-selector-finding.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i09_canonical_bridge_review_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bridge-review-finding.md
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
@@ -6227,7 +6235,8 @@ validate_post_w1_i09_runtime_projection_descendants() {
   local commit parent changed_paths path expected_path expected_mode
   local copy_repair_state="BEFORE" verifier_steps=0 finding_verifier_steps=0
   local reentry_verifier_steps=0 bridge_verifier_steps=0 bridge_product_seen=0
-  local bridge_freeze_fix_steps=0 bridge_selector_steps=0 bridge_projection=""
+  local bridge_freeze_fix_steps=0 bridge_selector_steps=0 bridge_review_steps=0
+  local bridge_projection=""
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
       "${projection}..${head}"); do
@@ -6432,6 +6441,38 @@ validate_post_w1_i09_runtime_projection_descendants() {
       copy_repair_state="BRIDGE_SELECTOR_TEST"
       continue
     fi
+    if [[ "${commit}" == "${w1_i09_canonical_bridge_review_spec_sha}" ]]; then
+      [[ "${copy_repair_state}" == "BRIDGE_SELECTOR_VERIFIER" && \
+         "${parent}" == "${w1_i09_canonical_bridge_review_origin_sha}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:order"
+      expected_path="${w1_i09_canonical_bridge_review_paths[0]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100644 ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:NUL"
+      copy_repair_state="BRIDGE_REVIEW_SPEC"
+      continue
+    fi
+    if [[ "${commit}" == "${w1_i09_canonical_bridge_review_test_sha}" ]]; then
+      [[ "${copy_repair_state}" == "BRIDGE_REVIEW_SPEC" && \
+         "${parent}" == "${w1_i09_canonical_bridge_review_spec_sha}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:order"
+      expected_path="${w1_i09_canonical_bridge_review_paths[1]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:NUL"
+      copy_repair_state="BRIDGE_REVIEW_TEST"
+      continue
+    fi
     if [[ "${copy_repair_state}" == "BRIDGE_TEST" ]]; then
       expected_path="${w1_i09_canonical_bridge_paths[2]}"
       [[ "${changed_paths}" == "${expected_path}" ]] ||
@@ -6478,6 +6519,21 @@ validate_post_w1_i09_runtime_projection_descendants() {
       bridge_selector_steps=1
       copy_repair_state="BRIDGE_SELECTOR_VERIFIER"
       continue
+    elif [[ "${copy_repair_state}" == "BRIDGE_REVIEW_TEST" ]]; then
+      expected_path="${w1_i09_canonical_bridge_review_paths[2]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:NUL"
+      bridge_review_steps=1
+      copy_repair_state="BRIDGE_REVIEW_VERIFIER"
+      continue
+    elif [[ "${copy_repair_state}" == "BRIDGE_REVIEW_VERIFIER" ]]; then
+      copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "BRIDGE_SELECTOR_VERIFIER" ]]; then
       copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "BRIDGE_FIXED" ]]; then
@@ -6596,6 +6652,9 @@ validate_post_w1_i09_runtime_projection_descendants() {
     BRIDGE_SELECTOR_SPEC|BRIDGE_SELECTOR_TEST)
       fail "I09_CANONICAL_BRIDGE_SELECTOR_INVALID:incomplete"
       ;;
+    BRIDGE_REVIEW_SPEC|BRIDGE_REVIEW_TEST)
+      fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:incomplete"
+      ;;
     VERIFIER)
       [[ "${verifier_steps}" -ge 1 ]] ||
         fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
@@ -6622,6 +6681,10 @@ validate_post_w1_i09_runtime_projection_descendants() {
     BRIDGE_SELECTOR_VERIFIER)
       [[ "${bridge_selector_steps}" -eq 1 ]] ||
         fail "I09_CANONICAL_BRIDGE_SELECTOR_INVALID:missing verifier"
+      ;;
+    BRIDGE_REVIEW_VERIFIER)
+      [[ "${bridge_review_steps}" -eq 1 ]] ||
+        fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:missing verifier"
       ;;
   esac
   if [[ -z "${bridge_projection}" ]]; then
