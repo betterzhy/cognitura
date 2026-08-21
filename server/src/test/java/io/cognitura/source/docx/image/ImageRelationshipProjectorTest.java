@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
@@ -213,6 +214,65 @@ class ImageRelationshipProjectorTest {
     }
 
     @Test
+    void rejectsInconsistentAndDuplicateParentBlockResolution() throws IOException {
+        try (SafeDocxPackage safePackage = openPackage("inconsistent-parent.docx", baseEntries())) {
+            AtomicInteger paragraphCalls = new AtomicInteger();
+            assertThatThrownBy(() -> new ImageRelationshipProjector().project(
+                            safePackage,
+                            (sourcePart, sourceElementIndex, anchorKind, rowIndex, columnIndex) -> {
+                                if (anchorKind == ImageAnchor.AnchorKind.PARAGRAPH_INLINE) {
+                                    return paragraphCalls.getAndIncrement() == 0
+                                            ? "block-paragraph-a"
+                                            : "block-paragraph-b";
+                                }
+                                return "block-table";
+                            },
+                            mediaSink()))
+                    .isInstanceOf(SourceDomainException.class)
+                    .hasMessageContaining("IMAGE_PARENT_BLOCK_RESOLUTION_INCONSISTENT");
+        }
+
+        try (SafeDocxPackage safePackage = openPackage("duplicate-parent.docx", baseEntries())) {
+            assertThatThrownBy(() -> new ImageRelationshipProjector().project(
+                            safePackage,
+                            (sourcePart, sourceElementIndex, anchorKind, rowIndex, columnIndex) ->
+                                    "block-shared-by-different-containers",
+                            mediaSink()))
+                    .isInstanceOf(SourceDomainException.class)
+                    .hasMessageContaining("IMAGE_PARENT_BLOCK_ID_DUPLICATE");
+        }
+
+        for (String missing : new String[] {null, " "}) {
+            try (SafeDocxPackage safePackage = openPackage(
+                    "missing-parent-" + (missing == null ? "null" : "blank") + ".docx",
+                    baseEntries())) {
+                assertThatThrownBy(() -> new ImageRelationshipProjector().project(
+                                safePackage,
+                                (sourcePart, sourceElementIndex, anchorKind, rowIndex, columnIndex) ->
+                                        missing,
+                                mediaSink()))
+                        .isInstanceOf(SourceDomainException.class)
+                        .hasMessageContaining("IMAGE_PARENT_BLOCK_RESOLUTION_MISSING");
+            }
+        }
+    }
+
+    @Test
+    void rejectsFileAndWebUrisAsImmutableMediaReferences() {
+        assertThatThrownBy(() -> new ImmutableMediaRef("file:/tmp/secret.png"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("IMMUTABLE_MEDIA_REF_MUST_BE_OPAQUE");
+        assertThatThrownBy(() -> new ImmutableMediaRef("http:example.invalid/image.png"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("IMMUTABLE_MEDIA_REF_MUST_BE_OPAQUE");
+        assertThatThrownBy(() -> new ImmutableMediaRef("https://example.invalid/image.png"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("IMMUTABLE_MEDIA_REF_MUST_BE_OPAQUE");
+        assertThat(new ImmutableMediaRef("media:sha256:0123456789abcdef").value())
+                .isEqualTo("media:sha256:0123456789abcdef");
+    }
+
+    @Test
     void changesBinaryAndCanonicalDigestsWhenVerifiedMediaBytesDrift() throws IOException {
         ImageRelationshipProjector.Projection original;
         try (SafeDocxPackage safePackage = openPackage("original.docx", baseEntries())) {
@@ -263,8 +323,12 @@ class ImageRelationshipProjectorTest {
                         anchorKind == ImageAnchor.AnchorKind.PARAGRAPH_INLINE
                                 ? "block-paragraph"
                                 : "block-table",
-                (sourcePart, relationshipId, mediaType, content, digest) ->
-                        new ImmutableMediaRef("media:" + digest.contentSha256().value()));
+                mediaSink());
+    }
+
+    private ImageRelationshipProjector.ImmutableMediaSink mediaSink() {
+        return (sourcePart, relationshipId, mediaType, content, digest) ->
+                new ImmutableMediaRef("media:" + digest.contentSha256().value());
     }
 
     private SafeDocxPackage openPackage(String fileName, LinkedHashMap<String, byte[]> entries)
