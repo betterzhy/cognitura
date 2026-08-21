@@ -858,6 +858,20 @@ w1_i09_runtime_repair_evidence_shas=(
   "${w1_i09_runtime_repair_spec_sha}"
   "${w1_i09_runtime_repair_test_sha}"
 )
+w1_i09_runtime_boundary_rejected_candidate_sha="1544af3407d94b57bc6390f3e8a6e55cd056abdf"
+w1_i09_runtime_boundary_rejected_parent_sha="390725450f4d52aa26a8d24eb100716d39b2b539"
+w1_i09_runtime_boundary_rejected_tree_sha="a314a1e7678c317c6e209bea7df4e2a88bfd96bd"
+w1_i09_runtime_boundary_repair_spec_sha="e461723f308b2233fb9ef4df1b3c81e650433e0f"
+w1_i09_runtime_boundary_repair_test_sha="4b314aae4da6b1527af37f30fdeb1c7de08be636"
+w1_i09_runtime_boundary_repair_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-runtime-rebaseline-boundary-finding-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i09_runtime_boundary_repair_evidence_shas=(
+  "${w1_i09_runtime_boundary_repair_spec_sha}"
+  "${w1_i09_runtime_boundary_repair_test_sha}"
+)
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
   docs/engineering/cognitura-design-index.md
@@ -5640,6 +5654,84 @@ validate_w1_i09_runtime_repair_chain() {
       "I09_RUNTIME_REBASELINE_REPAIR_INVALID:verifier correction NUL"
     repair_tip="${commit}"
   done
+  if [[ "${repair_tip}" == \
+      "${w1_i09_runtime_boundary_rejected_candidate_sha}" ]] &&
+      [[ "${head}" != "${repair_tip}" ]]; then
+    [[ "$(git -C "${repo_root}" rev-parse \
+        "${w1_i09_runtime_boundary_rejected_candidate_sha}^" 2>/dev/null)" == \
+        "${w1_i09_runtime_boundary_rejected_parent_sha}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:rejected parent"
+    [[ "$(git -C "${repo_root}" rev-parse \
+        "${w1_i09_runtime_boundary_rejected_candidate_sha}^{tree}" 2>/dev/null)" == \
+        "${w1_i09_runtime_boundary_rejected_tree_sha}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:rejected tree"
+    index=0
+    commits="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+      "${w1_i09_runtime_boundary_rejected_candidate_sha}..${head}" | head -n 3)"
+    for commit in ${commits}; do
+      [[ "${index}" -lt "${#w1_i09_runtime_boundary_repair_paths[@]}" ]] ||
+        fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:order"
+      parent="$(single_parent_of "${commit}" \
+        "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:single parent")"
+      git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+        fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:empty"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:rename or copy"
+      changed_paths="$(git -C "${repo_root}" diff --name-only \
+        "${parent}..${commit}")"
+      [[ "$(printf '%s\n' "${changed_paths}" | awk \
+        'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
+        fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:exact path"
+      path="$(printf '%s\n' "${changed_paths}" | awk 'NF { print; exit }')"
+      expected_path="${w1_i09_runtime_boundary_repair_paths[${index}]}"
+      [[ "${path}" == "${expected_path}" ]] ||
+        fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:order"
+      case "${path}" in
+        scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+        *) expected_mode=100644 ;;
+      esac
+      [[ "$(git_tree_mode "${commit}" "${path}")" == "${expected_mode}" ]] ||
+        fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${path}" \
+        "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:NUL"
+      if [[ "${index}" -lt \
+          "${#w1_i09_runtime_boundary_repair_evidence_shas[@]}" ]]; then
+        evidence_sha="${w1_i09_runtime_boundary_repair_evidence_shas[${index}]}"
+        expected_blob="$(git -C "${repo_root}" rev-parse \
+          "${evidence_sha}:${path}" 2>/dev/null)" ||
+          fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:evidence"
+        actual_blob="$(git -C "${repo_root}" rev-parse \
+          "${commit}:${path}" 2>/dev/null)" ||
+          fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:evidence"
+        [[ "${actual_blob}" == "${expected_blob}" ]] ||
+          fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:evidence"
+      fi
+      repair_tip="${commit}"
+      index=$((index + 1))
+    done
+    [[ "${index}" -eq "${#w1_i09_runtime_boundary_repair_paths[@]}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:order"
+    for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+        "${repair_tip}..${head}"); do
+      parent="$(single_parent_of "${commit}" \
+        "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:verifier correction parent")"
+      changed_paths="$(git -C "${repo_root}" diff --name-only \
+        "${parent}..${commit}")"
+      if [[ "${changed_paths}" != \
+          "${w1_i09_runtime_boundary_repair_paths[2]}" ]]; then
+        break
+      fi
+      git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+        fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:empty verifier correction"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:verifier correction rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${changed_paths}")" == 100755 ]] ||
+        fail "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:verifier correction mode"
+      require_git_blob_without_nul "${commit}" "${changed_paths}" \
+        "I09_RUNTIME_REBASELINE_BOUNDARY_REPAIR_INVALID:verifier correction NUL"
+      repair_tip="${commit}"
+    done
+  fi
   git -C "${repo_root}" diff --quiet \
     "${w1_i09_runtime_rejected_candidate_sha}..${repair_tip}" -- \
     "${w1_i08_product_paths[@]}" "${w1_i08_closure_projection_paths[@]}" ||
@@ -5789,9 +5881,8 @@ validate_post_w1_i09_runtime_projection_descendants() {
         fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:mode:${path}"
       require_git_blob_without_nul "${commit}" "${path}" \
         "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:NUL:${path}"
-      if [[ "${path}" == server/src/main/resources/application.yaml ]] &&
-          git -C "${repo_root}" show "${commit}:${path}" |
-            grep -Fq 'jdbc:postgresql://'; then
+      if git -C "${repo_root}" show "${commit}:${path}" |
+          grep -Fq 'jdbc:postgresql://'; then
         fail "I09_RUNTIME_REBASELINE_FORMAL_DATABASE_LOCATION"
       fi
     done <<< "${changed_paths}"
@@ -5951,6 +6042,19 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
       "${w1_i07_card_path}" Status):$(git_tree_field \
       "${current_repository_head}" "${w1_i08_card_path}" Status):$(git_tree_field \
       "${current_repository_head}" "${w1_i09_card_path}" Status)"
+    if [[ "${i08_static_vector}" == DONE:DONE:* ]] &&
+        [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+          "${w1_i09_runtime_rejected_candidate_sha}..${current_repository_head}" \
+          -- "${w1_i09_runtime_repair_paths[0]}" 2>/dev/null)" ]]; then
+      i08_closure_receipt="$(find_unique_w1_i08_closure_receipt \
+        "${current_repository_head}")"
+      i08_governance_tip="$(single_parent_of "${i08_closure_receipt}" \
+        "I08_CLOSURE_RECEIPT_PATHS_INVALID:governance tip")"
+      validate_w1_i08_closure_receipt \
+        "${i08_governance_tip}" "${i08_closure_receipt}"
+      route_w1_i09_runtime_repair "${current_repository_head}"
+      exit 0
+    fi
     case "${i08_static_vector}" in
       DONE:READY:QUEUED)
         validate_w1_i08_closure_correction_chain "${current_repository_head}"
