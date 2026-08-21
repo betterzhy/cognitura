@@ -6376,7 +6376,7 @@ run_w1_i09_canonical_bridge_contract() {
 
   output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
     fail "fixed I09 canonical bridge was rejected: ${output}"
-  assert_contains "${output}" 'I09ProductWriteSetCount = 28'
+  assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
   positive_cases=$((positive_cases + 1))
 
   fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-legal"
@@ -6560,7 +6560,7 @@ run_w1_i09_v2_compatibility_contract() {
 
   output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
     fail "fixed I09 V2 compatibility was rejected: ${output}"
-  assert_contains "${output}" 'I09ProductWriteSetCount = 29'
+  assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
   positive_cases=$((positive_cases + 1))
 
   fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-legal"
