@@ -32,6 +32,7 @@ w1_i07_closure_contract_only=0
 w1_i08_closure_contract_only=0
 w1_i09_runtime_rebaseline_contract_only=0
 w1_i09_product_copy_inference_contract_only=0
+w1_i09_canonical_bridge_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -73,6 +74,9 @@ case "${1:-}" in
     ;;
   --w1-i09-product-copy-inference-contract-only)
     w1_i09_product_copy_inference_contract_only=1
+    ;;
+  --w1-i09-canonical-bridge-contract-only)
+    w1_i09_canonical_bridge_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -6338,6 +6342,91 @@ if [[ "${w1_i09_product_copy_inference_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+run_w1_i09_canonical_bridge_contract() {
+  local fixture_root output
+  local positive_cases=0 negative_cases=0
+
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
+    fail "fixed I09 canonical bridge was rejected: ${output}"
+  assert_contains "${output}" 'I09ProductWriteSetCount = 28'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-legal"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  sed -i.bak \
+    -e 's/^    byte\[\] canonicalOmissionsBytes()/    public byte[] canonicalOmissionsBytes()/' \
+    -e 's/^    byte\[\] canonicalRevisionDiagnosticsBytes()/    public byte[] canonicalRevisionDiagnosticsBytes()/' \
+    -e 's/^        byte\[\] canonicalBytes()/        public byte[] canonicalBytes()/' \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
+  rm "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java.bak"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java
+  git -C "${fixture_root}" commit -qm "test: add legal canonical bytes bridge"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I09 canonical bridge product was rejected: ${output}"
+  assert_contains "${output}" 'I09ProductWriteSetCount = 28'
+  positive_cases=$((positive_cases + 1))
+
+  printf '%s\n' '// forbidden second bridge drift' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java
+  git -C "${fixture_root}" commit -qm "test: drift canonical bridge twice"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_CANONICAL_BRIDGE_PRODUCT_INVALID'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-extra-semantics"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  sed -i.bak \
+    's/^    byte\[\] canonicalOmissionsBytes()/    public byte[] canonicalOmissionsBytes()/' \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
+  rm "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java.bak"
+  printf '%s\n' '// extra semantic drift' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java
+  git -C "${fixture_root}" commit -qm "test: add invalid canonical bridge"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_CANONICAL_BRIDGE_PRODUCT_INVALID'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-governance-reentry"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  printf '%s\n' '# forbidden governance reentry' >> \
+    "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
+  git -C "${fixture_root}" commit -qm "test: reenter bridge governance"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-outside"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  printf '%s\n' 'forbidden bridge successor' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: exceed bridge product WriteSet"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] || fail "I09 canonical bridge positive count mismatch"
+  [[ "${negative_cases}" -eq 4 ]] || fail "I09 canonical bridge negative count mismatch"
+  printf '%s\n' \
+    'W1I09CanonicalBridgeContractTests = PASS' \
+    "W1I09CanonicalBridgePositiveCases = ${positive_cases}" \
+    "W1I09CanonicalBridgeNegativeCases = ${negative_cases}"
+}
+
+if [[ "${w1_i09_canonical_bridge_contract_only}" == "1" ]]; then
+  run_w1_i09_canonical_bridge_contract
+  exit 0
+fi
+
 if [[ "${terra_first_routing_contract_only}" == "1" ]]; then
   run_terra_first_routing_contract
   exit 0
@@ -6355,6 +6444,7 @@ run_w1_i07_closure_contract
 run_w1_i08_closure_contract
 run_w1_i09_runtime_rebaseline_repair_contract
 run_w1_i09_product_copy_inference_contract
+run_w1_i09_canonical_bridge_contract
 
 validation_output="$(
   "${verifier}" \
