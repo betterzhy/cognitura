@@ -112,7 +112,7 @@ public final class CandidateBlockSet {
         return revisionDiagnostics;
     }
 
-    byte[] canonicalOmissionsBytes() {
+    public byte[] canonicalOmissionsBytes() {
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream output = new DataOutputStream(bytes)) {
@@ -129,7 +129,7 @@ public final class CandidateBlockSet {
         }
     }
 
-    byte[] canonicalRevisionDiagnosticsBytes() {
+    public byte[] canonicalRevisionDiagnosticsBytes() {
         return encode(output -> {
             output.writeInt(revisionDiagnostics.size());
             for (ExternalRelationshipLiteral diagnostic : revisionDiagnostics) {
@@ -635,7 +635,7 @@ public final class CandidateBlockSet {
             }
         }
 
-        byte[] canonicalBytes() {
+        public byte[] canonicalBytes() {
             try {
                 ByteArrayOutputStream bytes = new ByteArrayOutputStream();
                 try (DataOutputStream output = new DataOutputStream(bytes)) {
