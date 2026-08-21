@@ -300,3 +300,28 @@ I08ClosureReleasedTaskCard = W1-I09
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
+
+## 16. W1-I09 runtime rebaseline receipt
+
+```text
+W1I09RuntimeRebaseline = PASS
+ReviewedRejectedCandidate = 40bd055047479db91d618320f1ff569e3c651c77
+ReviewedVerifierCorrectionCandidate = fc7dae8166b90ca5fb5f67e481140eceea20c564
+ReviewedVerifierCorrectionParent = cd4d1b2b2ee0ce05d017f00899245c037a82577e
+ReviewedVerifierCorrectionTree = 5ce3a4422c4e3721c7c09a10dfded7fdb0818e65
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+ActiveTaskCard = W1-I09
+TaskCardCount = 14
+ReadyTaskCardCount = 1
+I09ProductWriteSetCount = 27
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```

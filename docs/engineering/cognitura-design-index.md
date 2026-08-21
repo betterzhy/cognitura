@@ -281,3 +281,12 @@ Relation 主聚焦与完整来源核验的两张 1440×1100 证据，仅关闭�
 三张 1440×1100 证据；`HV-D04` 已建立四层、跨域、390×844 小屏与 1200×1600
 静态导出证据并释放 `HV-D05` 为唯一 `READY`。正式 HF 专项与
 `HF-DG4 PASS` 不变；整体视觉设计、可用性、实现、正式数据库写入和远程推送仍未执行。
+
+## 16. W1-I09 runtime rebaseline
+
+```text
+W1I09RuntimeRebaseline = PASS
+W1I09RuntimeBoundary = SOURCE_COMMAND_RUNTIME
+W1I09ProductWriteSetCount = 27
+ActiveTaskCard = W1-I09
+```

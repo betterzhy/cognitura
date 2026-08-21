@@ -168,3 +168,13 @@ UltraModel = NOT_USED
 `6796079de8c919055ddc6538234254b50630a491` 取得零发现深审并关闭；I02 的独立
 数据库 Gate 和固定候选深审均已通过，I02、I03、I04、I05、I06、I07 和 I08 已关闭；I09 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、
 部署和远程推送均未授权。
+
+## 8. W1-I09 runtime rebaseline acceptance
+
+```text
+W1I09RuntimeRebaseline = PASS
+ObjectStorageProvider = LOCAL_CONTENT_ADDRESSED_FILESYSTEM
+I09FormalDatabaseGate = PASS
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```

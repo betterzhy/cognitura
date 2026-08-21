@@ -1,4 +1,4 @@
-# W1-I09 Upload and Processing Command API
+# W1-I09 Real Upload and Processing Command Runtime
 
 ```text
 TaskCardID = W1-I09
@@ -7,56 +7,80 @@ Status = READY
 Gate = W1-IG9 UploadProcessingCommandApi
 Risk = HIGH
 DependsOn = W1-I07
-PrimaryBoundary = SOURCE_HTTP_COMMAND
-ProductionFileLimit = 8
-ProductionWriteSetException = NONE
-PositiveVerification = AUTHORIZED_UPLOAD_AND_PROCESSING_COMMAND_ACCEPTED
-NegativeVerification = WORKSPACE_ENUMERATION_INTERNAL_LEAK_AND_INVALID_COMMAND_REJECTED
+PrimaryBoundary = SOURCE_COMMAND_RUNTIME
+ProductionFileLimit = 19
+ProductionWriteSetException = EXACT_REBASELINED_VERTICAL_SLICE
+PositiveVerification = REAL_STREAMING_UPLOAD_AND_PROCESSING_COMMAND_ACCEPTED
+NegativeVerification = TRUST_STORAGE_TRANSACTION_ENUMERATION_AND_INTERNAL_LEAK_REJECTED
 BusinessImplementationAuthorization = USER_AUTHORIZED
-FormalDatabaseGate = NOT_APPLICABLE
+FormalDatabaseGate = PASS
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
 ```
 
 ## 1. 目标
 
-实现上传与创建 processing revision 的命令 HTTP 边界、稳定接受结果和错误闭集；不实现
-预览查询、partial acceptance 或 Web。
+实现一个真实可运行的本地优先上传与 processing 命令纵向切片：服务器可信上下文、
+一次性流式输入、本地内容寻址存储、PostgreSQL 18 事务与 fencing/publication 端口，
+以及 W1-D04 HTTP 边界。不以 fake、内存 map 或仅 MockMvc 通过冒充产品完成。
 
 ## 2. 前置条件与输入
 
-- I07 已 DONE，应用服务和 publication 端口固定。
-- Workspace/actor 必须来自可信上下文，不接受请求体自报。
-- 遵循 404 防枚举和内部字段不泄漏合同。
+- I07、I08 已 DONE；本卡是唯一 READY。
+- 本地文件系统 Provider 只保存 immutable digest bytes；客户端不提供路径。
+- PostgreSQL 仅使用固定 digest、reuse=false 的隔离 Testcontainer 验证；正式数据库
+  写入仍未授权。
+- Workspace/actor 只来自服务器配置的可信上下文。
 
 ## 3. 写集
 
 ```text
+WriteSet = server/src/main/java/io/cognitura/source/application/command/TrustedRequestContext.java
+WriteSet = server/src/main/java/io/cognitura/source/application/command/TrustedRequestContextProvider.java
+WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceBinaryStore.java
+WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceCommandPersistencePort.java
+WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceCommandService.java
+WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceCommandException.java
+WriteSet = server/src/main/java/io/cognitura/source/storage/LocalContentAddressedSourceBinaryStore.java
+WriteSet = server/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java
+WriteSet = server/src/main/java/io/cognitura/source/persistence/SourceCommandPersistenceAdapter.java
+WriteSet = server/src/main/java/io/cognitura/source/persistence/JdbcProcessingPublicationPort.java
+WriteSet = server/src/main/java/io/cognitura/source/runtime/SourceCommandRuntimeConfiguration.java
+WriteSet = server/src/main/resources/db/migration/V2__create_source_command_runtime.sql
+WriteSet = server/src/main/resources/application.yaml
 WriteSet = server/src/main/java/io/cognitura/source/api/command/SourceUploadController.java
 WriteSet = server/src/main/java/io/cognitura/source/api/command/ProcessingCommandController.java
 WriteSet = server/src/main/java/io/cognitura/source/api/command/SourceUploadRequest.java
 WriteSet = server/src/main/java/io/cognitura/source/api/command/ProcessingCommandRequest.java
 WriteSet = server/src/main/java/io/cognitura/source/api/command/CommandAcceptedResponse.java
 WriteSet = server/src/main/java/io/cognitura/source/api/command/SourceCommandErrorAdvice.java
+WriteSet = server/src/test/java/io/cognitura/source/application/command/TrustedRequestContextTest.java
+WriteSet = server/src/test/java/io/cognitura/source/storage/LocalContentAddressedSourceBinaryStoreTest.java
+WriteSet = server/src/test/java/io/cognitura/source/application/command/SourceUploadCommandIntegrationTest.java
+WriteSet = server/src/test/java/io/cognitura/source/persistence/JdbcProcessingPublicationPortIntegrationTest.java
+WriteSet = server/src/test/java/io/cognitura/source/runtime/SourceCommandRuntimeIntegrationTest.java
 WriteSet = server/src/test/java/io/cognitura/source/api/command/SourceUploadControllerTest.java
 WriteSet = server/src/test/java/io/cognitura/source/api/command/ProcessingCommandControllerTest.java
+WriteSet = server/src/test/resources/db/source-command-runtime-fixture.sql
 ForbiddenWriteSet = server/src/main/java/io/cognitura/source/api/query/**
 ForbiddenWriteSet = server/src/main/java/io/cognitura/source/api/acceptance/**
-ForbiddenWriteSet = server/src/main/resources/db/migration/**
 ForbiddenWriteSet = server/src/main/java/io/cognitura/source/docx/**
 ForbiddenWriteSet = web/**,raw/**,.idea/**
+ForbiddenWriteSet = FORMAL_DATABASE_CONNECTION_OR_WRITE
 ```
 
 ## 4. 执行步骤
 
-1. RED：伪造 Workspace、跨 Workspace ID、缺失文件、重复幂等键和内部字段泄漏先失败。
-2. GREEN：只把可信上下文和 allowlisted payload 交给固定应用端口。
-3. 对不可见与不存在资源统一 404；错误响应只使用正式错误码闭集。
+1. RED/GREEN：可信 context 与真实临时目录 CAS。
+2. RED/GREEN：流式上传与 PostgreSQL 事务幂等。
+3. RED/GREEN：生产 JDBC/MyBatis publication port、lease/fencing/CAS/rollback。
+4. RED/GREEN：真实 runtime wiring 后实现 HTTP allowlist 与统一 404。
 
 ## 5. 验证命令
 
 ```bash
-./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.command.*Test' test
+./mvnw -f server/pom.xml -Dtest='io.cognitura.source.*.*Test' test
+./mvnw -f server/pom.xml test
 scripts/verify-wave1-implementation
 git diff --check
 git status --short
@@ -64,8 +88,9 @@ git status --short
 
 ## 6. Gate 与完成定义
 
-上传与 processing 命令正例、可信上下文、幂等、404 防枚举和字段 allowlist 全部通过；
-无 query、partial acceptance、Parser、migration 或 Web 写入。
+真实 filesystem、PostgreSQL 18 container、streaming、transaction、concurrency、HTTP
+合同与完整 Wave Gate 全部完整退出 0；固定候选取得一次 xhigh 零 finding GO。正式
+数据库、部署、push、query/acceptance/Web/Parser 编排不在本卡。
 
 ## 7. 提交与审查
 
@@ -76,8 +101,8 @@ sed -n 's/^WriteSet = //p' \
   docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md |
   git add --pathspec-from-file=-
 git diff --cached --name-only
-git commit -m "feat: add source processing commands"
+git commit -m "feat: add real source command runtime"
 ```
 
-暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。固定提交由新的
-`deep_reviewer` 审查；零发现 GO 前不得释放后继。
+暂存清单必须与 27 路径双向一致。只进行一次适用的 `deep_reviewer / sol xhigh`；
+零 finding GO 前不关闭 I09、不释放 I10。

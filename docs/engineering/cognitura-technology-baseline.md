@@ -271,3 +271,13 @@ shasum -a 256 \
 - 总体设计和三份 Golden Case 的 SHA-256 与设计索引完全一致；
 - `W0-G2A` 只允许在 server/web 构建、负例和任务卡集合验证全部通过后变更为
   `PASS`。
+
+## 10. Wave 1 source binary provider decision
+
+```text
+W1SourceBinaryStorageProvider = LOCAL_CONTENT_ADDRESSED_FILESYSTEM
+W1SourceBinaryProviderScope = SOURCE_BINARY_ONLY
+W1SourceBinaryProviderAuthority = W1_I09_RUNTIME_REBASELINE
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
