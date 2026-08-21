@@ -4179,6 +4179,8 @@ run_w1_i02_closure_contract() {
 i07_closure_origin_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
 i07_closure_spec_sha="42b4826f34e5dedf152d2f45f54522c19321757b"
 i07_closure_plan_sha="65c62ec2a7b5dbc881d5b874af0d264112c25f96"
+i07_closure_original_test_sha="bc2bdac50b1118e457af431e51c6d2e1dcaeb3ff"
+i07_closure_count_repair_sha="34bbef63efdcc4b2b83bfde91594705ddac0bd60"
 i07_reviewed_candidate_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
 i07_reviewed_parent_sha="5433485e8f88f3846cbda722282223a3c8274b14"
 i07_reviewed_tree_sha="d82ece96e0e3dabdfef64a766179b711ea6d557f"
@@ -4225,10 +4227,17 @@ materialize_w1_i07_governance_tip() {
   commit_w1_i07_governance_path "${fixture_root}" "${i07_closure_plan_sha}" \
     docs/superpowers/plans/2026-08-21-cognitura-w1-i07-closure.md \
     "docs: plan W1-I07 closure transition"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_original_test_sha}" "${test_path}" \
+    "test: define W1-I07 closure transition"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_count_repair_sha}" \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-contract-count-repair.md \
+    "docs: authorize I07 closure count correction"
   cp -p "${repo_root}/${test_path}" "${fixture_root}/${test_path}"
   chmod 755 "${fixture_root}/${test_path}"
   git -C "${fixture_root}" add "${test_path}"
-  git -C "${fixture_root}" commit -qm "test: define W1-I07 closure transition"
+  git -C "${fixture_root}" commit -qm "test: correct I07 closure negative count"
   cp -p "${repo_root}/${verifier_path}" "${fixture_root}/${verifier_path}"
   printf '%s\n' '# W1-I07 closure verifier fixture' >> \
     "${fixture_root}/${verifier_path}"
@@ -4653,7 +4662,7 @@ run_w1_i07_closure_contract() {
 
   [[ "${positive_cases}" -eq 4 ]] ||
     fail "I07 closure positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 17 ]] ||
+  [[ "${negative_cases}" -eq 18 ]] ||
     fail "I07 closure negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I07ClosureContractTests = PASS" \
