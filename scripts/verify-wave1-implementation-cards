@@ -562,11 +562,15 @@ w1_i02_database_gate_rejected_header_verifier_sha="a7e0d03d18b0d51ac43bc30fba7e3
 w1_i02_database_gate_header_test_sha="f1cffc702ca24505d62d63db446fc6624ced3212"
 w1_i02_database_gate_rejected_header_reader_sha="5fd658116dd757a00e7fe02a67abc25c43a1a1bd"
 w1_i02_database_gate_historical_receipt_test_sha="f79e85c28d18ea52be79cf9fbac69290125ad520"
+w1_i02_database_gate_rejected_first_field_sha="8846ba109e564330c6704353fdad2d4e7e5eb849"
+w1_i02_database_gate_header_anchor_test_sha="84e9fe6e6c81fb335a42ff64bf4e17ee6e88765a"
 w1_i02_card_path="docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md"
 w1_i02_postgres_image="postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a"
 w1_i02_database_gate_governance_paths=(
   docs/superpowers/specs/2026-08-21-cognitura-w1-i02-database-gate-design.md
   docs/superpowers/plans/2026-08-21-cognitura-w1-i02-database-gate.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -802,16 +806,22 @@ git_tree_field() {
   printf '%s\n' "${content}" | sed -n "s/^${key} = //p"
 }
 
-git_tree_first_field() {
+git_tree_header_field() {
   local commit="$1"
   local path="$2"
   local key="$3"
-  local content count
+  local content header count
   content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
     fail "transition tree is missing ${path}"
-  count="$(printf '%s\n' "${content}" | grep -c "^${key} = " || true)"
-  [[ "${count}" -ge 1 ]] || fail "transition ${path}: ${key} must occur at least once"
-  printf '%s\n' "${content}" | sed -n "s/^${key} = //p" | sed -n '1p'
+  header="$(printf '%s\n' "${content}" | awk '
+    $0 == "```text" && seen == 0 { seen = 1; inside = 1; next }
+    inside == 1 && $0 == "```" { exit }
+    inside == 1 { print }
+  ')"
+  count="$(printf '%s\n' "${header}" | grep -c "^${key} = " || true)"
+  [[ "${count}" -eq 1 ]] ||
+    fail "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT:${path}:${key}"
+  printf '%s\n' "${header}" | sed -n "s/^${key} = //p"
 }
 
 require_git_tree_field() {
@@ -3428,10 +3438,24 @@ validate_w1_i02_database_gate_governance() {
         expected_mode=100755
         ;;
       11)
-        [[ "${parent}" == "${w1_i02_database_gate_historical_receipt_test_sha}" &&
-           "${commit}" == "${resolved_tip}" ]] ||
-          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:historical receipt verifier identity"
+        [[ "${commit}" == "${w1_i02_database_gate_rejected_first_field_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_historical_receipt_test_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:rejected first-field identity"
         expected_path="${w1_i02_database_gate_governance_paths[11]}"
+        expected_mode=100755
+        ;;
+      12)
+        [[ "${commit}" == "${w1_i02_database_gate_header_anchor_test_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_rejected_first_field_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority header anchor test identity"
+        expected_path="${w1_i02_database_gate_governance_paths[12]}"
+        expected_mode=100755
+        ;;
+      13)
+        [[ "${parent}" == "${w1_i02_database_gate_header_anchor_test_sha}" &&
+           "${commit}" == "${resolved_tip}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority header anchor verifier identity"
+        expected_path="${w1_i02_database_gate_governance_paths[13]}"
         expected_mode=100755
         ;;
       *) fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:extra governance commit" ;;
@@ -3444,7 +3468,7 @@ validate_w1_i02_database_gate_governance() {
       "W1_I02_DATABASE_GATE_CHANGE_INVALID:NUL"
     commit_index=$((commit_index + 1))
   done
-  [[ "${commit_index}" -eq 12 ]] ||
+  [[ "${commit_index}" -eq 14 ]] ||
     fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:governance commit count"
 }
 
@@ -3452,10 +3476,10 @@ find_w1_i02_database_gate_tip() {
   local head="$1"
   local commit gate_tip="" commit_count=0
   git -C "${repo_root}" merge-base --is-ancestor \
-    "${w1_i02_database_gate_historical_receipt_test_sha}" "${head}" ||
-    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:historical receipt test is not an ancestor"
+    "${w1_i02_database_gate_header_anchor_test_sha}" "${head}" ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority header anchor test is not an ancestor"
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i02_database_gate_historical_receipt_test_sha}..${head}"); do
+    "${w1_i02_database_gate_header_anchor_test_sha}..${head}"); do
     commit_count=$((commit_count + 1))
     if [[ "${commit_count}" -eq 1 ]]; then
       gate_tip="${commit}"
@@ -3542,7 +3566,7 @@ require_w1_i02_release_boundary() {
   local path="$2"
   local field="$3"
   local expected="$4"
-  [[ "$(git_tree_first_field "${receipt}" "${path}" "${field}")" == "${expected}" ]] ||
+  [[ "$(git_tree_header_field "${receipt}" "${path}" "${field}")" == "${expected}" ]] ||
     fail "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT:${path}:${field}"
 }
 
