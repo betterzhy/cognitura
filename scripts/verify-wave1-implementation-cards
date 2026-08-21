@@ -927,6 +927,9 @@ w1_i09_canonical_bridge_selector_test_sha="8e13400b30df21cc8366d88bc76d34eeff238
 w1_i09_canonical_bridge_review_origin_sha="2c5f825edb1f959d9f2cb5d1daf3532b18654ebc"
 w1_i09_canonical_bridge_review_spec_sha="3fb483b1ea6fd02d64ecb8d5c2528927843d5d79"
 w1_i09_canonical_bridge_review_test_sha="40c269ab493d010de330f4bca25fe7a55fbc4074"
+w1_i09_v2_compatibility_origin_sha="22c0ff2e0dde71fa71a5e6a030f841c99ac4b655"
+w1_i09_v2_compatibility_spec_sha="588bd601008ab2a6cc1e2312ed33793cd384abde"
+w1_i09_v2_compatibility_test_sha="63d7c4059cda353f53148867fe713df7d03f7176"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -952,6 +955,17 @@ w1_i09_canonical_bridge_review_paths=(
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
+w1_i09_v2_compatibility_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-v2-migration-compatibility.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i09_v2_compatibility_projection_paths=(
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+)
+w1_i09_v2_compatibility_product_path="server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
   docs/engineering/cognitura-design-index.md
@@ -961,6 +975,7 @@ w1_i09_runtime_projection_paths=(
 )
 w1_i09_runtime_product_paths=(
   "${w1_i09_canonical_bridge_product_path}"
+  "${w1_i09_v2_compatibility_product_path}"
   server/src/main/java/io/cognitura/source/application/command/TrustedRequestContext.java
   server/src/main/java/io/cognitura/source/application/command/TrustedRequestContextProvider.java
   server/src/main/java/io/cognitura/source/application/command/SourceBinaryStore.java
@@ -6229,6 +6244,137 @@ validate_w1_i09_canonical_bridge_product() {
   remove_temporary_directory "${expected_root}"
 }
 
+materialize_w1_i09_v2_compatibility_projection() {
+  local compatibility_tip="$1"
+  local destination_root="$2"
+  local path parent tree index_file plan_file card_file temporary
+  parent="$(single_parent_of "${compatibility_tip}" \
+    "I09_V2_COMPATIBILITY_PROJECTION_INVALID:parent")"
+  tree="$(git -C "${repo_root}" rev-parse \
+    "${compatibility_tip}^{tree}" 2>/dev/null)" ||
+    fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:tree"
+  for path in "${w1_i09_v2_compatibility_projection_paths[@]}"; do
+    mkdir -p "${destination_root}/${path%/*}"
+    git -C "${repo_root}" show "${compatibility_tip}:${path}" > \
+      "${destination_root}/${path}" ||
+      fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:source"
+  done
+  index_file="${destination_root}/${w1_i09_v2_compatibility_projection_paths[0]}"
+  plan_file="${destination_root}/${w1_i09_v2_compatibility_projection_paths[1]}"
+  card_file="${destination_root}/${w1_i09_v2_compatibility_projection_paths[2]}"
+  [[ "$(grep -Fc 'W1I09ProductWriteSetCount = 28' "${index_file}" || true)" -eq 1 ]] ||
+    fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:index source"
+  sed -i.bak 's/W1I09ProductWriteSetCount = 28/W1I09ProductWriteSetCount = 29/' \
+    "${index_file}"
+  rm "${index_file}.bak"
+  temporary="${destination_root}/plan-count"
+  awk '
+    $0 == "I09ProductWriteSetCount = 28" && replaced == 0 {
+      print "I09ProductWriteSetCount = 29"
+      replaced++
+      next
+    }
+    { print }
+    END { if (replaced != 1) exit 1 }
+  ' "${plan_file}" > "${temporary}" ||
+    fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:plan source"
+  mv "${temporary}" "${plan_file}"
+  printf '%s\n' \
+    '' \
+    '## 18. W1-I09 V2 migration compatibility receipt' \
+    '' \
+    '```text' \
+    'W1I09V2MigrationCompatibility = PASS' \
+    "ReviewedV2CompatibilityCandidate = ${compatibility_tip}" \
+    "ReviewedV2CompatibilityParent = ${parent}" \
+    "ReviewedV2CompatibilityTree = ${tree}" \
+    'I09ProductWriteSetCount = 29' \
+    'ProductionFileLimit = 20' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> "${plan_file}"
+  [[ "$(grep -Fc '暂存清单必须与 28 路径双向一致' "${card_file}" || true)" -eq 1 ]] ||
+    fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:card count source"
+  [[ "$(grep -Fc "WriteSet = ${w1_i09_v2_compatibility_product_path}" \
+      "${card_file}" || true)" -eq 0 ]] ||
+    fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:duplicate path"
+  sed -i.bak \
+    's/暂存清单必须与 28 路径双向一致/暂存清单必须与 29 路径双向一致/' \
+    "${card_file}"
+  rm "${card_file}.bak"
+  temporary="${destination_root}/card-v2"
+  awk -v added="WriteSet = ${w1_i09_v2_compatibility_product_path}" '
+    { print }
+    $0 == "WriteSet = server/src/test/java/io/cognitura/source/persistence/JdbcProcessingPublicationPortIntegrationTest.java" {
+      print added
+      inserted++
+    }
+    END { if (inserted != 1) exit 1 }
+  ' "${card_file}" > "${temporary}" ||
+    fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:card insertion"
+  mv "${temporary}" "${card_file}"
+}
+
+validate_w1_i09_v2_compatibility_projection() {
+  local compatibility_tip="$1"
+  local projection="$2"
+  local parent expected actual expected_root path index=0 actual_file
+  parent="$(single_parent_of "${projection}" \
+    "I09_V2_COMPATIBILITY_PROJECTION_INVALID:single parent")"
+  [[ "${parent}" == "${compatibility_tip}" ]] ||
+    fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:direct child"
+  require_no_git_rename_or_copy "${parent}" "${projection}" \
+    "I09_V2_COMPATIBILITY_PROJECTION_INVALID:rename or copy"
+  expected="$(printf '%s\n' \
+    "${w1_i09_v2_compatibility_projection_paths[@]}" | LC_ALL=C sort)"
+  actual="$(git -C "${repo_root}" diff --name-only \
+    "${parent}..${projection}" | LC_ALL=C sort)"
+  [[ "${actual}" == "${expected}" ]] ||
+    fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:exact paths"
+  register_temporary_directory expected_root cognitura-i09-v2-compatibility
+  materialize_w1_i09_v2_compatibility_projection \
+    "${compatibility_tip}" "${expected_root}"
+  for path in "${w1_i09_v2_compatibility_projection_paths[@]}"; do
+    [[ "$(git_tree_mode "${projection}" "${path}")" == 100644 ]] ||
+      fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:mode"
+    require_git_blob_without_nul "${projection}" "${path}" \
+      "I09_V2_COMPATIBILITY_PROJECTION_INVALID:NUL"
+    actual_file="${expected_root}/actual-${index}"
+    git -C "${repo_root}" show "${projection}:${path}" > "${actual_file}" ||
+      fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:content"
+    cmp -s "${expected_root}/${path}" "${actual_file}" ||
+      fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:content"
+    index=$((index + 1))
+  done
+  remove_temporary_directory "${expected_root}"
+}
+
+validate_w1_i09_v2_compatibility_product() {
+  local parent="$1"
+  local commit="$2"
+  local expected_root expected_file actual_file
+  register_temporary_directory expected_root cognitura-i09-v2-product
+  expected_file="${expected_root}/expected"
+  actual_file="${expected_root}/actual"
+  git -C "${repo_root}" show \
+    "${parent}:${w1_i09_v2_compatibility_product_path}" > "${expected_file}" ||
+    fail "I09_V2_COMPATIBILITY_PRODUCT_INVALID:source"
+  [[ "$(grep -Fc \
+      'assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);' \
+      "${expected_file}" || true)" -eq 1 ]] ||
+    fail "I09_V2_COMPATIBILITY_PRODUCT_INVALID:source"
+  sed -i.bak \
+    's/assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);/assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);/' \
+    "${expected_file}"
+  rm "${expected_file}.bak"
+  git -C "${repo_root}" show \
+    "${commit}:${w1_i09_v2_compatibility_product_path}" > "${actual_file}" ||
+    fail "I09_V2_COMPATIBILITY_PRODUCT_INVALID:content"
+  cmp -s "${expected_file}" "${actual_file}" ||
+    fail "I09_V2_COMPATIBILITY_PRODUCT_INVALID:content"
+  remove_temporary_directory "${expected_root}"
+}
+
 validate_post_w1_i09_runtime_projection_descendants() {
   local projection="$1"
   local head="$2"
@@ -6236,6 +6382,7 @@ validate_post_w1_i09_runtime_projection_descendants() {
   local copy_repair_state="BEFORE" verifier_steps=0 finding_verifier_steps=0
   local reentry_verifier_steps=0 bridge_verifier_steps=0 bridge_product_seen=0
   local bridge_freeze_fix_steps=0 bridge_selector_steps=0 bridge_review_steps=0
+  local v2_compatibility_steps=0 v2_compatibility_product_seen=0
   local bridge_projection=""
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
@@ -6473,6 +6620,38 @@ validate_post_w1_i09_runtime_projection_descendants() {
       copy_repair_state="BRIDGE_REVIEW_TEST"
       continue
     fi
+    if [[ "${commit}" == "${w1_i09_v2_compatibility_spec_sha}" ]]; then
+      [[ "${copy_repair_state}" == "COMPLETE" && \
+         "${parent}" == "${w1_i09_v2_compatibility_origin_sha}" ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:order"
+      expected_path="${w1_i09_v2_compatibility_paths[0]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_V2_COMPATIBILITY_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100644 ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_V2_COMPATIBILITY_INVALID:NUL"
+      copy_repair_state="V2_COMPAT_SPEC"
+      continue
+    fi
+    if [[ "${commit}" == "${w1_i09_v2_compatibility_test_sha}" ]]; then
+      [[ "${copy_repair_state}" == "V2_COMPAT_SPEC" && \
+         "${parent}" == "${w1_i09_v2_compatibility_spec_sha}" ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:order"
+      expected_path="${w1_i09_v2_compatibility_paths[1]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_V2_COMPATIBILITY_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_V2_COMPATIBILITY_INVALID:NUL"
+      copy_repair_state="V2_COMPAT_TEST"
+      continue
+    fi
     if [[ "${copy_repair_state}" == "BRIDGE_TEST" ]]; then
       expected_path="${w1_i09_canonical_bridge_paths[2]}"
       [[ "${changed_paths}" == "${expected_path}" ]] ||
@@ -6532,6 +6711,26 @@ validate_post_w1_i09_runtime_projection_descendants() {
       bridge_review_steps=1
       copy_repair_state="BRIDGE_REVIEW_VERIFIER"
       continue
+    elif [[ "${copy_repair_state}" == "V2_COMPAT_TEST" ]]; then
+      expected_path="${w1_i09_v2_compatibility_paths[2]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_V2_COMPATIBILITY_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_V2_COMPATIBILITY_INVALID:NUL"
+      v2_compatibility_steps=1
+      copy_repair_state="V2_COMPAT_VERIFIER"
+      continue
+    elif [[ "${copy_repair_state}" == "V2_COMPAT_VERIFIER" ]]; then
+      validate_w1_i09_v2_compatibility_projection "${parent}" "${commit}"
+      bridge_projection="${commit}"
+      copy_repair_state="V2_COMPAT_PROJECTED"
+      continue
+    elif [[ "${copy_repair_state}" == "V2_COMPAT_PROJECTED" ]]; then
+      copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "BRIDGE_REVIEW_VERIFIER" ]]; then
       copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "BRIDGE_SELECTOR_VERIFIER" ]]; then
@@ -6613,6 +6812,12 @@ validate_post_w1_i09_runtime_projection_descendants() {
       validate_w1_i09_canonical_bridge_product "${parent}" "${commit}"
       bridge_product_seen=1
     fi
+    if [[ "${changed_paths}" == "${w1_i09_v2_compatibility_product_path}" ]]; then
+      [[ "${v2_compatibility_product_seen}" -eq 0 ]] ||
+        fail "I09_V2_COMPATIBILITY_PRODUCT_INVALID:second modification"
+      validate_w1_i09_v2_compatibility_product "${parent}" "${commit}"
+      v2_compatibility_product_seen=1
+    fi
     while IFS= read -r path; do
       [[ -n "${path}" ]] || continue
       if is_w1_i08_descendant_path "${path}"; then
@@ -6655,6 +6860,9 @@ validate_post_w1_i09_runtime_projection_descendants() {
     BRIDGE_REVIEW_SPEC|BRIDGE_REVIEW_TEST)
       fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:incomplete"
       ;;
+    V2_COMPAT_SPEC|V2_COMPAT_TEST)
+      fail "I09_V2_COMPATIBILITY_INVALID:incomplete"
+      ;;
     VERIFIER)
       [[ "${verifier_steps}" -ge 1 ]] ||
         fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
@@ -6685,6 +6893,13 @@ validate_post_w1_i09_runtime_projection_descendants() {
     BRIDGE_REVIEW_VERIFIER)
       [[ "${bridge_review_steps}" -eq 1 ]] ||
         fail "I09_CANONICAL_BRIDGE_REVIEW_FINDING_INVALID:missing verifier"
+      ;;
+    V2_COMPAT_VERIFIER)
+      fail "I09_V2_COMPATIBILITY_PROJECTION_INVALID:missing"
+      ;;
+    V2_COMPAT_PROJECTED)
+      [[ "${v2_compatibility_steps}" -eq 1 ]] ||
+        fail "I09_V2_COMPATIBILITY_INVALID:missing verifier"
       ;;
   esac
   if [[ -z "${bridge_projection}" ]]; then
@@ -6723,6 +6938,10 @@ route_w1_i09_runtime_repair() {
   if git -C "${repo_root}" merge-base --is-ancestor \
       "${w1_i09_canonical_bridge_spec_sha}" "${head}"; then
     product_write_set_count=28
+  fi
+  if git -C "${repo_root}" merge-base --is-ancestor \
+      "${w1_i09_v2_compatibility_spec_sha}" "${head}"; then
+    product_write_set_count=29
   fi
   printf '%s\n' \
     "Wave1ImplementationTaskCardValidation = PASS" \
