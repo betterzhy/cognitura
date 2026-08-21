@@ -6,8 +6,8 @@ CurrentStage = WAVE1_IMPLEMENTATION_IN_PROGRESS
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
 ActiveDesignTaskCard = NONE
-Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
-ActiveImplementationGovernanceTaskCard = W1-I06
+Wave1ImplementationTaskCardSet = BLOCKED_BY_DATABASE_GATE
+ActiveImplementationGovernanceTaskCard = NONE
 VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 BusinessImplementation = USER_AUTHORIZED
 FormalDatabaseWrite = NOT_AUTHORIZED
@@ -57,5 +57,5 @@ W1-D00 至 W1-D04 均使用 `gpt-5.6-sol/high` 设计 Gate；W1-D05 使用两个
 修复固定候选 `17dabff23b029e1a6fc7f47155f552ed3f16d775` 已重新通过两个
 独立 `gpt-5.6-sol/high` 阶段并获得用户完整设计批准，实现切片书面规格也已获
 批准。14 张实现卡已经 bootstrap，非业务治理卡 I00 和来源领域卡 I01 已完成零发现
-固定候选深审并关闭；I02 等待独立数据库 Gate，I03、I04 和 I05 已关闭且 I06 为唯一 `READY` 卡，完整证据记录在
+固定候选深审并关闭；I02 等待独立数据库 Gate，I03、I04、I05 和 I06 已关闭，当前无 `READY` 卡且 I07 未释放，完整证据记录在
 [`cognitura-wave-1-design-acceptance.md`](cognitura-wave-1-design-acceptance.md)。

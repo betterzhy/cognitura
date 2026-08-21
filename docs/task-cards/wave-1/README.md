@@ -9,8 +9,8 @@ ActiveTaskCard = NONE
 TaskCardSetStatus = COMPLETE
 Wave1DesignStatus = USER_APPROVED
 Wave1ImplementationPlanningStatus = TASK_CARD_SET_BOOTSTRAPPED
-Wave1ImplementationTaskCardSet = READY_FOR_EXECUTION
-ActiveImplementationGovernanceTaskCard = W1-I06
+Wave1ImplementationTaskCardSet = BLOCKED_BY_DATABASE_GATE
+ActiveImplementationGovernanceTaskCard = NONE
 VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 BusinessImplementation = USER_AUTHORIZED
 ```
@@ -18,7 +18,7 @@ BusinessImplementation = USER_AUTHORIZED
 本集合只完成 Wave 1 书面详细设计、设计验证和固定候选复核。复审修复候选已
 通过两个独立 `gpt-5.6-sol/high` 阶段，六张设计卡均已完成且完整设计已获用户
 批准，实现切片书面规格也已获用户批准。14 张实现卡已 bootstrap，非业务治理卡
-I00、I01、I03、I04 和 I05 已关闭；I02 等待独立数据库 Gate，W1-I06 为唯一 `READY` 业务卡。
+I00、I01、I03、I04、I05 和 I06 已关闭；I02 等待独立数据库 Gate，当前无 `READY` 业务卡且 I07 未释放。
 
 ## 1. 任务卡清单
 
@@ -46,6 +46,8 @@ BLOCKED_BY_DOCUMENTATION_GAP
 ```
 
 - `READY_FOR_EXECUTION` 时恰有一张 `READY` 卡。
+- `BLOCKED_BY_DATABASE_GATE` 时没有 `READY` 卡，I02 保持 `QUEUED`，
+  I07 不得提前释放。
 - `BLOCKED_BY_DOCUMENTATION_GAP` 时没有 `READY` 卡且
   `ActiveTaskCard = NONE`。
 - `COMPLETE` 时六张设计卡均为 `DONE`，且 `ActiveTaskCard = NONE`。

@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I06
 CardKind = IMPLEMENTATION
-Status = READY
+Status = DONE
 Gate = W1-IG6 ImageRelationshipProjection
 Risk = HIGH
 DependsOn = W1-I04,W1-I05

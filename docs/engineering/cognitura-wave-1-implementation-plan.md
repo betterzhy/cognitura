@@ -6,8 +6,8 @@ PlanKind = EXECUTION_PROJECTION
 FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
-TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I06
+TaskCardSetStatus = BLOCKED_BY_DATABASE_GATE
+ActiveTaskCard = NONE
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
@@ -20,7 +20,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
 Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02 等待独立数据库 Gate，
-I03、I04 和 I05 已关闭，I06 为唯一 `READY` 卡。
+I03、I04、I05 和 I06 已关闭；当前无 `READY` 卡，I07 未释放。
 
 ## 1. 实现卡
 
@@ -32,7 +32,7 @@ I03、I04 和 I05 已关闭，I06 为唯一 `READY` 卡。
 | `W1-I03` | DOCX security | `I01` | `DONE` |
 | `W1-I04` | Text/list/section parser | `I03` | `DONE` |
 | `W1-I05` | Table fidelity | `I04` | `DONE` |
-| `W1-I06` | Image/relationship projection | `I04,I05` | `READY` |
+| `W1-I06` | Image/relationship projection | `I04,I05` | `DONE` |
 | `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I08` | Stable reference/lineage | `I07` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I09` | Upload/processing command API | `I07` | `BLOCKED_BY_DEPENDENCY` |
@@ -178,4 +178,29 @@ Ultra = NOT_RUN
 I05ClosureReleasedTaskCard = W1-I06
 QueuedTaskCard = W1-I02
 QueuedReason = INDEPENDENT_DATABASE_GATE_REQUIRED
+```
+
+## 11. I06 关闭收据
+
+```text
+W1-I06 = DONE
+ReviewedCandidate = 2a7e1cec184ea50d9e0a5c37d6f3acfa63c955ea
+ReviewedGovernanceCandidate = 2a7e1cec184ea50d9e0a5c37d6f3acfa63c955ea
+ReviewedGovernanceParent = 091cccd28216dc9d69588874d82a65548e8a389a
+ReviewedGovernanceTree = d87740229c75f8411347f291abdc2a5faf44e9cf
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+I06ClosureTaskCardSetStatus = BLOCKED_BY_DATABASE_GATE
+BlockedTaskCard = W1-I02
+BlockedReason = INDEPENDENT_DATABASE_GATE_REQUIRED
+ReleasedTaskCard = NONE
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
 ```
