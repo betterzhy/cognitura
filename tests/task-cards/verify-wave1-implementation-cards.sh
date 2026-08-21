@@ -3433,6 +3433,7 @@ w1_i02_database_gate_origin_sha="8175f340c4f3d116a7aa5bc1f6ee5f67b489dee6"
 w1_i02_database_gate_design_sha="97504c281b61f6d15ca347c1e0d0369e44819110"
 w1_i02_database_gate_plan_sha="1fc1eb6c1d4493e62c8a55979a404f1fff199920"
 w1_i02_database_gate_test_sha="2a5f936a3ae9a8e873299b88fea6c59dd8986df7"
+w1_i02_database_gate_tip_sha="042a039f8582a51e501530b629fb24fdb3b74c45"
 w1_i02_database_gate_rejected_verifier_sha="01165a315dafb77571e74b5086ff85a25ae0e574"
 w1_i02_postgres_image="postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a"
 w1_i02_release_projection_paths=(
@@ -3694,9 +3695,7 @@ run_w1_i02_database_gate_contract() {
   positive_cases=$((positive_cases + 1))
 
   gate_test_sha="${w1_i02_database_gate_test_sha}"
-  gate_tip="$(find_last_w1_i02_gate_commit_after \
-    "${gate_test_sha}" scripts/verify-wave1-implementation-cards || true)"
-  [[ -n "${gate_tip}" ]] || gate_tip="${gate_test_sha}"
+  gate_tip="${w1_i02_database_gate_tip_sha}"
   gate_parent="$(git -C "${repo_root}" rev-parse "${gate_tip}^")"
   gate_tree="$(git -C "${repo_root}" rev-parse "${gate_tip}^{tree}")"
 
@@ -4181,6 +4180,9 @@ i07_closure_spec_sha="42b4826f34e5dedf152d2f45f54522c19321757b"
 i07_closure_plan_sha="65c62ec2a7b5dbc881d5b874af0d264112c25f96"
 i07_closure_original_test_sha="bc2bdac50b1118e457af431e51c6d2e1dcaeb3ff"
 i07_closure_count_repair_sha="34bbef63efdcc4b2b83bfde91594705ddac0bd60"
+i07_closure_count_corrected_test_sha="ef4393de4464a74971f889fa20cdbf370991209d"
+i07_closure_first_green_sha="e0b7c302011b4a84f04ebdd7f88393af76d3d973"
+i07_closure_legacy_gate_repair_sha="762dbf3c10b2d68eb5fe07b90e381a4e00e075e8"
 i07_reviewed_candidate_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
 i07_reviewed_parent_sha="5433485e8f88f3846cbda722282223a3c8274b14"
 i07_reviewed_tree_sha="d82ece96e0e3dabdfef64a766179b711ea6d557f"
@@ -4234,6 +4236,16 @@ materialize_w1_i07_governance_tip() {
     "${i07_closure_count_repair_sha}" \
     docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-contract-count-repair.md \
     "docs: authorize I07 closure count correction"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_count_corrected_test_sha}" "${test_path}" \
+    "test: correct I07 closure negative count"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_first_green_sha}" "${verifier_path}" \
+    "feat: verify W1-I07 closure transition"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_legacy_gate_repair_sha}" \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-legacy-gate-fixture-repair.md \
+    "docs: authorize I07 legacy gate fixture correction"
   cp -p "${repo_root}/${test_path}" "${fixture_root}/${test_path}"
   chmod 755 "${fixture_root}/${test_path}"
   git -C "${fixture_root}" add "${test_path}"
