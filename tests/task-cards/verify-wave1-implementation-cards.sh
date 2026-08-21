@@ -6357,9 +6357,21 @@ run_w1_i09_canonical_bridge_contract() {
   sed -i.bak \
     -e 's/^    byte\[\] canonicalOmissionsBytes()/    public byte[] canonicalOmissionsBytes()/' \
     -e 's/^    byte\[\] canonicalRevisionDiagnosticsBytes()/    public byte[] canonicalRevisionDiagnosticsBytes()/' \
-    -e 's/^        byte\[\] canonicalBytes()/        public byte[] canonicalBytes()/' \
     "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
   rm "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java.bak"
+  awk '
+    $0 == "    public static final class Block {" { in_block = 1 }
+    in_block && $0 == "        byte[] canonicalBytes() {" {
+      print "        public byte[] canonicalBytes() {"
+      replaced++
+      next
+    }
+    { print }
+    END { if (replaced != 1) exit 1 }
+  ' "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java" > \
+    "${fixture_root}/CandidateBlockSet.java.bridge"
+  mv "${fixture_root}/CandidateBlockSet.java.bridge" \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java"
   git -C "${fixture_root}" add \
     server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java
   git -C "${fixture_root}" commit -qm "test: add legal canonical bytes bridge"
