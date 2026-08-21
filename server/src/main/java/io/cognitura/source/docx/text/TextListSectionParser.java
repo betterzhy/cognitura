@@ -27,9 +27,13 @@ public final class TextListSectionParser {
 
     private static final String WORD_NAMESPACE =
             "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    private static final String WORDPROCESSING_DRAWING_NAMESPACE =
+            "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+    private static final String VML_NAMESPACE = "urn:schemas-microsoft-com:vml";
     private static final String MAIN_DOCUMENT_PART = "word/document.xml";
     private static final String STYLES_PART = "word/styles.xml";
     private static final String NUMBERING_PART = "word/numbering.xml";
+    private static final char INLINE_IMAGE_ANCHOR = '\uFFFC';
 
     public List<DocumentBlockCandidate> parse(SafeDocxPackage safePackage) {
         Objects.requireNonNull(safePackage, "safePackage");
@@ -72,16 +76,18 @@ public final class TextListSectionParser {
             if (!"p".equals(element.getLocalName())) {
                 throw terminal("UNSUPPORTED_DOCX_FLOW:" + element.getLocalName());
             }
-            blocks.add(parseParagraph(
+            DocumentBlockCandidate block = parseParagraph(
                     element,
                     elementIndexes.get(element),
                     styles,
                     sectionPath,
                     listState,
-                    sourceOrder.next()));
+                    sourceOrder.nextBlock());
+            blocks.add(block);
+            sourceOrder.reserveChildren(countInlineImagePlaceholders(block.text()));
         }
 
-        sourceOrder.requireContiguous(blocks);
+        sourceOrder.requireIssuedBlockOrder(blocks);
         return List.copyOf(blocks);
     }
 
@@ -212,6 +218,7 @@ public final class TextListSectionParser {
                 case "cr" -> text.append('\n');
                 case "noBreakHyphen" -> text.append('\u2011');
                 case "softHyphen" -> text.append('\u00ad');
+                case "drawing", "pict" -> appendInlineImageAnchor(element, text);
                 default -> throw terminal("UNSUPPORTED_DOCX_FLOW:run/" + element.getLocalName());
             }
         }
@@ -220,7 +227,11 @@ public final class TextListSectionParser {
     private static void appendTextElement(Element textElement, StringBuilder text) {
         for (Node node = textElement.getFirstChild(); node != null; node = node.getNextSibling()) {
             if (node.getNodeType() == Node.TEXT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE) {
-                text.append(node.getNodeValue());
+                String value = node.getNodeValue();
+                if (value.indexOf(INLINE_IMAGE_ANCHOR) >= 0) {
+                    throw terminal("TEXT_LITERAL_IMAGE_PLACEHOLDER_FORBIDDEN");
+                }
+                text.append(value);
                 continue;
             }
             if (node.getNodeType() == Node.COMMENT_NODE
@@ -229,6 +240,27 @@ public final class TextListSectionParser {
             }
             throw terminal("UNSUPPORTED_DOCX_FLOW:run/t/" + node.getNodeName());
         }
+    }
+
+    private static void appendInlineImageAnchor(Element imageElement, StringBuilder text) {
+        for (Node node = imageElement.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node instanceof Element child && isSupportedImageContent(imageElement, child)) {
+                text.append(INLINE_IMAGE_ANCHOR);
+                return;
+            }
+        }
+        throw terminal("UNSUPPORTED_DOCX_FLOW:run/" + imageElement.getLocalName());
+    }
+
+    private static boolean isSupportedImageContent(Element imageElement, Element child) {
+        return switch (imageElement.getLocalName()) {
+            case "drawing" -> WORDPROCESSING_DRAWING_NAMESPACE.equals(child.getNamespaceURI())
+                    && ("inline".equals(child.getLocalName())
+                            || "anchor".equals(child.getLocalName()));
+            case "pict" -> VML_NAMESPACE.equals(child.getNamespaceURI())
+                    && "shape".equals(child.getLocalName());
+            default -> false;
+        };
     }
 
     private static void appendBreak(Element breakElement, StringBuilder text) {
@@ -243,6 +275,22 @@ public final class TextListSectionParser {
     private static String normalizeText(String text) {
         return Normalizer.normalize(
                 text.replace("\r\n", "\n").replace('\r', '\n'), Normalizer.Form.NFC);
+    }
+
+    private static int countInlineImagePlaceholders(String text) {
+        int count = 0;
+        for (int charOffset = 0; charOffset < text.length(); ) {
+            int codePoint = text.codePointAt(charOffset);
+            if (codePoint == INLINE_IMAGE_ANCHOR) {
+                try {
+                    count = Math.addExact(count, 1);
+                } catch (ArithmeticException ignored) {
+                    throw terminal("IMAGE_ANCHOR_COUNT_EXCEEDED");
+                }
+            }
+            charOffset += Character.charCount(codePoint);
+        }
+        return count;
     }
 
     private static Integer headingLevel(Integer zeroBasedOutlineLevel) {
