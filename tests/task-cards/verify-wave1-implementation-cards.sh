@@ -6342,6 +6342,30 @@ if [[ "${w1_i09_product_copy_inference_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+materialize_fixed_i09_canonical_bridge_projection() {
+  local fixture_root="$1"
+  local path
+  for path in \
+      docs/engineering/cognitura-design-index.md \
+      docs/engineering/cognitura-wave-1-implementation-plan.md \
+      docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md; do
+    mkdir -p "${fixture_root}/${path%/*}"
+    git -C "${repo_root}" show \
+      "90a77d73f1389593930d8fbd468f0f06238b1c1b:${path}" > \
+      "${fixture_root}/${path}"
+  done
+}
+
+commit_fixed_i09_canonical_bridge_projection() {
+  local fixture_root="$1"
+  git -C "${fixture_root}" add \
+    docs/engineering/cognitura-design-index.md \
+    docs/engineering/cognitura-wave-1-implementation-plan.md \
+    docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+  git -C "${fixture_root}" commit -qm \
+    "docs: project I09 canonical bytes bridge"
+}
+
 run_w1_i09_canonical_bridge_contract() {
   local fixture_root output
   local positive_cases=0 negative_cases=0
@@ -6426,8 +6450,45 @@ run_w1_i09_canonical_bridge_contract() {
     'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
   negative_cases=$((negative_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-missing-projection"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    2bdc9f7e04306b397dda07b7511f4e0bf831eeab
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_CANONICAL_BRIDGE_PROJECTION_INVALID:missing'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-wrong-count"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    2bdc9f7e04306b397dda07b7511f4e0bf831eeab
+  materialize_fixed_i09_canonical_bridge_projection "${fixture_root}"
+  sed -i.bak 's/^W1I09ProductWriteSetCount = 28$/W1I09ProductWriteSetCount = 29/' \
+    "${fixture_root}/docs/engineering/cognitura-design-index.md"
+  rm "${fixture_root}/docs/engineering/cognitura-design-index.md.bak"
+  sed -i.bak 's/^ProductionFileLimit = 20$/ProductionFileLimit = 21/' \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md"
+  rm "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md.bak"
+  commit_fixed_i09_canonical_bridge_projection "${fixture_root}"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_CANONICAL_BRIDGE_PROJECTION_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-extra-writeset"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    2bdc9f7e04306b397dda07b7511f4e0bf831eeab
+  materialize_fixed_i09_canonical_bridge_projection "${fixture_root}"
+  printf '%s\n' \
+    'WriteSet = server/src/main/java/io/cognitura/source/application/command/Undeclared.java' >> \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md"
+  commit_fixed_i09_canonical_bridge_projection "${fixture_root}"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_CANONICAL_BRIDGE_PROJECTION_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
   [[ "${positive_cases}" -eq 2 ]] || fail "I09 canonical bridge positive count mismatch"
-  [[ "${negative_cases}" -eq 4 ]] || fail "I09 canonical bridge negative count mismatch"
+  [[ "${negative_cases}" -eq 7 ]] || fail "I09 canonical bridge negative count mismatch"
   printf '%s\n' \
     'W1I09CanonicalBridgeContractTests = PASS' \
     "W1I09CanonicalBridgePositiveCases = ${positive_cases}" \
