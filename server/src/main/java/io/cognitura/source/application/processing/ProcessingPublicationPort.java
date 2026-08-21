@@ -16,6 +16,8 @@ import java.util.regex.Pattern;
 public interface ProcessingPublicationPort {
 
     Pattern SHA_256 = Pattern.compile("[0-9a-f]{64}");
+    Pattern ARTIFACT_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}");
+    Pattern SCHEMA_URN = Pattern.compile("urn:cognitura:schema:.*");
 
     enum Outcome {
         APPLIED,
@@ -128,6 +130,9 @@ public interface ProcessingPublicationPort {
         public record BlockSetReference(String blockSetRef) {
             public BlockSetReference {
                 blockSetRef = requireText(blockSetRef, "BLOCK_SET_REFERENCE_REQUIRED");
+                if (!blockSetRef.matches("block-set:[0-9a-f]{64}")) {
+                    throw new IllegalArgumentException("BLOCK_SET_REFERENCE_INVALID");
+                }
             }
 
             public String canonicalJson() {
@@ -166,6 +171,10 @@ public interface ProcessingPublicationPort {
                 errors = List.copyOf(Objects.requireNonNull(errors, "errors"));
                 if (validatedSchemaIds.stream().distinct().count() != validatedSchemaIds.size()) {
                     throw new IllegalArgumentException("VALIDATED_SCHEMA_IDS_MUST_BE_UNIQUE");
+                }
+                if (validatedSchemaIds.stream().anyMatch(
+                        value -> value == null || !SCHEMA_URN.matcher(value).matches())) {
+                    throw new IllegalArgumentException("VALIDATED_SCHEMA_ID_INVALID");
                 }
                 if (status == ValidationStatus.PASS && !errors.isEmpty()) {
                     throw new IllegalArgumentException("PASS_VALIDATION_ERRORS_FORBIDDEN");
@@ -206,6 +215,10 @@ public interface ProcessingPublicationPort {
                         || failedScopeRefs.stream().distinct().count() != failedScopeRefs.size()) {
                     throw new IllegalArgumentException("STAGE_FAILURE_SCOPE_INVALID");
                 }
+                if (failedScopeRefs.stream().anyMatch(
+                        value -> value == null || !ARTIFACT_ID.matcher(value).matches())) {
+                    throw new IllegalArgumentException("STAGE_FAILURE_SCOPE_INVALID");
+                }
                 if (retryable != code.retryable()) {
                     throw new IllegalArgumentException("STAGE_FAILURE_RETRYABILITY_MISMATCH");
                 }
@@ -218,17 +231,29 @@ public interface ProcessingPublicationPort {
                 throw new IllegalArgumentException("STAGE_SCHEMA_VERSION_MUST_BE_2_0_0");
             }
             runId = requireText(runId, "STAGE_RUN_ID_REQUIRED");
+            if (!ARTIFACT_ID.matcher(runId).matches()) {
+                throw new IllegalArgumentException("STAGE_RUN_ID_INVALID");
+            }
             stage = requireText(stage, "STAGE_NAME_REQUIRED");
+            if (!"SOURCE_PARSING".equals(stage)) {
+                throw new IllegalArgumentException("SOURCE_PARSING_STAGE_REQUIRED");
+            }
             inputHash = requireText(inputHash, "STAGE_INPUT_HASH_REQUIRED");
             if (!SHA_256.matcher(inputHash).matches()) {
                 throw new IllegalArgumentException("STAGE_INPUT_HASH_MUST_BE_SHA256");
             }
             promptVersion = requireText(promptVersion, "STAGE_PROMPT_VERSION_REQUIRED");
             model = requireText(model, "STAGE_MODEL_REQUIRED");
+            if (!"NOT_APPLICABLE".equals(promptVersion) || !"NOT_APPLICABLE".equals(model)) {
+                throw new IllegalArgumentException("SOURCE_PARSING_MODEL_FIELDS_INVALID");
+            }
             sourceBlockRefs = List.copyOf(
                     Objects.requireNonNull(sourceBlockRefs, "sourceBlockRefs"));
             if (sourceBlockRefs.stream().distinct().count() != sourceBlockRefs.size()) {
                 throw new IllegalArgumentException("SOURCE_BLOCK_REFS_MUST_BE_UNIQUE");
+            }
+            if (!sourceBlockRefs.isEmpty()) {
+                throw new IllegalArgumentException("SOURCE_PARSING_BLOCK_REFS_MUST_BE_EMPTY");
             }
             Objects.requireNonNull(outputKind, "outputKind");
             Objects.requireNonNull(validationResult, "validationResult");
@@ -239,11 +264,17 @@ public interface ProcessingPublicationPort {
             if (retryScopeRefs.stream().distinct().count() != retryScopeRefs.size()) {
                 throw new IllegalArgumentException("RETRY_SCOPE_REFS_MUST_BE_UNIQUE");
             }
+            if (retryScopeRefs.stream().anyMatch(
+                    value -> value == null || !ARTIFACT_ID.matcher(value).matches())) {
+                throw new IllegalArgumentException("RETRY_SCOPE_REF_INVALID");
+            }
             if (generationStatus == GenerationStatus.SUCCEEDED) {
                 if (outputKind != OutputKind.INTERMEDIATE
                         || outputSchemaId != null
                         || structuredOutput == null
                         || outputHash == null
+                        || !structuredOutput.blockSetRef()
+                                .equals("block-set:" + outputHash.value())
                         || validationResult.status() != ValidationResult.ValidationStatus.PASS
                         || failure != null
                         || !retryScopeRefs.isEmpty()) {
@@ -256,6 +287,18 @@ public interface ProcessingPublicationPort {
                     || validationResult.status() != ValidationResult.ValidationStatus.FAIL
                     || failure == null) {
                 throw new IllegalArgumentException("FAILED_STAGE_PROJECTION_INVALID");
+            }
+            if (generationStatus == GenerationStatus.FAILED) {
+                if (validationResult.errors().size() != 1
+                        || !validationResult.errors().getFirst().code()
+                                .equals(failure.code().name())
+                        || !validationResult.errors().getFirst().message()
+                                .equals(failure.message())
+                        || (failure.retryable()
+                                ? !retryScopeRefs.equals(failure.failedScopeRefs())
+                                : !retryScopeRefs.isEmpty())) {
+                    throw new IllegalArgumentException("FAILED_STAGE_PROJECTION_INVALID");
+                }
             }
         }
 

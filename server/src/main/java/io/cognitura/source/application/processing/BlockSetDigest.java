@@ -3,7 +3,6 @@ package io.cognitura.source.application.processing;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -26,11 +25,6 @@ public record BlockSetDigest(String value) {
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (DataOutputStream output = new DataOutputStream(bytes)) {
-                writeText(output, blockSet.sourceDocumentId());
-                writeText(output, blockSet.revisionId());
-                writeText(output, blockSet.parseCompleteness().name());
-                writeText(output, blockSet.partialAcceptanceStatus().name());
-                writeText(output, blockSet.omissionsDigest().value());
                 output.writeInt(blockSet.blocks().size());
                 for (CandidateBlockSet.Block block : blockSet.blocks()) {
                     byte[] canonical = block.canonicalBytes();
@@ -60,12 +54,6 @@ public record BlockSetDigest(String value) {
         } catch (IOException error) {
             throw new IllegalStateException("OMISSION_LIST_ENCODING_FAILED", error);
         }
-    }
-
-    private static void writeText(DataOutputStream output, String value) throws IOException {
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        output.writeInt(bytes.length);
-        output.write(bytes);
     }
 
     private static BlockSetDigest sha256(byte[] bytes) {

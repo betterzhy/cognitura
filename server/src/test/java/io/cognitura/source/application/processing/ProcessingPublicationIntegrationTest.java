@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.github.dockerjava.api.exception.NotFoundException;
 import io.cognitura.source.docx.image.ImageAnchor;
 import io.cognitura.source.docx.image.ImageRelationshipProjector;
+import io.cognitura.source.docx.image.ExternalRelationshipLiteral;
 import io.cognitura.source.docx.security.DocxRelationshipClassifier;
 import io.cognitura.source.docx.table.TableBlockCandidate;
 import io.cognitura.source.docx.table.TableCellCandidate;
@@ -20,6 +21,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -122,6 +124,8 @@ class ProcessingPublicationIntegrationTest {
         CandidateBlockSet drifted = blockSet("changed");
 
         assertThat(BlockSetDigest.compute(original)).isEqualTo(BlockSetDigest.compute(same));
+        assertThat(BlockSetDigest.compute(original).value())
+                .isEqualTo("650dbef325ea91333283eec6a26d0548d2c7fc448c1b88755ad6e90340f3e580");
         assertThat(BlockSetDigest.compute(drifted)).isNotEqualTo(BlockSetDigest.compute(original));
         assertThat(original.blocks().getFirst().documentBlockAlias())
                 .isEqualTo("dbr:587fd6e4a13ecee166aaee248268fe2d4849201076785728a54553a5c18ea32d");
@@ -150,8 +154,37 @@ class ProcessingPublicationIntegrationTest {
                         CandidateBlockSet.ParseCompleteness.COMPLETE,
                         CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
                         List.of(parent, image),
-                        List.of()).blocks())
+                        List.of(),
+                        List.of(externalDiagnostic(1))).blocks())
                 .containsExactly(parent, image);
+        ImageRelationshipProjector.ProjectedImage validImage = image.imageCandidate();
+        ImageRelationshipProjector.ProjectedImage forgedHash =
+                new ImageRelationshipProjector.ProjectedImage(
+                        validImage.sourceOrder(), validImage.sourcePart(),
+                        validImage.sourceElementIndex(), validImage.anchor(),
+                        validImage.relationshipId(), validImage.relationshipMode(),
+                        validImage.externalTargetLiteralSha256(), validImage.mediaRef(),
+                        validImage.mediaType(), validImage.byteLength(),
+                        validImage.contentSha256(), validImage.securityDisclosure(),
+                        SourceHash.ofHex("c".repeat(64)));
+        assertThatThrownBy(() -> CandidateBlockSet.Block.fromImage(
+                        "forged-image", SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                        List.of(), forgedHash, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("IMAGE_CONTENT_HASH_MISMATCH");
+        ExternalRelationshipLiteral mismatchedDiagnostic = new ExternalRelationshipLiteral(
+                "word/document.xml", "rId-image-1",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+                DocxRelationshipClassifier.Mode.EXTERNAL,
+                SourceHash.ofHex("e".repeat(64)),
+                "EXTERNAL_RELATIONSHIP_NOT_DEREFERENCED");
+        assertThatThrownBy(() -> new CandidateBlockSet(
+                        SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                        CandidateBlockSet.ParseCompleteness.COMPLETE,
+                        CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
+                        List.of(parent, image), List.of(), List.of(mismatchedDiagnostic)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("EXTERNAL_IMAGE_DIAGNOSTIC_MISMATCH");
         CandidateBlockSet.Block wrongImage = imageBlock("image-a", "parent-a", 1, 5, 0);
         assertThatThrownBy(() -> new CandidateBlockSet(
                         SOURCE_DOCUMENT_ID,
@@ -160,7 +193,8 @@ class ProcessingPublicationIntegrationTest {
                         CandidateBlockSet.ParseCompleteness.COMPLETE,
                         CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
                         List.of(parent, wrongImage),
-                        List.of()))
+                        List.of(),
+                        List.of(externalDiagnostic(1))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("CANDIDATE_PARAGRAPH_IMAGE_BINDING_INVALID");
 
@@ -172,7 +206,8 @@ class ProcessingPublicationIntegrationTest {
                         SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
                         CandidateBlockSet.ParseCompleteness.COMPLETE,
                         CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
-                        List.of(tableParent, tableImage), List.of()).blocks())
+                        List.of(tableParent, tableImage), List.of(),
+                        List.of(externalDiagnostic(1))).blocks())
                 .containsExactly(tableParent, tableImage);
         CandidateBlockSet.Block wrongCellImage = tableImageBlock(
                 "image-table-a", "table-a", 1, 4, 0, 0, 1);
@@ -180,7 +215,8 @@ class ProcessingPublicationIntegrationTest {
                         SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
                         CandidateBlockSet.ParseCompleteness.COMPLETE,
                         CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
-                        List.of(tableParent, wrongCellImage), List.of()))
+                        List.of(tableParent, wrongCellImage), List.of(),
+                        List.of(externalDiagnostic(1))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("CANDIDATE_TABLE_IMAGE_BINDING_INVALID");
 
@@ -202,6 +238,26 @@ class ProcessingPublicationIntegrationTest {
                 List.of(earlier, later));
         assertThat(partial.omissions()).containsExactly(earlier, later);
         assertThat(partial.omissionsDigest()).isEqualTo(reorderedPartial.omissionsDigest());
+        CandidateBlockSet completeSameBlocks = new CandidateBlockSet(
+                SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                CandidateBlockSet.ParseCompleteness.COMPLETE,
+                CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
+                partial.blocks(), List.of());
+        assertThat(BlockSetDigest.compute(partial))
+                .isEqualTo(BlockSetDigest.compute(completeSameBlocks));
+
+        assertThat(block("same-payload-a", 0, "PARAGRAPH", "same payload").contentHash())
+                .isEqualTo(block("same-payload-b", 7, "PARAGRAPH", "same payload").contentHash());
+        assertThatThrownBy(() -> CandidateBlockSet.Block.fromText(
+                        "page-block", SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                        new DocumentBlockCandidate(
+                                DocumentBlockCandidate.BlockType.PARAGRAPH,
+                                0, List.of(), "word/document.xml", 0,
+                                "page text", null, null, null),
+                        new CandidateBlockSet.PageEvidence(
+                                "layout-v1", "engine-v1", 0, "d".repeat(64))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("PAGE_EVIDENCE_PROFILE_NOT_AUTHORIZED");
         assertThatThrownBy(() -> new CandidateBlockSet(
                         SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
                         CandidateBlockSet.ParseCompleteness.COMPLETE,
@@ -246,6 +302,32 @@ class ProcessingPublicationIntegrationTest {
                         ProcessingAttempt.Status.SUCCEEDED, RUNNING_LEASE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("TIMEOUT_EXPECTED_STATUS_MUST_BE_ACTIVE");
+
+        BlockSetDigest digest = BlockSetDigest.compute(blockSet("second"));
+        assertThatThrownBy(() -> ProcessingPublicationPort.GenerationStageRecord.succeeded(
+                        SOURCE_DOCUMENT_ID, CONTENT_SHA256, PARSER_PROFILE_VERSION,
+                        "revision-a", "bad run id", 1, digest))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("STAGE_RUN_ID_INVALID");
+        assertThatThrownBy(() -> new ProcessingPublicationPort.GenerationStageRecord.ValidationResult(
+                        ProcessingPublicationPort.GenerationStageRecord.ValidationResult
+                                .ValidationStatus.PASS,
+                        List.of("not-a-schema-urn"),
+                        List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("VALIDATED_SCHEMA_ID_INVALID");
+        ProcessingPublicationPort.GenerationStageRecord valid =
+                ProcessingPublicationPort.GenerationStageRecord.succeeded(
+                        SOURCE_DOCUMENT_ID, CONTENT_SHA256, PARSER_PROFILE_VERSION,
+                        "revision-a", "attempt-a", 1, digest);
+        assertThatThrownBy(() -> new ProcessingPublicationPort.GenerationStageRecord(
+                        valid.schemaVersion(), valid.runId(), "UNKNOWN_STAGE", valid.inputHash(),
+                        valid.promptVersion(), valid.model(), valid.sourceBlockRefs(),
+                        valid.outputKind(), valid.outputSchemaId(), valid.structuredOutput(),
+                        valid.outputHash(), valid.validationResult(), valid.generationStatus(),
+                        valid.retryCount(), valid.retryScopeRefs(), valid.failure()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("SOURCE_PARSING_STAGE_REQUIRED");
     }
 
     @Test
@@ -375,6 +457,25 @@ class ProcessingPublicationIntegrationTest {
         assertThat(adapter.publishedBlockCount("revision-a")).isEqualTo(2);
         assertThat(adapter.successStageRecordCount("revision-a")).isEqualTo(1);
         assertThat(adapter.rejectionAuditCount("attempt-a")).isEqualTo(1);
+    }
+
+    @Test
+    void publishesVerifiedExternalImageDiagnosticWithoutDigestDrift() {
+        ProcessingAttempt attempt = beginAndClaim("revision-a", "attempt-a");
+        CandidateBlockSet.Block parent = block(
+                "parent-a", 0, "PARAGRAPH", "before\uFFFCafter");
+        CandidateBlockSet.Block image = imageBlock("image-a", "parent-a", 1, 6, 0);
+        CandidateBlockSet blocks = new CandidateBlockSet(
+                SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                CandidateBlockSet.ParseCompleteness.COMPLETE,
+                CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
+                List.of(parent, image), List.of(), List.of(externalDiagnostic(1)));
+
+        service.stage(attempt.fence(), blocks);
+        service.publish(attempt.fence(), blocks, STARTED_AT.plusSeconds(120));
+
+        assertThat(adapter.publishedRevisionDiagnostics("revision-a"))
+                .isEqualTo(blocks.canonicalRevisionDiagnosticsBytes());
     }
 
     @Test
@@ -807,8 +908,10 @@ class ProcessingPublicationIntegrationTest {
             int sourceOrder,
             int textOffset,
             int childOrdinal) {
-        ImageRelationshipProjector.ProjectedImage image =
-                new ImageRelationshipProjector.ProjectedImage(
+        String relationshipId = "rId-image-" + sourceOrder;
+        SourceHash externalDigest = SourceHash.ofHex("b".repeat(64));
+        String disclosure = "EXTERNAL_RELATIONSHIP_NOT_DEREFERENCED";
+        ImageRelationshipProjector.ProjectedImage image = new ImageRelationshipProjector.ProjectedImage(
                         sourceOrder,
                         "word/document.xml",
                         sourceOrder,
@@ -819,15 +922,15 @@ class ProcessingPublicationIntegrationTest {
                                 childOrdinal,
                                 null,
                                 null),
-                        "rId-image-" + sourceOrder,
+                        relationshipId,
                         DocxRelationshipClassifier.Mode.EXTERNAL,
-                        SourceHash.ofHex("b".repeat(64)),
+                        externalDigest,
                         null,
                         null,
                         null,
                         null,
-                        "external image preserved without dereference",
-                        SourceHash.ofHex("c".repeat(64)));
+                        disclosure,
+                        externalImageContentHash(relationshipId, externalDigest, disclosure));
         return CandidateBlockSet.Block.fromImage(
                 blockId,
                 SOURCE_DOCUMENT_ID,
@@ -846,8 +949,10 @@ class ProcessingPublicationIntegrationTest {
             int childOrdinal,
             int rowIndex,
             int columnIndex) {
-        ImageRelationshipProjector.ProjectedImage image =
-                new ImageRelationshipProjector.ProjectedImage(
+        String relationshipId = "rId-image-" + sourceOrder;
+        SourceHash externalDigest = SourceHash.ofHex("b".repeat(64));
+        String disclosure = "EXTERNAL_RELATIONSHIP_NOT_DEREFERENCED";
+        ImageRelationshipProjector.ProjectedImage image = new ImageRelationshipProjector.ProjectedImage(
                         sourceOrder,
                         "word/document.xml",
                         sourceOrder,
@@ -858,15 +963,15 @@ class ProcessingPublicationIntegrationTest {
                                 childOrdinal,
                                 rowIndex,
                                 columnIndex),
-                        "rId-image-" + sourceOrder,
+                        relationshipId,
                         DocxRelationshipClassifier.Mode.EXTERNAL,
-                        SourceHash.ofHex("b".repeat(64)),
+                        externalDigest,
                         null,
                         null,
                         null,
                         null,
-                        "external image preserved without dereference",
-                        SourceHash.ofHex("c".repeat(64)));
+                        disclosure,
+                        externalImageContentHash(relationshipId, externalDigest, disclosure));
         return CandidateBlockSet.Block.fromImage(
                 blockId,
                 SOURCE_DOCUMENT_ID,
@@ -875,6 +980,39 @@ class ProcessingPublicationIntegrationTest {
                 List.of(),
                 image,
                 null);
+    }
+
+    private static ExternalRelationshipLiteral externalDiagnostic(int sourceOrder) {
+        return new ExternalRelationshipLiteral(
+                "word/document.xml",
+                "rId-image-" + sourceOrder,
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+                DocxRelationshipClassifier.Mode.EXTERNAL,
+                SourceHash.ofHex("b".repeat(64)),
+                "EXTERNAL_RELATIONSHIP_NOT_DEREFERENCED");
+    }
+
+    private static SourceHash externalImageContentHash(
+            String relationshipId, SourceHash externalDigest, String disclosure) {
+        StringBuilder canonical = new StringBuilder("IMAGE_PAYLOAD_V1");
+        appendImageCanonical(canonical, relationshipId);
+        appendImageCanonical(canonical, "EXTERNAL");
+        appendImageCanonical(canonical, externalDigest.value());
+        appendImageCanonical(canonical, null);
+        appendImageCanonical(canonical, null);
+        appendImageCanonical(canonical, null);
+        appendImageCanonical(canonical, null);
+        appendImageCanonical(canonical, disclosure);
+        return SourceHash.sha256(canonical.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void appendImageCanonical(StringBuilder target, String value) {
+        target.append('|');
+        if (value == null) {
+            target.append("-1:");
+            return;
+        }
+        target.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
     }
 
     private static List<Integer> replacementOffsets(String text) {
@@ -903,6 +1041,7 @@ class ProcessingPublicationIntegrationTest {
                   current_generation bigint not null,
                   published_digest char(64) null,
                   omissions_digest char(64) null,
+                  revision_diagnostics bytea null,
                   parse_completeness text null,
                   partial_acceptance_status text null,
                   failure_code text null,
@@ -940,7 +1079,8 @@ class ProcessingPublicationIntegrationTest {
                   partial_acceptance_status text not null,
                   block_set_digest char(64) not null,
                   omissions_digest char(64) not null,
-                  omissions_canonical bytea not null
+                  omissions_canonical bytea not null,
+                  revision_diagnostics bytea not null
                 );
                 create table i07_staged_block (
                   attempt_id text not null references i07_attempt(attempt_id),
@@ -1297,8 +1437,9 @@ class ProcessingPublicationIntegrationTest {
                                 insert into i07_staged_set(
                                   attempt_id, source_document_id, revision_id,
                                   parse_completeness, partial_acceptance_status,
-                                  block_set_digest, omissions_digest, omissions_canonical)
-                                values (?, ?, ?, ?, ?, ?, ?, ?)
+                                  block_set_digest, omissions_digest, omissions_canonical,
+                                  revision_diagnostics)
+                                values (?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 """);
                         PreparedStatement block = connection.prepareStatement("""
                                 insert into i07_staged_block(
@@ -1313,6 +1454,7 @@ class ProcessingPublicationIntegrationTest {
                     header.setString(6, digest.value());
                     header.setString(7, blockSet.omissionsDigest().value());
                     header.setBytes(8, blockSet.canonicalOmissionsBytes());
+                    header.setBytes(9, blockSet.canonicalRevisionDiagnosticsBytes());
                     requireOne(header.executeUpdate(), "STAGED_SET_INSERT");
                     for (CandidateBlockSet.Block candidate : blockSet.blocks()) {
                         bindBlock(block, fence.attemptId(), candidate);
@@ -1389,6 +1531,7 @@ class ProcessingPublicationIntegrationTest {
                                 update i07_revision
                                 set revision_status = 'PARSED', active_attempt_id = null,
                                     published_digest = ?, omissions_digest = ?,
+                                    revision_diagnostics = ?,
                                     parse_completeness = ?, partial_acceptance_status = ?,
                                     completed_at = ?
                                 where revision_id = ? and active_attempt_id = ?
@@ -1399,12 +1542,13 @@ class ProcessingPublicationIntegrationTest {
                     requireOne(updateAttempt.executeUpdate(), "PUBLISH_ATTEMPT_UPDATE");
                     updateRevision.setString(1, blockSetDigest.value());
                     updateRevision.setString(2, blockSet.omissionsDigest().value());
-                    updateRevision.setString(3, blockSet.parseCompleteness().name());
-                    updateRevision.setString(4, blockSet.partialAcceptanceStatus().name());
-                    setInstant(updateRevision, 5, completedAt);
-                    updateRevision.setString(6, fence.revisionId());
-                    updateRevision.setString(7, fence.attemptId());
-                    updateRevision.setLong(8, fence.generation());
+                    updateRevision.setBytes(3, blockSet.canonicalRevisionDiagnosticsBytes());
+                    updateRevision.setString(4, blockSet.parseCompleteness().name());
+                    updateRevision.setString(5, blockSet.partialAcceptanceStatus().name());
+                    setInstant(updateRevision, 6, completedAt);
+                    updateRevision.setString(7, fence.revisionId());
+                    updateRevision.setString(8, fence.attemptId());
+                    updateRevision.setLong(9, fence.generation());
                     requireOne(updateRevision.executeUpdate(), "PUBLISH_REVISION_UPDATE");
                 }
                 return Outcome.APPLIED;
@@ -1573,6 +1717,20 @@ class ProcessingPublicationIntegrationTest {
                     revisionId);
         }
 
+        byte[] publishedRevisionDiagnostics(String revisionId) {
+            try (Connection connection = openConnection();
+                    PreparedStatement query = connection.prepareStatement(
+                            "select revision_diagnostics from i07_revision where revision_id = ?")) {
+                query.setString(1, revisionId);
+                try (ResultSet result = query.executeQuery()) {
+                    if (!result.next()) return null;
+                    return result.getBytes(1);
+                }
+            } catch (SQLException error) {
+                throw new StorageException("I07_STORAGE_FAILURE:" + error.getMessage(), error);
+            }
+        }
+
         int stagedBlockCount(String attemptId) {
             return count(
                     "select count(*) from i07_staged_block where attempt_id = ?",
@@ -1624,7 +1782,7 @@ class ProcessingPublicationIntegrationTest {
             try (PreparedStatement header = connection.prepareStatement("""
                             select source_document_id, revision_id, parse_completeness,
                                    partial_acceptance_status, block_set_digest, omissions_digest,
-                                   omissions_canonical
+                                   omissions_canonical, revision_diagnostics
                             from i07_staged_set where attempt_id = ?
                             """)) {
                 header.setString(1, attemptId);
@@ -1638,7 +1796,10 @@ class ProcessingPublicationIntegrationTest {
                             || !expected.partialAcceptanceStatus().name().equals(result.getString(4))
                             || !expected.omissionsDigest().value().equals(result.getString(6))
                             || !java.util.Arrays.equals(
-                                    expected.canonicalOmissionsBytes(), result.getBytes(7))) {
+                                    expected.canonicalOmissionsBytes(), result.getBytes(7))
+                            || !java.util.Arrays.equals(
+                                    expected.canonicalRevisionDiagnosticsBytes(),
+                                    result.getBytes(8))) {
                         return null;
                     }
                     declaredDigest = result.getString(5);

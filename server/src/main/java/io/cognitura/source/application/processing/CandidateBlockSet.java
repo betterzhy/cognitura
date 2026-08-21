@@ -1,11 +1,10 @@
 package io.cognitura.source.application.processing;
 
 import io.cognitura.source.docx.image.ImageAnchor;
+import io.cognitura.source.docx.image.ExternalRelationshipLiteral;
 import io.cognitura.source.docx.image.ImageRelationshipProjector;
 import io.cognitura.source.docx.table.TableBlockCandidate;
 import io.cognitura.source.docx.table.TableCellCandidate;
-import io.cognitura.source.docx.table.TableMergeProjection;
-import io.cognitura.source.docx.table.TableTextEvidence;
 import io.cognitura.source.docx.text.DocumentBlockCandidate;
 import io.cognitura.source.docx.text.ListSemantics;
 import java.io.ByteArrayOutputStream;
@@ -27,6 +26,11 @@ import java.util.Set;
 
 public final class CandidateBlockSet {
 
+    private static final String IMAGE_RELATIONSHIP_TYPE =
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+    private static final String EXTERNAL_DISCLOSURE =
+            "EXTERNAL_RELATIONSHIP_NOT_DEREFERENCED";
+
     public enum ParseCompleteness { COMPLETE, PARTIAL }
 
     public enum PartialAcceptanceStatus { NOT_APPLICABLE, PENDING }
@@ -38,6 +42,7 @@ public final class CandidateBlockSet {
     private final PartialAcceptanceStatus partialAcceptanceStatus;
     private final List<Block> blocks;
     private final List<Omission> omissions;
+    private final List<ExternalRelationshipLiteral> revisionDiagnostics;
     private final BlockSetDigest omissionsDigest;
 
     public CandidateBlockSet(
@@ -48,6 +53,19 @@ public final class CandidateBlockSet {
             PartialAcceptanceStatus partialAcceptanceStatus,
             List<Block> blocks,
             List<Omission> omissions) {
+        this(sourceDocumentId, revisionId, attemptId, parseCompleteness,
+                partialAcceptanceStatus, blocks, omissions, List.of());
+    }
+
+    public CandidateBlockSet(
+            String sourceDocumentId,
+            String revisionId,
+            String attemptId,
+            ParseCompleteness parseCompleteness,
+            PartialAcceptanceStatus partialAcceptanceStatus,
+            List<Block> blocks,
+            List<Omission> omissions,
+            List<ExternalRelationshipLiteral> revisionDiagnostics) {
         this.sourceDocumentId = requireText(sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
         this.revisionId = requireText(revisionId, "REVISION_ID_REQUIRED");
         this.attemptId = requireText(attemptId, "ATTEMPT_ID_REQUIRED");
@@ -62,9 +80,16 @@ public final class CandidateBlockSet {
                         .thenComparing(Omission::userVisibleDescription))
                 .toList();
         this.omissionsDigest = BlockSetDigest.computeOmissions(this.omissions);
+        this.revisionDiagnostics = Objects.requireNonNull(
+                        revisionDiagnostics, "revisionDiagnostics").stream()
+                .sorted(Comparator.comparing(ExternalRelationshipLiteral::sourcePart)
+                        .thenComparing(ExternalRelationshipLiteral::relationshipId)
+                        .thenComparing(ExternalRelationshipLiteral::relationshipType))
+                .toList();
         validateCompleteness();
         validateBlocks();
         validateImageBindings();
+        validateRevisionDiagnostics();
     }
 
     public String sourceDocumentId() { return sourceDocumentId; }
@@ -83,6 +108,10 @@ public final class CandidateBlockSet {
 
     public BlockSetDigest omissionsDigest() { return omissionsDigest; }
 
+    public List<ExternalRelationshipLiteral> revisionDiagnostics() {
+        return revisionDiagnostics;
+    }
+
     byte[] canonicalOmissionsBytes() {
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -98,6 +127,20 @@ public final class CandidateBlockSet {
         } catch (IOException error) {
             throw new IllegalStateException("OMISSION_LIST_ENCODING_FAILED", error);
         }
+    }
+
+    byte[] canonicalRevisionDiagnosticsBytes() {
+        return encode(output -> {
+            output.writeInt(revisionDiagnostics.size());
+            for (ExternalRelationshipLiteral diagnostic : revisionDiagnostics) {
+                writeText(output, diagnostic.sourcePart());
+                writeText(output, diagnostic.relationshipId());
+                writeText(output, diagnostic.relationshipType());
+                writeText(output, diagnostic.relationshipMode().name());
+                writeText(output, diagnostic.externalTargetLiteralSha256().value());
+                writeText(output, diagnostic.securityDisclosure());
+            }
+        });
     }
 
     private void validateCompleteness() {
@@ -159,6 +202,53 @@ public final class CandidateBlockSet {
             throw new IllegalArgumentException("CANDIDATE_IMAGE_PARENT_BLOCK_MISSING");
         }
     }
+
+    private void validateRevisionDiagnostics() {
+        Set<DiagnosticIdentity> identities = new HashSet<>();
+        for (ExternalRelationshipLiteral diagnostic : revisionDiagnostics) {
+            requireText(diagnostic.sourcePart(), "REVISION_DIAGNOSTIC_SOURCE_PART_REQUIRED");
+            DiagnosticIdentity identity = new DiagnosticIdentity(
+                    diagnostic.sourcePart(), diagnostic.relationshipId());
+            if (!identities.add(identity)) {
+                throw new IllegalArgumentException("REVISION_DIAGNOSTIC_IDENTITY_DUPLICATE");
+            }
+        }
+        Set<DiagnosticIdentity> consumed = new HashSet<>();
+        for (Block block : blocks) {
+            ImageRelationshipProjector.ProjectedImage image = block.imageCandidate();
+            if (image == null || image.relationshipMode()
+                    != io.cognitura.source.docx.security.DocxRelationshipClassifier.Mode.EXTERNAL) {
+                continue;
+            }
+            DiagnosticIdentity identity = new DiagnosticIdentity(
+                    image.sourcePart(), image.relationshipId());
+            ExternalRelationshipLiteral diagnostic = revisionDiagnostics.stream()
+                    .filter(candidate -> identity.equals(new DiagnosticIdentity(
+                            candidate.sourcePart(), candidate.relationshipId())))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "EXTERNAL_IMAGE_REVISION_DIAGNOSTIC_REQUIRED"));
+            if (!IMAGE_RELATIONSHIP_TYPE.equals(diagnostic.relationshipType())
+                    || !diagnostic.externalTargetLiteralSha256()
+                            .equals(image.externalTargetLiteralSha256())
+                    || !EXTERNAL_DISCLOSURE.equals(image.securityDisclosure())
+                    || !EXTERNAL_DISCLOSURE.equals(diagnostic.securityDisclosure())) {
+                throw new IllegalArgumentException("EXTERNAL_IMAGE_DIAGNOSTIC_MISMATCH");
+            }
+            consumed.add(identity);
+        }
+        for (ExternalRelationshipLiteral diagnostic : revisionDiagnostics) {
+            if (IMAGE_RELATIONSHIP_TYPE.equals(diagnostic.relationshipType())) {
+                DiagnosticIdentity identity = new DiagnosticIdentity(
+                        diagnostic.sourcePart(), diagnostic.relationshipId());
+                if (!consumed.contains(identity)) {
+                    throw new IllegalArgumentException("EXTERNAL_IMAGE_BLOCK_REQUIRED");
+                }
+            }
+        }
+    }
+
+    private record DiagnosticIdentity(String sourcePart, String relationshipId) {}
 
     private static void requireParagraphImageBijection(Block parent, List<Block> children) {
         List<Integer> offsets = replacementCharacterOffsets(parent.textCandidate().text());
@@ -235,13 +325,14 @@ public final class CandidateBlockSet {
                 && parseCompleteness == other.parseCompleteness
                 && partialAcceptanceStatus == other.partialAcceptanceStatus
                 && blocks.equals(other.blocks)
-                && omissions.equals(other.omissions);
+                && omissions.equals(other.omissions)
+                && revisionDiagnostics.equals(other.revisionDiagnostics);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(sourceDocumentId, revisionId, attemptId, parseCompleteness,
-                partialAcceptanceStatus, blocks, omissions);
+                partialAcceptanceStatus, blocks, omissions, revisionDiagnostics);
     }
 
     public record Omission(
@@ -275,11 +366,20 @@ public final class CandidateBlockSet {
         }
     }
 
-    public record PageEvidence(int pageNumber, String layoutProfile, String evidence) {
+    public record PageEvidence(
+            String layoutProfileVersion,
+            String layoutEngineVersion,
+            int pageIndex,
+            String evidenceHash) {
         public PageEvidence {
-            if (pageNumber <= 0) throw new IllegalArgumentException("PAGE_NUMBER_INVALID");
-            layoutProfile = requireText(layoutProfile, "PAGE_LAYOUT_PROFILE_REQUIRED");
-            evidence = requireText(evidence, "PAGE_EVIDENCE_REQUIRED");
+            layoutProfileVersion = requireText(
+                    layoutProfileVersion, "PAGE_LAYOUT_PROFILE_VERSION_REQUIRED");
+            layoutEngineVersion = requireText(
+                    layoutEngineVersion, "PAGE_LAYOUT_ENGINE_VERSION_REQUIRED");
+            if (pageIndex < 0) throw new IllegalArgumentException("PAGE_INDEX_INVALID");
+            if (evidenceHash == null || !evidenceHash.matches("[0-9a-f]{64}")) {
+                throw new IllegalArgumentException("PAGE_EVIDENCE_HASH_INVALID");
+            }
         }
     }
 
@@ -349,6 +449,7 @@ public final class CandidateBlockSet {
         private final BlockType blockType;
         private final int sourceOrder;
         private final List<String> sectionPath;
+        private final Integer pageNumber;
         private final PageEvidence pageEvidence;
         private final SourceAnchor sourceAnchor;
         private final byte[] canonicalPayload;
@@ -365,7 +466,6 @@ public final class CandidateBlockSet {
                 BlockType blockType,
                 int sourceOrder,
                 List<String> sectionPath,
-                PageEvidence pageEvidence,
                 SourceAnchor sourceAnchor,
                 byte[] canonicalPayload,
                 DocumentBlockCandidate textCandidate,
@@ -382,7 +482,8 @@ public final class CandidateBlockSet {
             for (String section : this.sectionPath) {
                 requireText(section, "SECTION_PATH_HEADING_REQUIRED");
             }
-            this.pageEvidence = pageEvidence;
+            this.pageNumber = null;
+            this.pageEvidence = null;
             this.sourceAnchor = Objects.requireNonNull(sourceAnchor, "sourceAnchor");
             this.canonicalPayload = Objects.requireNonNull(canonicalPayload, "canonicalPayload").clone();
             this.contentHash = sha256Hex(this.canonicalPayload);
@@ -396,8 +497,7 @@ public final class CandidateBlockSet {
                 String sourceDocumentId,
                 String revisionId,
                 String attemptId,
-                DocumentBlockCandidate candidate,
-                PageEvidence pageEvidence) {
+                DocumentBlockCandidate candidate) {
             Objects.requireNonNull(candidate, "candidate");
             BlockType type = switch (candidate.blockType()) {
                 case HEADING -> BlockType.HEADING;
@@ -405,9 +505,34 @@ public final class CandidateBlockSet {
                 case LIST -> BlockType.LIST;
             };
             return new Block(documentBlockId, sourceDocumentId, revisionId, attemptId,
-                    type, candidate.sourceOrder(), candidate.sectionPath(), pageEvidence,
+                    type, candidate.sourceOrder(), candidate.sectionPath(),
                     SourceAnchor.topLevel(candidate.sourcePart(), candidate.sourceElementIndex()),
                     encodeText(candidate), candidate, null, null);
+        }
+
+        public static Block fromText(
+                String documentBlockId,
+                String sourceDocumentId,
+                String revisionId,
+                String attemptId,
+                DocumentBlockCandidate candidate,
+                PageEvidence pageEvidence) {
+            requirePageEvidenceUnavailable(pageEvidence);
+            return fromText(documentBlockId, sourceDocumentId, revisionId, attemptId, candidate);
+        }
+
+        public static Block fromTable(
+                String documentBlockId,
+                String sourceDocumentId,
+                String revisionId,
+                String attemptId,
+                List<String> sectionPath,
+                TableBlockCandidate candidate) {
+            Objects.requireNonNull(candidate, "candidate");
+            return new Block(documentBlockId, sourceDocumentId, revisionId, attemptId,
+                    BlockType.TABLE, candidate.sourceOrder(), sectionPath,
+                    SourceAnchor.topLevel(candidate.sourcePart(), candidate.sourceElementIndex()),
+                    encodeTable(candidate), null, candidate, null);
         }
 
         public static Block fromTable(
@@ -418,11 +543,28 @@ public final class CandidateBlockSet {
                 List<String> sectionPath,
                 TableBlockCandidate candidate,
                 PageEvidence pageEvidence) {
+            requirePageEvidenceUnavailable(pageEvidence);
+            return fromTable(documentBlockId, sourceDocumentId, revisionId, attemptId,
+                    sectionPath, candidate);
+        }
+
+        public static Block fromImage(
+                String documentBlockId,
+                String sourceDocumentId,
+                String revisionId,
+                String attemptId,
+                List<String> sectionPath,
+                ImageRelationshipProjector.ProjectedImage candidate) {
             Objects.requireNonNull(candidate, "candidate");
+            byte[] payload = encodeImage(candidate);
+            if (!candidate.contentHash().value().equals(sha256Hex(payload))) {
+                throw new IllegalArgumentException("IMAGE_CONTENT_HASH_MISMATCH");
+            }
             return new Block(documentBlockId, sourceDocumentId, revisionId, attemptId,
-                    BlockType.TABLE, candidate.sourceOrder(), sectionPath, pageEvidence,
-                    SourceAnchor.topLevel(candidate.sourcePart(), candidate.sourceElementIndex()),
-                    encodeTable(candidate), null, candidate, null);
+                    BlockType.IMAGE, candidate.sourceOrder(), sectionPath,
+                    SourceAnchor.image(
+                            candidate.sourcePart(), candidate.sourceElementIndex(), candidate.anchor()),
+                    payload, null, null, candidate);
         }
 
         public static Block fromImage(
@@ -433,12 +575,15 @@ public final class CandidateBlockSet {
                 List<String> sectionPath,
                 ImageRelationshipProjector.ProjectedImage candidate,
                 PageEvidence pageEvidence) {
-            Objects.requireNonNull(candidate, "candidate");
-            return new Block(documentBlockId, sourceDocumentId, revisionId, attemptId,
-                    BlockType.IMAGE, candidate.sourceOrder(), sectionPath, pageEvidence,
-                    SourceAnchor.image(
-                            candidate.sourcePart(), candidate.sourceElementIndex(), candidate.anchor()),
-                    encodeImage(candidate), null, null, candidate);
+            requirePageEvidenceUnavailable(pageEvidence);
+            return fromImage(documentBlockId, sourceDocumentId, revisionId, attemptId,
+                    sectionPath, candidate);
+        }
+
+        private static void requirePageEvidenceUnavailable(PageEvidence pageEvidence) {
+            if (pageEvidence != null) {
+                throw new IllegalArgumentException("PAGE_EVIDENCE_PROFILE_NOT_AUTHORIZED");
+            }
         }
 
         public String documentBlockId() { return documentBlockId; }
@@ -454,6 +599,8 @@ public final class CandidateBlockSet {
         public int sourceOrder() { return sourceOrder; }
 
         public List<String> sectionPath() { return sectionPath; }
+
+        public Integer pageNumber() { return pageNumber; }
 
         public PageEvidence pageEvidence() { return pageEvidence; }
 
@@ -498,11 +645,13 @@ public final class CandidateBlockSet {
                     writeText(output, blockType.name());
                     output.writeInt(sourceOrder);
                     writeTextList(output, sectionPath);
+                    output.writeBoolean(pageNumber != null);
                     output.writeBoolean(pageEvidence != null);
                     if (pageEvidence != null) {
-                        output.writeInt(pageEvidence.pageNumber());
-                        writeText(output, pageEvidence.layoutProfile());
-                        writeText(output, pageEvidence.evidence());
+                        writeText(output, pageEvidence.layoutProfileVersion());
+                        writeText(output, pageEvidence.layoutEngineVersion());
+                        output.writeInt(pageEvidence.pageIndex());
+                        writeText(output, pageEvidence.evidenceHash());
                     }
                     writeAnchor(output, sourceAnchor);
                     writeText(output, contentHash);
@@ -531,83 +680,77 @@ public final class CandidateBlockSet {
 
     private static byte[] encodeText(DocumentBlockCandidate candidate) {
         return encode(output -> {
-            writeText(output, candidate.blockType().name());
-            output.writeInt(candidate.sourceOrder());
-            writeTextList(output, candidate.sectionPath());
-            writeText(output, candidate.sourcePart());
-            output.writeInt(candidate.sourceElementIndex());
-            writeText(output, candidate.text());
-            writeNullableInteger(output, candidate.headingLevel());
-            writeNullableText(output, candidate.styleName());
-            ListSemantics list = candidate.listSemantics();
-            output.writeBoolean(list != null);
-            if (list != null) {
-                writeText(output, list.listInstanceId());
-                output.writeInt(list.itemLevel());
-                output.writeInt(list.itemOrdinal());
-                writeNullableText(output, list.markerText());
+            switch (candidate.blockType()) {
+                case HEADING -> {
+                    writeText(output, "HEADING_PAYLOAD_V1");
+                    writeText(output, candidate.text());
+                    output.writeInt(candidate.headingLevel());
+                    writeNullableText(output, candidate.styleName());
+                }
+                case PARAGRAPH -> {
+                    writeText(output, "PARAGRAPH_PAYLOAD_V1");
+                    writeText(output, candidate.text());
+                    writeNullableText(output, candidate.styleName());
+                }
+                case LIST -> {
+                    ListSemantics list = Objects.requireNonNull(
+                            candidate.listSemantics(), "listSemantics");
+                    writeText(output, "LIST_PAYLOAD_V1");
+                    writeText(output, list.listInstanceId());
+                    output.writeInt(list.itemLevel());
+                    output.writeInt(list.itemOrdinal());
+                    writeNullableText(output, list.markerText());
+                    writeText(output, candidate.text());
+                }
             }
         });
     }
 
     private static byte[] encodeTable(TableBlockCandidate candidate) {
         return encode(output -> {
-            output.writeInt(candidate.sourceOrder());
-            writeText(output, candidate.sourcePart());
-            output.writeInt(candidate.sourceElementIndex());
+            writeText(output, "TABLE_PAYLOAD_V1");
             output.writeInt(candidate.rowCount());
-            output.writeInt(candidate.columnCount());
-            output.writeInt(candidate.cells().size());
-            for (TableCellCandidate cell : candidate.cells()) {
-                output.writeInt(cell.rowIndex());
-                output.writeInt(cell.columnIndex());
-                output.writeInt(cell.rowSpan());
-                output.writeInt(cell.columnSpan());
-                writeText(output, cell.text());
-                output.writeInt(cell.textEvidence().size());
-                for (TableTextEvidence evidence : cell.textEvidence()) {
-                    output.writeInt(evidence.paragraphIndex());
-                    writeText(output, evidence.text());
-                    output.writeInt(evidence.inlineImageOffsets().size());
-                    for (int offset : evidence.inlineImageOffsets()) output.writeInt(offset);
-                }
-            }
-            output.writeInt(candidate.merges().size());
-            for (TableMergeProjection merge : candidate.merges()) {
-                output.writeInt(merge.anchorRow());
-                output.writeInt(merge.anchorColumn());
-                output.writeInt(merge.rowSpan());
-                output.writeInt(merge.columnSpan());
-                output.writeInt(merge.coveredPositions().size());
-                for (TableMergeProjection.GridPosition position : merge.coveredPositions()) {
-                    output.writeInt(position.rowIndex());
-                    output.writeInt(position.columnIndex());
+            for (int rowIndex = 0; rowIndex < candidate.rowCount(); rowIndex++) {
+                output.writeInt(rowIndex);
+                int currentRow = rowIndex;
+                List<TableCellCandidate> cells = candidate.cells().stream()
+                        .filter(cell -> cell.rowIndex() == currentRow)
+                        .toList();
+                output.writeInt(cells.size());
+                for (TableCellCandidate cell : cells) {
+                    output.writeInt(cell.columnIndex());
+                    output.writeInt(cell.rowSpan());
+                    output.writeInt(cell.columnSpan());
+                    writeText(output, cell.text());
                 }
             }
         });
     }
 
     private static byte[] encodeImage(ImageRelationshipProjector.ProjectedImage candidate) {
-        return encode(output -> {
-            output.writeInt(candidate.sourceOrder());
-            writeText(output, candidate.sourcePart());
-            output.writeInt(candidate.sourceElementIndex());
-            writeAnchor(output, SourceAnchor.image(
-                    candidate.sourcePart(), candidate.sourceElementIndex(), candidate.anchor()));
-            writeText(output, candidate.relationshipId());
-            writeText(output, candidate.relationshipMode().name());
-            writeNullableText(output, candidate.externalTargetLiteralSha256() == null
-                    ? null : candidate.externalTargetLiteralSha256().value());
-            writeNullableText(output, candidate.mediaRef() == null
-                    ? null : candidate.mediaRef().value());
-            writeNullableText(output, candidate.mediaType());
-            output.writeBoolean(candidate.byteLength() != null);
-            if (candidate.byteLength() != null) output.writeLong(candidate.byteLength());
-            writeNullableText(output, candidate.contentSha256() == null
-                    ? null : candidate.contentSha256().value());
-            writeNullableText(output, candidate.securityDisclosure());
-            writeText(output, candidate.contentHash().value());
-        });
+        StringBuilder canonical = new StringBuilder("IMAGE_PAYLOAD_V1");
+        appendImageCanonical(canonical, candidate.relationshipId());
+        appendImageCanonical(canonical, candidate.relationshipMode().name());
+        appendImageCanonical(canonical, candidate.externalTargetLiteralSha256() == null
+                ? null : candidate.externalTargetLiteralSha256().value());
+        appendImageCanonical(canonical, candidate.mediaRef() == null
+                ? null : candidate.mediaRef().value());
+        appendImageCanonical(canonical, candidate.mediaType());
+        appendImageCanonical(canonical, candidate.byteLength() == null
+                ? null : candidate.byteLength().toString());
+        appendImageCanonical(canonical, candidate.contentSha256() == null
+                ? null : candidate.contentSha256().value());
+        appendImageCanonical(canonical, candidate.securityDisclosure());
+        return canonical.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static void appendImageCanonical(StringBuilder target, String value) {
+        target.append('|');
+        if (value == null) {
+            target.append("-1:");
+            return;
+        }
+        target.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
     }
 
     private static byte[] encode(IoWriter writer) {
