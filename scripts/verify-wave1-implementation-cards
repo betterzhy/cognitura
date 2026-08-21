@@ -906,6 +906,16 @@ w1_i09_product_copy_finding_paths=(
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
+w1_i09_product_copy_reentry_rejected_candidate_sha="1bfa84cd2bcd895ea946ca0f200354be251990f9"
+w1_i09_product_copy_reentry_rejected_parent_sha="4fef5ed3f755c0d277b2b93a1bbae92e22a763a0"
+w1_i09_product_copy_reentry_rejected_tree_sha="8a18e6d3dcc7ec8c4f4240c37550fc3920f38883"
+w1_i09_product_copy_reentry_spec_sha="903b8bcc369b34d009d515e04685100e5bad857b"
+w1_i09_product_copy_reentry_test_sha="96c936f986585a4217b594dbbfd2524ca22110a7"
+w1_i09_product_copy_reentry_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-product-copy-reentry-finding-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
   docs/engineering/cognitura-design-index.md
@@ -6043,6 +6053,7 @@ validate_post_w1_i09_runtime_projection_descendants() {
   local head="$2"
   local commit parent changed_paths path expected_path expected_mode
   local copy_repair_state="BEFORE" verifier_steps=0 finding_verifier_steps=0
+  local reentry_verifier_steps=0
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
       "${projection}..${head}"); do
@@ -6127,43 +6138,96 @@ validate_post_w1_i09_runtime_projection_descendants() {
       copy_repair_state="FINDING_TEST"
       continue
     fi
-    if [[ "${copy_repair_state}" == "FINDING_TEST" || \
-          "${copy_repair_state}" == "FINDING_VERIFIER" ]]; then
-      expected_path="${w1_i09_product_copy_finding_paths[2]}"
-      if [[ "${changed_paths}" == "${expected_path}" ]]; then
-        require_no_git_rename_or_copy "${parent}" "${commit}" \
-          "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:rename or copy"
-        [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
-          fail "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:mode"
-        require_git_blob_without_nul "${commit}" "${expected_path}" \
-          "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:NUL"
-        finding_verifier_steps=$((finding_verifier_steps + 1))
-        copy_repair_state="FINDING_VERIFIER"
-        continue
-      fi
+    if [[ "${commit}" == "${w1_i09_product_copy_reentry_spec_sha}" ]]; then
       [[ "${copy_repair_state}" == "FINDING_VERIFIER" && \
-         "${finding_verifier_steps}" -ge 1 ]] ||
+         "${parent}" == "${w1_i09_product_copy_reentry_rejected_candidate_sha}" ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:order"
+      [[ "$(git -C "${repo_root}" rev-parse \
+          "${w1_i09_product_copy_reentry_rejected_candidate_sha}^" 2>/dev/null)" == \
+          "${w1_i09_product_copy_reentry_rejected_parent_sha}" ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:rejected parent"
+      [[ "$(git -C "${repo_root}" rev-parse \
+          "${w1_i09_product_copy_reentry_rejected_candidate_sha}^{tree}" 2>/dev/null)" == \
+          "${w1_i09_product_copy_reentry_rejected_tree_sha}" ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:rejected tree"
+      expected_path="${w1_i09_product_copy_reentry_paths[0]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100644 ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:NUL"
+      copy_repair_state="REENTRY_SPEC"
+      continue
+    fi
+    if [[ "${commit}" == "${w1_i09_product_copy_reentry_test_sha}" ]]; then
+      [[ "${copy_repair_state}" == "REENTRY_SPEC" && \
+         "${parent}" == "${w1_i09_product_copy_reentry_spec_sha}" ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:order"
+      expected_path="${w1_i09_product_copy_reentry_paths[1]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:NUL"
+      copy_repair_state="REENTRY_TEST"
+      continue
+    fi
+    if [[ "${copy_repair_state}" == "REENTRY_TEST" ]]; then
+      expected_path="${w1_i09_product_copy_reentry_paths[2]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:NUL"
+      reentry_verifier_steps=1
+      copy_repair_state="REENTRY_VERIFIER"
+      continue
+    elif [[ "${copy_repair_state}" == "REENTRY_VERIFIER" ]]; then
+      copy_repair_state="COMPLETE"
+    elif [[ "${copy_repair_state}" == "REENTRY_SPEC" ]]; then
+      fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:order"
+    fi
+    if [[ "${copy_repair_state}" == "FINDING_TEST" ]]; then
+      expected_path="${w1_i09_product_copy_finding_paths[2]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
         fail "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:NUL"
+      finding_verifier_steps=1
+      copy_repair_state="FINDING_VERIFIER"
+      continue
+    elif [[ "${copy_repair_state}" == "FINDING_VERIFIER" ]]; then
       copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "FINDING_SPEC" ]]; then
       fail "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:order"
     fi
-    if [[ "${copy_repair_state}" == "TEST" || \
-          "${copy_repair_state}" == "VERIFIER" ]]; then
+    if [[ "${copy_repair_state}" == "TEST" ]]; then
       expected_path="${w1_i09_product_copy_repair_paths[2]}"
-      if [[ "${changed_paths}" == "${expected_path}" ]]; then
-        require_no_git_rename_or_copy "${parent}" "${commit}" \
-          "I09_PRODUCT_COPY_REPAIR_INVALID:rename or copy"
-        [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
-          fail "I09_PRODUCT_COPY_REPAIR_INVALID:mode"
-        require_git_blob_without_nul "${commit}" "${expected_path}" \
-          "I09_PRODUCT_COPY_REPAIR_INVALID:NUL"
-        verifier_steps=$((verifier_steps + 1))
-        copy_repair_state="VERIFIER"
-        continue
-      fi
-      [[ "${copy_repair_state}" == "VERIFIER" && "${verifier_steps}" -ge 1 ]] ||
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
         fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_PRODUCT_COPY_REPAIR_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_PRODUCT_COPY_REPAIR_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_PRODUCT_COPY_REPAIR_INVALID:NUL"
+      verifier_steps=1
+      copy_repair_state="VERIFIER"
+      continue
+    elif [[ "${copy_repair_state}" == "VERIFIER" ]]; then
       copy_repair_state="COMPLETE"
     elif [[ "${copy_repair_state}" == "ORIGIN" || \
             "${copy_repair_state}" == "SPEC" ]]; then
@@ -6205,6 +6269,9 @@ validate_post_w1_i09_runtime_projection_descendants() {
     FINDING_SPEC|FINDING_TEST)
       fail "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:incomplete"
       ;;
+    REENTRY_SPEC|REENTRY_TEST)
+      fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:incomplete"
+      ;;
     VERIFIER)
       [[ "${verifier_steps}" -ge 1 ]] ||
         fail "I09_PRODUCT_COPY_REPAIR_INVALID:missing verifier"
@@ -6212,6 +6279,10 @@ validate_post_w1_i09_runtime_projection_descendants() {
     FINDING_VERIFIER)
       [[ "${finding_verifier_steps}" -ge 1 ]] ||
         fail "I09_PRODUCT_COPY_FINDING_REPAIR_INVALID:missing verifier"
+      ;;
+    REENTRY_VERIFIER)
+      [[ "${reentry_verifier_steps}" -eq 1 ]] ||
+        fail "I09_PRODUCT_COPY_REENTRY_REPAIR_INVALID:missing verifier"
       ;;
   esac
   git -C "${repo_root}" diff --quiet "${projection}..${head}" -- \
