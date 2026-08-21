@@ -4186,6 +4186,9 @@ i07_closure_legacy_gate_repair_sha="762dbf3c10b2d68eb5fe07b90e381a4e00e075e8"
 i07_closure_legacy_gate_test_sha="463d5fb90d0c0f7859debebf5423dccba1381e75"
 i07_closure_legacy_gate_green_sha="a1312b46d42b53ac8bcaa9b38774a123932274b6"
 i07_closure_review_repair_sha="90d0620029dc291a79ec2ecced1e34f82c098f22"
+i07_closure_review_matrix_test_sha="d1b54a1aabc4982aeefd2749e5e85270947e4eb4"
+i07_closure_staging_repair_sha="b56b3abeedc60f9fd7a88e50bf6505cf6d8eb74e"
+i07_closure_staging_count_sha="c0f273b72d4011bfa28a979d297514e70c6247f7"
 i07_reviewed_candidate_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
 i07_reviewed_parent_sha="5433485e8f88f3846cbda722282223a3c8274b14"
 i07_reviewed_tree_sha="d82ece96e0e3dabdfef64a766179b711ea6d557f"
@@ -4259,6 +4262,17 @@ materialize_w1_i07_governance_tip() {
     "${i07_closure_review_repair_sha}" \
     docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md \
     "docs: authorize I07 closure review finding repair"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_review_matrix_test_sha}" "${test_path}" \
+    "test: complete I07 closure negative matrix"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_staging_repair_sha}" \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-fixture-staging-repair.md \
+    "docs: authorize I07 review fixture staging repair"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_staging_count_sha}" \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-staging-chain-count-clarification.md \
+    "docs: clarify I07 staging repair chain count"
   cp -p "${repo_root}/${test_path}" "${fixture_root}/${test_path}"
   chmod 755 "${fixture_root}/${test_path}"
   git -C "${fixture_root}" add "${test_path}"
@@ -4601,8 +4615,7 @@ run_w1_i07_closure_contract() {
   git -C "${fixture_root}" mv \
     docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md \
     docs/task-cards/wave-1-implementation/W1-I09-renamed.md
-  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}" \
-    docs/task-cards/wave-1-implementation/W1-I09-renamed.md
+  git -C "${fixture_root}" add -A
   git -C "${fixture_root}" commit -qm "test: rename I09 closure card"
   expect_w1_i07_closure_failure "${fixture_root}" \
     "I07_CLOSURE_RECEIPT_PATHS_INVALID" \
