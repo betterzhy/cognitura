@@ -720,6 +720,150 @@ w1_i02_closure_pair_head=(
   'I00、I01、I02、I03、I04、I05 和 I06 已关闭；I07 已释放为唯一 `READY` 业务卡。'
   '完成零发现深审并关闭；I02、I03、I04、I05 和 I06 已关闭，I07 已释放为唯一 `READY` 卡。'
 )
+w1_i07_closure_origin_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
+w1_i07_reviewed_candidate_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
+w1_i07_reviewed_parent_sha="5433485e8f88f3846cbda722282223a3c8274b14"
+w1_i07_reviewed_tree_sha="d82ece96e0e3dabdfef64a766179b711ea6d557f"
+w1_i08_card_path="docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md"
+w1_i09_card_path="docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md"
+w1_i10_card_path="docs/task-cards/wave-1-implementation/W1-I10-source-preview-query-api.md"
+w1_i07_closure_governance_paths=(
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md
+  docs/superpowers/plans/2026-08-21-cognitura-w1-i07-closure.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-contract-count-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i07_closure_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  "${w1_i07_card_path}"
+  "${w1_i08_card_path}"
+  "${w1_i09_card_path}"
+)
+w1_i07_product_paths=(
+  server/src/main/java/io/cognitura/source/application/processing/ProcessingAttempt.java
+  server/src/main/java/io/cognitura/source/application/processing/AttemptLease.java
+  server/src/main/java/io/cognitura/source/application/processing/AttemptFence.java
+  server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java
+  server/src/main/java/io/cognitura/source/application/processing/BlockSetDigest.java
+  server/src/main/java/io/cognitura/source/application/processing/ProcessingPublicationService.java
+  server/src/main/java/io/cognitura/source/application/processing/ProcessingPublicationPort.java
+  server/src/test/java/io/cognitura/source/application/processing/ProcessingPublicationIntegrationTest.java
+)
+w1_i08_product_paths=(
+  server/src/main/java/io/cognitura/source/reference/StableSourceReference.java
+  server/src/main/java/io/cognitura/source/reference/SourceScopedAlias.java
+  server/src/main/java/io/cognitura/source/reference/ReparseProfile.java
+  server/src/main/java/io/cognitura/source/reference/ReparseLineage.java
+  server/src/main/java/io/cognitura/source/reference/ReferenceResolutionService.java
+  server/src/main/java/io/cognitura/source/reference/ReferenceResolutionException.java
+  server/src/test/java/io/cognitura/source/reference/ReferenceResolutionServiceTest.java
+  server/src/test/java/io/cognitura/source/reference/ReparseLineageTest.java
+)
+w1_i07_closure_pair_paths=(
+  AGENTS.md AGENTS.md AGENTS.md
+  README.md README.md README.md
+  docs/design/wave-1/README.md docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  "${w1_i07_card_path}"
+  "${w1_i08_card_path}" "${w1_i08_card_path}"
+  "${w1_i09_card_path}"
+)
+w1_i07_closure_pair_base=(
+  'ActiveImplementationTaskCard = W1-I07'
+  '`W1-I02` 已完成固定候选零发现深审并关闭；`W1-I07` 已作为唯一 `READY` 卡释放。'
+  'I00、I01、I02、I03、I04、I05 和 I06 已关闭；I07 为唯一 `READY` 卡。'
+  'ActiveImplementationTaskCard = W1-I07'
+  '完成零发现深审并关闭；I02 已关闭，I07 已释放为唯一 `READY` 卡。'
+  '已完成固定候选零发现深审并关闭；`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06` 已关闭，`W1-I07` 为唯一 `READY` 卡。'
+  'ActiveImplementationGovernanceTaskCard = W1-I07'
+  '  I01、I02、I03、I04、I05 和 I06 已关闭，I07 已释放为唯一 `READY` 卡。'
+  'ActiveTaskCard = W1-I07'
+  'ActiveImplementationTaskCard = W1-I07'
+  $'现有卡集。`W1-I01`、`W1-I02`、`W1-I05` 和 `W1-I06` 已完成固定候选零发现深审并关闭；\n`W1-I07` 已释放为唯一 `READY` 卡。'
+  'ActiveImplementationGovernanceTaskCard = W1-I07'
+  '固定候选深审并关闭；I02、I03、I04、I05 和 I06 已关闭，I07 已释放为唯一 `READY` 卡，完整证据记录在'
+  'ImplementationTaskCardPlanStatus = I02_DONE_I07_READY'
+  'ActiveImplementationGovernanceTaskCard = W1-I07'
+  '数据库 Gate 和固定候选深审均已通过，I02、I03、I04、I05 和 I06 已关闭；I07 为唯一 `READY` 卡。正式数据库、Parser/Object Storage Provider、'
+  'ActiveTaskCard = W1-I07'
+  '| `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `READY` |'
+  '| `W1-I08` | Stable reference/lineage | `I07` | `BLOCKED_BY_DEPENDENCY` |'
+  '| `W1-I09` | Upload/processing command API | `I07` | `BLOCKED_BY_DEPENDENCY` |'
+  $'Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、I03、I04、I05 和 I06 已完成固定候选\n零发现深审并关闭；I07 已释放为唯一 `READY` 卡。'
+  'ActiveImplementationGovernanceTaskCard = W1-I07'
+  'I00、I01、I02、I03、I04、I05 和 I06 已关闭；I07 已释放为唯一 `READY` 业务卡。'
+  'ActiveTaskCard = W1-I07'
+  '| `W1-I07` | [处理发布](W1-I07-revision-attempt-fencing-publication.md) | `READY` | `W1-I02,W1-I04,W1-I05,W1-I06` | `W1-IG7` | `HIGH` |'
+  '| `W1-I08` | [稳定引用与 lineage](W1-I08-stable-reference-reparse-lineage.md) | `BLOCKED_BY_DEPENDENCY` | `W1-I07` | `W1-IG8` | `HIGH` |'
+  '| `W1-I09` | [上传与处理命令](W1-I09-upload-processing-command-api.md) | `BLOCKED_BY_DEPENDENCY` | `W1-I07` | `W1-IG9` | `HIGH` |'
+  '完成零发现深审并关闭；I02、I03、I04、I05 和 I06 已关闭，I07 已释放为唯一 `READY` 卡。'
+  'Status = READY'
+  'Status = BLOCKED_BY_DEPENDENCY'
+  'BusinessImplementationAuthorization = REQUIRED_BEFORE_READY'
+  'Status = BLOCKED_BY_DEPENDENCY'
+)
+w1_i07_closure_pair_head=(
+  'ActiveImplementationTaskCard = W1-I08'
+  '`W1-I02` 和 `W1-I07` 已完成固定候选零发现深审并关闭；`W1-I08` 已作为唯一 `READY` 卡释放，`W1-I09` 保持 `QUEUED`。'
+  'I00、I01、I02、I03、I04、I05、I06 和 I07 已关闭；I08 为唯一 `READY` 卡，I09 保持 `QUEUED`。'
+  'ActiveImplementationTaskCard = W1-I08'
+  '完成零发现深审并关闭；I02 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。'
+  '已完成固定候选零发现深审并关闭；`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06`、`W1-I07` 已关闭，`W1-I08` 为唯一 `READY` 卡，`W1-I09` 保持 `QUEUED`。'
+  'ActiveImplementationGovernanceTaskCard = W1-I08'
+  '  I01、I02、I03、I04、I05、I06 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。'
+  'ActiveTaskCard = W1-I08'
+  'ActiveImplementationTaskCard = W1-I08'
+  $'现有卡集。`W1-I01`、`W1-I02`、`W1-I05`、`W1-I06` 和 `W1-I07` 已完成固定候选零发现深审并关闭；\n`W1-I08` 已释放为唯一 `READY` 卡，`W1-I09` 保持 `QUEUED`。'
+  'ActiveImplementationGovernanceTaskCard = W1-I08'
+  '固定候选深审并关闭；I02、I03、I04、I05、I06 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`，完整证据记录在'
+  'ImplementationTaskCardPlanStatus = I07_DONE_I08_READY_I09_QUEUED'
+  'ActiveImplementationGovernanceTaskCard = W1-I08'
+  '数据库 Gate 和固定候选深审均已通过，I02、I03、I04、I05、I06 和 I07 已关闭；I08 为唯一 `READY` 卡，I09 保持 `QUEUED`。正式数据库、Parser/Object Storage Provider、'
+  'ActiveTaskCard = W1-I08'
+  '| `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `DONE` |'
+  '| `W1-I08` | Stable reference/lineage | `I07` | `READY` |'
+  '| `W1-I09` | Upload/processing command API | `I07` | `QUEUED` |'
+  $'Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、I03、I04、I05、I06 和 I07 已完成固定候选\n零发现深审并关闭；I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。'
+  'ActiveImplementationGovernanceTaskCard = W1-I08'
+  'I00、I01、I02、I03、I04、I05、I06 和 I07 已关闭；I08 已释放为唯一 `READY` 业务卡，I09 保持 `QUEUED`。'
+  'ActiveTaskCard = W1-I08'
+  '| `W1-I07` | [处理发布](W1-I07-revision-attempt-fencing-publication.md) | `DONE` | `W1-I02,W1-I04,W1-I05,W1-I06` | `W1-IG7` | `HIGH` |'
+  '| `W1-I08` | [稳定引用与 lineage](W1-I08-stable-reference-reparse-lineage.md) | `READY` | `W1-I07` | `W1-IG8` | `HIGH` |'
+  '| `W1-I09` | [上传与处理命令](W1-I09-upload-processing-command-api.md) | `QUEUED` | `W1-I07` | `W1-IG9` | `HIGH` |'
+  '完成零发现深审并关闭；I02、I03、I04、I05、I06 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。'
+  'Status = DONE'
+  'Status = READY'
+  'BusinessImplementationAuthorization = USER_AUTHORIZED'
+  'Status = QUEUED'
+)
 terra_first_routing_predecessor_sha="59144c9dfca4abacce62de41c7306021bf5b83f8"
 terra_first_routing_agents_blob="7804d024703d30848b0acad2f8a38771bbc32099"
 terra_first_routing_authority_blob="fdd877b114bc21d9acecddb176515573fdbd8ce5"
@@ -2602,6 +2746,22 @@ is_w1_i07_descendant_path() {
   return 1
 }
 
+is_w1_i08_descendant_path() {
+  case "$1" in
+    server/src/main/java/io/cognitura/source/reference/StableSourceReference.java|\
+    server/src/main/java/io/cognitura/source/reference/SourceScopedAlias.java|\
+    server/src/main/java/io/cognitura/source/reference/ReparseProfile.java|\
+    server/src/main/java/io/cognitura/source/reference/ReparseLineage.java|\
+    server/src/main/java/io/cognitura/source/reference/ReferenceResolutionService.java|\
+    server/src/main/java/io/cognitura/source/reference/ReferenceResolutionException.java|\
+    server/src/test/java/io/cognitura/source/reference/ReferenceResolutionServiceTest.java|\
+    server/src/test/java/io/cognitura/source/reference/ReparseLineageTest.java)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 require_w1_i05_closure_review_receipt() {
   local commit="$1"
   local governance_base="$2"
@@ -4216,6 +4376,412 @@ validate_post_w1_i02_closure_descendants() {
   done
 }
 
+validate_w1_i07_predecessor() {
+  local origin_parent origin_tree i02_receipt actual_paths expected_paths
+  origin_parent="$(single_parent_of "${w1_i07_closure_origin_sha}" \
+    "W1-I07 reviewed product candidate")"
+  [[ "${origin_parent}" == "${w1_i07_reviewed_parent_sha}" ]] ||
+    fail "I07_CLOSURE_PRODUCT_IDENTITY_INVALID:parent"
+  origin_tree="$(git -C "${repo_root}" rev-parse \
+    "${w1_i07_closure_origin_sha}^{tree}" 2>/dev/null)" ||
+    fail "I07_CLOSURE_PRODUCT_IDENTITY_INVALID:tree unavailable"
+  [[ "${origin_tree}" == "${w1_i07_reviewed_tree_sha}" ]] ||
+    fail "I07_CLOSURE_PRODUCT_IDENTITY_INVALID:tree"
+  [[ "${w1_i07_closure_origin_sha}" == "${w1_i07_reviewed_candidate_sha}" ]] ||
+    fail "I07_CLOSURE_PRODUCT_IDENTITY_INVALID:candidate"
+  i02_receipt="$(find_unique_w1_i02_closure "${w1_i07_closure_origin_sha}")"
+  validate_w1_i02_closure "${w1_i02_closure_base_sha}" "${i02_receipt}"
+  validate_post_w1_i02_closure_descendants \
+    "${i02_receipt}" "${w1_i07_closure_origin_sha}"
+  actual_paths="$(git -C "${repo_root}" diff --name-only \
+    "${i02_receipt}..${w1_i07_closure_origin_sha}" | LC_ALL=C sort)"
+  expected_paths="$(printf '%s\n' "${w1_i07_product_paths[@]}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I07_CLOSURE_PRODUCT_IDENTITY_INVALID:exact eight paths"
+}
+
+validate_w1_i07_closure_governance_chain() {
+  local tip="$1"
+  local commits=() commit parent previous changed_paths path index expected_path
+  local expected_mode actual_paths expected_paths
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i07_closure_origin_sha}" "${tip}" 2>/dev/null ||
+    fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:origin ancestry"
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i07_closure_origin_sha}..${tip}")
+  for commit in "${commits[@]}"; do
+    parent="$(single_parent_of "${commit}" \
+      "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:single parent")"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      is_w1_i07_descendant_path "${path}" &&
+        fail "I07_CLOSURE_PRODUCT_DRIFT:${path}"
+    done <<< "${changed_paths}"
+  done
+  [[ "${#commits[@]}" -eq "${#w1_i07_closure_governance_paths[@]}" ]] ||
+    fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:exact six commits"
+  previous="${w1_i07_closure_origin_sha}"
+  for index in "${!w1_i07_closure_governance_paths[@]}"; do
+    commit="${commits[${index}]}"
+    expected_path="${w1_i07_closure_governance_paths[${index}]}"
+    parent="$(single_parent_of "${commit}" \
+      "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] ||
+      fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:first-parent order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:empty commit"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:rename or copy"
+    actual_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}" | LC_ALL=C sort)"
+    [[ "${actual_paths}" == "${expected_path}" ]] ||
+      fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:path order"
+    case "${expected_path}" in
+      docs/superpowers/specs/*|docs/superpowers/plans/*) expected_mode=100644 ;;
+      tests/*|scripts/*) expected_mode=100755 ;;
+      *) fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:unknown path" ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:NUL"
+    previous="${commit}"
+  done
+  expected_paths="$(printf '%s\n' \
+    "${w1_i07_closure_governance_paths[@]}" | LC_ALL=C sort -u)"
+  actual_paths="$(git -C "${repo_root}" diff --name-only \
+    "${w1_i07_closure_origin_sha}..${tip}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:cumulative paths"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i07_closure_origin_sha}..${tip}" -- \
+    "${w1_i07_closure_projection_paths[@]}" ||
+    fail "I07_CLOSURE_PROJECTION_MISMATCH:governance prefix"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i07_reviewed_candidate_sha}..${tip}" -- \
+    "${w1_i07_product_paths[@]}" ||
+    fail "I07_CLOSURE_PRODUCT_DRIFT:governance prefix"
+}
+
+require_w1_i07_closure_review_receipt() {
+  local receipt="$1"
+  local governance_tip="$2"
+  local governance_parent governance_tree receipt_dir plan_file
+  governance_parent="$(single_parent_of "${governance_tip}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID:governance parent")"
+  governance_tree="$(git -C "${repo_root}" rev-parse \
+    "${governance_tip}^{tree}" 2>/dev/null)" ||
+    fail "I07_CLOSURE_REVIEW_RECEIPT_INVALID:governance tree"
+  register_temporary_directory receipt_dir cognitura-i07-closure-receipt
+  plan_file="${receipt_dir}/plan"
+  git -C "${repo_root}" show \
+    "${receipt}:docs/engineering/cognitura-wave-1-implementation-plan.md" > \
+    "${plan_file}" 2>/dev/null || {
+      remove_temporary_directory "${receipt_dir}"
+      fail "I07_CLOSURE_REVIEW_RECEIPT_INVALID:plan unavailable"
+    }
+  [[ "$(grep -c '^## 14\. I07 关闭收据$' "${plan_file}" || true)" -eq 1 ]] || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "I07_CLOSURE_REVIEW_RECEIPT_INVALID:heading"
+  }
+  sed -n '/^## 14\. I07 关闭收据$/,$p' "${plan_file}" > \
+    "${receipt_dir}/actual"
+  printf '%s\n' \
+    '## 14. I07 关闭收据' \
+    '' \
+    '```text' \
+    'W1-I07 = DONE' \
+    "ReviewedCandidate = ${w1_i07_reviewed_candidate_sha}" \
+    "ReviewedParent = ${w1_i07_reviewed_parent_sha}" \
+    "ReviewedTree = ${w1_i07_reviewed_tree_sha}" \
+    "ReviewedGovernanceCandidate = ${governance_tip}" \
+    "ReviewedGovernanceParent = ${governance_parent}" \
+    "ReviewedGovernanceTree = ${governance_tree}" \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0 = 0' \
+    'P1 = 0' \
+    'P2 = 0' \
+    'Ultra = NOT_RUN' \
+    'I07ClosureReleasedTaskCard = W1-I08' \
+    'QueuedTaskCard = W1-I09' \
+    'QueuedReason = SERIAL_EXECUTION_ORDER' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' > "${receipt_dir}/expected"
+  cmp -s "${receipt_dir}/actual" "${receipt_dir}/expected" || {
+    remove_temporary_directory "${receipt_dir}"
+    fail "I07_CLOSURE_REVIEW_RECEIPT_INVALID:content"
+  }
+  remove_temporary_directory "${receipt_dir}"
+}
+
+write_normalized_w1_i07_closure_file() {
+  local commit="$1"
+  local path="$2"
+  local output_file="$3"
+  local state="$4"
+  local current_file next_file pair_index expected_state matched=0
+  git -C "${repo_root}" show "${commit}:${path}" > \
+    "${output_file}.raw" 2>/dev/null ||
+    fail "I07_CLOSURE_PROJECTION_MISMATCH:path unavailable:${path}"
+  copy_nul_free_file "${output_file}.raw" "${output_file}.nul-free" \
+    "I07_CLOSURE_RECEIPT_PATHS_INVALID:NUL:${path}"
+  current_file="${output_file}.nul-free"
+  if [[ "${state}" == HEAD && \
+        "${path}" == docs/engineering/cognitura-wave-1-implementation-plan.md ]]; then
+    next_file="${output_file}.without-receipt"
+    perl -0777 -pe 's/\n## 14\. I07 关闭收据\n.*\z//s' \
+      "${current_file}" > "${next_file}" ||
+      fail "I07_CLOSURE_REVIEW_RECEIPT_INVALID:normalization"
+    current_file="${next_file}"
+  fi
+  [[ "${state}" == BASE ]] && expected_state=SUSPENDED || expected_state=READY
+  for pair_index in "${!w1_i07_closure_pair_paths[@]}"; do
+    [[ "${w1_i07_closure_pair_paths[${pair_index}]}" == "${path}" ]] || continue
+    matched=1
+    next_file="${output_file}.pair-${pair_index}"
+    normalize_narrative_pair_file \
+      "${current_file}" "${next_file}" \
+      "${w1_i07_closure_pair_base[${pair_index}]}" \
+      "${w1_i07_closure_pair_head[${pair_index}]}" \
+      "__W1_I07_CLOSURE_PAIR_${pair_index}__" \
+      "${expected_state}" \
+      "I07_CLOSURE_PROJECTION_MISMATCH:${path}"
+    current_file="${next_file}"
+  done
+  [[ "${matched}" -eq 1 ]] ||
+    fail "I07_CLOSURE_PROJECTION_MISMATCH:missing pair:${path}"
+  cp "${current_file}" "${output_file}" ||
+    fail "I07_CLOSURE_PROJECTION_MISMATCH:copy:${path}"
+}
+
+require_all_w1_i07_git_tree_fields() {
+  local commit="$1"
+  local path="$2"
+  local key="$3"
+  local expected="$4"
+  local content count mismatches
+  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
+    fail "I07_CLOSURE_AUTHORIZATION_DRIFT:${path}:${key}:unavailable"
+  count="$(printf '%s\n' "${content}" | grep -c "^${key} = " || true)"
+  [[ "${count}" -gt 0 ]] ||
+    fail "I07_CLOSURE_AUTHORIZATION_DRIFT:${path}:${key}:missing"
+  mismatches="$(printf '%s\n' "${content}" | sed -n "s/^${key} = //p" | \
+    grep -Fvx "${expected}" || true)"
+  [[ -z "${mismatches}" ]] ||
+    fail "I07_CLOSURE_AUTHORIZATION_DRIFT:${path}:${key}"
+}
+
+validate_w1_i07_closure_receipt() {
+  local governance_tip="$1"
+  local receipt="$2"
+  local actual_paths expected_paths path base_mode head_mode index_content
+  local compare_dir compare_index=0
+  [[ "$(single_parent_of "${receipt}" \
+    "I07_CLOSURE_RECEIPT_PATHS_INVALID:direct child")" == "${governance_tip}" ]] ||
+    fail "I07_CLOSURE_RECEIPT_PATHS_INVALID:direct child"
+  validate_w1_i07_closure_governance_chain "${governance_tip}"
+  [[ "$(git_tree_field "${receipt}" "${w1_i07_card_path}" Status)" == DONE ]] ||
+    fail "I07_CLOSURE_STATE_VECTOR_INVALID:cards"
+  require_no_git_rename_or_copy "${governance_tip}" "${receipt}" \
+    "I07_CLOSURE_RECEIPT_PATHS_INVALID:rename or copy"
+  actual_paths="$(git -C "${repo_root}" diff --name-only \
+    "${governance_tip}..${receipt}" | LC_ALL=C sort)"
+  expected_paths="$(printf '%s\n' \
+    "${w1_i07_closure_projection_paths[@]}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I07_CLOSURE_RECEIPT_PATHS_INVALID:exact twelve paths"
+  for path in "${w1_i07_closure_projection_paths[@]}"; do
+    base_mode="$(git_tree_mode "${governance_tip}" "${path}")"
+    head_mode="$(git_tree_mode "${receipt}" "${path}")"
+    [[ -n "${base_mode}" && "${base_mode}" == "${head_mode}" ]] ||
+      fail "I07_CLOSURE_RECEIPT_PATHS_INVALID:mode:${path}"
+    require_git_blob_without_nul "${receipt}" "${path}" \
+      "I07_CLOSURE_RECEIPT_PATHS_INVALID:NUL:${path}"
+  done
+  [[ "$(git_tree_field "${governance_tip}" "${w1_i07_card_path}" Status)" == READY &&
+     "$(git_tree_field "${governance_tip}" "${w1_i08_card_path}" Status)" == BLOCKED_BY_DEPENDENCY &&
+     "$(git_tree_field "${governance_tip}" "${w1_i09_card_path}" Status)" == BLOCKED_BY_DEPENDENCY &&
+     "$(git_tree_field "${receipt}" "${w1_i07_card_path}" Status)" == DONE &&
+     "$(git_tree_field "${receipt}" "${w1_i08_card_path}" Status)" == READY &&
+     "$(git_tree_field "${receipt}" "${w1_i09_card_path}" Status)" == QUEUED &&
+     "$(git_tree_field "${receipt}" "${w1_i10_card_path}" Status)" == BLOCKED_BY_DEPENDENCY ]] ||
+    fail "I07_CLOSURE_STATE_VECTOR_INVALID:cards"
+  [[ "$(git_tree_field "${receipt}" "${w1_i08_card_path}" \
+      BusinessImplementationAuthorization)" == USER_AUTHORIZED &&
+     "$(git_tree_field "${receipt}" "${w1_i09_card_path}" \
+      BusinessImplementationAuthorization)" == REQUIRED_BEFORE_READY ]] ||
+    fail "I07_CLOSURE_STATE_VECTOR_INVALID:authorization vector"
+  require_git_tree_field "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md \
+    TaskCardSetStatus READY_FOR_EXECUTION
+  require_git_tree_field "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md ActiveTaskCard W1-I08
+  require_git_tree_field "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md ReadyTaskCardCount 1
+  require_git_tree_field "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md SuspendedTaskCardCount 0
+  index_content="$(git -C "${repo_root}" show \
+    "${receipt}:docs/task-cards/wave-1-implementation/README.md")" ||
+    fail "I07_CLOSURE_STATE_VECTOR_INVALID:index"
+  [[ "$(printf '%s\n' "${index_content}" | grep -c '| `READY` |' || true)" -eq 1 ]] ||
+    fail "I07_CLOSURE_STATE_VECTOR_INVALID:READY count"
+  require_exact_git_tree_table_row "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md W1-I07 \
+    '| `W1-I07` | [处理发布](W1-I07-revision-attempt-fencing-publication.md) | `DONE` | `W1-I02,W1-I04,W1-I05,W1-I06` | `W1-IG7` | `HIGH` |' \
+    'I07_CLOSURE_STATE_VECTOR_INVALID:I07 index row'
+  require_exact_git_tree_table_row "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md W1-I08 \
+    '| `W1-I08` | [稳定引用与 lineage](W1-I08-stable-reference-reparse-lineage.md) | `READY` | `W1-I07` | `W1-IG8` | `HIGH` |' \
+    'I07_CLOSURE_STATE_VECTOR_INVALID:I08 index row'
+  require_exact_git_tree_table_row "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md W1-I09 \
+    '| `W1-I09` | [上传与处理命令](W1-I09-upload-processing-command-api.md) | `QUEUED` | `W1-I07` | `W1-IG9` | `HIGH` |' \
+    'I07_CLOSURE_STATE_VECTOR_INVALID:I09 index row'
+  require_exact_git_tree_table_row "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md W1-I10 \
+    '| `W1-I10` | [来源预览查询](W1-I10-source-preview-query-api.md) | `BLOCKED_BY_DEPENDENCY` | `W1-I08,W1-I09` | `W1-IG10` | `HIGH` |' \
+    'I07_CLOSURE_STATE_VECTOR_INVALID:I10 index row'
+  require_exact_git_tree_table_row "${receipt}" \
+    docs/engineering/cognitura-wave-1-implementation-plan.md W1-I07 \
+    '| `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `DONE` |' \
+    'I07_CLOSURE_STATE_VECTOR_INVALID:I07 plan row'
+  require_exact_git_tree_table_row "${receipt}" \
+    docs/engineering/cognitura-wave-1-implementation-plan.md W1-I08 \
+    '| `W1-I08` | Stable reference/lineage | `I07` | `READY` |' \
+    'I07_CLOSURE_STATE_VECTOR_INVALID:I08 plan row'
+  require_exact_git_tree_table_row "${receipt}" \
+    docs/engineering/cognitura-wave-1-implementation-plan.md W1-I09 \
+    '| `W1-I09` | Upload/processing command API | `I07` | `QUEUED` |' \
+    'I07_CLOSURE_STATE_VECTOR_INVALID:I09 plan row'
+  require_all_w1_i07_git_tree_fields "${receipt}" AGENTS.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" AGENTS.md RemotePush NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" README.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" README.md RemotePush NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/engineering/cognitura-design-index.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/engineering/cognitura-design-index.md RemotePush NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/engineering/cognitura-wave-1-design-plan.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/engineering/cognitura-wave-1-design-plan.md DeploymentAndRelease NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/engineering/cognitura-wave-1-design-acceptance.md RemotePush NOT_PERFORMED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/engineering/cognitura-wave-1-implementation-plan.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/engineering/cognitura-wave-1-implementation-plan.md RemotePush NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md FormalDatabaseWrite NOT_AUTHORIZED
+  require_all_w1_i07_git_tree_fields "${receipt}" \
+    docs/task-cards/wave-1-implementation/README.md RemotePush NOT_AUTHORIZED
+  require_w1_i07_closure_review_receipt "${receipt}" "${governance_tip}"
+  register_temporary_directory compare_dir cognitura-i07-closure-compare
+  for path in "${w1_i07_closure_projection_paths[@]}"; do
+    write_normalized_w1_i07_closure_file \
+      "${governance_tip}" "${path}" "${compare_dir}/base-${compare_index}" BASE
+    write_normalized_w1_i07_closure_file \
+      "${receipt}" "${path}" "${compare_dir}/head-${compare_index}" HEAD
+    cmp -s "${compare_dir}/base-${compare_index}" \
+      "${compare_dir}/head-${compare_index}" || {
+        remove_temporary_directory "${compare_dir}"
+        fail "I07_CLOSURE_PROJECTION_MISMATCH:${path}"
+      }
+    compare_index=$((compare_index + 1))
+  done
+  remove_temporary_directory "${compare_dir}"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i07_reviewed_candidate_sha}..${receipt}" -- \
+    "${w1_i07_product_paths[@]}" ||
+    fail "I07_CLOSURE_PRODUCT_DRIFT:receipt"
+}
+
+find_unique_w1_i07_closure_receipt() {
+  local head="$1"
+  local commit parent vector receipt="" receipt_count=0
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i07_closure_origin_sha}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:receipt provenance")"
+    vector="$(git_tree_field "${parent}" "${w1_i07_card_path}" Status):$(git_tree_field \
+      "${commit}" "${w1_i07_card_path}" Status):$(git_tree_field \
+      "${parent}" "${w1_i08_card_path}" Status):$(git_tree_field \
+      "${commit}" "${w1_i08_card_path}" Status):$(git_tree_field \
+      "${parent}" "${w1_i09_card_path}" Status):$(git_tree_field \
+      "${commit}" "${w1_i09_card_path}" Status)"
+    if [[ "${vector}" == \
+        READY:DONE:BLOCKED_BY_DEPENDENCY:READY:BLOCKED_BY_DEPENDENCY:QUEUED ]]; then
+      receipt_count=$((receipt_count + 1))
+      receipt="${commit}"
+    fi
+  done
+  [[ "${receipt_count}" -eq 1 ]] ||
+    fail "I07_CLOSURE_REVIEW_RECEIPT_INVALID:exactly once"
+  printf '%s\n' "${receipt}"
+}
+
+validate_post_w1_i07_closure_descendants() {
+  local receipt="$1"
+  local head="$2"
+  local commit parent changed_paths path
+  [[ "${receipt}" != "${head}" ]] || return 0
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${receipt}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I07_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET:single parent")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I07_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET:empty commit"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I07_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      is_w1_i08_descendant_path "${path}" ||
+        fail "I07_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET:${path}"
+    done <<< "${changed_paths}"
+  done
+}
+
+validate_w1_i07_pending_worktree() {
+  local governance_tip="$1"
+  local path
+  for path in "${w1_i07_closure_governance_paths[@]}" \
+      "${w1_i07_closure_projection_paths[@]}" \
+      "${w1_i07_product_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet "${governance_tip}" -- "${path}" ||
+      fail "I07_CLOSURE_WORKTREE_MISMATCH:${path}"
+  done
+}
+
+validate_w1_i07_closed_worktree() {
+  local governance_tip="$1"
+  local receipt="$2"
+  local head="$3"
+  local path
+  for path in "${w1_i07_closure_governance_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet "${governance_tip}" -- "${path}" ||
+      fail "I07_CLOSURE_WORKTREE_MISMATCH:${path}"
+  done
+  for path in "${w1_i07_closure_projection_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet "${receipt}" -- "${path}" ||
+      fail "I07_CLOSURE_WORKTREE_MISMATCH:${path}"
+  done
+  for path in "${w1_i07_product_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet "${head}" -- "${path}" ||
+      fail "I07_CLOSURE_WORKTREE_MISMATCH:${path}"
+  done
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -4267,6 +4833,84 @@ index_file="${cards_dir}/README.md"
 current_repository_head="$(git -C "${repo_root}" rev-parse --verify HEAD^{commit} 2>/dev/null)" ||
   fail "repository HEAD must resolve to a commit"
 if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
+  i07_route_commit="${current_repository_head}"
+  [[ -n "${transition_base}" ]] && i07_route_commit="${transition_base}"
+  if [[ "${i07_route_commit}" != "${w1_i07_closure_origin_sha}" ]] &&
+      git -C "${repo_root}" merge-base --is-ancestor \
+        "${w1_i07_closure_origin_sha}" "${i07_route_commit}" 2>/dev/null; then
+    validate_w1_i07_predecessor
+    if [[ -n "${transition_base}" ]]; then
+      i07_transition_base="$(git -C "${repo_root}" rev-parse --verify \
+        "${transition_base}^{commit}" 2>/dev/null)" ||
+        fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:BASE"
+      i07_transition_head="$(git -C "${repo_root}" rev-parse --verify \
+        "${transition_head}^{commit}" 2>/dev/null)" ||
+        fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:HEAD"
+      i07_base_vector="$(git_tree_field "${i07_transition_base}" \
+        "${w1_i07_card_path}" Status):$(git_tree_field \
+        "${i07_transition_base}" "${w1_i08_card_path}" Status):$(git_tree_field \
+        "${i07_transition_base}" "${w1_i09_card_path}" Status)"
+      [[ "${i07_base_vector}" == \
+          READY:BLOCKED_BY_DEPENDENCY:BLOCKED_BY_DEPENDENCY ]] ||
+        fail "I07_CLOSURE_STATE_VECTOR_INVALID:explicit BASE"
+      validate_w1_i07_closure_receipt \
+        "${i07_transition_base}" "${i07_transition_head}"
+      printf '%s\n' \
+        "Wave1ImplementationTaskCardValidation = PASS" \
+        "TaskCardCount = 14" \
+        "TaskCardSetStatus = READY_FOR_EXECUTION" \
+        "ActiveTaskCard = W1-I08" \
+        "ReadyTaskCardCount = 1" \
+        "W1I07ClosureStatus = PASS" \
+        "FormalDatabaseWrite = NOT_AUTHORIZED" \
+        "RemotePush = NOT_AUTHORIZED"
+      exit 0
+    fi
+    i07_static_vector="$(git_tree_field "${current_repository_head}" \
+      "${w1_i07_card_path}" Status):$(git_tree_field \
+      "${current_repository_head}" "${w1_i08_card_path}" Status):$(git_tree_field \
+      "${current_repository_head}" "${w1_i09_card_path}" Status)"
+    case "${i07_static_vector}" in
+      READY:BLOCKED_BY_DEPENDENCY:BLOCKED_BY_DEPENDENCY)
+        validate_w1_i07_closure_governance_chain "${current_repository_head}"
+        validate_w1_i07_pending_worktree "${current_repository_head}"
+        printf '%s\n' \
+          "Wave1ImplementationTaskCardValidation = PASS" \
+          "TaskCardCount = 14" \
+          "TaskCardSetStatus = READY_FOR_EXECUTION" \
+          "ActiveTaskCard = W1-I07" \
+          "ReadyTaskCardCount = 1" \
+          "W1I07ClosureStatus = PENDING" \
+          "FormalDatabaseWrite = NOT_AUTHORIZED" \
+          "RemotePush = NOT_AUTHORIZED"
+        exit 0
+        ;;
+      DONE:READY:QUEUED)
+        i07_closure_receipt="$(find_unique_w1_i07_closure_receipt \
+          "${current_repository_head}")"
+        i07_governance_tip="$(single_parent_of "${i07_closure_receipt}" \
+          "I07_CLOSURE_RECEIPT_PATHS_INVALID:governance tip")"
+        validate_w1_i07_closure_receipt \
+          "${i07_governance_tip}" "${i07_closure_receipt}"
+        validate_post_w1_i07_closure_descendants \
+          "${i07_closure_receipt}" "${current_repository_head}"
+        validate_w1_i07_closed_worktree \
+          "${i07_governance_tip}" "${i07_closure_receipt}" \
+          "${current_repository_head}"
+        printf '%s\n' \
+          "Wave1ImplementationTaskCardValidation = PASS" \
+          "TaskCardCount = 14" \
+          "TaskCardSetStatus = READY_FOR_EXECUTION" \
+          "ActiveTaskCard = W1-I08" \
+          "ReadyTaskCardCount = 1" \
+          "W1I07ClosureStatus = PASS" \
+          "FormalDatabaseWrite = NOT_AUTHORIZED" \
+          "RemotePush = NOT_AUTHORIZED"
+        exit 0
+        ;;
+      *) fail "I07_CLOSURE_STATE_VECTOR_INVALID:static" ;;
+    esac
+  fi
   i05_route_commit="${current_repository_head}"
   [[ -n "${transition_base}" ]] && i05_route_commit="${transition_base}"
   if git -C "${repo_root}" merge-base --is-ancestor \
