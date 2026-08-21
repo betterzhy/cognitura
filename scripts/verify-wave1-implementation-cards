@@ -567,6 +567,8 @@ w1_i02_database_gate_header_anchor_test_sha="84e9fe6e6c81fb335a42ff64bf4e17ee6e8
 w1_i02_database_gate_rejected_first_block_sha="d2a95102706123a2246de94e56aa8de42d6ea6d2"
 w1_i02_database_gate_rejected_section_candidate_sha="27dd920f782de41f6e55629975429ee55a88ceb6"
 w1_i02_database_gate_section_checkpoint_test_sha="1b5e0278b1eb6bb41229e82d866005e3d69a1763"
+w1_i02_database_gate_rejected_section_gate_sha="b2bbc439f8da377be8318e8df75237aaed7bc651"
+w1_i02_database_gate_value_invariant_test_sha="3bc773b0ba78662b5be370d54536f8650b205085"
 w1_i02_card_path="docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md"
 w1_i02_postgres_image="postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a"
 w1_i02_database_gate_governance_paths=(
@@ -584,6 +586,8 @@ w1_i02_database_gate_governance_paths=(
   scripts/verify-wave1-implementation-cards
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
+  scripts/verify-wave1-implementation-cards
+  tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
@@ -810,53 +814,6 @@ git_tree_field() {
   count="$(printf '%s\n' "${content}" | grep -c "^${key} = " || true)"
   [[ "${count}" -eq 1 ]] || fail "transition ${path}: ${key} must occur exactly once"
   printf '%s\n' "${content}" | sed -n "s/^${key} = //p"
-}
-
-git_tree_section_field() {
-  local commit="$1"
-  local path="$2"
-  local heading="$3"
-  local key="$4"
-  local content section count
-  content="$(git -C "${repo_root}" show "${commit}:${path}" 2>/dev/null)" ||
-    fail "transition tree is missing ${path}"
-  section="$(printf '%s\n' "${content}" | awk -v expected_heading="${heading}" '
-    in_fence == 0 && $0 == expected_heading {
-      heading_count += 1
-      in_section = 1
-      next
-    }
-    in_section == 1 && in_fence == 0 && $0 ~ /^#+ / {
-      in_section = 0
-    }
-    in_section == 1 && in_fence == 0 && $0 ~ /^```/ {
-      fence_count += 1
-      if (fence_count == 1) {
-        opening_fence = $0
-      }
-      in_fence = 1
-      next
-    }
-    in_section == 1 && in_fence == 1 && $0 == "```" {
-      in_fence = 0
-      closed_fence_count += 1
-      next
-    }
-    in_section == 1 && in_fence == 1 && fence_count == 1 {
-      selected = selected $0 ORS
-    }
-    END {
-      if (heading_count != 1 || fence_count != 1 ||
-          closed_fence_count != 1 || opening_fence != "```text") {
-        exit 1
-      }
-      printf "%s", selected
-    }
-  ')" || fail "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT:${path}:${key}"
-  count="$(printf '%s\n' "${section}" | grep -c "^${key} = " || true)"
-  [[ "${count}" -eq 1 ]] ||
-    fail "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT:${path}:${key}"
-  printf '%s\n' "${section}" | sed -n "s/^${key} = //p"
 }
 
 require_git_tree_field() {
@@ -3508,10 +3465,24 @@ validate_w1_i02_database_gate_governance() {
         expected_mode=100755
         ;;
       16)
-        [[ "${parent}" == "${w1_i02_database_gate_section_checkpoint_test_sha}" &&
-           "${commit}" == "${resolved_tip}" ]] ||
-          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority section verifier identity"
+        [[ "${commit}" == "${w1_i02_database_gate_rejected_section_gate_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_section_checkpoint_test_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:rejected section gate identity"
         expected_path="${w1_i02_database_gate_governance_paths[16]}"
+        expected_mode=100755
+        ;;
+      17)
+        [[ "${commit}" == "${w1_i02_database_gate_value_invariant_test_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_rejected_section_gate_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:value invariant test identity"
+        expected_path="${w1_i02_database_gate_governance_paths[17]}"
+        expected_mode=100755
+        ;;
+      18)
+        [[ "${parent}" == "${w1_i02_database_gate_value_invariant_test_sha}" &&
+           "${commit}" == "${resolved_tip}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:value invariant verifier identity"
+        expected_path="${w1_i02_database_gate_governance_paths[18]}"
         expected_mode=100755
         ;;
       *) fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:extra governance commit" ;;
@@ -3524,7 +3495,7 @@ validate_w1_i02_database_gate_governance() {
       "W1_I02_DATABASE_GATE_CHANGE_INVALID:NUL"
     commit_index=$((commit_index + 1))
   done
-  [[ "${commit_index}" -eq 17 ]] ||
+  [[ "${commit_index}" -eq 19 ]] ||
     fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:governance commit count"
 }
 
@@ -3532,10 +3503,10 @@ find_w1_i02_database_gate_tip() {
   local head="$1"
   local commit gate_tip="" commit_count=0
   git -C "${repo_root}" merge-base --is-ancestor \
-    "${w1_i02_database_gate_section_checkpoint_test_sha}" "${head}" ||
-    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:authority section checkpoint is not an ancestor"
+    "${w1_i02_database_gate_value_invariant_test_sha}" "${head}" ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:value invariant test is not an ancestor"
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i02_database_gate_section_checkpoint_test_sha}..${head}"); do
+    "${w1_i02_database_gate_value_invariant_test_sha}..${head}"); do
     commit_count=$((commit_count + 1))
     if [[ "${commit_count}" -eq 1 ]]; then
       gate_tip="${commit}"
@@ -3620,11 +3591,15 @@ require_w1_i02_release_field() {
 require_w1_i02_release_boundary() {
   local receipt="$1"
   local path="$2"
-  local heading="$3"
-  local field="$4"
-  local expected="$5"
-  [[ "$(git_tree_section_field \
-      "${receipt}" "${path}" "${heading}" "${field}")" == "${expected}" ]] ||
+  local field="$3"
+  local expected="$4"
+  local content count mismatches
+  content="$(git -C "${repo_root}" show "${receipt}:${path}" 2>/dev/null)" ||
+    fail "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT:${path}:${field}"
+  count="$(printf '%s\n' "${content}" | grep -c "^${field} = " || true)"
+  mismatches="$(printf '%s\n' "${content}" | sed -n \
+    "s/^${field} = //p" | grep -Fvx "${expected}" || true)"
+  [[ "${count}" -gt 0 && -z "${mismatches}" ]] ||
     fail "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT:${path}:${field}"
 }
 
@@ -3720,42 +3695,31 @@ validate_w1_i02_database_gate_release() {
     docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md \
     Status BLOCKED_BY_DEPENDENCY
   require_w1_i02_release_boundary "${receipt}" AGENTS.md \
-    '## 2. 当前阶段与允许范围' FormalDatabaseWrite NOT_AUTHORIZED
-  require_w1_i02_release_boundary "${receipt}" AGENTS.md \
-    '## 2. 当前阶段与允许范围' RemotePush NOT_AUTHORIZED
+    FormalDatabaseWrite NOT_AUTHORIZED
+  require_w1_i02_release_boundary "${receipt}" AGENTS.md RemotePush NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" README.md \
-    '## 当前阶段' FormalDatabaseWrite NOT_AUTHORIZED
-  require_w1_i02_release_boundary "${receipt}" README.md \
-    '## 当前阶段' RemotePush NOT_AUTHORIZED
+    FormalDatabaseWrite NOT_AUTHORIZED
+  require_w1_i02_release_boundary "${receipt}" README.md RemotePush NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/engineering/cognitura-design-index.md \
-    '# Cognitura 设计与输入索引' FormalDatabaseWrite NOT_AUTHORIZED
+    docs/engineering/cognitura-design-index.md FormalDatabaseWrite NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/engineering/cognitura-design-index.md \
-    '# Cognitura 设计与输入索引' RemotePush NOT_AUTHORIZED
+    docs/engineering/cognitura-design-index.md RemotePush NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/engineering/cognitura-wave-1-design-plan.md \
-    '# Cognitura Wave 1 详细设计计划' FormalDatabaseWrite NOT_AUTHORIZED
+    docs/engineering/cognitura-wave-1-design-plan.md FormalDatabaseWrite NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/engineering/cognitura-wave-1-design-plan.md \
-    '# Cognitura Wave 1 详细设计计划' DeploymentAndRelease NOT_AUTHORIZED
+    docs/engineering/cognitura-wave-1-design-plan.md DeploymentAndRelease NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/engineering/cognitura-wave-1-design-acceptance.md \
-    '# Cognitura Wave 1 详细设计验收记录' RemotePush NOT_PERFORMED
+    docs/engineering/cognitura-wave-1-design-acceptance.md RemotePush NOT_PERFORMED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/engineering/cognitura-wave-1-implementation-plan.md \
-    '# Cognitura Wave 1 Implementation Plan' FormalDatabaseWrite NOT_AUTHORIZED
+    docs/engineering/cognitura-wave-1-implementation-plan.md FormalDatabaseWrite NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/engineering/cognitura-wave-1-implementation-plan.md \
-    '# Cognitura Wave 1 Implementation Plan' RemotePush NOT_AUTHORIZED
+    docs/engineering/cognitura-wave-1-implementation-plan.md RemotePush NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/task-cards/wave-1-implementation/README.md \
-    '# Cognitura Wave 1 Implementation Task Cards' FormalDatabaseWrite NOT_AUTHORIZED
+    docs/task-cards/wave-1-implementation/README.md FormalDatabaseWrite NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" \
-    docs/task-cards/wave-1-implementation/README.md \
-    '# Cognitura Wave 1 Implementation Task Cards' RemotePush NOT_AUTHORIZED
+    docs/task-cards/wave-1-implementation/README.md RemotePush NOT_AUTHORIZED
   require_w1_i02_release_boundary "${receipt}" "${w1_i02_card_path}" \
-    '# W1-I02 Source Persistence' RemotePush NOT_AUTHORIZED
+    RemotePush NOT_AUTHORIZED
   index_content="$(git -C "${repo_root}" show \
     "${receipt}:docs/task-cards/wave-1-implementation/README.md")" ||
     fail "W1_I02_DATABASE_GATE_RELEASE_SCOPE_INVALID:index unavailable"
