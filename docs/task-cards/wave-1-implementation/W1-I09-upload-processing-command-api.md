@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I09
 CardKind = IMPLEMENTATION
-Status = QUEUED
+Status = READY
 Gate = W1-IG9 UploadProcessingCommandApi
 Risk = HIGH
 DependsOn = W1-I07
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = AUTHORIZED_UPLOAD_AND_PROCESSING_COMMAND_ACCEPTED
 NegativeVerification = WORKSPACE_ENUMERATION_INTERNAL_LEAK_AND_INVALID_COMMAND_REJECTED
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer

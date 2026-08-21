@@ -7,7 +7,7 @@ FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
 TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I08
+ActiveTaskCard = W1-I09
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
@@ -20,7 +20,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
 Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、I03、I04、I05、I06 和 I07 已完成固定候选
-零发现深审并关闭；I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。
+零发现深审并关闭；I08 已关闭，I09 已释放为唯一 `READY` 卡。
 
 ## 1. 实现卡
 
@@ -34,8 +34,8 @@ Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、
 | `W1-I05` | Table fidelity | `I04` | `DONE` |
 | `W1-I06` | Image/relationship projection | `I04,I05` | `DONE` |
 | `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `DONE` |
-| `W1-I08` | Stable reference/lineage | `I07` | `READY` |
-| `W1-I09` | Upload/processing command API | `I07` | `QUEUED` |
+| `W1-I08` | Stable reference/lineage | `I07` | `DONE` |
+| `W1-I09` | Upload/processing command API | `I07` | `READY` |
 | `W1-I10` | Preview query API | `I08,I09` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I11` | Partial acceptance command | `I10` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I12` | Desktop Web source preview | `I10,I11` | `BLOCKED_BY_DEPENDENCY` |
@@ -272,6 +272,31 @@ Ultra = NOT_RUN
 I07ClosureReleasedTaskCard = W1-I08
 QueuedTaskCard = W1-I09
 QueuedReason = SERIAL_EXECUTION_ORDER
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
+
+## 15. I08 关闭收据
+
+```text
+W1-I08 = DONE
+ReviewedCandidate = 4890c8ec6af72e57e696845e8fc06a5552aafd45
+ReviewedParent = c06ea6ed7efcb2ef04c085e3976d42814af0b3ea
+ReviewedTree = 7db68e968432b8b7218a63aba9ea06d6a93a5782
+ReviewedGovernanceCandidate = 6dfc075be803277c695b729001997345c512c34d
+ReviewedVerifierCorrectionCandidate = 4c41a5e2b9360020487c6ae64c093d0d099f7222
+ReviewedVerifierCorrectionParent = ad2f6224f75caf2b439b3c46bcfb9cd4da6b7357
+ReviewedVerifierCorrectionTree = 26ec290170b196e4a057cbf4b849dc231503de5f
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+I08ClosureReleasedTaskCard = W1-I09
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```
