@@ -5472,6 +5472,7 @@ validate_w1_i08_closed_worktree() {
 
 validate_w1_i09_runtime_rebaseline_chain() {
   local head="$1"
+  local validate_worktree="${2:-1}"
   local commits commit parent changed_paths path expected_path
   local expected_mode expected_blob actual_blob evidence_sha
   local index=0
@@ -5540,10 +5541,12 @@ validate_w1_i09_runtime_rebaseline_chain() {
     "${w1_i09_runtime_rebaseline_origin_sha}..${head}" -- \
     "${w1_i08_product_paths[@]}" "${w1_i08_closure_projection_paths[@]}" ||
     fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:I08 drift"
-  for path in "${w1_i09_runtime_rebaseline_paths[@]}"; do
-    git -C "${repo_root}" diff --quiet "${head}" -- "${path}" ||
-      fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:worktree:${path}"
-  done
+  if [[ "${validate_worktree}" == 1 ]]; then
+    for path in "${w1_i09_runtime_rebaseline_paths[@]}"; do
+      git -C "${repo_root}" diff --quiet "${head}" -- "${path}" ||
+        fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:worktree:${path}"
+    done
+  fi
 }
 
 is_w1_i09_runtime_product_path() {
@@ -5570,7 +5573,7 @@ validate_w1_i09_runtime_repair_chain() {
       "${w1_i09_runtime_rejected_tree_sha}" ]] ||
     fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:rejected tree"
   validate_w1_i09_runtime_rebaseline_chain \
-    "${w1_i09_runtime_rejected_candidate_sha}"
+    "${w1_i09_runtime_rejected_candidate_sha}" 0
   git -C "${repo_root}" merge-base --is-ancestor \
     "${w1_i09_runtime_rejected_candidate_sha}" "${head}" ||
     fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:origin"
@@ -5618,6 +5621,25 @@ validate_w1_i09_runtime_repair_chain() {
   done
   [[ "${index}" -eq "${#w1_i09_runtime_repair_paths[@]}" ]] ||
     fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:order"
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+      "${repair_tip}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I09_RUNTIME_REBASELINE_REPAIR_INVALID:verifier correction parent")"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    if [[ "${changed_paths}" != "${w1_i09_runtime_repair_paths[2]}" ]]; then
+      break
+    fi
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:empty verifier correction"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I09_RUNTIME_REBASELINE_REPAIR_INVALID:verifier correction rename or copy"
+    [[ "$(git_tree_mode "${commit}" "${changed_paths}")" == 100755 ]] ||
+      fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:verifier correction mode"
+    require_git_blob_without_nul "${commit}" "${changed_paths}" \
+      "I09_RUNTIME_REBASELINE_REPAIR_INVALID:verifier correction NUL"
+    repair_tip="${commit}"
+  done
   git -C "${repo_root}" diff --quiet \
     "${w1_i09_runtime_rejected_candidate_sha}..${repair_tip}" -- \
     "${w1_i08_product_paths[@]}" "${w1_i08_closure_projection_paths[@]}" ||
