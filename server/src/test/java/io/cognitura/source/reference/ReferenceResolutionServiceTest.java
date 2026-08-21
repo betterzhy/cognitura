@@ -46,6 +46,11 @@ class ReferenceResolutionServiceTest {
         assertCode(
                 () -> service.resolveTuple("workspace-b", oldBlock, catalog),
                 ReferenceResolutionException.Code.REFERENCE_SCOPE_MISMATCH);
+        assertThatThrownBy(() -> service.resolveTuple("workspace-b", oldBlock, catalog))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining("workspace-b")
+                .hasMessageContaining("revision-1")
+                .hasMessageContaining("block-1");
         assertCode(
                 () -> service.resolveTuple(
                         WORKSPACE, ref("source-document-b", "revision-1", "block-1"), catalog),
@@ -84,10 +89,21 @@ class ReferenceResolutionServiceTest {
                 () -> service.resolveSourceAlias(
                         WORKSPACE, SOURCE, blockAlias.value(), catalog),
                 ReferenceResolutionException.Code.REFERENCE_SCOPE_MISMATCH);
+        assertThatThrownBy(() -> service.resolveSourceAlias(
+                        WORKSPACE, SOURCE, blockAlias.value(), catalog))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(WORKSPACE)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining(blockAlias.value());
         assertCode(
                 () -> service.resolveBlockAlias(
                         WORKSPACE, SOURCE, "revision-b", blockAlias.value(), catalog),
                 ReferenceResolutionException.Code.REFERENCE_SCOPE_MISMATCH);
+        assertThatThrownBy(() -> service.resolveBlockAlias(
+                        WORKSPACE, SOURCE, "revision-b", blockAlias.value(), catalog))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining("revision-b")
+                .hasMessageContaining(blockAlias.value());
         assertCode(
                 () -> service.resolveBlockAlias(
                         WORKSPACE, SOURCE, "missing-revision", blockAlias.value(), catalog),
@@ -213,6 +229,47 @@ class ReferenceResolutionServiceTest {
                         catalog))
                 .isEqualTo(new ReferenceResolutionService.ReparseDecision(
                         ReferenceResolutionService.ReparseAction.CREATE_NEW_REVISION, null));
+    }
+
+    @Test
+    void failedRevisionCannotCarryOrResolveUnpublishedBlocks() {
+        StableSourceReference unpublished = ref(SOURCE, "revision-failed", "block-failed");
+
+        assertCode(
+                () -> new ReferenceResolutionService.RevisionSnapshot(
+                        WORKSPACE,
+                        SOURCE,
+                        "revision-failed",
+                        CONTENT_HASH,
+                        PROFILE_V1,
+                        ReferenceResolutionService.RevisionOutcome.FAILED_RETRYABLE,
+                        List.of(unpublished)),
+                ReferenceResolutionException.Code.REFERENCE_SCOPE_MISMATCH);
+
+        SourceScopedAlias alias = SourceScopedAlias.documentBlock(unpublished);
+        ReferenceResolutionService.Catalog failedCatalog = catalog(
+                List.of(source(WORKSPACE, SOURCE)),
+                List.of(retryable("revision-failed", PROFILE_V1)),
+                List.of(alias));
+        assertCode(
+                () -> service.resolveTuple(WORKSPACE, unpublished, failedCatalog),
+                ReferenceResolutionException.Code.REFERENCE_NOT_FOUND);
+        assertCode(
+                () -> service.resolveBlockAlias(
+                        WORKSPACE, SOURCE, "revision-failed", alias.value(), failedCatalog),
+                ReferenceResolutionException.Code.REFERENCE_NOT_FOUND);
+    }
+
+    @Test
+    void referenceIdentitiesRejectAbsolutePathAndControlCharacterShapes() {
+        assertThatThrownBy(() -> new StableSourceReference(
+                        "/Users/private/source", "revision-a", "block-a"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("SOURCE_DOCUMENT_ID_INVALID");
+        assertThatThrownBy(() -> new StableSourceReference(
+                        SOURCE, "revision-a\nsecret", "block-a"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("PROCESSING_REVISION_ID_INVALID");
     }
 
     private static ReferenceResolutionService.Catalog catalog(

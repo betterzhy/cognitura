@@ -54,6 +54,19 @@ class ReparseLineageTest {
         assertCode(
                 () -> lineage.resolvedTargets(from.get(7)),
                 ReferenceResolutionException.Code.LINEAGE_AMBIGUOUS);
+        assertThatThrownBy(() -> lineage.resolvedTargets(from.get(7)))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining(FROM_REVISION)
+                .hasMessageContaining(TO_REVISION)
+                .hasMessageContaining("f8");
+        StableSourceReference missing = ref(FROM_REVISION, "missing");
+        assertThatThrownBy(() -> lineage.resolvedTargets(missing))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining(FROM_REVISION)
+                .hasMessageContaining(TO_REVISION)
+                .hasMessageContaining("missing");
         assertThat(lineage.hasAmbiguity()).isTrue();
     }
 
