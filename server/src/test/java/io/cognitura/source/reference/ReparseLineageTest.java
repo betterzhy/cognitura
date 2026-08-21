@@ -82,6 +82,17 @@ class ReparseLineageTest {
                         List.of(entry(
                                 ReparseLineage.State.SPLIT, List.of(from), List.of(to)))),
                 ReferenceResolutionException.Code.LINEAGE_CARDINALITY_INVALID);
+        assertThatThrownBy(() -> create(
+                        List.of(from),
+                        List.of(to),
+                        List.of(entry(
+                                ReparseLineage.State.SPLIT, List.of(from), List.of(to)))))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining(FROM_REVISION)
+                .hasMessageContaining(TO_REVISION)
+                .hasMessageContaining("from")
+                .hasMessageContaining("to");
         assertCode(
                 () -> create(
                         List.of(from),
@@ -114,6 +125,18 @@ class ReparseLineageTest {
                                 List.of(fromA),
                                 List.of(toA)))),
                 ReferenceResolutionException.Code.LINEAGE_COVERAGE_INVALID);
+        assertThatThrownBy(() -> create(
+                        List.of(fromA, fromB),
+                        List.of(toA),
+                        List.of(entry(
+                                ReparseLineage.State.UNCHANGED,
+                                List.of(fromA),
+                                List.of(toA)))))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining(FROM_REVISION)
+                .hasMessageContaining(TO_REVISION)
+                .hasMessageContaining("from-b");
         assertCode(
                 () -> create(
                         List.of(fromA),
@@ -156,6 +179,19 @@ class ReparseLineageTest {
                                 List.of(foreignSource),
                                 List.of(validTo)))),
                 ReferenceResolutionException.Code.LINEAGE_REVISION_SCOPE_MISMATCH);
+        assertThatThrownBy(() -> create(
+                        List.of(foreignSource),
+                        List.of(validTo),
+                        List.of(entry(
+                                ReparseLineage.State.UNCHANGED,
+                                List.of(foreignSource),
+                                List.of(validTo)))))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining(FROM_REVISION)
+                .hasMessageContaining(TO_REVISION)
+                .hasMessageContaining("source-document-b")
+                .hasMessageContaining("foreign");
         assertCode(
                 () -> create(
                         List.of(reversedFrom),
@@ -217,6 +253,12 @@ class ReparseLineageTest {
         assertCode(
                 () -> ReparseLineage.register(List.of(original), drifted),
                 ReferenceResolutionException.Code.LINEAGE_COVERAGE_INVALID);
+        assertThatThrownBy(() -> ReparseLineage.register(List.of(original), drifted))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining(FROM_REVISION)
+                .hasMessageContaining(TO_REVISION)
+                .hasMessageContaining("lineage-v1");
 
         ReparseLineage newAlgorithm = ReparseLineage.create(
                 SOURCE,

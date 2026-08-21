@@ -43,6 +43,13 @@ class ReferenceResolutionServiceTest {
                 () -> service.resolveTuple(
                         WORKSPACE, ref(SOURCE, "missing-revision", "block-2"), catalog),
                 ReferenceResolutionException.Code.REFERENCE_NOT_FOUND);
+        assertThatThrownBy(() -> service.resolveTuple(
+                        WORKSPACE, ref(SOURCE, "missing-revision", "block-2"), catalog))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(WORKSPACE)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("missing-revision")
+                .hasMessageContaining("block-2");
         assertCode(
                 () -> service.resolveTuple("workspace-b", oldBlock, catalog),
                 ReferenceResolutionException.Code.REFERENCE_SCOPE_MISMATCH);
@@ -135,9 +142,24 @@ class ReferenceResolutionServiceTest {
                         List.of(successful("revision-a", PROFILE_V1, original, retarget)),
                         List.of(canonical, forged)),
                 ReferenceResolutionException.Code.REFERENCE_ALIAS_CONFLICT);
+        assertThatThrownBy(() -> new ReferenceResolutionService.Catalog(
+                        List.of(source(WORKSPACE, SOURCE)),
+                        List.of(successful("revision-a", PROFILE_V1, original, retarget)),
+                        List.of(canonical, forged)))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(canonical.value())
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("revision-a")
+                .hasMessageContaining("block-b");
         assertCode(
                 () -> service.registerAlias(List.of(), forged),
                 ReferenceResolutionException.Code.REFERENCE_ALIAS_CONFLICT);
+        assertThatThrownBy(() -> service.registerAlias(List.of(), forged))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(forged.value())
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("revision-a")
+                .hasMessageContaining("block-b");
 
         assertThat(service.registerAlias(List.of(canonical), canonical)).isSameAs(canonical);
         SourceScopedAlias newAlias = SourceScopedAlias.documentBlock(retarget);
