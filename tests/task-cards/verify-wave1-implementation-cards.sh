@@ -2921,19 +2921,17 @@ run_w1_i05_closure_contract() {
 w1_i06_entry_repair_origin_sha="5937fe6845f3cd7759dcaa5156bfc9f9060b5407"
 w1_i06_entry_repair_design_sha="d8c0614d736126cdb914508084d0c84c61420d88"
 w1_i06_entry_repair_plan_sha="c5d86bdf29edf790a154ba784592743211a958e0"
-w1_i06_entry_repair_red_paths=(
+w1_i06_entry_review_red_paths=(
   server/src/test/java/io/cognitura/source/docx/text/TextListSectionParserTest.java
-  server/src/test/resources/docx/text/inline-images.xml
 )
-w1_i06_entry_repair_green_paths=(
+w1_i06_entry_review_green_paths=(
   server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java
-  server/src/main/java/io/cognitura/source/docx/text/SourceOrderCursor.java
 )
 
 w1_i06_entry_repair_governance_tip() {
   local tip
   tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i06_entry_repair_origin_sha}..HEAD" | sed -n '7p')"
+    "${w1_i06_entry_repair_origin_sha}..HEAD" | sed -n '11p')"
   [[ -n "${tip}" ]] || tip="$(git -C "${repo_root}" rev-parse HEAD)"
   printf '%s\n' "${tip}"
 }
@@ -2945,25 +2943,20 @@ new_w1_i06_entry_repair_fixture() {
   git -C "${fixture_root}" checkout -q --detach "${governance_tip}"
 }
 
-commit_w1_i06_entry_repair_red() {
+commit_w1_i06_entry_review_red() {
   local fixture_root="$1"
-  mkdir -p "${fixture_root}/server/src/test/resources/docx/text"
-  printf '%s\n' '// W1-I06 entry-repair RED fixture marker' >> \
+  printf '%s\n' '// W1-I04 image-payload finding RED marker' >> \
     "${fixture_root}/server/src/test/java/io/cognitura/source/docx/text/TextListSectionParserTest.java"
-  printf '%s\n' '<!-- W1-I06 entry-repair RED fixture -->' > \
-    "${fixture_root}/server/src/test/resources/docx/text/inline-images.xml"
-  git -C "${fixture_root}" add "${w1_i06_entry_repair_red_paths[@]}"
-  git -C "${fixture_root}" commit -qm "test: define I04 image placeholder seam"
+  git -C "${fixture_root}" add "${w1_i06_entry_review_red_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: reject empty image payload wrappers"
 }
 
-commit_w1_i06_entry_repair_green() {
+commit_w1_i06_entry_review_green() {
   local fixture_root="$1"
-  printf '%s\n' '// W1-I06 entry-repair GREEN parser marker' >> \
+  printf '%s\n' '// W1-I04 image-payload finding GREEN marker' >> \
     "${fixture_root}/server/src/main/java/io/cognitura/source/docx/text/TextListSectionParser.java"
-  printf '%s\n' '// W1-I06 entry-repair GREEN cursor marker' >> \
-    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/text/SourceOrderCursor.java"
-  git -C "${fixture_root}" add "${w1_i06_entry_repair_green_paths[@]}"
-  git -C "${fixture_root}" commit -qm "fix: preserve I04 image placeholder order"
+  git -C "${fixture_root}" add "${w1_i06_entry_review_green_paths[@]}"
+  git -C "${fixture_root}" commit -qm "fix: require unique image payload evidence"
 }
 
 expect_w1_i06_entry_repair_failure() {
@@ -2980,7 +2973,7 @@ expect_w1_i06_entry_repair_failure() {
 
 run_w1_i06_entry_repair_contract() {
   local fixture_root governance_tip output substitute_sha branch_sha
-  local test_sha correction_sha first_verifier_sha review_test_sha
+  local replay_commit
   local synthetic_base_sha
   local positive_cases=0
   local negative_cases=0
@@ -2998,8 +2991,8 @@ run_w1_i06_entry_repair_contract() {
 
   fixture_root="${test_tmp_root}/w1-i06-entry-repair-complete"
   new_w1_i06_entry_repair_fixture "${fixture_root}" "${governance_tip}"
-  commit_w1_i06_entry_repair_red "${fixture_root}"
-  commit_w1_i06_entry_repair_green "${fixture_root}"
+  commit_w1_i06_entry_review_red "${fixture_root}"
+  commit_w1_i06_entry_review_green "${fixture_root}"
   output="$("${verifier}" \
     --repo-root "${fixture_root}" \
     --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
@@ -3036,21 +3029,10 @@ run_w1_i06_entry_repair_contract() {
   substitute_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
   [[ "${substitute_sha}" != "${w1_i06_entry_repair_design_sha}" ]] ||
     fail "substituted W1-I06 entry-repair design retained the fixed identity"
-  test_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '1p')"
-  correction_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '2p')"
-  first_verifier_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '3p')"
-  review_test_sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i06_entry_repair_plan_sha}..${governance_tip}" | sed -n '4p')"
-  git -C "${fixture_root}" cherry-pick \
-    "${w1_i06_entry_repair_plan_sha}" \
-    "${test_sha}" \
-    "${correction_sha}" \
-    "${first_verifier_sha}" \
-    "${review_test_sha}" \
-    "${governance_tip}"
+  for replay_commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i06_entry_repair_origin_sha}..${governance_tip}" | sed -n '2,$p'); do
+    git -C "${fixture_root}" cherry-pick "${replay_commit}"
+  done
   expect_w1_i06_entry_repair_failure "${fixture_root}" \
     "W1-I06 entry-repair governance identity mismatch"
   negative_cases=$((negative_cases + 1))
@@ -3065,21 +3047,21 @@ run_w1_i06_entry_repair_contract() {
 
   fixture_root="${test_tmp_root}/w1-i06-entry-repair-reversed"
   new_w1_i06_entry_repair_fixture "${fixture_root}" "${governance_tip}"
-  commit_w1_i06_entry_repair_green "${fixture_root}"
-  commit_w1_i06_entry_repair_red "${fixture_root}"
+  commit_w1_i06_entry_review_green "${fixture_root}"
+  commit_w1_i06_entry_review_red "${fixture_root}"
   expect_w1_i06_entry_repair_failure "${fixture_root}" \
     "W1-I06 entry-repair RED commit must change exactly the declared test paths"
   negative_cases=$((negative_cases + 1))
 
   fixture_root="${test_tmp_root}/w1-i06-entry-repair-undeclared"
   new_w1_i06_entry_repair_fixture "${fixture_root}" "${governance_tip}"
-  commit_w1_i06_entry_repair_red "${fixture_root}"
+  commit_w1_i06_entry_review_red "${fixture_root}"
   git -C "${fixture_root}" reset -q HEAD^
-  printf '%s\n' '// undeclared W1-I06 entry-repair path' >> \
-    "${fixture_root}/server/src/main/java/io/cognitura/source/docx/text/DocumentBlockCandidate.java"
+  printf '%s\n' '<!-- undeclared W1-I04 finding path -->' >> \
+    "${fixture_root}/server/src/test/resources/docx/text/inline-images.xml"
   git -C "${fixture_root}" add \
-    "${w1_i06_entry_repair_red_paths[@]}" \
-    server/src/main/java/io/cognitura/source/docx/text/DocumentBlockCandidate.java
+    "${w1_i06_entry_review_red_paths[@]}" \
+    server/src/test/resources/docx/text/inline-images.xml
   git -C "${fixture_root}" commit -qm "test: add undeclared I04 repair path"
   expect_w1_i06_entry_repair_failure "${fixture_root}" \
     "W1-I06 entry-repair RED commit must change exactly the declared test paths"
@@ -3088,7 +3070,7 @@ run_w1_i06_entry_repair_contract() {
   fixture_root="${test_tmp_root}/w1-i06-entry-repair-merge"
   new_w1_i06_entry_repair_fixture "${fixture_root}" "${governance_tip}"
   git -C "${fixture_root}" switch -q -c w1-i06-merge-side
-  commit_w1_i06_entry_repair_red "${fixture_root}"
+  commit_w1_i06_entry_review_red "${fixture_root}"
   branch_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
   git -C "${fixture_root}" switch -q --detach "${governance_tip}"
   git -C "${fixture_root}" merge -q --no-ff "${branch_sha}" \
@@ -3099,8 +3081,8 @@ run_w1_i06_entry_repair_contract() {
 
   fixture_root="${test_tmp_root}/w1-i06-entry-repair-post-outside"
   new_w1_i06_entry_repair_fixture "${fixture_root}" "${governance_tip}"
-  commit_w1_i06_entry_repair_red "${fixture_root}"
-  commit_w1_i06_entry_repair_green "${fixture_root}"
+  commit_w1_i06_entry_review_red "${fixture_root}"
+  commit_w1_i06_entry_review_green "${fixture_root}"
   printf '%s\n' '' >> "${fixture_root}/README.md"
   git -C "${fixture_root}" add README.md
   git -C "${fixture_root}" commit -qm "test: add post-repair outside path"
