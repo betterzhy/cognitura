@@ -30,6 +30,7 @@ w1_i02_database_gate_contract_only=0
 w1_i02_closure_contract_only=0
 w1_i07_closure_contract_only=0
 w1_i08_closure_contract_only=0
+w1_i09_runtime_rebaseline_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -65,6 +66,9 @@ case "${1:-}" in
     ;;
   --w1-i08-closure-contract-only)
     w1_i08_closure_contract_only=1
+    ;;
+  --w1-i09-runtime-rebaseline-contract-only)
+    w1_i09_runtime_rebaseline_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -5509,8 +5513,234 @@ run_w1_i08_closure_contract() {
     "W1I08ClosureNegativeCases = ${negative_cases}"
 }
 
+i09_runtime_rebaseline_origin_sha="ae6d0ba7c1caf6365825909f39ccc3e71da9e966"
+i09_runtime_rebaseline_design_sha="2a5f818f22673e3af20bce369e99810e21f0095d"
+i09_runtime_rebaseline_plan_sha="7574bfd68f6fe9f0cbce3933dce986401054b61c"
+i09_runtime_rebaseline_design_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i09-real-command-runtime-rebaseline-design.md"
+i09_runtime_rebaseline_plan_path="docs/superpowers/plans/2026-08-22-cognitura-w1-i09-real-command-runtime-rebaseline.md"
+i09_runtime_rebaseline_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
+i09_runtime_rebaseline_verifier_path="scripts/verify-wave1-implementation-cards"
+
+new_i09_runtime_rebaseline_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${i09_runtime_rebaseline_origin_sha}"
+}
+
+commit_i09_runtime_rebaseline_file() {
+  local fixture_root="$1"
+  local source_sha="$2"
+  local path="$3"
+  local message="$4"
+  mkdir -p "${fixture_root}/$(dirname "${path}")"
+  if [[ "${source_sha}" == WORKTREE ]]; then
+    cp -p "${repo_root}/${path}" "${fixture_root}/${path}"
+  else
+    git -C "${repo_root}" show "${source_sha}:${path}" > \
+      "${fixture_root}/${path}"
+  fi
+  case "${path}" in
+    scripts/*|tests/*.sh|tests/*/*.sh) chmod 755 "${fixture_root}/${path}" ;;
+    *) chmod 644 "${fixture_root}/${path}" ;;
+  esac
+  if git -C "${fixture_root}" diff --quiet -- "${path}"; then
+    printf '%s\n' '# pending W1-I09 runtime rebaseline step' >> \
+      "${fixture_root}/${path}"
+  fi
+  git -C "${fixture_root}" add "${path}"
+  git -C "${fixture_root}" commit -qm "${message}"
+}
+
+materialize_i09_runtime_rebaseline_governance() {
+  local fixture_root="$1"
+  local mutation="${2:-NONE}"
+
+  if [[ "${mutation}" == WRONG_ORDER ]]; then
+    commit_i09_runtime_rebaseline_file "${fixture_root}" \
+      "${i09_runtime_rebaseline_plan_sha}" \
+      "${i09_runtime_rebaseline_plan_path}" \
+      "docs: plan W1-I09 real command runtime"
+    commit_i09_runtime_rebaseline_file "${fixture_root}" \
+      "${i09_runtime_rebaseline_design_sha}" \
+      "${i09_runtime_rebaseline_design_path}" \
+      "docs: rebaseline W1-I09 real command runtime"
+  else
+    mkdir -p "${fixture_root}/$(dirname "${i09_runtime_rebaseline_design_path}")"
+    git -C "${repo_root}" show \
+      "${i09_runtime_rebaseline_design_sha}:${i09_runtime_rebaseline_design_path}" > \
+      "${fixture_root}/${i09_runtime_rebaseline_design_path}"
+    if [[ "${mutation}" == WRONG_EVIDENCE ]]; then
+      printf '%s\n' 'WrongEvidence = YES' >> \
+        "${fixture_root}/${i09_runtime_rebaseline_design_path}"
+    elif [[ "${mutation}" == NUL ]]; then
+      printf '\0' >> "${fixture_root}/${i09_runtime_rebaseline_design_path}"
+    elif [[ "${mutation}" == MODE ]]; then
+      chmod 755 "${fixture_root}/${i09_runtime_rebaseline_design_path}"
+    fi
+    git -C "${fixture_root}" add "${i09_runtime_rebaseline_design_path}"
+    if [[ "${mutation}" == EXTRA_PATH ]]; then
+      printf '%s\n' 'I09 runtime rebaseline scope drift' >> \
+        "${fixture_root}/README.md"
+      git -C "${fixture_root}" add README.md
+    fi
+    git -C "${fixture_root}" commit -qm \
+      "docs: rebaseline W1-I09 real command runtime"
+
+    if [[ "${mutation}" == MERGE ]]; then
+      git -C "${fixture_root}" switch -q -c i09-side \
+        "${i09_runtime_rebaseline_origin_sha}"
+      printf '%s\n' 'I09 merge side drift' >> "${fixture_root}/README.md"
+      git -C "${fixture_root}" add README.md
+      git -C "${fixture_root}" commit -qm "test: create I09 merge side"
+      git -C "${fixture_root}" switch -q --detach HEAD@{2}
+      git -C "${fixture_root}" merge -q --no-ff i09-side \
+        -m "test: merge I09 rebaseline side"
+    fi
+
+    if [[ "${mutation}" == RENAME ]]; then
+      mkdir -p "${fixture_root}/docs/superpowers/plans"
+      git -C "${fixture_root}" mv \
+        "${i09_runtime_rebaseline_design_path}" \
+        "docs/superpowers/plans/i09-runtime-renamed.md"
+    fi
+    commit_i09_runtime_rebaseline_file "${fixture_root}" \
+      "${i09_runtime_rebaseline_plan_sha}" \
+      "${i09_runtime_rebaseline_plan_path}" \
+      "docs: plan W1-I09 real command runtime"
+    if [[ "${mutation}" == RENAME ]]; then
+      git -C "${fixture_root}" add -u
+      git -C "${fixture_root}" commit --amend -qm \
+        "docs: plan W1-I09 real command runtime"
+    elif [[ "${mutation}" == COPY ]]; then
+      cp -p "${fixture_root}/${i09_runtime_rebaseline_design_path}" \
+        "${fixture_root}/docs/superpowers/plans/i09-runtime-copy.md"
+      git -C "${fixture_root}" add \
+        docs/superpowers/plans/i09-runtime-copy.md
+      git -C "${fixture_root}" commit --amend -qm \
+        "docs: plan W1-I09 real command runtime"
+    fi
+  fi
+
+  commit_i09_runtime_rebaseline_file "${fixture_root}" WORKTREE \
+    "${i09_runtime_rebaseline_test_path}" \
+    "test: require W1-I09 runtime rebaseline"
+  commit_i09_runtime_rebaseline_file "${fixture_root}" WORKTREE \
+    "${i09_runtime_rebaseline_verifier_path}" \
+    "build: admit W1-I09 runtime rebaseline"
+}
+
+run_i09_runtime_rebaseline_fixture_verifier() {
+  local fixture_root="$1"
+  "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+expect_i09_runtime_rebaseline_failure() {
+  local fixture_root="$1"
+  local expected="$2"
+  local output
+  if output="$(run_i09_runtime_rebaseline_fixture_verifier \
+      "${fixture_root}" 2>&1)"; then
+    fail "invalid I09 runtime rebaseline unexpectedly passed: ${expected}"
+  fi
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i09_runtime_rebaseline_contract() {
+  local fixture_root output
+  local positive_cases=0 negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-positive"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I09 runtime rebaseline was rejected: ${output}"
+  assert_contains "${output}" \
+    "W1I09RuntimeRebaselineStatus = PENDING_PROJECTION"
+  assert_contains "${output}" "ActiveTaskCard = W1-I09"
+  positive_cases=$((positive_cases + 1))
+
+  output="$("${verifier}" --repo-root "${repo_root}" \
+    --cards-dir "${cards_dir}")" ||
+    fail "fixed I09 runtime rebaseline was rejected: ${output}"
+  assert_contains "${output}" \
+    "W1I09RuntimeRebaselineStatus = PENDING_PROJECTION"
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-evidence"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}" WRONG_EVIDENCE
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    "I09_RUNTIME_REBASELINE_CHAIN_INVALID:evidence"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-extra"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}" EXTRA_PATH
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    "I09_RUNTIME_REBASELINE_CHAIN_INVALID:exact path"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-order"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}" WRONG_ORDER
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-merge"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}" MERGE
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    "I09_RUNTIME_REBASELINE_CHAIN_INVALID:single parent"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-rename"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}" RENAME
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    "I09_RUNTIME_REBASELINE_CHAIN_INVALID:rename or copy"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-copy"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}" COPY
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    "I09_RUNTIME_REBASELINE_CHAIN_INVALID:rename or copy"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-mode"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}" MODE
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    "I09_RUNTIME_REBASELINE_CHAIN_INVALID:mode"
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-runtime-rebaseline-nul"
+  new_i09_runtime_rebaseline_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_governance "${fixture_root}" NUL
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    "I09_RUNTIME_REBASELINE_CHAIN_INVALID:NUL"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "I09 runtime rebaseline positive count mismatch"
+  [[ "${negative_cases}" -eq 8 ]] ||
+    fail "I09 runtime rebaseline negative count mismatch"
+  printf '%s\n' \
+    "W1I09RuntimeRebaselineContractTests = PASS" \
+    "W1I09RuntimeRebaselinePositiveCases = ${positive_cases}" \
+    "W1I09RuntimeRebaselineNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i08_closure_contract_only}" == "1" ]]; then
   run_w1_i08_closure_contract
+  exit 0
+fi
+
+if [[ "${w1_i09_runtime_rebaseline_contract_only}" == "1" ]]; then
+  run_w1_i09_runtime_rebaseline_contract
   exit 0
 fi
 
@@ -5529,6 +5759,7 @@ run_w1_i02_database_gate_contract
 run_w1_i02_closure_contract
 run_w1_i07_closure_contract
 run_w1_i08_closure_contract
+run_w1_i09_runtime_rebaseline_contract
 
 validation_output="$(
   "${verifier}" \
