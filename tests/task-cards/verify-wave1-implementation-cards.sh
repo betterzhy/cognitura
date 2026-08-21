@@ -5516,6 +5516,7 @@ run_w1_i08_closure_contract() {
 i09_runtime_rebaseline_origin_sha="ae6d0ba7c1caf6365825909f39ccc3e71da9e966"
 i09_runtime_rebaseline_design_sha="2a5f818f22673e3af20bce369e99810e21f0095d"
 i09_runtime_rebaseline_plan_sha="7574bfd68f6fe9f0cbce3933dce986401054b61c"
+i09_runtime_rebaseline_test_sha="835e6baf7b2df36e696ee1b1248edd491743e8de"
 i09_runtime_rebaseline_design_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i09-real-command-runtime-rebaseline-design.md"
 i09_runtime_rebaseline_plan_path="docs/superpowers/plans/2026-08-22-cognitura-w1-i09-real-command-runtime-rebaseline.md"
 i09_runtime_rebaseline_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
@@ -5544,7 +5545,8 @@ commit_i09_runtime_rebaseline_file() {
     scripts/*|tests/*.sh|tests/*/*.sh) chmod 755 "${fixture_root}/${path}" ;;
     *) chmod 644 "${fixture_root}/${path}" ;;
   esac
-  if git -C "${fixture_root}" diff --quiet -- "${path}"; then
+  if git -C "${fixture_root}" cat-file -e "HEAD:${path}" 2>/dev/null &&
+      git -C "${fixture_root}" diff --quiet -- "${path}"; then
     printf '%s\n' '# pending W1-I09 runtime rebaseline step' >> \
       "${fixture_root}/${path}"
   fi
@@ -5622,9 +5624,18 @@ materialize_i09_runtime_rebaseline_governance() {
     fi
   fi
 
-  commit_i09_runtime_rebaseline_file "${fixture_root}" WORKTREE \
+  commit_i09_runtime_rebaseline_file "${fixture_root}" \
+    "${i09_runtime_rebaseline_test_sha}" \
     "${i09_runtime_rebaseline_test_path}" \
     "test: require W1-I09 runtime rebaseline"
+  if [[ "$(git -C "${fixture_root}" hash-object \
+        "${fixture_root}/${i09_runtime_rebaseline_test_path}")" != \
+        "$(git -C "${repo_root}" hash-object \
+        "${repo_root}/${i09_runtime_rebaseline_test_path}")" ]]; then
+    commit_i09_runtime_rebaseline_file "${fixture_root}" WORKTREE \
+      "${i09_runtime_rebaseline_test_path}" \
+      "test: correct W1-I09 runtime rebaseline fixture"
+  fi
   commit_i09_runtime_rebaseline_file "${fixture_root}" WORKTREE \
     "${i09_runtime_rebaseline_verifier_path}" \
     "build: admit W1-I09 runtime rebaseline"
