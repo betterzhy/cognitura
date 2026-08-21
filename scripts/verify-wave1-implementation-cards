@@ -469,9 +469,10 @@ w1_i05_fixed_review_repair_evidence_shas=(
 )
 w1_i05_closure_plan_path="docs/superpowers/plans/2026-08-21-cognitura-w1-i05-closure.md"
 w1_i05_reviewed_candidate_sha="b4132e988cd88dce74ae026a1b52a496188452fc"
-w1_i05_closure_repair_origin_sha="133e4370c7f05effc1e1b23d41fd597414c49bd3"
-w1_i05_closure_plan_sha="946cdf575b8a00ebc0f6e46fab7300d2b6573fed"
-w1_i05_closure_test_sha="c8e850f17e580ead5ce8f4d6dc5a92fcbfc1cda9"
+w1_i05_rejected_closure_candidate_sha="b5990ae66121ceeeafd3b302939af05f2f596bb9"
+w1_i05_closure_repair_origin_sha="b1648392f1ce02673d234287cd212a477993316d"
+w1_i05_closure_plan_sha="adac0dd30843b8b15ac393f3af30a76ae00b136f"
+w1_i05_closure_test_sha="98d8c6939279c1cb76254771e393649e38b2b317"
 w1_i05_closure_governance_paths=(
   "${w1_i05_closure_plan_path}"
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -2310,7 +2311,11 @@ validate_w1_i05_closure_governance_chain() {
   )
   git -C "${repo_root}" merge-base --is-ancestor \
     "${w1_i05_closure_repair_origin_sha}" "${tip}" ||
-    fail "I05 closure governance tip must descend from the rejected candidate"
+    fail "I05 closure governance tip must descend from the recovery origin"
+  [[ "$(single_parent_of "${w1_i05_closure_repair_origin_sha}" \
+    "I05 closure recovery origin")" == \
+    "${w1_i05_rejected_closure_candidate_sha}" ]] ||
+    fail "I05 closure recovery origin must directly revert the rejected candidate"
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i05_closure_repair_origin_sha}..${tip}"); do
     [[ "${commit_index}" -lt "${#w1_i05_closure_governance_paths[@]}" ]] ||
@@ -2358,7 +2363,7 @@ validate_w1_i05_closure_governance_chain() {
   require_git_tree_field "${tip}" "${w1_i05_closure_plan_path}" \
     ClosureRepairOriginSHA "${w1_i05_closure_repair_origin_sha}"
   require_git_tree_field "${tip}" "${w1_i05_closure_plan_path}" \
-    RejectedClosureCandidateSHA "${w1_i05_closure_repair_origin_sha}"
+    RejectedClosureCandidateSHA "${w1_i05_rejected_closure_candidate_sha}"
   require_git_tree_field "${tip}" "${w1_i05_closure_plan_path}" \
     ReviewedProductCandidateSHA "${w1_i05_reviewed_candidate_sha}"
   require_git_tree_field "${tip}" "${w1_i05_closure_plan_path}" \
@@ -2599,7 +2604,7 @@ find_unique_w1_i05_closure_receipt() {
   local commit parent current_state parent_state
   local receipt="" receipt_parent="" receipt_count=0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i05_reviewed_candidate_sha}..${head}"); do
+    "${w1_i05_closure_repair_origin_sha}..${head}"); do
     parent="$(single_parent_of "${commit}" "I05 closure provenance commit")"
     current_state="$(git_tree_field "${commit}" "${w1_i05_card_path}" Status):$(
       git_tree_field "${commit}" "${w1_i06_card_path}" Status)"
