@@ -4183,6 +4183,9 @@ i07_closure_count_repair_sha="34bbef63efdcc4b2b83bfde91594705ddac0bd60"
 i07_closure_count_corrected_test_sha="ef4393de4464a74971f889fa20cdbf370991209d"
 i07_closure_first_green_sha="e0b7c302011b4a84f04ebdd7f88393af76d3d973"
 i07_closure_legacy_gate_repair_sha="762dbf3c10b2d68eb5fe07b90e381a4e00e075e8"
+i07_closure_legacy_gate_test_sha="463d5fb90d0c0f7859debebf5423dccba1381e75"
+i07_closure_legacy_gate_green_sha="a1312b46d42b53ac8bcaa9b38774a123932274b6"
+i07_closure_review_repair_sha="90d0620029dc291a79ec2ecced1e34f82c098f22"
 i07_reviewed_candidate_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
 i07_reviewed_parent_sha="5433485e8f88f3846cbda722282223a3c8274b14"
 i07_reviewed_tree_sha="d82ece96e0e3dabdfef64a766179b711ea6d557f"
@@ -4246,10 +4249,20 @@ materialize_w1_i07_governance_tip() {
     "${i07_closure_legacy_gate_repair_sha}" \
     docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-legacy-gate-fixture-repair.md \
     "docs: authorize I07 legacy gate fixture correction"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_legacy_gate_test_sha}" "${test_path}" \
+    "test: pin historical I02 database gate tip"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_legacy_gate_green_sha}" "${verifier_path}" \
+    "fix: preserve historical I02 gate fixture"
+  commit_w1_i07_governance_path "${fixture_root}" \
+    "${i07_closure_review_repair_sha}" \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md \
+    "docs: authorize I07 closure review finding repair"
   cp -p "${repo_root}/${test_path}" "${fixture_root}/${test_path}"
   chmod 755 "${fixture_root}/${test_path}"
   git -C "${fixture_root}" add "${test_path}"
-  git -C "${fixture_root}" commit -qm "test: correct I07 closure negative count"
+  git -C "${fixture_root}" commit -qm "test: complete I07 closure negative matrix"
   cp -p "${repo_root}/${verifier_path}" "${fixture_root}/${verifier_path}"
   printf '%s\n' '# W1-I07 closure verifier fixture' >> \
     "${fixture_root}/${verifier_path}"
@@ -4467,6 +4480,77 @@ run_w1_i07_closure_contract() {
   assert_contains "${output}" "W1I07ClosureStatus = PASS"
   positive_cases=$((positive_cases + 1))
 
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}"
+  commit_w1_i07_governance_path "${fixture_root}" "${i07_closure_plan_sha}" \
+    docs/superpowers/plans/2026-08-21-cognitura-w1-i07-closure.md \
+    "test: place I07 closure plan before design"
+  commit_w1_i07_governance_path "${fixture_root}" "${i07_closure_spec_sha}" \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md \
+    "test: place I07 closure design after plan"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  printf '%s\n' repeated >> \
+    "${fixture_root}/docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md"
+  git -C "${fixture_root}" add \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-design.md
+  git -C "${fixture_root}" commit -qm "test: repeat I07 governance path"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  git -C "${fixture_root}" commit -q --allow-empty -m \
+    "test: add empty I07 governance commit"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  git -C "${fixture_root}" mv \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair-renamed.md
+  git -C "${fixture_root}" commit -qm "test: rename I07 governance evidence"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  chmod 755 \
+    "${fixture_root}/docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md"
+  git -C "${fixture_root}" add \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md
+  git -C "${fixture_root}" commit -qm "test: drift I07 governance mode"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  printf '\0' >> \
+    "${fixture_root}/docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md"
+  git -C "${fixture_root}" add \
+    docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-review-finding-repair.md
+  git -C "${fixture_root}" commit -qm "test: add NUL to I07 governance evidence"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I08
+  git -C "${fixture_root}" add AGENTS.md
+  git -C "${fixture_root}" commit -qm "test: drift predecessor projection"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${i07_closure_origin_sha}^"
+  materialize_w1_i07_governance_tip "${fixture_root}"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "post-I02-closure descendant changed a path outside the W1-I07 WriteSet"
+  negative_cases=$((negative_cases + 1))
+
   git -C "${fixture_root}" switch -q --detach "${governance_tip}"
   printf '%s\n' outside > "${fixture_root}/outside-governance.txt"
   git -C "${fixture_root}" add outside-governance.txt
@@ -4497,6 +4581,36 @@ run_w1_i07_closure_contract() {
   negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  mkdir -p "${fixture_root}/server/src/main/java/io/cognitura/source/reference"
+  printf '%s\n' 'package io.cognitura.source.reference;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/reference/StableSourceReference.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/reference/StableSourceReference.java
+  git -C "${fixture_root}" commit -qm "test: interpose before I07 closure receipt"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: create non-direct I07 closure receipt"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_RECEIPT_PATHS_INVALID:direct child" \
+    --transition-base "${governance_tip}" \
+    --transition-head "$(git -C "${fixture_root}" rev-parse HEAD)"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  git -C "${fixture_root}" mv \
+    docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md \
+    docs/task-cards/wave-1-implementation/W1-I09-renamed.md
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}" \
+    docs/task-cards/wave-1-implementation/W1-I09-renamed.md
+  git -C "${fixture_root}" commit -qm "test: rename I09 closure card"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_RECEIPT_PATHS_INVALID" \
+    --transition-base "${governance_tip}" \
+    --transition-head "$(git -C "${fixture_root}" rev-parse HEAD)"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
   make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
   git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
   git -C "${fixture_root}" reset -q \
@@ -4508,6 +4622,28 @@ run_w1_i07_closure_contract() {
     "I07_CLOSURE_RECEIPT_PATHS_INVALID" \
     --transition-base "${governance_tip}" \
     --transition-head "$(git -C "${fixture_root}" rev-parse HEAD)"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md" \
+    Status QUEUED
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: leave I08 queued during closure"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_STATE_VECTOR_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md" \
+    Status DONE
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: close I09 during I07 closure"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_STATE_VECTOR_INVALID"
   negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${governance_tip}"
@@ -4580,11 +4716,87 @@ run_w1_i07_closure_contract() {
 
   git -C "${fixture_root}" switch -q --detach "${governance_tip}"
   make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    ActiveTaskCard W1-I07
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: retain I07 as active after closure"
+  expect_w1_i07_closure_failure "${fixture_root}" "ActiveTaskCard = W1-I08"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    ReadyTaskCardCount 2
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: publish wrong I07 ready count"
+  expect_w1_i07_closure_failure "${fixture_root}" "ReadyTaskCardCount = 1"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    RemotePush AUTHORIZED
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: authorize push during I07 closure"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_AUTHORIZATION_DRIFT"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
   sed -i.bak "s/${i07_reviewed_candidate_sha}/0000000000000000000000000000000000000000/" \
     "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
   rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
   git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: bind wrong I07 product candidate"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  sed -i.bak \
+    's/^ReviewedParent = .*$/ReviewedParent = 0000000000000000000000000000000000000000/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: bind wrong I07 product parent"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  sed -i.bak \
+    's/^ReviewedTree = .*$/ReviewedTree = 0000000000000000000000000000000000000000/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: bind wrong I07 product tree"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  sed -i.bak \
+    's/^ReviewedGovernanceCandidate = .*$/ReviewedGovernanceCandidate = 0000000000000000000000000000000000000000/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: bind wrong I07 governance candidate"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  sed -i.bak \
+    's/^ReviewedGovernanceParent = .*$/ReviewedGovernanceParent = 0000000000000000000000000000000000000000/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: bind wrong I07 governance parent"
   expect_w1_i07_closure_failure "${fixture_root}" \
     "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
   negative_cases=$((negative_cases + 1))
@@ -4608,6 +4820,37 @@ run_w1_i07_closure_contract() {
   rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
   git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: close I07 with NO-GO review"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  sed -i.bak 's/^P1 = 0$/P1 = 1/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: close I07 with nonzero finding"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  sed -i.bak 's/^Ultra = NOT_RUN$/Ultra = RUN/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: close I07 with Ultra review"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${governance_tip}"
+  make_w1_i07_closure_projection "${fixture_root}" "${governance_tip}"
+  append_w1_i07_review_receipt "${fixture_root}" "${governance_tip}"
+  git -C "${fixture_root}" add "${i07_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: duplicate I07 closure receipt"
   expect_w1_i07_closure_failure "${fixture_root}" \
     "I07_CLOSURE_REVIEW_RECEIPT_INVALID"
   negative_cases=$((negative_cases + 1))
@@ -4638,6 +4881,58 @@ run_w1_i07_closure_contract() {
   git -C "${fixture_root}" commit -qm "test: add NUL to I09 closure card"
   expect_w1_i07_closure_failure "${fixture_root}" \
     "I07_CLOSURE_RECEIPT_PATHS_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md" \
+    Status READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md" \
+    Status BLOCKED_BY_DEPENDENCY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md" \
+    Status BLOCKED_BY_DEPENDENCY
+  git -C "${fixture_root}" add \
+    docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md \
+    docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md \
+    docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+  git -C "${fixture_root}" commit -qm "test: reopen I07 after closure"
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md" \
+    Status DONE
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md" \
+    Status READY
+  set_field \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md" \
+    Status QUEUED
+  git -C "${fixture_root}" add \
+    docs/task-cards/wave-1-implementation/W1-I07-revision-attempt-fencing-publication.md \
+    docs/task-cards/wave-1-implementation/W1-I08-stable-reference-reparse-lineage.md \
+    docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+  git -C "${fixture_root}" commit -qm "test: close I07 a second time"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_REVIEW_RECEIPT_INVALID:exactly once"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I07
+  git -C "${fixture_root}" add AGENTS.md
+  git -C "${fixture_root}" commit -qm "test: mutate I07 projection after closure"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${closure_sha}"
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I07
+  git -C "${fixture_root}" add AGENTS.md
+  git -C "${fixture_root}" commit -qm "test: introduce I07 projection drift"
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I08
+  git -C "${fixture_root}" add AGENTS.md
+  git -C "${fixture_root}" commit -qm "test: restore I07 projection bytes"
+  expect_w1_i07_closure_failure "${fixture_root}" \
+    "I07_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET"
   negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${closure_sha}"
@@ -4674,7 +4969,7 @@ run_w1_i07_closure_contract() {
 
   [[ "${positive_cases}" -eq 4 ]] ||
     fail "I07 closure positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 18 ]] ||
+  [[ "${negative_cases}" -eq 43 ]] ||
     fail "I07 closure negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I07ClosureContractTests = PASS" \
