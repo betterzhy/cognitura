@@ -113,7 +113,8 @@ public final class ReferenceResolutionService {
                 workspace,
                 requested.sourceDocumentId(),
                 requested.sourceProcessingRevisionId(),
-                catalog);
+                catalog,
+                context);
         requireSuccessful(revision, context);
         List<StableSourceReference> matches = revision.blocks().stream()
                 .filter(requested::equals)
@@ -162,7 +163,8 @@ public final class ReferenceResolutionService {
                 + ",revisionId=" + revisionId
                 + ",alias=" + requestedAlias + "]";
         requireSourceScope(workspace, source, catalog, context);
-        RevisionSnapshot revision = uniqueRevision(workspace, source, revisionId, catalog);
+        RevisionSnapshot revision = uniqueRevision(
+                workspace, source, revisionId, catalog, context);
         requireSuccessful(revision, context);
         SourceScopedAlias registration = uniqueAlias(
                 requestedAlias,
@@ -181,8 +183,9 @@ public final class ReferenceResolutionService {
             List<SourceScopedAlias> existing, SourceScopedAlias candidate) {
         Objects.requireNonNull(existing, "existing");
         Objects.requireNonNull(candidate, "candidate");
+        String context = aliasRegistrationContext(candidate);
         if (!candidate.isCanonical()) {
-            throw conflict("non-canonical alias target");
+            throw conflict(context);
         }
         SourceScopedAlias same = null;
         for (SourceScopedAlias registration : existing) {
@@ -191,7 +194,7 @@ public final class ReferenceResolutionService {
                 continue;
             }
             if (!registration.isCanonical() || !registration.sameTarget(candidate)) {
-                throw conflict("alias retarget");
+                throw conflict(context);
             }
             same = registration;
         }
@@ -279,12 +282,13 @@ public final class ReferenceResolutionService {
         Map<String, SourceScopedAlias> registrations = new HashMap<>();
         for (SourceScopedAlias alias : aliases) {
             Objects.requireNonNull(alias, "alias");
+            String context = aliasRegistrationContext(alias);
             if (!alias.isCanonical()) {
-                throw conflict("non-canonical alias target");
+                throw conflict(context);
             }
             SourceScopedAlias prior = registrations.putIfAbsent(alias.value(), alias);
             if (prior != null && !prior.sameTarget(alias)) {
-                throw conflict("alias retarget");
+                throw conflict(context);
             }
         }
     }
@@ -304,7 +308,8 @@ public final class ReferenceResolutionService {
             String workspaceId,
             String sourceDocumentId,
             String sourceProcessingRevisionId,
-            Catalog catalog) {
+            Catalog catalog,
+            String context) {
         List<RevisionSnapshot> matches = catalog.revisions().stream()
                 .filter(revision -> workspaceId.equals(revision.workspaceId()))
                 .filter(revision -> sourceDocumentId.equals(revision.sourceDocumentId()))
@@ -312,13 +317,11 @@ public final class ReferenceResolutionService {
                         revision.sourceProcessingRevisionId()))
                 .toList();
         if (matches.isEmpty()) {
-            throw notFound("revision[workspaceId=" + workspaceId
-                    + ",sourceDocumentId=" + sourceDocumentId
-                    + ",revisionId=" + sourceProcessingRevisionId + "]");
+            throw notFound(context);
         }
         RevisionSnapshot first = matches.getFirst();
         if (matches.stream().anyMatch(revision -> !first.equals(revision))) {
-            throw conflict("ambiguous revision identity");
+            throw conflict(context);
         }
         return first;
     }
@@ -333,7 +336,7 @@ public final class ReferenceResolutionService {
         }
         SourceScopedAlias first = matches.getFirst();
         if (matches.stream().anyMatch(registration -> !first.sameTarget(registration))) {
-            throw conflict("alias registry collision");
+            throw conflict(notFoundContext);
         }
         return first;
     }
@@ -358,6 +361,18 @@ public final class ReferenceResolutionService {
                 + ",sourceDocumentId=" + reference.sourceDocumentId()
                 + ",revisionId=" + reference.sourceProcessingRevisionId()
                 + ",blockId=" + reference.documentBlockId() + "]";
+    }
+
+    private static String aliasRegistrationContext(SourceScopedAlias alias) {
+        String context = "aliasRegistration[kind=" + alias.kind()
+                + ",alias=" + alias.value()
+                + ",sourceDocumentId=" + alias.sourceDocumentId();
+        if (alias.blockTarget() != null) {
+            context += ",targetRevisionId="
+                    + alias.blockTarget().sourceProcessingRevisionId()
+                    + ",targetBlockId=" + alias.blockTarget().documentBlockId();
+        }
+        return context + "]";
     }
 
     private static String scopeKey(String workspaceId, String sourceDocumentId) {
