@@ -743,6 +743,12 @@ w1_i07_closure_governance_paths=(
   docs/superpowers/specs/2026-08-21-cognitura-w1-i07-closure-staging-chain-count-clarification.md
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i07-closure-governance-oracle-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i07-closure-oracle-source-path-repair.md
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i07-oracle-source-chain-count-clarification.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
 )
 w1_i07_closure_projection_paths=(
   AGENTS.md
@@ -4432,7 +4438,7 @@ validate_w1_i07_closure_governance_chain() {
     done <<< "${changed_paths}"
   done
   [[ "${#commits[@]}" -eq "${#w1_i07_closure_governance_paths[@]}" ]] ||
-    fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:exact fifteen commits"
+    fail "I07_CLOSURE_GOVERNANCE_CHAIN_INVALID:exact twenty-one commits"
   previous="${w1_i07_closure_origin_sha}"
   for index in "${!w1_i07_closure_governance_paths[@]}"; do
     commit="${commits[${index}]}"
