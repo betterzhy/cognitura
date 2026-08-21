@@ -33,8 +33,8 @@ public record SourceScopedAlias(
 
     public SourceScopedAlias {
         Objects.requireNonNull(kind, "kind");
-        sourceDocumentId = StableSourceReference.requireText(
-                sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
+        sourceDocumentId = StableSourceReference.requireIdentifier(
+                sourceDocumentId, "SOURCE_DOCUMENT_ID");
         value = StableSourceReference.requireText(value, "REFERENCE_ALIAS_REQUIRED");
         String expectedPrefix = kind.prefix + ":";
         if (!value.startsWith(expectedPrefix)
@@ -53,8 +53,8 @@ public record SourceScopedAlias(
     }
 
     public static SourceScopedAlias sourceDocument(String sourceDocumentId) {
-        String required = StableSourceReference.requireText(
-                sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
+        String required = StableSourceReference.requireIdentifier(
+                sourceDocumentId, "SOURCE_DOCUMENT_ID");
         return new SourceScopedAlias(
                 Kind.SOURCE_DOCUMENT,
                 canonicalValue(Kind.SOURCE_DOCUMENT, required, null),

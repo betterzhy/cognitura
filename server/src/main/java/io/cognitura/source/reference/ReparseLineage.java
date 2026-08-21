@@ -83,12 +83,12 @@ public final class ReparseLineage {
             String algorithmVersion,
             List<StableSourceReference> expectedFromBlocks,
             List<StableSourceReference> expectedToBlocks) {
-        String source = StableSourceReference.requireText(
-                sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
-        String fromRevision = StableSourceReference.requireText(
-                fromProcessingRevisionId, "FROM_PROCESSING_REVISION_ID_REQUIRED");
-        String toRevision = StableSourceReference.requireText(
-                toProcessingRevisionId, "TO_PROCESSING_REVISION_ID_REQUIRED");
+        String source = StableSourceReference.requireIdentifier(
+                sourceDocumentId, "SOURCE_DOCUMENT_ID");
+        String fromRevision = StableSourceReference.requireIdentifier(
+                fromProcessingRevisionId, "FROM_PROCESSING_REVISION_ID");
+        String toRevision = StableSourceReference.requireIdentifier(
+                toProcessingRevisionId, "TO_PROCESSING_REVISION_ID");
         if (fromRevision.equals(toRevision)) {
             throw scope("lineage revisions must be directional and distinct");
         }
@@ -156,16 +156,25 @@ public final class ReparseLineage {
 
     public List<StableSourceReference> resolvedTargets(StableSourceReference fromBlockRef) {
         Objects.requireNonNull(fromBlockRef, "fromBlockRef");
+        String context = "lineageTuple[sourceDocumentId=" + sourceDocumentId
+                + ",fromRevisionId=" + fromProcessingRevisionId
+                + ",toRevisionId=" + toProcessingRevisionId
+                + ",blockId=" + fromBlockRef.documentBlockId() + "]";
+        if (!sourceDocumentId.equals(fromBlockRef.sourceDocumentId())
+                || !fromProcessingRevisionId.equals(
+                        fromBlockRef.sourceProcessingRevisionId())) {
+            throw scope(context);
+        }
         Entry match = entries.stream()
                 .filter(entry -> entry.fromBlockRefs().contains(fromBlockRef))
                 .findFirst()
                 .orElseThrow(() -> new ReferenceResolutionException(
                         ReferenceResolutionException.Code.REFERENCE_NOT_FOUND,
-                        "lineage source block"));
+                        context));
         if (match.lineageState() == State.AMBIGUOUS) {
             throw new ReferenceResolutionException(
                     ReferenceResolutionException.Code.LINEAGE_AMBIGUOUS,
-                    "lineage source block remains unresolved");
+                    context);
         }
         return match.toBlockRefs();
     }

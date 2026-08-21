@@ -29,9 +29,9 @@ public final class ReferenceResolutionService {
 
     public record SourceDocumentSnapshot(String workspaceId, String sourceDocumentId) {
         public SourceDocumentSnapshot {
-            workspaceId = StableSourceReference.requireText(workspaceId, "WORKSPACE_ID_REQUIRED");
-            sourceDocumentId = StableSourceReference.requireText(
-                    sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
+            workspaceId = StableSourceReference.requireIdentifier(workspaceId, "WORKSPACE_ID");
+            sourceDocumentId = StableSourceReference.requireIdentifier(
+                    sourceDocumentId, "SOURCE_DOCUMENT_ID");
         }
     }
 
@@ -45,15 +45,21 @@ public final class ReferenceResolutionService {
             List<StableSourceReference> blocks) {
 
         public RevisionSnapshot {
-            workspaceId = StableSourceReference.requireText(workspaceId, "WORKSPACE_ID_REQUIRED");
-            sourceDocumentId = StableSourceReference.requireText(
-                    sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
-            sourceProcessingRevisionId = StableSourceReference.requireText(
-                    sourceProcessingRevisionId, "PROCESSING_REVISION_ID_REQUIRED");
+            workspaceId = StableSourceReference.requireIdentifier(workspaceId, "WORKSPACE_ID");
+            sourceDocumentId = StableSourceReference.requireIdentifier(
+                    sourceDocumentId, "SOURCE_DOCUMENT_ID");
+            sourceProcessingRevisionId = StableSourceReference.requireIdentifier(
+                    sourceProcessingRevisionId, "PROCESSING_REVISION_ID");
             Objects.requireNonNull(contentSha256, "contentSha256");
             Objects.requireNonNull(profile, "profile");
             Objects.requireNonNull(outcome, "outcome");
             blocks = List.copyOf(Objects.requireNonNull(blocks, "blocks"));
+            if (outcome != RevisionOutcome.SUCCESSFUL && !blocks.isEmpty()) {
+                throw scope("revision[workspaceId=" + workspaceId
+                        + ",sourceDocumentId=" + sourceDocumentId
+                        + ",revisionId=" + sourceProcessingRevisionId
+                        + ",outcome=" + outcome + "]");
+            }
             HashSet<String> blockIds = new HashSet<>();
             for (StableSourceReference block : blocks) {
                 Objects.requireNonNull(block, "block");
@@ -100,33 +106,41 @@ public final class ReferenceResolutionService {
             String workspaceId, StableSourceReference requested, Catalog catalog) {
         Objects.requireNonNull(requested, "requested");
         Objects.requireNonNull(catalog, "catalog");
-        requireSourceScope(workspaceId, requested.sourceDocumentId(), catalog);
+        String workspace = StableSourceReference.requireIdentifier(workspaceId, "WORKSPACE_ID");
+        String context = tupleContext(workspace, requested);
+        requireSourceScope(workspace, requested.sourceDocumentId(), catalog, context);
         RevisionSnapshot revision = uniqueRevision(
-                workspaceId,
+                workspace,
                 requested.sourceDocumentId(),
                 requested.sourceProcessingRevisionId(),
                 catalog);
+        requireSuccessful(revision, context);
         List<StableSourceReference> matches = revision.blocks().stream()
                 .filter(requested::equals)
                 .toList();
         if (matches.size() != 1) {
-            throw notFound(tupleContext(requested));
+            throw notFound(context);
         }
         return matches.getFirst();
     }
 
     public String resolveSourceAlias(
             String workspaceId, String sourceDocumentId, String alias, Catalog catalog) {
-        requireSourceScope(workspaceId, sourceDocumentId, catalog);
+        String workspace = StableSourceReference.requireIdentifier(workspaceId, "WORKSPACE_ID");
+        String source = StableSourceReference.requireIdentifier(
+                sourceDocumentId, "SOURCE_DOCUMENT_ID");
         String requestedAlias = requireAlias(alias);
+        String context = "sourceAlias[workspaceId=" + workspace
+                + ",sourceDocumentId=" + source
+                + ",alias=" + requestedAlias + "]";
+        requireSourceScope(workspace, source, catalog, context);
         SourceScopedAlias registration = uniqueAlias(
                 requestedAlias,
                 catalog,
-                "sourceAlias[alias=" + requestedAlias
-                        + ",sourceDocumentId=" + sourceDocumentId + "]");
+                context);
         if (registration.kind() != SourceScopedAlias.Kind.SOURCE_DOCUMENT
-                || !sourceDocumentId.equals(registration.sourceDocumentId())) {
-            throw scope("source alias context");
+                || !source.equals(registration.sourceDocumentId())) {
+            throw scope(context);
         }
         return registration.sourceDocumentId();
     }
@@ -137,22 +151,30 @@ public final class ReferenceResolutionService {
             String sourceProcessingRevisionId,
             String alias,
             Catalog catalog) {
-        requireSourceScope(workspaceId, sourceDocumentId, catalog);
-        uniqueRevision(workspaceId, sourceDocumentId, sourceProcessingRevisionId, catalog);
+        String workspace = StableSourceReference.requireIdentifier(workspaceId, "WORKSPACE_ID");
+        String source = StableSourceReference.requireIdentifier(
+                sourceDocumentId, "SOURCE_DOCUMENT_ID");
+        String revisionId = StableSourceReference.requireIdentifier(
+                sourceProcessingRevisionId, "PROCESSING_REVISION_ID");
         String requestedAlias = requireAlias(alias);
+        String context = "blockAlias[workspaceId=" + workspace
+                + ",sourceDocumentId=" + source
+                + ",revisionId=" + revisionId
+                + ",alias=" + requestedAlias + "]";
+        requireSourceScope(workspace, source, catalog, context);
+        RevisionSnapshot revision = uniqueRevision(workspace, source, revisionId, catalog);
+        requireSuccessful(revision, context);
         SourceScopedAlias registration = uniqueAlias(
                 requestedAlias,
                 catalog,
-                "blockAlias[alias=" + requestedAlias
-                        + ",sourceDocumentId=" + sourceDocumentId
-                        + ",revisionId=" + sourceProcessingRevisionId + "]");
+                context);
         if (registration.kind() != SourceScopedAlias.Kind.DOCUMENT_BLOCK
-                || !sourceDocumentId.equals(registration.sourceDocumentId())
-                || !sourceProcessingRevisionId.equals(
+                || !source.equals(registration.sourceDocumentId())
+                || !revisionId.equals(
                         registration.blockTarget().sourceProcessingRevisionId())) {
-            throw scope("block alias context");
+            throw scope(context);
         }
-        return resolveTuple(workspaceId, registration.blockTarget(), catalog);
+        return resolveTuple(workspace, registration.blockTarget(), catalog);
     }
 
     public SourceScopedAlias registerAlias(
@@ -184,10 +206,15 @@ public final class ReferenceResolutionService {
             Catalog catalog) {
         Objects.requireNonNull(contentSha256, "contentSha256");
         Objects.requireNonNull(profile, "profile");
-        requireSourceScope(workspaceId, sourceDocumentId, catalog);
+        String workspace = StableSourceReference.requireIdentifier(workspaceId, "WORKSPACE_ID");
+        String source = StableSourceReference.requireIdentifier(
+                sourceDocumentId, "SOURCE_DOCUMENT_ID");
+        String context = "reparse[workspaceId=" + workspace
+                + ",sourceDocumentId=" + source + "]";
+        requireSourceScope(workspace, source, catalog, context);
         List<RevisionSnapshot> scoped = catalog.revisions().stream()
-                .filter(revision -> workspaceId.equals(revision.workspaceId()))
-                .filter(revision -> sourceDocumentId.equals(revision.sourceDocumentId()))
+                .filter(revision -> workspace.equals(revision.workspaceId()))
+                .filter(revision -> source.equals(revision.sourceDocumentId()))
                 .toList();
         if (scoped.stream().anyMatch(revision -> !contentSha256.equals(revision.contentSha256()))) {
             throw new ReferenceResolutionException(
@@ -263,16 +290,13 @@ public final class ReferenceResolutionService {
     }
 
     private static void requireSourceScope(
-            String workspaceId, String sourceDocumentId, Catalog catalog) {
-        String workspace = StableSourceReference.requireText(workspaceId, "WORKSPACE_ID_REQUIRED");
-        String source = StableSourceReference.requireText(
-                sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
+            String workspaceId, String sourceDocumentId, Catalog catalog, String context) {
         long matches = catalog.sourceDocuments().stream()
-                .filter(snapshot -> workspace.equals(snapshot.workspaceId()))
-                .filter(snapshot -> source.equals(snapshot.sourceDocumentId()))
+                .filter(snapshot -> workspaceId.equals(snapshot.workspaceId()))
+                .filter(snapshot -> sourceDocumentId.equals(snapshot.sourceDocumentId()))
                 .count();
         if (matches != 1) {
-            throw scope("workspace source context");
+            throw scope(context);
         }
     }
 
@@ -288,7 +312,8 @@ public final class ReferenceResolutionService {
                         revision.sourceProcessingRevisionId()))
                 .toList();
         if (matches.isEmpty()) {
-            throw notFound("revision[sourceDocumentId=" + sourceDocumentId
+            throw notFound("revision[workspaceId=" + workspaceId
+                    + ",sourceDocumentId=" + sourceDocumentId
                     + ",revisionId=" + sourceProcessingRevisionId + "]");
         }
         RevisionSnapshot first = matches.getFirst();
@@ -321,8 +346,16 @@ public final class ReferenceResolutionService {
         return alias;
     }
 
-    private static String tupleContext(StableSourceReference reference) {
-        return "tuple[sourceDocumentId=" + reference.sourceDocumentId()
+    private static void requireSuccessful(RevisionSnapshot revision, String context) {
+        if (revision.outcome() != RevisionOutcome.SUCCESSFUL) {
+            throw notFound(context + ",revisionOutcome=" + revision.outcome());
+        }
+    }
+
+    private static String tupleContext(
+            String workspaceId, StableSourceReference reference) {
+        return "tuple[workspaceId=" + workspaceId
+                + ",sourceDocumentId=" + reference.sourceDocumentId()
                 + ",revisionId=" + reference.sourceProcessingRevisionId()
                 + ",blockId=" + reference.documentBlockId() + "]";
     }
