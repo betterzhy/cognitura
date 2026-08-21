@@ -204,6 +204,17 @@ class ReferenceResolutionServiceTest {
                         new ReparseProfile("docx-v2"),
                         catalog),
                 ReferenceResolutionException.Code.HISTORICAL_RETARGET_FORBIDDEN);
+        assertThatThrownBy(() -> service.decideReparse(
+                        WORKSPACE,
+                        SOURCE,
+                        SourceHash.ofHex("b".repeat(64)),
+                        new ReparseProfile("docx-v2"),
+                        catalog))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(WORKSPACE)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("docx-v2")
+                .hasMessageContaining("b".repeat(64));
     }
 
     @Test
@@ -220,6 +231,13 @@ class ReferenceResolutionServiceTest {
         assertCode(
                 () -> service.decideReparse(WORKSPACE, SOURCE, CONTENT_HASH, PROFILE_V1, catalog),
                 ReferenceResolutionException.Code.REFERENCE_ALIAS_CONFLICT);
+        assertThatThrownBy(() -> service.decideReparse(
+                        WORKSPACE, SOURCE, CONTENT_HASH, PROFILE_V1, catalog))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(WORKSPACE)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("docx-v1")
+                .hasMessageContaining(CONTENT_HASH.value());
     }
 
     @Test
@@ -238,6 +256,21 @@ class ReferenceResolutionServiceTest {
                                         reusedBlock)),
                         List.of()),
                 ReferenceResolutionException.Code.HISTORICAL_RETARGET_FORBIDDEN);
+        assertThatThrownBy(() -> catalog(
+                        List.of(source(WORKSPACE, SOURCE)),
+                        List.of(
+                                successful("revision-a", PROFILE_V1, oldBlock),
+                                successful(
+                                        "revision-b",
+                                        new ReparseProfile("docx-v2"),
+                                        reusedBlock)),
+                        List.of()))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(WORKSPACE)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("revision-a")
+                .hasMessageContaining("revision-b")
+                .hasMessageContaining("shared-block");
 
         ReferenceResolutionService.Catalog catalog = catalog(
                 List.of(source(WORKSPACE, SOURCE)),
@@ -280,6 +313,41 @@ class ReferenceResolutionServiceTest {
                 () -> service.resolveBlockAlias(
                         WORKSPACE, SOURCE, "revision-failed", alias.value(), failedCatalog),
                 ReferenceResolutionException.Code.REFERENCE_NOT_FOUND);
+    }
+
+    @Test
+    void revisionSnapshotErrorsPreserveSafeRevisionAndRequestedBlockTuples() {
+        StableSourceReference foreign =
+                ref("source-document-b", "revision-a", "foreign-block");
+        assertThatThrownBy(() -> new ReferenceResolutionService.RevisionSnapshot(
+                        WORKSPACE,
+                        SOURCE,
+                        "revision-a",
+                        CONTENT_HASH,
+                        PROFILE_V1,
+                        ReferenceResolutionService.RevisionOutcome.SUCCESSFUL,
+                        List.of(foreign)))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(WORKSPACE)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("revision-a")
+                .hasMessageContaining("source-document-b")
+                .hasMessageContaining("foreign-block");
+
+        StableSourceReference duplicate = ref(SOURCE, "revision-a", "duplicate-block");
+        assertThatThrownBy(() -> new ReferenceResolutionService.RevisionSnapshot(
+                        WORKSPACE,
+                        SOURCE,
+                        "revision-a",
+                        CONTENT_HASH,
+                        PROFILE_V1,
+                        ReferenceResolutionService.RevisionOutcome.SUCCESSFUL,
+                        List.of(duplicate, duplicate)))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(WORKSPACE)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("revision-a")
+                .hasMessageContaining("duplicate-block");
     }
 
     @Test

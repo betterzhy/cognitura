@@ -67,6 +67,19 @@ class ReparseLineageTest {
                 .hasMessageContaining(FROM_REVISION)
                 .hasMessageContaining(TO_REVISION)
                 .hasMessageContaining("missing");
+        StableSourceReference foreignSource =
+                new StableSourceReference("source-document-b", FROM_REVISION, "foreign");
+        assertThatThrownBy(() -> lineage.resolvedTargets(foreignSource))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining("source-document-b")
+                .hasMessageContaining(FROM_REVISION)
+                .hasMessageContaining("foreign");
+        StableSourceReference wrongRevision = ref(TO_REVISION, "wrong-revision");
+        assertThatThrownBy(() -> lineage.resolvedTargets(wrongRevision))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining(TO_REVISION)
+                .hasMessageContaining("wrong-revision");
         assertThat(lineage.hasAmbiguity()).isTrue();
     }
 
@@ -271,6 +284,37 @@ class ReparseLineageTest {
                 List.of(to));
         assertThat(ReparseLineage.register(List.of(original), newAlgorithm))
                 .isEqualTo(newAlgorithm);
+    }
+
+    @Test
+    void lineageAlgorithmVersionRejectsUnsafeDiagnosticShapes() {
+        StableSourceReference from = ref(FROM_REVISION, "from");
+        StableSourceReference to = ref(TO_REVISION, "to");
+        List<ReparseLineage.Entry> entries = List.of(entry(
+                ReparseLineage.State.UNCHANGED, List.of(from), List.of(to)));
+
+        assertThatThrownBy(() -> ReparseLineage.create(
+                        SOURCE,
+                        FROM_REVISION,
+                        TO_REVISION,
+                        entries,
+                        CREATED_AT,
+                        "/Users/private/lineage",
+                        List.of(from),
+                        List.of(to)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("LINEAGE_ALGORITHM_VERSION_INVALID");
+        assertThatThrownBy(() -> ReparseLineage.create(
+                        SOURCE,
+                        FROM_REVISION,
+                        TO_REVISION,
+                        entries,
+                        CREATED_AT,
+                        "lineage-v1\nsecret",
+                        List.of(from),
+                        List.of(to)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("LINEAGE_ALGORITHM_VERSION_INVALID");
     }
 
     private static ReparseLineage create(
