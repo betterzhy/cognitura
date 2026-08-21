@@ -3464,6 +3464,18 @@ find_last_w1_i02_gate_commit_after() {
   printf '%s\n' "${found}"
 }
 
+require_w1_i02_probe_contract() {
+  local image="$1"
+  local major="$2"
+  local reuse="$3"
+  local removal="$4"
+  [[ "${image}" == "${w1_i02_postgres_image}" && "${major}" == 18 &&
+     "${reuse}" == FALSE ]] ||
+    fail "W1_I02_DATABASE_GATE_IMAGE_MISMATCH"
+  [[ "${removal}" == PASS ]] ||
+    fail "W1_I02_DATABASE_GATE_REMOVAL_REQUIRED"
+}
+
 run_w1_i02_isolated_postgres_probe() {
   local variable_name variable_value probe_classpath_file probe_classpath probe_output
   for variable_name in SPRING_DATASOURCE_URL JDBC_DATABASE_URL DATABASE_URL \
@@ -3472,6 +3484,8 @@ run_w1_i02_isolated_postgres_probe() {
     [[ -z "${variable_value}" ]] ||
       fail "W1_I02_DATABASE_GATE_HOST_DB_INPUT_FORBIDDEN:${variable_name}"
   done
+  require_w1_i02_probe_contract \
+    "${w1_i02_postgres_image}" 18 FALSE PASS
   probe_classpath_file="${test_tmp_root}/w1-i02-database-gate-classpath.txt"
   (
     cd "${repo_root}"
@@ -3644,6 +3658,22 @@ expect_w1_i02_database_gate_failure() {
   assert_contains "${output}" "${expected_message}"
 }
 
+expect_w1_i02_database_gate_transition_failure() {
+  local fixture_root="$1"
+  local base_sha="$2"
+  local head_sha="$3"
+  local expected_message="$4"
+  local output
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${base_sha}" \
+    --transition-head "${head_sha}" 2>&1)"; then
+    fail "invalid explicit W1-I02 transition unexpectedly passed: ${expected_message}"
+  fi
+  assert_contains "${output}" "${expected_message}"
+}
+
 run_w1_i02_database_gate_contract() {
   local gate_test_sha gate_tip gate_parent gate_tree fixture_root release_sha output
   local positive_cases=0
@@ -3689,6 +3719,32 @@ run_w1_i02_database_gate_contract() {
   assert_contains "${output}" "ReadyTaskCardCount = 1"
   positive_cases=$((positive_cases + 1))
 
+  if output="$(SPRING_DATASOURCE_URL='jdbc:postgresql://127.0.0.1:5432/forbidden' \
+    bash "${repo_root}/tests/task-cards/verify-wave1-implementation-cards.sh" \
+      --w1-i02-database-gate-contract-only 2>&1)"; then
+    fail "host database input unexpectedly passed the W1-I02 database gate"
+  fi
+  assert_contains "${output}" "W1_I02_DATABASE_GATE_HOST_DB_INPUT_FORBIDDEN"
+  negative_cases=$((negative_cases + 1))
+
+  if output="$(
+    require_w1_i02_probe_contract \
+      'postgres:18.4' 18 FALSE PASS 2>&1
+  )"; then
+    fail "mutable PostgreSQL image unexpectedly passed the W1-I02 database gate"
+  fi
+  assert_contains "${output}" "W1_I02_DATABASE_GATE_IMAGE_MISMATCH"
+  negative_cases=$((negative_cases + 1))
+
+  if output="$(
+    require_w1_i02_probe_contract \
+      "${w1_i02_postgres_image}" 18 FALSE MISSING 2>&1
+  )"; then
+    fail "missing container removal proof unexpectedly passed the W1-I02 database gate"
+  fi
+  assert_contains "${output}" "W1_I02_DATABASE_GATE_REMOVAL_REQUIRED"
+  negative_cases=$((negative_cases + 1))
+
   git -C "${fixture_root}" switch -q --detach "${gate_tip}"
   make_w1_i02_database_gate_release "${fixture_root}" \
     "${gate_tip}" "${gate_parent}" "${gate_tree}"
@@ -3704,7 +3760,20 @@ run_w1_i02_database_gate_contract() {
   git -C "${fixture_root}" switch -q --detach "${gate_tip}"
   make_w1_i02_database_gate_release "${fixture_root}" \
     "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  sed -i.bak 's/^P0Findings = 0$/P0Findings = 1/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: admit a nonzero database gate finding"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_REVIEW_RECEIPT_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
   set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" FormalDatabaseGate REQUIRED_BEFORE_READY
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" BusinessImplementationAuthorization REQUIRED_BEFORE_READY
   git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: release I02 without database gate pass"
   expect_w1_i02_database_gate_failure "${fixture_root}" \
@@ -3726,6 +3795,7 @@ run_w1_i02_database_gate_contract() {
   make_w1_i02_database_gate_release "${fixture_root}" \
     "${gate_tip}" "${gate_parent}" "${gate_tree}"
   set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" FormalDatabaseWrite AUTHORIZED
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" RemotePush AUTHORIZED
   git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: authorize formal database write"
   expect_w1_i02_database_gate_failure "${fixture_root}" \
@@ -3735,18 +3805,60 @@ run_w1_i02_database_gate_contract() {
   git -C "${fixture_root}" switch -q --detach "${gate_tip}"
   make_w1_i02_database_gate_release "${fixture_root}" \
     "${gate_tip}" "${gate_parent}" "${gate_tree}"
-  printf '%s\n' extra > "${fixture_root}/w1-i02-release-extra.txt"
+  mkdir -p "${fixture_root}/server/src/main/java/io/cognitura/source/persistence"
+  printf '%s\n' 'package io.cognitura.source.persistence;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/persistence/SourceDocumentRow.java"
   git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}" \
-    w1-i02-release-extra.txt
-  git -C "${fixture_root}" commit -qm "test: add extra database gate release path"
+    server/src/main/java/io/cognitura/source/persistence/SourceDocumentRow.java
+  git -C "${fixture_root}" commit -qm "test: mix I02 product into database gate release"
   expect_w1_i02_database_gate_failure "${fixture_root}" \
     "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID"
   negative_cases=$((negative_cases + 1))
 
   git -C "${fixture_root}" switch -q --detach "${gate_tip}"
-  git -C "${fixture_root}" commit --allow-empty -qm "test: separate gate from release"
   commit_w1_i02_database_gate_release "${fixture_root}" \
     "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  release_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  mkdir -p "${fixture_root}/server/src/main/java/io/cognitura/source/persistence"
+  printf '%s\n' 'package io.cognitura.source.persistence;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/persistence/SourceDocumentRow.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/persistence/SourceDocumentRow.java
+  git -C "${fixture_root}" commit -qm "test: create a queued fork after database gate"
+  expect_w1_i02_database_gate_transition_failure "${fixture_root}" \
+    "$(git -C "${fixture_root}" rev-parse HEAD)" "${release_sha}" \
+    "W1_I02_DATABASE_GATE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  set_field "${fixture_root}/AGENTS.md" Wave1ImplementationTaskCardSet BLOCKED_BY_DATABASE_GATE
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard NONE
+  printf '%s\n' '' 'W1I02SplitProjectionFixture = TRUE' >> \
+    "${fixture_root}/AGENTS.md"
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: split I02 release authority projection"
+  expect_w1_i02_database_gate_transition_failure "${fixture_root}" \
+    "${gate_tip}" "$(git -C "${fixture_root}" rev-parse HEAD)" \
+    "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  git -C "${fixture_root}" switch -q -c w1-i02-merge-left
+  printf '%s\n' left > "${fixture_root}/w1-i02-merge-left.txt"
+  git -C "${fixture_root}" add w1-i02-merge-left.txt
+  git -C "${fixture_root}" commit -qm "test: create database gate merge left"
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  git -C "${fixture_root}" switch -q -c w1-i02-merge-right
+  printf '%s\n' right > "${fixture_root}/w1-i02-merge-right.txt"
+  git -C "${fixture_root}" add w1-i02-merge-right.txt
+  git -C "${fixture_root}" commit -qm "test: create database gate merge right"
+  git -C "${fixture_root}" merge -q --no-ff w1-i02-merge-left \
+    -m "test: merge invalid database gate governance"
   expect_w1_i02_database_gate_failure "${fixture_root}" \
     "W1_I02_DATABASE_GATE_CHAIN_INVALID"
   negative_cases=$((negative_cases + 1))
@@ -3761,7 +3873,7 @@ run_w1_i02_database_gate_contract() {
 
   [[ "${positive_cases}" -eq 4 ]] ||
     fail "W1-I02 database gate positive case count mismatch: ${positive_cases}"
-  [[ "${negative_cases}" -eq 7 ]] ||
+  [[ "${negative_cases}" -eq 13 ]] ||
     fail "W1-I02 database gate negative case count mismatch: ${negative_cases}"
   printf '%s\n' \
     "W1I02DatabaseGateContractTests = PASS" \
