@@ -5593,9 +5593,9 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
           "I08_CLOSURE_RECEIPT_PATHS_INVALID:governance tip")"
         validate_w1_i08_closure_receipt \
           "${i08_governance_tip}" "${i08_closure_receipt}"
-        if git -C "${repo_root}" merge-base --is-ancestor \
-            "${w1_i09_runtime_rebaseline_design_sha}" \
-            "${current_repository_head}" 2>/dev/null; then
+        if git -C "${repo_root}" cat-file -e \
+            "${current_repository_head}:${w1_i09_runtime_rebaseline_paths[0]}" \
+            2>/dev/null; then
           validate_w1_i09_runtime_rebaseline_chain \
             "${current_repository_head}"
           printf '%s\n' \
