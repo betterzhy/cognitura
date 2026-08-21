@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I08
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W1-IG8 StableReferenceReparse
 Risk = HIGH
 DependsOn = W1-I07
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = IMMUTABLE_REFERENCE_ALIAS_AND_REPARSE_LINEAGE_PRESERVED
 NegativeVerification = ALIAS_RETARGET_CROSS_REVISION_AND_AMBIGUITY_REJECTED
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer

@@ -7,7 +7,7 @@ FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
 TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I07
+ActiveTaskCard = W1-I08
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
@@ -19,8 +19,8 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 ```
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
-Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、I03、I04、I05 和 I06 已完成固定候选
-零发现深审并关闭；I07 已释放为唯一 `READY` 卡。
+Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、I03、I04、I05、I06 和 I07 已完成固定候选
+零发现深审并关闭；I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。
 
 ## 1. 实现卡
 
@@ -33,9 +33,9 @@ Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、
 | `W1-I04` | Text/list/section parser | `I03` | `DONE` |
 | `W1-I05` | Table fidelity | `I04` | `DONE` |
 | `W1-I06` | Image/relationship projection | `I04,I05` | `DONE` |
-| `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `READY` |
-| `W1-I08` | Stable reference/lineage | `I07` | `BLOCKED_BY_DEPENDENCY` |
-| `W1-I09` | Upload/processing command API | `I07` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `DONE` |
+| `W1-I08` | Stable reference/lineage | `I07` | `READY` |
+| `W1-I09` | Upload/processing command API | `I07` | `QUEUED` |
 | `W1-I10` | Preview query API | `I08,I09` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I11` | Partial acceptance command | `I10` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I12` | Desktop Web source preview | `I10,I11` | `BLOCKED_BY_DEPENDENCY` |
@@ -246,6 +246,32 @@ P1 = 0
 P2 = 0
 Ultra = NOT_RUN
 I02ClosureReleasedTaskCard = W1-I07
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
+
+## 14. I07 关闭收据
+
+```text
+W1-I07 = DONE
+ReviewedCandidate = 094f62546cf7a13435c5d61f2a7bede21b86f099
+ReviewedParent = 5433485e8f88f3846cbda722282223a3c8274b14
+ReviewedTree = d82ece96e0e3dabdfef64a766179b711ea6d557f
+ReviewedGovernanceCandidate = cee6ec623217efd845e5a7d96990c503f280c68c
+ReviewedGovernanceParent = 5592e12b459614c189c44b3b1368d7109a6ffd00
+ReviewedGovernanceTree = 170cde2a823a80a1fe4adb6fd346258b8fb93add
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+I07ClosureReleasedTaskCard = W1-I08
+QueuedTaskCard = W1-I09
+QueuedReason = SERIAL_EXECUTION_ORDER
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```

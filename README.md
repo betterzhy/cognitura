@@ -58,7 +58,7 @@ HighFidelityVisualValidation = PASS
 HighFidelityUsabilityValidation = PASS
 HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
-ActiveImplementationTaskCard = W1-I07
+ActiveImplementationTaskCard = W1-I08
 VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 VisualStyleBaselineTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 VisualStyleBaselineImplementationEntry = GOVERNED_BY_EXECUTION_STATE
@@ -91,7 +91,7 @@ Wave 1 详细设计复审修复候选
 bootstrap；非业务治理卡 I00 已完成固定候选零发现深审并关闭。I00 未创建解析器、
 页面、数据库对象、LLM 调用或其他业务实现；用户已授权持续执行现有卡集。
 `W1-I01` 已对固定候选 `6796079de8c919055ddc6538234254b50630a491`
-完成零发现深审并关闭；I02 已关闭，I07 已释放为唯一 `READY` 卡。
+完成零发现深审并关闭；I02 和 I07 已关闭，I08 已释放为唯一 `READY` 卡，I09 保持 `QUEUED`。
 Visual Style Baseline 运行态只从其 execution-state 读取。
 
 Wave 1 implementation 的当前执行投影见
@@ -220,7 +220,7 @@ task-card、Schema、Golden Case、UI、server、web 七阶段并通过，固定
 该 GO 仅开放后续受控任务卡，不授权直接实现 Wave 1。
 Wave 1 书面详细设计和 14 张中细粒度实现切片规格均已获用户批准，14 张实现卡已
 bootstrap，非业务治理卡 I00 已关闭；I01 已完成固定候选零发现深审并关闭，I02
-已完成固定候选零发现深审并关闭；`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06` 已关闭，`W1-I07` 为唯一 `READY` 卡。
+已完成固定候选零发现深审并关闭；`W1-I03`、`W1-I04`、`W1-I05`、`W1-I06`、`W1-I07` 已关闭，`W1-I08` 为唯一 `READY` 卡，`W1-I09` 保持 `QUEUED`。
 
 首个 `ModuleDefaultReadingState` 已另行规划为 `MDR-I00..MDR-I08` 九张小卡，避免
 覆盖上述 Wave 1 source work。该集合的书面文本和自动串行治理规格已获用户批准；
