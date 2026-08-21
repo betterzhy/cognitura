@@ -29,6 +29,10 @@ public final class TextListSectionParser {
             "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private static final String WORDPROCESSING_DRAWING_NAMESPACE =
             "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+    private static final String DRAWING_NAMESPACE =
+            "http://schemas.openxmlformats.org/drawingml/2006/main";
+    private static final String RELATIONSHIPS_NAMESPACE =
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private static final String VML_NAMESPACE = "urn:schemas-microsoft-com:vml";
     private static final String MAIN_DOCUMENT_PART = "word/document.xml";
     private static final String STYLES_PART = "word/styles.xml";
@@ -243,16 +247,34 @@ public final class TextListSectionParser {
     }
 
     private static void appendInlineImageAnchor(Element imageElement, StringBuilder text) {
+        int wrapperCount = 0;
+        int payloadCount = 0;
         for (Node node = imageElement.getFirstChild(); node != null; node = node.getNextSibling()) {
-            if (node instanceof Element child && isSupportedImageContent(imageElement, child)) {
-                text.append(INLINE_IMAGE_ANCHOR);
-                return;
+            if (!(node instanceof Element child) || !isSupportedImageWrapper(imageElement, child)) {
+                continue;
+            }
+            wrapperCount++;
+            int childPayloadCount = countSupportedImagePayloads(imageElement, child);
+            if (childPayloadCount < 0) {
+                throw terminal("IMAGE_PAYLOAD_EVIDENCE_INVALID");
+            }
+            try {
+                payloadCount = Math.addExact(payloadCount, childPayloadCount);
+            } catch (ArithmeticException ignored) {
+                throw terminal("IMAGE_PAYLOAD_EVIDENCE_INVALID");
             }
         }
-        throw terminal("UNSUPPORTED_DOCX_FLOW:run/" + imageElement.getLocalName());
+        if (wrapperCount == 1 && payloadCount == 1) {
+            text.append(INLINE_IMAGE_ANCHOR);
+            return;
+        }
+        if (wrapperCount == 0) {
+            throw terminal("UNSUPPORTED_DOCX_FLOW:run/" + imageElement.getLocalName());
+        }
+        throw terminal("IMAGE_PAYLOAD_EVIDENCE_INVALID");
     }
 
-    private static boolean isSupportedImageContent(Element imageElement, Element child) {
+    private static boolean isSupportedImageWrapper(Element imageElement, Element child) {
         return switch (imageElement.getLocalName()) {
             case "drawing" -> WORDPROCESSING_DRAWING_NAMESPACE.equals(child.getNamespaceURI())
                     && ("inline".equals(child.getLocalName())
@@ -261,6 +283,57 @@ public final class TextListSectionParser {
                     && "shape".equals(child.getLocalName());
             default -> false;
         };
+    }
+
+    private static int countSupportedImagePayloads(Element imageElement, Element wrapper) {
+        int count = 0;
+        ArrayDeque<Element> pending = new ArrayDeque<>();
+        pending.push(wrapper);
+        while (!pending.isEmpty()) {
+            Element element = pending.pop();
+            if (isSupportedImagePayload(imageElement, element)) {
+                if (!hasValidRelationshipReference(imageElement, element)) {
+                    return -1;
+                }
+                try {
+                    count = Math.addExact(count, 1);
+                } catch (ArithmeticException ignored) {
+                    return -1;
+                }
+            }
+            for (Node node = element.getLastChild(); node != null; node = node.getPreviousSibling()) {
+                if (node instanceof Element child) {
+                    pending.push(child);
+                }
+            }
+        }
+        return count;
+    }
+
+    private static boolean isSupportedImagePayload(Element imageElement, Element element) {
+        return switch (imageElement.getLocalName()) {
+            case "drawing" -> DRAWING_NAMESPACE.equals(element.getNamespaceURI())
+                    && "blip".equals(element.getLocalName());
+            case "pict" -> VML_NAMESPACE.equals(element.getNamespaceURI())
+                    && "imagedata".equals(element.getLocalName());
+            default -> false;
+        };
+    }
+
+    private static boolean hasValidRelationshipReference(
+            Element imageElement, Element payload) {
+        if ("drawing".equals(imageElement.getLocalName())) {
+            boolean embed = hasNonBlankAttribute(payload, RELATIONSHIPS_NAMESPACE, "embed");
+            boolean link = hasNonBlankAttribute(payload, RELATIONSHIPS_NAMESPACE, "link");
+            return embed ^ link;
+        }
+        return hasNonBlankAttribute(payload, RELATIONSHIPS_NAMESPACE, "id");
+    }
+
+    private static boolean hasNonBlankAttribute(
+            Element element, String namespace, String localName) {
+        return element.hasAttributeNS(namespace, localName)
+                && !element.getAttributeNS(namespace, localName).isBlank();
     }
 
     private static void appendBreak(Element breakElement, StringBuilder text) {
