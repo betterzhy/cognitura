@@ -9,6 +9,8 @@ import io.cognitura.source.domain.SourceDomainException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -97,6 +99,73 @@ class TextListSectionParserTest {
                     "Heading One");
             assertParagraph(blocks.get(10), "End", List.of("Summary"), null);
         }
+    }
+
+    @Test
+    void preservesInlineImagePlaceholdersAndReservesTheirGlobalSourceOrderSlots()
+            throws IOException {
+        try (SafeDocxPackage safePackage = openFixture("inline-images.xml")) {
+            List<DocumentBlockCandidate> blocks = new TextListSectionParser().parse(safePackage);
+
+            assertThat(blocks).extracting(DocumentBlockCandidate::sourceOrder).containsExactly(0, 3);
+            assertThat(blocks.getFirst().text()).isEqualTo("😀\uFFFC\uFFFC");
+            assertThat(blocks.getFirst().text().codePoints().toArray())
+                    .containsExactly(0x1F600, 0xFFFC, 0xFFFC);
+            assertParagraph(blocks.get(1), "After", List.of(), null);
+        }
+    }
+
+    @Test
+    void rejectsLiteralImagePlaceholderInsideSourceText() throws IOException {
+        String literalPlaceholder = """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                  <w:body><w:p><w:r><w:t>Before\uFFFCAfter</w:t></w:r></w:p></w:body>
+                </w:document>
+                """;
+
+        try (SafeDocxPackage safePackage =
+                openDocumentXml("literal-image-placeholder", literalPlaceholder)) {
+            assertThatThrownBy(() -> new TextListSectionParser().parse(safePackage))
+                    .isInstanceOf(SourceDomainException.class)
+                    .satisfies(error -> assertThat(((SourceDomainException) error).code())
+                            .isEqualTo(SourceDomainException.Code.PARSER_TERMINAL_FAILURE))
+                    .hasMessageContaining("TEXT_LITERAL_IMAGE_PLACEHOLDER_FORBIDDEN");
+        }
+    }
+
+    @Test
+    void sourceOrderCursorRejectsInvalidReservationsAndNonIssuedBlockSequences()
+            throws Exception {
+        Method nextBlock = SourceOrderCursor.class.getDeclaredMethod("nextBlock");
+        Method reserveChildren =
+                SourceOrderCursor.class.getDeclaredMethod("reserveChildren", int.class);
+        Method requireIssuedBlockOrder =
+                SourceOrderCursor.class.getDeclaredMethod("requireIssuedBlockOrder", List.class);
+        SourceOrderCursor cursor = new SourceOrderCursor();
+
+        assertThat(nextBlock.invoke(cursor)).isEqualTo(0);
+        assertThatThrownBy(() -> reserveChildren.invoke(cursor, -1))
+                .isInstanceOf(InvocationTargetException.class)
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("SOURCE_ORDER_RESERVATION_MUST_NOT_BE_NEGATIVE");
+        reserveChildren.invoke(cursor, 2);
+        assertThat(nextBlock.invoke(cursor)).isEqualTo(3);
+
+        List<DocumentBlockCandidate> issued = List.of(paragraphCandidate(0), paragraphCandidate(3));
+        requireIssuedBlockOrder.invoke(cursor, issued);
+        assertThatThrownBy(() -> requireIssuedBlockOrder.invoke(
+                        cursor, List.of(paragraphCandidate(3), paragraphCandidate(0))))
+                .isInstanceOf(InvocationTargetException.class)
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("SOURCE_ORDER_ISSUED_SEQUENCE_MISMATCH");
+
+        SourceOrderCursor overflow = new SourceOrderCursor();
+        assertThat(nextBlock.invoke(overflow)).isEqualTo(0);
+        assertThatThrownBy(() -> reserveChildren.invoke(overflow, Integer.MAX_VALUE))
+                .isInstanceOf(InvocationTargetException.class)
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("SOURCE_ORDER_OVERFLOW");
     }
 
     @Test
@@ -345,6 +414,19 @@ class TextListSectionParserTest {
         assertThat(block.sectionPath()).containsExactlyElementsOf(sectionPath);
         assertThat(block.styleName()).isEqualTo("Body Text");
         assertThat(block.listSemantics()).isEqualTo(semantics);
+    }
+
+    private static DocumentBlockCandidate paragraphCandidate(int sourceOrder) {
+        return new DocumentBlockCandidate(
+                DocumentBlockCandidate.BlockType.PARAGRAPH,
+                sourceOrder,
+                List.of(),
+                "word/document.xml",
+                sourceOrder,
+                "text",
+                null,
+                null,
+                null);
     }
 
     private static byte[] zip(LinkedHashMap<String, byte[]> entries) throws IOException {
