@@ -2,6 +2,10 @@ spring:
   application:
     name: cognitura
 
+cognitura:
+  source-command:
+    enabled: false
+
 management:
   endpoints:
     web:
