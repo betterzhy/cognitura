@@ -33,6 +33,7 @@ w1_i08_closure_contract_only=0
 w1_i09_runtime_rebaseline_contract_only=0
 w1_i09_product_copy_inference_contract_only=0
 w1_i09_canonical_bridge_contract_only=0
+w1_i09_v2_compatibility_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -77,6 +78,9 @@ case "${1:-}" in
     ;;
   --w1-i09-canonical-bridge-contract-only)
     w1_i09_canonical_bridge_contract_only=1
+    ;;
+  --w1-i09-v2-compatibility-contract-only)
+    w1_i09_v2_compatibility_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -6500,6 +6504,146 @@ if [[ "${w1_i09_canonical_bridge_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+find_fixed_i09_v2_compatibility_projection() {
+  local commit parent actual expected found=""
+  expected="$(printf '%s\n' \
+    docs/engineering/cognitura-design-index.md \
+    docs/engineering/cognitura-wave-1-implementation-plan.md \
+    docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md |
+    LC_ALL=C sort)"
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+      22c0ff2e0dde71fa71a5e6a030f841c99ac4b655..HEAD); do
+    parent="$(git -C "${repo_root}" rev-parse "${commit}^")"
+    actual="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}" | LC_ALL=C sort)"
+    if [[ "${actual}" == "${expected}" ]] &&
+        git -C "${repo_root}" show \
+          "${commit}:docs/engineering/cognitura-design-index.md" |
+          grep -Fxq 'W1I09ProductWriteSetCount = 29'; then
+      [[ -z "${found}" ]] || fail "duplicate I09 V2 compatibility projection"
+      found="${commit}"
+    fi
+  done
+  [[ -n "${found}" ]] || fail "fixed I09 V2 compatibility projection is unavailable"
+  printf '%s\n' "${found}"
+}
+
+materialize_fixed_i09_v2_compatibility_projection() {
+  local fixture_root="$1"
+  local projection="$2"
+  local path
+  for path in \
+      docs/engineering/cognitura-design-index.md \
+      docs/engineering/cognitura-wave-1-implementation-plan.md \
+      docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md; do
+    git -C "${repo_root}" show "${projection}:${path}" > \
+      "${fixture_root}/${path}"
+  done
+}
+
+commit_fixed_i09_v2_compatibility_projection() {
+  local fixture_root="$1"
+  git -C "${fixture_root}" add \
+    docs/engineering/cognitura-design-index.md \
+    docs/engineering/cognitura-wave-1-implementation-plan.md \
+    docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+  git -C "${fixture_root}" commit -qm "docs: project I09 V2 compatibility"
+}
+
+run_w1_i09_v2_compatibility_contract() {
+  local fixture_root output projection projection_parent
+  local positive_cases=0 negative_cases=0
+  projection="$(find_fixed_i09_v2_compatibility_projection)"
+  projection_parent="$(git -C "${repo_root}" rev-parse "${projection}^")"
+
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
+    fail "fixed I09 V2 compatibility was rejected: ${output}"
+  assert_contains "${output}" 'I09ProductWriteSetCount = 29'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-legal"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  sed -i.bak \
+    's/assertThat(flyway.migrate().migrationsExecuted).isEqualTo(1);/assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);/' \
+    "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
+  rm "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java.bak"
+  git -C "${fixture_root}" add \
+    server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+  git -C "${fixture_root}" commit -qm "test: accept two I09 migrations in I02 regression"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I09 V2 compatibility product was rejected: ${output}"
+  assert_contains "${output}" 'I09ProductWriteSetCount = 29'
+  positive_cases=$((positive_cases + 1))
+
+  printf '%s\n' '// forbidden second compatibility drift' >> \
+    "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
+  git -C "${fixture_root}" add \
+    server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+  git -C "${fixture_root}" commit -qm "test: drift compatibility twice"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_V2_COMPATIBILITY_PRODUCT_INVALID'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-extra"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  printf '%s\n' '// extra semantic drift' >> \
+    "${fixture_root}/server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java"
+  git -C "${fixture_root}" add \
+    server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+  git -C "${fixture_root}" commit -qm "test: add invalid V2 compatibility"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_V2_COMPATIBILITY_PRODUCT_INVALID'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-wrong-count"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${projection_parent}"
+  materialize_fixed_i09_v2_compatibility_projection "${fixture_root}" "${projection}"
+  sed -i.bak 's/^W1I09ProductWriteSetCount = 29$/W1I09ProductWriteSetCount = 30/' \
+    "${fixture_root}/docs/engineering/cognitura-design-index.md"
+  rm "${fixture_root}/docs/engineering/cognitura-design-index.md.bak"
+  commit_fixed_i09_v2_compatibility_projection "${fixture_root}"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_V2_COMPATIBILITY_PROJECTION_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-extra-writeset"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${projection_parent}"
+  materialize_fixed_i09_v2_compatibility_projection "${fixture_root}" "${projection}"
+  printf '%s\n' 'WriteSet = server/src/test/java/io/cognitura/UndeclaredTest.java' >> \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md"
+  commit_fixed_i09_v2_compatibility_projection "${fixture_root}"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_V2_COMPATIBILITY_PROJECTION_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-governance-reentry"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach HEAD
+  printf '%s\n' '# forbidden V2 governance reentry' >> \
+    "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
+  git -C "${fixture_root}" commit -qm "test: reenter V2 governance"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] || fail "I09 V2 compatibility positive count mismatch"
+  [[ "${negative_cases}" -eq 5 ]] || fail "I09 V2 compatibility negative count mismatch"
+  printf '%s\n' \
+    'W1I09V2CompatibilityContractTests = PASS' \
+    "W1I09V2CompatibilityPositiveCases = ${positive_cases}" \
+    "W1I09V2CompatibilityNegativeCases = ${negative_cases}"
+}
+
+if [[ "${w1_i09_v2_compatibility_contract_only}" == "1" ]]; then
+  run_w1_i09_v2_compatibility_contract
+  exit 0
+fi
+
 if [[ "${terra_first_routing_contract_only}" == "1" ]]; then
   run_terra_first_routing_contract
   exit 0
@@ -6518,6 +6662,7 @@ run_w1_i08_closure_contract
 run_w1_i09_runtime_rebaseline_repair_contract
 run_w1_i09_product_copy_inference_contract
 run_w1_i09_canonical_bridge_contract
+run_w1_i09_v2_compatibility_contract
 
 validation_output="$(
   "${verifier}" \
