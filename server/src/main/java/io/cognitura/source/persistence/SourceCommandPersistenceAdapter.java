@@ -5,9 +5,11 @@ import io.cognitura.source.application.command.SourceCommandPersistencePort;
 import io.cognitura.source.domain.SourceBinary;
 import io.cognitura.source.domain.SourceDocument;
 import io.cognitura.source.domain.SourceHash;
+import io.cognitura.source.domain.ProcessingRevision;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.Optional;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 
@@ -76,6 +78,34 @@ public final class SourceCommandPersistenceAdapter implements SourceCommandPersi
                 session.rollback();
                 throw SourceCommandException.persistenceFailure(error);
             }
+        }
+    }
+
+    @Override
+    public Optional<ProcessingCommandState> findProcessingCommandState(
+            String workspaceId, String sourceDocumentId, String parserProfileVersion) {
+        try (SqlSession session = sessionFactory.openSession(true)) {
+            SourceCommandMapper mapper = session.getMapper(SourceCommandMapper.class);
+            SourceCommandMapper.ProcessingSourceRow document =
+                    mapper.selectDocumentByWorkspaceAndId(workspaceId, sourceDocumentId);
+            if (document == null) {
+                return Optional.empty();
+            }
+            SourceCommandMapper.RevisionRow revision = mapper.selectRevision(
+                    document.sourceDocumentId(),
+                    document.contentSha256(),
+                    parserProfileVersion);
+            ExistingRevision existing = revision == null ? null : new ExistingRevision(
+                    revision.sourceProcessingRevisionId(),
+                    ProcessingRevision.Status.valueOf(revision.revisionStatus()));
+            return Optional.of(new ProcessingCommandState(
+                    document.sourceDocumentId(),
+                    SourceHash.ofHex(document.contentSha256()),
+                    SourceDocument.ValidationStatus.valueOf(document.validationStatus()),
+                    document.validationFailureCode(),
+                    existing));
+        } catch (RuntimeException error) {
+            throw SourceCommandException.persistenceFailure(error);
         }
     }
 

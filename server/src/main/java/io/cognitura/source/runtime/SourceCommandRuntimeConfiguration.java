@@ -13,6 +13,7 @@ import io.cognitura.source.persistence.SourceCommandPersistenceAdapter;
 import io.cognitura.source.storage.LocalContentAddressedSourceBinaryStore;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -90,12 +91,17 @@ public class SourceCommandRuntimeConfiguration {
     @Bean
     SourceCommandService sourceCommandService(
             SourceBinaryStore sourceBinaryStore,
-            SourceCommandPersistencePort sourceCommandPersistencePort) {
+            SourceCommandPersistencePort sourceCommandPersistencePort,
+            ProcessingPublicationService processingPublicationService) {
         return new SourceCommandService(
                 sourceBinaryStore,
                 sourceCommandPersistencePort,
                 () -> "source-document-" + UUID.randomUUID(),
-                Clock.systemUTC());
+                Clock.systemUTC(),
+                processingPublicationService,
+                () -> "source-processing-revision-" + UUID.randomUUID(),
+                () -> "source-processing-attempt-" + UUID.randomUUID(),
+                Duration.ofSeconds(30));
     }
 
     @Bean

@@ -33,6 +33,38 @@ public interface SourceCommandMapper {
             @Param("idempotencyKey") String idempotencyKey);
 
     @Select("""
+            select source_document_id, content_sha256, validation_status,
+                   validation_failure_code
+            from source_document
+            where workspace_id = #{workspaceId} and source_document_id = #{sourceDocumentId}
+            """)
+    @ConstructorArgs({
+        @Arg(column = "source_document_id", javaType = String.class),
+        @Arg(column = "content_sha256", javaType = String.class),
+        @Arg(column = "validation_status", javaType = String.class),
+        @Arg(column = "validation_failure_code", javaType = String.class)
+    })
+    ProcessingSourceRow selectDocumentByWorkspaceAndId(
+            @Param("workspaceId") String workspaceId,
+            @Param("sourceDocumentId") String sourceDocumentId);
+
+    @Select("""
+            select source_processing_revision_id, revision_status
+            from source_processing_revision
+            where source_document_id = #{sourceDocumentId}
+              and content_sha256 = #{contentSha256}
+              and parser_profile_version = #{parserProfileVersion}
+            """)
+    @ConstructorArgs({
+        @Arg(column = "source_processing_revision_id", javaType = String.class),
+        @Arg(column = "revision_status", javaType = String.class)
+    })
+    RevisionRow selectRevision(
+            @Param("sourceDocumentId") String sourceDocumentId,
+            @Param("contentSha256") String contentSha256,
+            @Param("parserProfileVersion") String parserProfileVersion);
+
+    @Select("""
             select source_binary_id, content_sha256, byte_length, media_type,
                    binary_location, created_at
             from source_binary
@@ -92,5 +124,15 @@ public interface SourceCommandMapper {
             Instant receivedAt,
             String idempotencyKey,
             String validationStatus) {
+    }
+
+    record RevisionRow(String sourceProcessingRevisionId, String revisionStatus) {
+    }
+
+    record ProcessingSourceRow(
+            String sourceDocumentId,
+            String contentSha256,
+            String validationStatus,
+            String validationFailureCode) {
     }
 }
