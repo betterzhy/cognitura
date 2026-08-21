@@ -26,6 +26,7 @@ w1_i05_closure_contract_only=0
 w1_i06_entry_repair_contract_only=0
 w1_i06_copy_inference_repair_contract_only=0
 w1_i06_closure_contract_only=0
+w1_i02_database_gate_contract_only=0
 case "${1:-}" in
   "") ;;
   --w1-i03-closure-contract-only)
@@ -48,6 +49,9 @@ case "${1:-}" in
     ;;
   --w1-i06-closure-contract-only)
     w1_i06_closure_contract_only=1
+    ;;
+  --w1-i02-database-gate-contract-only)
+    w1_i02_database_gate_contract_only=1
     ;;
   *) fail "unknown argument: $1" ;;
 esac
@@ -3413,6 +3417,346 @@ run_w1_i06_closure_contract() {
     "W1I06ClosureNegativeCases = ${negative_cases}"
 }
 
+w1_i02_database_gate_origin_sha="8175f340c4f3d116a7aa5bc1f6ee5f67b489dee6"
+w1_i02_database_gate_design_sha="97504c281b61f6d15ca347c1e0d0369e44819110"
+w1_i02_database_gate_plan_sha="1fc1eb6c1d4493e62c8a55979a404f1fff199920"
+w1_i02_postgres_image="postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a"
+w1_i02_release_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md
+)
+
+find_w1_i02_gate_commit_after() {
+  local base_sha="$1"
+  local expected_path="$2"
+  local commit changed_paths
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${base_sha}..HEAD"); do
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${commit}^..${commit}")"
+    if [[ "${changed_paths}" == "${expected_path}" ]]; then
+      printf '%s\n' "${commit}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+run_w1_i02_isolated_postgres_probe() {
+  local variable_name variable_value probe_classpath_file probe_classpath probe_output
+  for variable_name in SPRING_DATASOURCE_URL JDBC_DATABASE_URL DATABASE_URL \
+    PGHOST PGPORT PGUSER PGPASSWORD; do
+    variable_value="$(printenv "${variable_name}" 2>/dev/null || true)"
+    [[ -z "${variable_value}" ]] ||
+      fail "W1_I02_DATABASE_GATE_HOST_DB_INPUT_FORBIDDEN:${variable_name}"
+  done
+  probe_classpath_file="${test_tmp_root}/w1-i02-database-gate-classpath.txt"
+  (
+    cd "${repo_root}"
+    ./mvnw -q -f server/pom.xml test-compile dependency:build-classpath \
+      -Dmdep.includeScope=test \
+      -Dmdep.outputFile="${probe_classpath_file}"
+  ) || fail "W1_I02_DATABASE_GATE_CLASSPATH_FAILED"
+  probe_classpath="${repo_root}/server/target/test-classes:${repo_root}/server/target/classes:$(cat "${probe_classpath_file}")"
+  probe_output="$(jshell -q --class-path "${probe_classpath}" <<'JAVA'
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.UUID;
+import org.testcontainers.DockerClientFactory;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
+public final class W1I02DatabaseGateProbe {
+  private static final String IMAGE =
+      "postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a";
+  public static void main(String[] args) throws Exception {
+    String database = "cognitura_gate_" + UUID.randomUUID().toString().replace("-", "");
+    String username = "gate_" + UUID.randomUUID().toString().replace("-", "");
+    String password = UUID.randomUUID().toString() + UUID.randomUUID();
+    String containerId;
+    String imageId;
+    String version;
+    try (PostgreSQLContainer container = new PostgreSQLContainer(
+        DockerImageName.parse(IMAGE).asCompatibleSubstituteFor("postgres"))
+        .withDatabaseName(database)
+        .withUsername(username)
+        .withPassword(password)
+        .withReuse(false)) {
+      container.start();
+      containerId = container.getContainerId();
+      var inspect = DockerClientFactory.instance().client()
+          .inspectContainerCmd(containerId).exec();
+      imageId = inspect.getImageId();
+      try (Connection connection = DriverManager.getConnection(
+               container.getJdbcUrl(), container.getUsername(), container.getPassword());
+           Statement statement = connection.createStatement();
+           ResultSet result = statement.executeQuery(
+               "select current_setting('server_version_num'), current_database()")) {
+        if (!result.next()) throw new IllegalStateException("version query returned no row");
+        version = result.getString(1);
+        if (!version.startsWith("18")) {
+          throw new IllegalStateException("unexpected PostgreSQL major: " + version);
+        }
+        if (!database.equals(result.getString(2))) {
+          throw new IllegalStateException("unexpected database identity");
+        }
+      }
+      System.out.println("W1I02DatabaseGateContainerId = " + containerId);
+      System.out.println("W1I02DatabaseGateImage = " + IMAGE);
+      System.out.println("W1I02DatabaseGateImageId = " + imageId);
+      System.out.println("W1I02DatabaseGateServerVersionNum = " + version);
+      System.out.println("W1I02DatabaseGateDatabaseName = " + database);
+    }
+    try {
+      DockerClientFactory.instance().client().inspectContainerCmd(containerId).exec();
+      throw new IllegalStateException("container remains inspectable after close");
+    } catch (com.github.dockerjava.api.exception.NotFoundException expected) {
+      System.out.println("W1I02DatabaseGateContainerRemoval = PASS");
+    }
+  }
+}
+W1I02DatabaseGateProbe.main(new String[0]);
+JAVA
+  )" || fail "W1_I02_DATABASE_GATE_PROBE_FAILED"
+  [[ "${probe_output}" != *'|  Exception '* ]] ||
+    fail "W1_I02_DATABASE_GATE_PROBE_FAILED"
+  assert_contains "${probe_output}" "W1I02DatabaseGateContainerId = "
+  assert_contains "${probe_output}" "W1I02DatabaseGateImage = ${w1_i02_postgres_image}"
+  assert_contains "${probe_output}" "W1I02DatabaseGateImageId = sha256:"
+  assert_contains "${probe_output}" "W1I02DatabaseGateServerVersionNum = 18"
+  assert_contains "${probe_output}" "W1I02DatabaseGateDatabaseName = cognitura_gate_"
+  assert_contains "${probe_output}" "W1I02DatabaseGateContainerRemoval = PASS"
+  printf '%s\n' "${probe_output}"
+}
+
+append_w1_i02_database_gate_receipt() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  local parent_sha="$3"
+  local tree_sha="$4"
+  printf '%s\n' \
+    '' \
+    '## 12. I02 Database Gate Admission Receipt' \
+    '' \
+    '```text' \
+    'W1-I02DatabaseGate = PASS' \
+    "ReviewedGateCandidate = ${candidate_sha}" \
+    "ReviewedGateParent = ${parent_sha}" \
+    "ReviewedGateTree = ${tree_sha}" \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0Findings = 0' \
+    'P1Findings = 0' \
+    'P2Findings = 0' \
+    'Ultra = NOT_RUN' \
+    "PostgreSQLTestImage = ${w1_i02_postgres_image}" \
+    'ExpectedPostgreSQLMajor = 18' \
+    'IsolatedContainerLifecycle = PASS' \
+    'ReleasedTaskCard = W1-I02' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+}
+
+make_w1_i02_database_gate_release() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  local parent_sha="$3"
+  local tree_sha="$4"
+  set_field "${fixture_root}/AGENTS.md" Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I02
+  set_field "${fixture_root}/README.md" Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  set_field "${fixture_root}/README.md" ActiveImplementationTaskCard W1-I02
+  set_field "${fixture_root}/docs/design/wave-1/README.md" Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  set_field "${fixture_root}/docs/design/wave-1/README.md" ActiveImplementationGovernanceTaskCard W1-I02
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" ActiveTaskCard W1-I02
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" ActiveTaskCardStatus READY
+  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" ActiveImplementationTaskCard W1-I02
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" ActiveImplementationGovernanceTaskCard W1-I02
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" ImplementationTaskCardPlanStatus I02_DATABASE_GATE_PASS_I02_READY
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" ActiveImplementationGovernanceTaskCard W1-I02
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" TaskCardSetStatus READY_FOR_EXECUTION
+  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" ActiveTaskCard W1-I02
+  set_table_status "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" W1-I02 QUEUED READY
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" Wave1ImplementationTaskCardSet READY_FOR_EXECUTION
+  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" ActiveImplementationGovernanceTaskCard W1-I02
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" TaskCardSetStatus READY_FOR_EXECUTION
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" ActiveTaskCard W1-I02
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" ReadyTaskCardCount 1
+  set_table_status "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" W1-I02 QUEUED READY
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" Status READY
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" BusinessImplementationAuthorization USER_AUTHORIZED
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" FormalDatabaseGate PASS
+  append_w1_i02_database_gate_receipt "${fixture_root}" \
+    "${candidate_sha}" "${parent_sha}" "${tree_sha}"
+}
+
+commit_w1_i02_database_gate_release() {
+  local fixture_root="$1"
+  local candidate_sha="$2"
+  local parent_sha="$3"
+  local tree_sha="$4"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${candidate_sha}" "${parent_sha}" "${tree_sha}"
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: release W1-I02 after database gate"
+}
+
+expect_w1_i02_database_gate_failure() {
+  local fixture_root="$1"
+  local expected_message="$2"
+  local output
+  if output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" 2>&1)"; then
+    fail "invalid W1-I02 database gate fixture unexpectedly passed: ${expected_message}"
+  fi
+  assert_contains "${output}" "${expected_message}"
+}
+
+run_w1_i02_database_gate_contract() {
+  local gate_test_sha gate_tip gate_parent gate_tree fixture_root release_sha output
+  local positive_cases=0
+  local negative_cases=0
+  run_w1_i02_isolated_postgres_probe
+  positive_cases=$((positive_cases + 1))
+
+  gate_test_sha="$(find_w1_i02_gate_commit_after \
+    "${w1_i02_database_gate_plan_sha}" \
+    tests/task-cards/verify-wave1-implementation-cards.sh || true)"
+  [[ -n "${gate_test_sha}" ]] || gate_test_sha="${w1_i02_database_gate_plan_sha}"
+  gate_tip="$(find_w1_i02_gate_commit_after \
+    "${gate_test_sha}" scripts/verify-wave1-implementation-cards || true)"
+  [[ -n "${gate_tip}" ]] || gate_tip="${gate_test_sha}"
+  gate_parent="$(git -C "${repo_root}" rev-parse "${gate_tip}^")"
+  gate_tree="$(git -C "${repo_root}" rev-parse "${gate_tip}^{tree}")"
+
+  fixture_root="${test_tmp_root}/w1-i02-database-gate"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${gate_tip}"
+  output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal W1-I02 database gate governance was rejected: ${output}"
+  assert_contains "${output}" "W1I02DatabaseGateStatus = PENDING_REVIEW"
+  assert_contains "${output}" "TaskCardSetStatus = BLOCKED_BY_DATABASE_GATE"
+  assert_contains "${output}" "ActiveTaskCard = NONE"
+  positive_cases=$((positive_cases + 1))
+
+  commit_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  release_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
+    --transition-base "${gate_tip}" \
+    --transition-head "${release_sha}")" ||
+    fail "legal W1-I02 database gate release transition was rejected: ${output}"
+  assert_contains "${output}" "W1I02DatabaseGateStatus = PASS"
+  assert_contains "${output}" "ActiveTaskCard = W1-I02"
+  positive_cases=$((positive_cases + 1))
+  output="$("${verifier}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation")" ||
+    fail "legal static W1-I02 database gate release was rejected: ${output}"
+  assert_contains "${output}" "ReadyTaskCardCount = 1"
+  positive_cases=$((positive_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  sed -i.bak "s/ReviewedGateCandidate = ${gate_tip}/ReviewedGateCandidate = 0000000000000000000000000000000000000000/" \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: bind wrong database gate candidate"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_REVIEW_IDENTITY_MISMATCH"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md" FormalDatabaseGate REQUIRED_BEFORE_READY
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: release I02 without database gate pass"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "I02_READY_REQUIRES_DATABASE_GATE"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  set_table_status "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+    W1-I07 BLOCKED_BY_DEPENDENCY READY
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: release I07 with I02"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_RELEASE_SCOPE_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" FormalDatabaseWrite AUTHORIZED
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: authorize formal database write"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_AUTHORIZATION_DRIFT"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  make_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  printf '%s\n' extra > "${fixture_root}/w1-i02-release-extra.txt"
+  git -C "${fixture_root}" add "${w1_i02_release_projection_paths[@]}" \
+    w1-i02-release-extra.txt
+  git -C "${fixture_root}" commit -qm "test: add extra database gate release path"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_RELEASE_PROJECTION_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${gate_tip}"
+  git -C "${fixture_root}" commit --allow-empty -qm "test: separate gate from release"
+  commit_w1_i02_database_gate_release "${fixture_root}" \
+    "${gate_tip}" "${gate_parent}" "${gate_tree}"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_CHAIN_INVALID"
+  negative_cases=$((negative_cases + 1))
+
+  git -C "${fixture_root}" switch -q --detach "${release_sha}"
+  printf '%s\n' outside > "${fixture_root}/outside-i02-write-set.txt"
+  git -C "${fixture_root}" add outside-i02-write-set.txt
+  git -C "${fixture_root}" commit -qm "test: change outside I02 WriteSet"
+  expect_w1_i02_database_gate_failure "${fixture_root}" \
+    "W1_I02_DATABASE_GATE_DESCENDANT_OUTSIDE_WRITE_SET"
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 4 ]] ||
+    fail "W1-I02 database gate positive case count mismatch: ${positive_cases}"
+  [[ "${negative_cases}" -eq 7 ]] ||
+    fail "W1-I02 database gate negative case count mismatch: ${negative_cases}"
+  printf '%s\n' \
+    "W1I02DatabaseGateContractTests = PASS" \
+    "W1I02DatabaseGatePositiveCases = ${positive_cases}" \
+    "W1I02DatabaseGateNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i03_closure_contract_only}" == "1" ]]; then
   run_w1_i03_closure_contract
   exit 0
@@ -3449,12 +3793,18 @@ if [[ "${w1_i06_closure_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+if [[ "${w1_i02_database_gate_contract_only}" == "1" ]]; then
+  run_w1_i02_database_gate_contract
+  exit 0
+fi
+
 [[ -x "${verifier}" ]] || fail "Wave 1 implementation task-card verifier is missing or not executable"
 
 run_w1_i05_closure_contract
 run_w1_i06_entry_repair_contract
 run_w1_i06_copy_inference_repair_contract
 run_w1_i06_closure_contract
+run_w1_i02_database_gate_contract
 
 validation_output="$(
   "${verifier}" \
