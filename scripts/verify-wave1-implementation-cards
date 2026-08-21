@@ -483,10 +483,14 @@ w1_i06_entry_repair_design_sha="d8c0614d736126cdb914508084d0c84c61420d88"
 w1_i06_entry_repair_plan_sha="c5d86bdf29edf790a154ba784592743211a958e0"
 w1_i06_entry_repair_test_sha="9f26431f29043f66ba224d1ccc347d70bdccb0ce"
 w1_i06_entry_repair_test_correction_sha="3c3f0fc68670939c6a68ed1cc7a739dce9948e44"
+w1_i06_entry_repair_rejected_verifier_sha="0d455da25da0cf6ad4ee756c2560869126e2b334"
+w1_i06_entry_repair_review_test_sha="3f3a26576b82a8fa73970921c41e4390cf524c63"
 w1_i06_entry_repair_governance_paths=(
   docs/superpowers/specs/2026-08-21-cognitura-w1-i06-entry-repair-design.md
   docs/superpowers/plans/2026-08-21-cognitura-w1-i06-entry-repair-and-implementation.md
   tests/task-cards/verify-wave1-implementation-cards.sh
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
@@ -2673,10 +2677,14 @@ validate_w1_i06_entry_repair_and_descendants() {
     "${w1_i06_entry_repair_plan_sha}"
     "${w1_i06_entry_repair_test_sha}"
     "${w1_i06_entry_repair_test_correction_sha}"
+    "${w1_i06_entry_repair_rejected_verifier_sha}"
+    "${w1_i06_entry_repair_review_test_sha}"
   )
 
   if [[ "${receipt}" != "${w1_i06_entry_repair_origin_sha}" ]]; then
     validate_post_w1_i05_closure_descendants "${receipt}" "${head}"
+    [[ "${receipt}" == "${head}" ]] ||
+      fail "non-fixed I05 closure receipt must not have descendants"
     w1_i06_entry_repair_status=PENDING
     return
   fi
@@ -2686,7 +2694,7 @@ validate_w1_i06_entry_repair_and_descendants() {
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${receipt}..${head}"); do
     case "${commit_index}" in
-      0|1|2|3|4)
+      0|1|2|3|4|5|6)
         parent="$(single_parent_of "${commit}" \
           "W1-I06 entry-repair governance commit")"
         if [[ "${commit_index}" -eq 0 ]]; then
@@ -2724,7 +2732,7 @@ validate_w1_i06_entry_repair_and_descendants() {
         require_git_blob_without_nul "${commit}" "${path}" \
           "W1-I06 entry-repair governance path must not contain NUL"
         ;;
-      5)
+      7)
         parent="$(single_parent_of "${commit}" \
           "W1-I06 entry-repair RED commit")"
         git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
@@ -2744,7 +2752,7 @@ validate_w1_i06_entry_repair_and_descendants() {
             "W1-I06 entry-repair RED path must not contain NUL"
         done
         ;;
-      6)
+      8)
         parent="$(single_parent_of "${commit}" \
           "W1-I06 entry-repair GREEN commit")"
         git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
@@ -2783,9 +2791,9 @@ validate_w1_i06_entry_repair_and_descendants() {
     commit_index=$((commit_index + 1))
   done
 
-  [[ "${commit_index}" -ge 5 ]] ||
-    fail "W1-I06 entry-repair governance chain must have exactly five commits"
-  if [[ "${commit_index}" -lt 7 ]]; then
+  [[ "${commit_index}" -ge 7 ]] ||
+    fail "W1-I06 entry-repair governance chain must have exactly seven commits"
+  if [[ "${commit_index}" -lt 9 ]]; then
     w1_i06_entry_repair_status=PENDING
   else
     w1_i06_entry_repair_status=PASS
