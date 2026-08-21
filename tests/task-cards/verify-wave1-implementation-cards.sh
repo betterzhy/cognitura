@@ -3420,6 +3420,8 @@ run_w1_i06_closure_contract() {
 w1_i02_database_gate_origin_sha="8175f340c4f3d116a7aa5bc1f6ee5f67b489dee6"
 w1_i02_database_gate_design_sha="97504c281b61f6d15ca347c1e0d0369e44819110"
 w1_i02_database_gate_plan_sha="1fc1eb6c1d4493e62c8a55979a404f1fff199920"
+w1_i02_database_gate_test_sha="2a5f936a3ae9a8e873299b88fea6c59dd8986df7"
+w1_i02_database_gate_rejected_verifier_sha="01165a315dafb77571e74b5086ff85a25ae0e574"
 w1_i02_postgres_image="postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a"
 w1_i02_release_projection_paths=(
   AGENTS.md
@@ -3447,6 +3449,19 @@ find_w1_i02_gate_commit_after() {
     fi
   done
   return 1
+}
+
+find_last_w1_i02_gate_commit_after() {
+  local base_sha="$1"
+  local expected_path="$2"
+  local commit changed_paths found=""
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${base_sha}..HEAD"); do
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${commit}^..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] && found="${commit}"
+  done
+  [[ -n "${found}" ]] || return 1
+  printf '%s\n' "${found}"
 }
 
 run_w1_i02_isolated_postgres_probe() {
@@ -3636,11 +3651,8 @@ run_w1_i02_database_gate_contract() {
   run_w1_i02_isolated_postgres_probe
   positive_cases=$((positive_cases + 1))
 
-  gate_test_sha="$(find_w1_i02_gate_commit_after \
-    "${w1_i02_database_gate_plan_sha}" \
-    tests/task-cards/verify-wave1-implementation-cards.sh || true)"
-  [[ -n "${gate_test_sha}" ]] || gate_test_sha="${w1_i02_database_gate_plan_sha}"
-  gate_tip="$(find_w1_i02_gate_commit_after \
+  gate_test_sha="${w1_i02_database_gate_test_sha}"
+  gate_tip="$(find_last_w1_i02_gate_commit_after \
     "${gate_test_sha}" scripts/verify-wave1-implementation-cards || true)"
   [[ -n "${gate_tip}" ]] || gate_tip="${gate_test_sha}"
   gate_parent="$(git -C "${repo_root}" rev-parse "${gate_tip}^")"
