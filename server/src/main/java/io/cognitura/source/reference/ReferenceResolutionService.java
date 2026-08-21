@@ -1,7 +1,9 @@
 package io.cognitura.source.reference;
 
 import io.cognitura.source.domain.SourceHash;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -26,6 +28,8 @@ public final class ReferenceResolutionService {
         RETURN_TERMINAL_FAILURE,
         CREATE_NEW_REVISION
     }
+
+    private record BlockIdentity(String workspaceId, String sourceDocumentId, String blockId) {}
 
     public record SourceDocumentSnapshot(String workspaceId, String sourceDocumentId) {
         public SourceDocumentSnapshot {
@@ -131,7 +135,9 @@ public final class ReferenceResolutionService {
         String workspace = StableSourceReference.requireIdentifier(workspaceId, "WORKSPACE_ID");
         String source = StableSourceReference.requireIdentifier(
                 sourceDocumentId, "SOURCE_DOCUMENT_ID");
-        String requestedAlias = requireAlias(alias);
+        String requestContext = "sourceAlias[workspaceId=" + workspace
+                + ",sourceDocumentId=" + source + "]";
+        String requestedAlias = requireAlias(alias, requestContext);
         String context = "sourceAlias[workspaceId=" + workspace
                 + ",sourceDocumentId=" + source
                 + ",alias=" + requestedAlias + "]";
@@ -158,7 +164,10 @@ public final class ReferenceResolutionService {
                 sourceDocumentId, "SOURCE_DOCUMENT_ID");
         String revisionId = StableSourceReference.requireIdentifier(
                 sourceProcessingRevisionId, "PROCESSING_REVISION_ID");
-        String requestedAlias = requireAlias(alias);
+        String requestContext = "blockAlias[workspaceId=" + workspace
+                + ",sourceDocumentId=" + source
+                + ",revisionId=" + revisionId + "]";
+        String requestedAlias = requireAlias(alias, requestContext);
         String context = "blockAlias[workspaceId=" + workspace
                 + ",sourceDocumentId=" + source
                 + ",revisionId=" + revisionId
@@ -222,17 +231,20 @@ public final class ReferenceResolutionService {
                 .filter(revision -> workspace.equals(revision.workspaceId()))
                 .filter(revision -> source.equals(revision.sourceDocumentId()))
                 .toList();
-        if (scoped.stream().anyMatch(revision -> !contentSha256.equals(revision.contentSha256()))) {
-            throw new ReferenceResolutionException(
+        List<RevisionSnapshot> retargetConflicts = scoped.stream()
+                .filter(revision -> !contentSha256.equals(revision.contentSha256()))
+                .toList();
+        if (!retargetConflicts.isEmpty()) {
+            throw ReferenceResolutionException.of(
                     ReferenceResolutionException.Code.HISTORICAL_RETARGET_FORBIDDEN,
-                    context);
+                    context + "," + revisionSetContext(retargetConflicts));
         }
         List<RevisionSnapshot> matches = scoped.stream()
                 .filter(revision -> contentSha256.equals(revision.contentSha256()))
                 .filter(revision -> profile.equals(revision.profile()))
                 .toList();
         if (matches.size() > 1) {
-            throw conflict(context);
+            throw conflict(context + "," + revisionSetContext(matches));
         }
         if (matches.isEmpty()) {
             return new ReparseDecision(ReparseAction.CREATE_NEW_REVISION, null);
@@ -256,8 +268,13 @@ public final class ReferenceResolutionService {
             sourceScopes.add(scopeKey(source.workspaceId(), source.sourceDocumentId()));
         }
         Map<String, RevisionSnapshot> revisionIdentities = new HashMap<>();
-        Map<String, String> blockOwners = new HashMap<>();
-        for (RevisionSnapshot revision : revisions) {
+        Map<BlockIdentity, Set<String>> blockOwners = new HashMap<>();
+        List<RevisionSnapshot> orderedRevisions = revisions.stream()
+                .sorted(Comparator.comparing(RevisionSnapshot::workspaceId)
+                        .thenComparing(RevisionSnapshot::sourceDocumentId)
+                        .thenComparing(RevisionSnapshot::sourceProcessingRevisionId))
+                .toList();
+        for (RevisionSnapshot revision : orderedRevisions) {
             Objects.requireNonNull(revision, "revision");
             String context = revisionContext(
                     revision.workspaceId(),
@@ -273,30 +290,56 @@ public final class ReferenceResolutionService {
             if (priorRevision != null && !priorRevision.equals(revision)) {
                 throw conflict(context);
             }
-            for (StableSourceReference block : revision.blocks()) {
-                String blockKey = revision.workspaceId() + "\u0000" + revision.sourceDocumentId()
-                        + "\u0000" + block.documentBlockId();
-                String priorOwner = blockOwners.putIfAbsent(
-                        blockKey, revision.sourceProcessingRevisionId());
-                if (priorOwner != null
-                        && !priorOwner.equals(revision.sourceProcessingRevisionId())) {
-                    throw new ReferenceResolutionException(
-                            ReferenceResolutionException.Code.HISTORICAL_RETARGET_FORBIDDEN,
-                            blockTupleContext(context, block)
-                                    + ",priorRevisionId=" + priorOwner);
-                }
+            for (StableSourceReference block : revision.blocks().stream()
+                    .sorted(Comparator.comparing(StableSourceReference::documentBlockId))
+                    .toList()) {
+                BlockIdentity blockIdentity = new BlockIdentity(
+                        revision.workspaceId(),
+                        revision.sourceDocumentId(),
+                        block.documentBlockId());
+                blockOwners.computeIfAbsent(blockIdentity, ignored -> new HashSet<>())
+                        .add(revision.sourceProcessingRevisionId());
             }
         }
-        Map<String, SourceScopedAlias> registrations = new HashMap<>();
+        var blockConflict = blockOwners.entrySet().stream()
+                .filter(entry -> entry.getValue().size() > 1)
+                .sorted(Comparator.comparing((Map.Entry<BlockIdentity, Set<String>> entry) ->
+                                entry.getKey().workspaceId())
+                        .thenComparing(entry -> entry.getKey().sourceDocumentId())
+                        .thenComparing(entry -> entry.getKey().blockId()))
+                .findFirst();
+        if (blockConflict.isPresent()) {
+            BlockIdentity block = blockConflict.get().getKey();
+            String context = "revision[workspaceId=" + block.workspaceId()
+                    + ",sourceDocumentId=" + block.sourceDocumentId() + "]"
+                    + ",blockTuple[sourceDocumentId=" + block.sourceDocumentId()
+                    + ",blockId=" + block.blockId() + "]";
+            throw ReferenceResolutionException.of(
+                    ReferenceResolutionException.Code.HISTORICAL_RETARGET_FORBIDDEN,
+                    context + "," + diagnosticSet(
+                            "fixedRevisions", List.copyOf(blockConflict.get().getValue())));
+        }
+        Map<String, List<SourceScopedAlias>> aliasGroups = new HashMap<>();
         for (SourceScopedAlias alias : aliases) {
             Objects.requireNonNull(alias, "alias");
-            String context = aliasRegistrationContext(alias);
-            if (!alias.isCanonical()) {
-                throw conflict(context);
+            aliasGroups.computeIfAbsent(alias.value(), ignored -> new ArrayList<>()).add(alias);
+        }
+        for (String aliasValue : aliasGroups.keySet().stream().sorted().toList()) {
+            List<SourceScopedAlias> group = aliasGroups.get(aliasValue).stream()
+                    .sorted(Comparator.comparing(ReferenceResolutionService::aliasRegistrationContext))
+                    .toList();
+            List<String> targets = group.stream()
+                    .map(ReferenceResolutionService::aliasRegistrationContext)
+                    .distinct()
+                    .toList();
+            if (targets.size() > 1) {
+                throw conflict("aliasRegistration[alias=" + aliasValue + "],"
+                        + diagnosticSet("conflictingTargets", targets));
             }
-            SourceScopedAlias prior = registrations.putIfAbsent(alias.value(), alias);
-            if (prior != null && !prior.sameTarget(alias)) {
-                throw conflict(context);
+            for (SourceScopedAlias alias : group) {
+                if (!alias.isCanonical()) {
+                    throw conflict(aliasRegistrationContext(alias));
+                }
             }
         }
     }
@@ -349,10 +392,10 @@ public final class ReferenceResolutionService {
         return first;
     }
 
-    private static String requireAlias(String value) {
+    private static String requireAlias(String value, String requestContext) {
         String alias = StableSourceReference.requireText(value, "REFERENCE_ALIAS_REQUIRED");
         if (!ALIAS.matcher(alias).matches()) {
-            throw scope("alias format");
+            throw scope(requestContext + "," + unsafeValueFingerprint("requestedAlias", alias));
         }
         return alias;
     }
@@ -397,22 +440,47 @@ public final class ReferenceResolutionService {
         return context + "]";
     }
 
+    private static String revisionSetContext(List<RevisionSnapshot> revisions) {
+        return diagnosticSet(
+                "fixedRevisions",
+                revisions.stream()
+                        .map(RevisionSnapshot::sourceProcessingRevisionId)
+                        .distinct()
+                        .toList());
+    }
+
+    private static String unsafeValueFingerprint(String label, String value) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        return label + "[length=" + bytes.length
+                + ",sha256=" + SourceHash.sha256(bytes).value() + "]";
+    }
+
+    private static String diagnosticSet(String label, List<String> values) {
+        List<String> ordered = values.stream().distinct().sorted().toList();
+        String canonical = String.join("\u0000", ordered);
+        List<String> visible = ordered.subList(0, Math.min(4, ordered.size()));
+        return label + "[count=" + ordered.size()
+                + ",values=" + visible
+                + ",sha256=" + SourceHash.sha256(
+                        canonical.getBytes(StandardCharsets.UTF_8)).value() + "]";
+    }
+
     private static String scopeKey(String workspaceId, String sourceDocumentId) {
         return workspaceId + "\u0000" + sourceDocumentId;
     }
 
     private static ReferenceResolutionException notFound(String detail) {
-        return new ReferenceResolutionException(
+        return ReferenceResolutionException.of(
                 ReferenceResolutionException.Code.REFERENCE_NOT_FOUND, detail);
     }
 
     private static ReferenceResolutionException scope(String detail) {
-        return new ReferenceResolutionException(
+        return ReferenceResolutionException.of(
                 ReferenceResolutionException.Code.REFERENCE_SCOPE_MISMATCH, detail);
     }
 
     private static ReferenceResolutionException conflict(String detail) {
-        return new ReferenceResolutionException(
+        return ReferenceResolutionException.of(
                 ReferenceResolutionException.Code.REFERENCE_ALIAS_CONFLICT, detail);
     }
 }

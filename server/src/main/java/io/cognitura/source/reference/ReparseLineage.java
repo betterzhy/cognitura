@@ -180,11 +180,11 @@ public final class ReparseLineage {
         Entry match = entries.stream()
                 .filter(entry -> entry.fromBlockRefs().contains(fromBlockRef))
                 .findFirst()
-                .orElseThrow(() -> new ReferenceResolutionException(
+                .orElseThrow(() -> ReferenceResolutionException.of(
                         ReferenceResolutionException.Code.REFERENCE_NOT_FOUND,
                         context));
         if (match.lineageState() == State.AMBIGUOUS) {
-            throw new ReferenceResolutionException(
+            throw ReferenceResolutionException.of(
                     ReferenceResolutionException.Code.LINEAGE_AMBIGUOUS,
                     context);
         }
@@ -254,7 +254,7 @@ public final class ReparseLineage {
             case AMBIGUOUS -> from >= 1 && to >= 1;
         };
         if (!valid) {
-            throw new ReferenceResolutionException(
+            throw ReferenceResolutionException.of(
                     ReferenceResolutionException.Code.LINEAGE_CARDINALITY_INVALID,
                     entryContext(context, entry));
         }
@@ -354,13 +354,13 @@ public final class ReparseLineage {
     }
 
     private static ReferenceResolutionException scope(String detail) {
-        return new ReferenceResolutionException(
+        return ReferenceResolutionException.of(
                 ReferenceResolutionException.Code.LINEAGE_REVISION_SCOPE_MISMATCH,
                 detail);
     }
 
     private static ReferenceResolutionException coverage(String detail) {
-        return new ReferenceResolutionException(
+        return ReferenceResolutionException.of(
                 ReferenceResolutionException.Code.LINEAGE_COVERAGE_INVALID,
                 detail);
     }
