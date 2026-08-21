@@ -5745,13 +5745,316 @@ run_w1_i09_runtime_rebaseline_contract() {
     "W1I09RuntimeRebaselineNegativeCases = ${negative_cases}"
 }
 
+i09_runtime_rebaseline_rejected_sha="40bd055047479db91d618320f1ff569e3c651c77"
+i09_runtime_rebaseline_repair_sha="2046b0040c1acb43ccde7ef6098ca8acf840b286"
+i09_runtime_rebaseline_repair_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i09-runtime-rebaseline-review-finding-repair.md"
+i09_runtime_rebaseline_projection_paths=(
+  docs/engineering/cognitura-technology-baseline.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+)
+
+new_i09_runtime_rebaseline_repair_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${i09_runtime_rebaseline_rejected_sha}"
+}
+
+materialize_i09_runtime_rebaseline_repair() {
+  local fixture_root="$1"
+  local mutation="${2:-NONE}"
+  commit_i09_runtime_rebaseline_file "${fixture_root}" \
+    "${i09_runtime_rebaseline_repair_sha}" \
+    "${i09_runtime_rebaseline_repair_path}" \
+    "docs: define W1-I09 rebaseline finding repair"
+  if [[ "${mutation}" == WRONG_REPAIR_EVIDENCE ]]; then
+    printf '%s\n' 'RepairEvidenceDrift = YES' >> \
+      "${fixture_root}/${i09_runtime_rebaseline_repair_path}"
+    git -C "${fixture_root}" add "${i09_runtime_rebaseline_repair_path}"
+    git -C "${fixture_root}" commit --amend -qm \
+      "docs: define W1-I09 rebaseline finding repair"
+  fi
+  commit_i09_runtime_rebaseline_file "${fixture_root}" WORKTREE \
+    "${i09_runtime_rebaseline_test_path}" \
+    "test: close W1-I09 rebaseline review findings"
+  commit_i09_runtime_rebaseline_file "${fixture_root}" WORKTREE \
+    "${i09_runtime_rebaseline_verifier_path}" \
+    "build: close W1-I09 rebaseline review findings"
+}
+
+extract_i09_runtime_canonical_card() {
+  local source_file="$1"
+  local destination="$2"
+  awk '
+    /^I09_CANONICAL_CARD_BEGIN$/ { capture=1; next }
+    /^I09_CANONICAL_CARD_END$/ { capture=0; exit }
+    capture { print }
+  ' "${source_file}" > "${destination}"
+}
+
+make_i09_runtime_rebaseline_projection() {
+  local fixture_root="$1"
+  local correction_tip="$2"
+  local correction_parent correction_tree
+  correction_parent="$(git -C "${fixture_root}" rev-parse "${correction_tip}^")"
+  correction_tree="$(git -C "${fixture_root}" rev-parse "${correction_tip}^{tree}")"
+  printf '%s\n' \
+    '' \
+    '## 10. Wave 1 source binary provider decision' \
+    '' \
+    '```text' \
+    'W1SourceBinaryStorageProvider = LOCAL_CONTENT_ADDRESSED_FILESYSTEM' \
+    'W1SourceBinaryProviderScope = SOURCE_BINARY_ONLY' \
+    'W1SourceBinaryProviderAuthority = W1_I09_RUNTIME_REBASELINE' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> \
+    "${fixture_root}/docs/engineering/cognitura-technology-baseline.md"
+  printf '%s\n' \
+    '' \
+    '## 16. W1-I09 runtime rebaseline' \
+    '' \
+    '```text' \
+    'W1I09RuntimeRebaseline = PASS' \
+    'W1I09RuntimeBoundary = SOURCE_COMMAND_RUNTIME' \
+    'W1I09ProductWriteSetCount = 27' \
+    'ActiveTaskCard = W1-I09' \
+    '```' >> "${fixture_root}/docs/engineering/cognitura-design-index.md"
+  printf '%s\n' \
+    '' \
+    '## 8. W1-I09 runtime rebaseline acceptance' \
+    '' \
+    '```text' \
+    'W1I09RuntimeRebaseline = PASS' \
+    'ObjectStorageProvider = LOCAL_CONTENT_ADDRESSED_FILESYSTEM' \
+    'I09FormalDatabaseGate = PASS' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md"
+  printf '%s\n' \
+    '' \
+    '## 16. W1-I09 runtime rebaseline receipt' \
+    '' \
+    '```text' \
+    'W1I09RuntimeRebaseline = PASS' \
+    "ReviewedRejectedCandidate = ${i09_runtime_rebaseline_rejected_sha}" \
+    "ReviewedVerifierCorrectionCandidate = ${correction_tip}" \
+    "ReviewedVerifierCorrectionParent = ${correction_parent}" \
+    "ReviewedVerifierCorrectionTree = ${correction_tree}" \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0 = 0' \
+    'P1 = 0' \
+    'P2 = 0' \
+    'Ultra = NOT_RUN' \
+    'ActiveTaskCard = W1-I09' \
+    'TaskCardCount = 14' \
+    'ReadyTaskCardCount = 1' \
+    'I09ProductWriteSetCount = 27' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  extract_i09_runtime_canonical_card \
+    "${fixture_root}/${i09_runtime_rebaseline_repair_path}" \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md"
+}
+
+commit_i09_runtime_rebaseline_projection() {
+  local fixture_root="$1"
+  local correction_tip="$2"
+  make_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  git -C "${fixture_root}" add \
+    "${i09_runtime_rebaseline_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm \
+    "docs: project W1-I09 real command runtime"
+}
+
+run_w1_i09_runtime_rebaseline_repair_contract() {
+  local fixture_root correction_tip output
+  local positive_cases=0 negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-pending"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I09 repair tip was rejected: ${output}"
+  assert_contains "${output}" \
+    'W1I09RuntimeRebaselineStatus = PENDING_PROJECTION'
+  positive_cases=$((positive_cases + 1))
+
+  commit_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I09 authority projection was rejected: ${output}"
+  assert_contains "${output}" \
+    'W1I09RuntimeRebaselineStatus = PASS'
+  assert_contains "${output}" 'I09ProductWriteSetCount = 27'
+  positive_cases=$((positive_cases + 1))
+
+  mkdir -p "${fixture_root}/server/src/main/java/io/cognitura/source/application/command"
+  printf '%s\n' 'package io.cognitura.source.application.command;' > \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/application/command/TrustedRequestContext.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/application/command/TrustedRequestContext.java
+  git -C "${fixture_root}" commit -qm "test: add legal I09 product descendant"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I09 product descendant was rejected: ${output}"
+  assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-evidence"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}" WRONG_REPAIR_EVIDENCE
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_REPAIR_INVALID:evidence'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-projection-extra"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  make_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  printf '%s\n' 'projection drift' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add \
+    "${i09_runtime_rebaseline_projection_paths[@]}" README.md
+  git -C "${fixture_root}" commit -qm "test: expand I09 authority projection"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PROJECTION_INVALID:exact paths'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-receipt"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  make_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  sed -i.bak 's/^ReviewVerdict = GO$/ReviewVerdict = NO_GO/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i09_runtime_rebaseline_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: drift I09 review receipt"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PROJECTION_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-db-auth"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  make_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  sed -i.bak 's/^FormalDatabaseWrite = NOT_AUTHORIZED$/FormalDatabaseWrite = AUTHORIZED/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add "${i09_runtime_rebaseline_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: authorize I09 formal database"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PROJECTION_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-card"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  make_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  sed -i.bak 's/^ProductionFileLimit = 19$/ProductionFileLimit = 20/' \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md"
+  rm "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md.bak"
+  git -C "${fixture_root}" add "${i09_runtime_rebaseline_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: drift I09 exact WriteSet"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PROJECTION_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-i08-drift"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  commit_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  printf '%s\n' '// forbidden I08 drift' >> \
+    "${fixture_root}/server/src/main/java/io/cognitura/source/reference/StableSourceReference.java"
+  git -C "${fixture_root}" add \
+    server/src/main/java/io/cognitura/source/reference/StableSourceReference.java
+  git -C "${fixture_root}" commit -qm "test: drift frozen I08 product"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_I08_DRIFT'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-product-outside"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  commit_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  printf '%s\n' 'outside product drift' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: exceed I09 product WriteSet"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-formal-location"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  commit_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  printf '%s\n' 'spring.datasource.url: jdbc:postgresql://formal-db/cognitura' >> \
+    "${fixture_root}/server/src/main/resources/application.yaml"
+  git -C "${fixture_root}" add server/src/main/resources/application.yaml
+  git -C "${fixture_root}" commit -qm "test: add formal database location"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_FORMAL_DATABASE_LOCATION'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-raw"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  commit_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  mkdir -p "${fixture_root}/raw"
+  printf '%s\n' 'forbidden' > "${fixture_root}/raw/i09.txt"
+  git -C "${fixture_root}" add raw/i09.txt
+  git -C "${fixture_root}" commit -qm "test: write raw during I09"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-repair-post-card"
+  new_i09_runtime_rebaseline_repair_fixture "${fixture_root}"
+  materialize_i09_runtime_rebaseline_repair "${fixture_root}"
+  correction_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  commit_i09_runtime_rebaseline_projection "${fixture_root}" "${correction_tip}"
+  printf '%s\n' 'WriteSet = server/src/main/java/io/cognitura/Unexpected.java' >> \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md"
+  git -C "${fixture_root}" add \
+    docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md
+  git -C "${fixture_root}" commit -qm "test: mutate projected I09 card"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 3 ]] ||
+    fail "I09 runtime repair positive count mismatch"
+  [[ "${negative_cases}" -eq 10 ]] ||
+    fail "I09 runtime repair negative count mismatch"
+  printf '%s\n' \
+    'W1I09RuntimeRebaselineRepairContractTests = PASS' \
+    "W1I09RuntimeRebaselineRepairPositiveCases = ${positive_cases}" \
+    "W1I09RuntimeRebaselineRepairNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i08_closure_contract_only}" == "1" ]]; then
   run_w1_i08_closure_contract
   exit 0
 fi
 
 if [[ "${w1_i09_runtime_rebaseline_contract_only}" == "1" ]]; then
-  run_w1_i09_runtime_rebaseline_contract
+  run_w1_i09_runtime_rebaseline_repair_contract
   exit 0
 fi
 
@@ -5770,7 +6073,7 @@ run_w1_i02_database_gate_contract
 run_w1_i02_closure_contract
 run_w1_i07_closure_contract
 run_w1_i08_closure_contract
-run_w1_i09_runtime_rebaseline_contract
+run_w1_i09_runtime_rebaseline_repair_contract
 
 validation_output="$(
   "${verifier}" \
