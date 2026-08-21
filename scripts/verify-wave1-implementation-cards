@@ -554,10 +554,15 @@ w1_i02_database_gate_origin_sha="8175f340c4f3d116a7aa5bc1f6ee5f67b489dee6"
 w1_i02_database_gate_design_sha="97504c281b61f6d15ca347c1e0d0369e44819110"
 w1_i02_database_gate_plan_sha="1fc1eb6c1d4493e62c8a55979a404f1fff199920"
 w1_i02_database_gate_test_sha="2a5f936a3ae9a8e873299b88fea6c59dd8986df7"
+w1_i02_database_gate_rejected_verifier_sha="01165a315dafb77571e74b5086ff85a25ae0e574"
+w1_i02_database_gate_repair_test_sha="1faa9446ff8deb6cf946dc3b54fde92d44abf97b"
+w1_i02_card_path="docs/task-cards/wave-1-implementation/W1-I02-source-persistence.md"
 w1_i02_postgres_image="postgres:18.4@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a"
 w1_i02_database_gate_governance_paths=(
   docs/superpowers/specs/2026-08-21-cognitura-w1-i02-database-gate-design.md
   docs/superpowers/plans/2026-08-21-cognitura-w1-i02-database-gate.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
@@ -3343,10 +3348,24 @@ validate_w1_i02_database_gate_governance() {
         expected_mode=100755
         ;;
       3)
-        [[ "${parent}" == "${w1_i02_database_gate_test_sha}" &&
-           "${commit}" == "${resolved_tip}" ]] ||
-          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:verifier identity"
+        [[ "${commit}" == "${w1_i02_database_gate_rejected_verifier_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_test_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:rejected verifier identity"
         expected_path="${w1_i02_database_gate_governance_paths[3]}"
+        expected_mode=100755
+        ;;
+      4)
+        [[ "${commit}" == "${w1_i02_database_gate_repair_test_sha}" &&
+           "${parent}" == "${w1_i02_database_gate_rejected_verifier_sha}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:repair test identity"
+        expected_path="${w1_i02_database_gate_governance_paths[4]}"
+        expected_mode=100755
+        ;;
+      5)
+        [[ "${parent}" == "${w1_i02_database_gate_repair_test_sha}" &&
+           "${commit}" == "${resolved_tip}" ]] ||
+          fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:repaired verifier identity"
+        expected_path="${w1_i02_database_gate_governance_paths[5]}"
         expected_mode=100755
         ;;
       *) fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:extra governance commit" ;;
@@ -3359,7 +3378,7 @@ validate_w1_i02_database_gate_governance() {
       "W1_I02_DATABASE_GATE_CHANGE_INVALID:NUL"
     commit_index=$((commit_index + 1))
   done
-  [[ "${commit_index}" -eq 4 ]] ||
+  [[ "${commit_index}" -eq 6 ]] ||
     fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:governance commit count"
 }
 
@@ -3367,10 +3386,10 @@ find_w1_i02_database_gate_tip() {
   local head="$1"
   local commit gate_tip="" commit_count=0
   git -C "${repo_root}" merge-base --is-ancestor \
-    "${w1_i02_database_gate_test_sha}" "${head}" ||
-    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:fixed test is not an ancestor"
+    "${w1_i02_database_gate_repair_test_sha}" "${head}" ||
+    fail "W1_I02_DATABASE_GATE_CHAIN_INVALID:repair test is not an ancestor"
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i02_database_gate_test_sha}..${head}"); do
+    "${w1_i02_database_gate_repair_test_sha}..${head}"); do
     commit_count=$((commit_count + 1))
     if [[ "${commit_count}" -eq 1 ]]; then
       gate_tip="${commit}"
