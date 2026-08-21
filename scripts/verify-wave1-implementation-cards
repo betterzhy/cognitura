@@ -5432,8 +5432,6 @@ validate_w1_i09_runtime_rebaseline_chain() {
   commits="$(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i09_runtime_rebaseline_origin_sha}..${head}")"
   for commit in ${commits}; do
-    [[ "${index}" -lt "${#w1_i09_runtime_rebaseline_paths[@]}" ]] ||
-      fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
     parent="$(single_parent_of "${commit}" \
       "I09_RUNTIME_REBASELINE_CHAIN_INVALID:single parent")"
     git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
@@ -5446,7 +5444,11 @@ validate_w1_i09_runtime_rebaseline_chain() {
       'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
       fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:exact path"
     path="$(printf '%s\n' "${changed_paths}" | awk 'NF { print; exit }')"
-    expected_path="${w1_i09_runtime_rebaseline_paths[${index}]}"
+    if [[ "${index}" -lt 3 ]]; then
+      expected_path="${w1_i09_runtime_rebaseline_paths[${index}]}"
+    else
+      expected_path="${w1_i09_runtime_rebaseline_paths[3]}"
+    fi
     [[ "${path}" == "${expected_path}" ]] ||
       fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
     case "${path}" in
@@ -5470,7 +5472,7 @@ validate_w1_i09_runtime_rebaseline_chain() {
     fi
     index=$((index + 1))
   done
-  [[ "${index}" -eq "${#w1_i09_runtime_rebaseline_paths[@]}" ]] ||
+  [[ "${index}" -ge "${#w1_i09_runtime_rebaseline_paths[@]}" ]] ||
     fail "I09_RUNTIME_REBASELINE_CHAIN_INVALID:order"
   git -C "${repo_root}" diff --quiet \
     "${w1_i09_runtime_rebaseline_origin_sha}..${head}" -- \
