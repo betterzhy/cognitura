@@ -3703,6 +3703,13 @@ run_w1_i02_database_gate_contract() {
   commit_w1_i02_database_gate_release "${fixture_root}" \
     "${gate_tip}" "${gate_parent}" "${gate_tree}"
   release_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  [[ "$(grep -c '^FormalDatabaseWrite = ' \
+      "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md")" -ge 2 ]] ||
+    fail "legal W1-I02 release fixture must preserve historical database authority receipts"
+  [[ "$(field_value \
+      "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+      FormalDatabaseWrite | sed -n '1p')" == NOT_AUTHORIZED ]] ||
+    fail "legal W1-I02 release fixture current database authority must remain NOT_AUTHORIZED"
   output="$("${verifier}" \
     --repo-root "${fixture_root}" \
     --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" \
