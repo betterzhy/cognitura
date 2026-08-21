@@ -114,7 +114,8 @@ public final class ReparseLineage {
                 toRevision,
                 immutableEntries,
                 Objects.requireNonNull(createdAt, "createdAt"),
-                StableSourceReference.requireText(algorithmVersion, "LINEAGE_ALGORITHM_VERSION_REQUIRED"));
+                StableSourceReference.requireIdentifier(
+                        algorithmVersion, "LINEAGE_ALGORITHM_VERSION"));
     }
 
     public static ReparseLineage register(
@@ -164,10 +165,13 @@ public final class ReparseLineage {
 
     public List<StableSourceReference> resolvedTargets(StableSourceReference fromBlockRef) {
         Objects.requireNonNull(fromBlockRef, "fromBlockRef");
-        String context = "lineageTuple[sourceDocumentId=" + sourceDocumentId
-                + ",fromRevisionId=" + fromProcessingRevisionId
-                + ",toRevisionId=" + toProcessingRevisionId
-                + ",blockId=" + fromBlockRef.documentBlockId() + "]";
+        String context = tupleContext(
+                lineageContext(
+                        sourceDocumentId,
+                        fromProcessingRevisionId,
+                        toProcessingRevisionId),
+                "requested",
+                fromBlockRef);
         if (!sourceDocumentId.equals(fromBlockRef.sourceDocumentId())
                 || !fromProcessingRevisionId.equals(
                         fromBlockRef.sourceProcessingRevisionId())) {

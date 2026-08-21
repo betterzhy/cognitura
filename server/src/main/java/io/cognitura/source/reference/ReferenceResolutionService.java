@@ -54,22 +54,23 @@ public final class ReferenceResolutionService {
             Objects.requireNonNull(profile, "profile");
             Objects.requireNonNull(outcome, "outcome");
             blocks = List.copyOf(Objects.requireNonNull(blocks, "blocks"));
+            String context = revisionContext(
+                    workspaceId, sourceDocumentId, sourceProcessingRevisionId);
             if (outcome != RevisionOutcome.SUCCESSFUL && !blocks.isEmpty()) {
-                throw scope("revision[workspaceId=" + workspaceId
-                        + ",sourceDocumentId=" + sourceDocumentId
-                        + ",revisionId=" + sourceProcessingRevisionId
-                        + ",outcome=" + outcome + "]");
+                throw scope(blockTupleContext(
+                        context + ",outcome=" + outcome, blocks.getFirst()));
             }
             HashSet<String> blockIds = new HashSet<>();
             for (StableSourceReference block : blocks) {
                 Objects.requireNonNull(block, "block");
+                String blockContext = blockTupleContext(context, block);
                 if (!sourceDocumentId.equals(block.sourceDocumentId())
                         || !sourceProcessingRevisionId.equals(
                                 block.sourceProcessingRevisionId())) {
-                    throw scope("revision block scope");
+                    throw scope(blockContext);
                 }
                 if (!blockIds.add(block.documentBlockId())) {
-                    throw conflict("duplicate block identity in revision");
+                    throw conflict(blockContext);
                 }
             }
         }
@@ -96,8 +97,8 @@ public final class ReferenceResolutionService {
                     throw new IllegalArgumentException("NEW_REVISION_DECISION_CANNOT_HAVE_ID");
                 }
             } else {
-                sourceProcessingRevisionId = StableSourceReference.requireText(
-                        sourceProcessingRevisionId, "PROCESSING_REVISION_ID_REQUIRED");
+                sourceProcessingRevisionId = StableSourceReference.requireIdentifier(
+                        sourceProcessingRevisionId, "PROCESSING_REVISION_ID");
             }
         }
     }
@@ -214,6 +215,8 @@ public final class ReferenceResolutionService {
                 sourceDocumentId, "SOURCE_DOCUMENT_ID");
         String context = "reparse[workspaceId=" + workspace
                 + ",sourceDocumentId=" + source + "]";
+        context += ",contentSha256=" + contentSha256.value()
+                + ",parserProfileVersion=" + profile.parserProfileVersion();
         requireSourceScope(workspace, source, catalog, context);
         List<RevisionSnapshot> scoped = catalog.revisions().stream()
                 .filter(revision -> workspace.equals(revision.workspaceId()))
@@ -222,14 +225,14 @@ public final class ReferenceResolutionService {
         if (scoped.stream().anyMatch(revision -> !contentSha256.equals(revision.contentSha256()))) {
             throw new ReferenceResolutionException(
                     ReferenceResolutionException.Code.HISTORICAL_RETARGET_FORBIDDEN,
-                    "source content identity");
+                    context);
         }
         List<RevisionSnapshot> matches = scoped.stream()
                 .filter(revision -> contentSha256.equals(revision.contentSha256()))
                 .filter(revision -> profile.equals(revision.profile()))
                 .toList();
         if (matches.size() > 1) {
-            throw conflict("ambiguous revision identity");
+            throw conflict(context);
         }
         if (matches.isEmpty()) {
             return new ReparseDecision(ReparseAction.CREATE_NEW_REVISION, null);
@@ -256,15 +259,19 @@ public final class ReferenceResolutionService {
         Map<String, String> blockOwners = new HashMap<>();
         for (RevisionSnapshot revision : revisions) {
             Objects.requireNonNull(revision, "revision");
+            String context = revisionContext(
+                    revision.workspaceId(),
+                    revision.sourceDocumentId(),
+                    revision.sourceProcessingRevisionId());
             if (!sourceScopes.contains(scopeKey(
                     revision.workspaceId(), revision.sourceDocumentId()))) {
-                throw scope("revision source scope");
+                throw scope(context);
             }
             String revisionKey = scopeKey(revision.workspaceId(), revision.sourceDocumentId())
                     + "\u0000" + revision.sourceProcessingRevisionId();
             RevisionSnapshot priorRevision = revisionIdentities.putIfAbsent(revisionKey, revision);
             if (priorRevision != null && !priorRevision.equals(revision)) {
-                throw conflict("revision identity collision");
+                throw conflict(context);
             }
             for (StableSourceReference block : revision.blocks()) {
                 String blockKey = revision.workspaceId() + "\u0000" + revision.sourceDocumentId()
@@ -275,7 +282,8 @@ public final class ReferenceResolutionService {
                         && !priorOwner.equals(revision.sourceProcessingRevisionId())) {
                     throw new ReferenceResolutionException(
                             ReferenceResolutionException.Code.HISTORICAL_RETARGET_FORBIDDEN,
-                            "document block identity reused across revisions");
+                            blockTupleContext(context, block)
+                                    + ",priorRevisionId=" + priorOwner);
                 }
             }
         }
@@ -359,6 +367,20 @@ public final class ReferenceResolutionService {
             String workspaceId, StableSourceReference reference) {
         return "tuple[workspaceId=" + workspaceId
                 + ",sourceDocumentId=" + reference.sourceDocumentId()
+                + ",revisionId=" + reference.sourceProcessingRevisionId()
+                + ",blockId=" + reference.documentBlockId() + "]";
+    }
+
+    private static String revisionContext(
+            String workspaceId, String sourceDocumentId, String revisionId) {
+        return "revision[workspaceId=" + workspaceId
+                + ",sourceDocumentId=" + sourceDocumentId
+                + ",revisionId=" + revisionId + "]";
+    }
+
+    private static String blockTupleContext(
+            String context, StableSourceReference reference) {
+        return context + ",blockTuple[sourceDocumentId=" + reference.sourceDocumentId()
                 + ",revisionId=" + reference.sourceProcessingRevisionId()
                 + ",blockId=" + reference.documentBlockId() + "]";
     }
