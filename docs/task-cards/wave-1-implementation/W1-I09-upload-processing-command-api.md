@@ -8,7 +8,7 @@ Gate = W1-IG9 UploadProcessingCommandApi
 Risk = HIGH
 DependsOn = W1-I07
 PrimaryBoundary = SOURCE_COMMAND_RUNTIME
-ProductionFileLimit = 19
+ProductionFileLimit = 20
 ProductionWriteSetException = EXACT_REBASELINED_VERTICAL_SLICE
 PositiveVerification = REAL_STREAMING_UPLOAD_AND_PROCESSING_COMMAND_ACCEPTED
 NegativeVerification = TRUST_STORAGE_TRANSACTION_ENUMERATION_AND_INTERNAL_LEAK_REJECTED
@@ -41,6 +41,7 @@ WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceBi
 WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceCommandPersistencePort.java
 WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceCommandService.java
 WriteSet = server/src/main/java/io/cognitura/source/application/command/SourceCommandException.java
+WriteSet = server/src/main/java/io/cognitura/source/application/processing/CandidateBlockSet.java
 WriteSet = server/src/main/java/io/cognitura/source/storage/LocalContentAddressedSourceBinaryStore.java
 WriteSet = server/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java
 WriteSet = server/src/main/java/io/cognitura/source/persistence/SourceCommandPersistenceAdapter.java
@@ -104,5 +105,5 @@ git diff --cached --name-only
 git commit -m "feat: add real source command runtime"
 ```
 
-暂存清单必须与 27 路径双向一致。只进行一次适用的 `deep_reviewer / sol xhigh`；
+暂存清单必须与 28 路径双向一致。只进行一次适用的 `deep_reviewer / sol xhigh`；
 零 finding GO 前不关闭 I09、不释放 I10。
