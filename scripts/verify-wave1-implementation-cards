@@ -844,6 +844,56 @@ w1_i09_runtime_rebaseline_evidence_shas=(
   "${w1_i09_runtime_rebaseline_plan_sha}"
   "${w1_i09_runtime_rebaseline_test_sha}"
 )
+w1_i09_runtime_rejected_candidate_sha="40bd055047479db91d618320f1ff569e3c651c77"
+w1_i09_runtime_rejected_parent_sha="3f27cec841ef6b781e70af4b6581cfbb12c2a5c3"
+w1_i09_runtime_rejected_tree_sha="48b60d01cfe8a7b5334d4614420a67446d776790"
+w1_i09_runtime_repair_spec_sha="2046b0040c1acb43ccde7ef6098ca8acf840b286"
+w1_i09_runtime_repair_test_sha="80937ffc99d88fb125f0fe1c99e93120ad1200ec"
+w1_i09_runtime_repair_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-runtime-rebaseline-review-finding-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i09_runtime_repair_evidence_shas=(
+  "${w1_i09_runtime_repair_spec_sha}"
+  "${w1_i09_runtime_repair_test_sha}"
+)
+w1_i09_runtime_projection_paths=(
+  docs/engineering/cognitura-technology-baseline.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  "${w1_i09_card_path}"
+)
+w1_i09_runtime_product_paths=(
+  server/src/main/java/io/cognitura/source/application/command/TrustedRequestContext.java
+  server/src/main/java/io/cognitura/source/application/command/TrustedRequestContextProvider.java
+  server/src/main/java/io/cognitura/source/application/command/SourceBinaryStore.java
+  server/src/main/java/io/cognitura/source/application/command/SourceCommandPersistencePort.java
+  server/src/main/java/io/cognitura/source/application/command/SourceCommandService.java
+  server/src/main/java/io/cognitura/source/application/command/SourceCommandException.java
+  server/src/main/java/io/cognitura/source/storage/LocalContentAddressedSourceBinaryStore.java
+  server/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java
+  server/src/main/java/io/cognitura/source/persistence/SourceCommandPersistenceAdapter.java
+  server/src/main/java/io/cognitura/source/persistence/JdbcProcessingPublicationPort.java
+  server/src/main/java/io/cognitura/source/runtime/SourceCommandRuntimeConfiguration.java
+  server/src/main/resources/db/migration/V2__create_source_command_runtime.sql
+  server/src/main/resources/application.yaml
+  server/src/main/java/io/cognitura/source/api/command/SourceUploadController.java
+  server/src/main/java/io/cognitura/source/api/command/ProcessingCommandController.java
+  server/src/main/java/io/cognitura/source/api/command/SourceUploadRequest.java
+  server/src/main/java/io/cognitura/source/api/command/ProcessingCommandRequest.java
+  server/src/main/java/io/cognitura/source/api/command/CommandAcceptedResponse.java
+  server/src/main/java/io/cognitura/source/api/command/SourceCommandErrorAdvice.java
+  server/src/test/java/io/cognitura/source/application/command/TrustedRequestContextTest.java
+  server/src/test/java/io/cognitura/source/storage/LocalContentAddressedSourceBinaryStoreTest.java
+  server/src/test/java/io/cognitura/source/application/command/SourceUploadCommandIntegrationTest.java
+  server/src/test/java/io/cognitura/source/persistence/JdbcProcessingPublicationPortIntegrationTest.java
+  server/src/test/java/io/cognitura/source/runtime/SourceCommandRuntimeIntegrationTest.java
+  server/src/test/java/io/cognitura/source/api/command/SourceUploadControllerTest.java
+  server/src/test/java/io/cognitura/source/api/command/ProcessingCommandControllerTest.java
+  server/src/test/resources/db/source-command-runtime-fixture.sql
+)
 w1_i07_closure_pair_paths=(
   AGENTS.md AGENTS.md AGENTS.md
   README.md README.md README.md
@@ -5496,6 +5546,278 @@ validate_w1_i09_runtime_rebaseline_chain() {
   done
 }
 
+is_w1_i09_runtime_product_path() {
+  local requested="$1"
+  local allowed
+  for allowed in "${w1_i09_runtime_product_paths[@]}"; do
+    [[ "${requested}" == "${allowed}" ]] && return 0
+  done
+  return 1
+}
+
+validate_w1_i09_runtime_repair_chain() {
+  local head="$1"
+  local commits commit parent changed_paths path expected_path
+  local expected_mode expected_blob actual_blob evidence_sha repair_tip=""
+  local index=0
+
+  [[ "$(git -C "${repo_root}" rev-parse \
+      "${w1_i09_runtime_rejected_candidate_sha}^" 2>/dev/null)" == \
+      "${w1_i09_runtime_rejected_parent_sha}" ]] ||
+    fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:rejected parent"
+  [[ "$(git -C "${repo_root}" rev-parse \
+      "${w1_i09_runtime_rejected_candidate_sha}^{tree}" 2>/dev/null)" == \
+      "${w1_i09_runtime_rejected_tree_sha}" ]] ||
+    fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:rejected tree"
+  validate_w1_i09_runtime_rebaseline_chain \
+    "${w1_i09_runtime_rejected_candidate_sha}"
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i09_runtime_rejected_candidate_sha}" "${head}" ||
+    fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:origin"
+  commits="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i09_runtime_rejected_candidate_sha}..${head}" | head -n 3)"
+  for commit in ${commits}; do
+    [[ "${index}" -lt "${#w1_i09_runtime_repair_paths[@]}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:order"
+    parent="$(single_parent_of "${commit}" \
+      "I09_RUNTIME_REBASELINE_REPAIR_INVALID:single parent")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I09_RUNTIME_REBASELINE_REPAIR_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "$(printf '%s\n' "${changed_paths}" | awk \
+      'NF { count++ } END { print count + 0 }')" -eq 1 ]] ||
+      fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:exact path"
+    path="$(printf '%s\n' "${changed_paths}" | awk 'NF { print; exit }')"
+    expected_path="${w1_i09_runtime_repair_paths[${index}]}"
+    [[ "${path}" == "${expected_path}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:order"
+    case "${path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+      *) expected_mode=100644 ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${path}")" == "${expected_mode}" ]] ||
+      fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${path}" \
+      "I09_RUNTIME_REBASELINE_REPAIR_INVALID:NUL"
+    if [[ "${index}" -lt "${#w1_i09_runtime_repair_evidence_shas[@]}" ]]; then
+      evidence_sha="${w1_i09_runtime_repair_evidence_shas[${index}]}"
+      expected_blob="$(git -C "${repo_root}" rev-parse \
+        "${evidence_sha}:${path}" 2>/dev/null)" ||
+        fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:evidence"
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${path}" 2>/dev/null)" ||
+        fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:evidence"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:evidence"
+    fi
+    repair_tip="${commit}"
+    index=$((index + 1))
+  done
+  [[ "${index}" -eq "${#w1_i09_runtime_repair_paths[@]}" ]] ||
+    fail "I09_RUNTIME_REBASELINE_REPAIR_INVALID:order"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i09_runtime_rejected_candidate_sha}..${repair_tip}" -- \
+    "${w1_i08_product_paths[@]}" "${w1_i08_closure_projection_paths[@]}" ||
+    fail "I09_RUNTIME_REBASELINE_I08_DRIFT"
+  printf '%s\n' "${repair_tip}"
+}
+
+append_w1_i09_runtime_projection_blocks() {
+  local destination_root="$1"
+  local correction_tip="$2"
+  local correction_parent correction_tree
+  correction_parent="$(single_parent_of "${correction_tip}" \
+    "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:correction parent")"
+  correction_tree="$(git -C "${repo_root}" rev-parse \
+    "${correction_tip}^{tree}" 2>/dev/null)" ||
+    fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:correction tree"
+  printf '%s\n' \
+    '' \
+    '## 10. Wave 1 source binary provider decision' \
+    '' \
+    '```text' \
+    'W1SourceBinaryStorageProvider = LOCAL_CONTENT_ADDRESSED_FILESYSTEM' \
+    'W1SourceBinaryProviderScope = SOURCE_BINARY_ONLY' \
+    'W1SourceBinaryProviderAuthority = W1_I09_RUNTIME_REBASELINE' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> "${destination_root}/docs/engineering/cognitura-technology-baseline.md"
+  printf '%s\n' \
+    '' \
+    '## 16. W1-I09 runtime rebaseline' \
+    '' \
+    '```text' \
+    'W1I09RuntimeRebaseline = PASS' \
+    'W1I09RuntimeBoundary = SOURCE_COMMAND_RUNTIME' \
+    'W1I09ProductWriteSetCount = 27' \
+    'ActiveTaskCard = W1-I09' \
+    '```' >> "${destination_root}/docs/engineering/cognitura-design-index.md"
+  printf '%s\n' \
+    '' \
+    '## 8. W1-I09 runtime rebaseline acceptance' \
+    '' \
+    '```text' \
+    'W1I09RuntimeRebaseline = PASS' \
+    'ObjectStorageProvider = LOCAL_CONTENT_ADDRESSED_FILESYSTEM' \
+    'I09FormalDatabaseGate = PASS' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> "${destination_root}/docs/engineering/cognitura-wave-1-design-acceptance.md"
+  printf '%s\n' \
+    '' \
+    '## 16. W1-I09 runtime rebaseline receipt' \
+    '' \
+    '```text' \
+    'W1I09RuntimeRebaseline = PASS' \
+    "ReviewedRejectedCandidate = ${w1_i09_runtime_rejected_candidate_sha}" \
+    "ReviewedVerifierCorrectionCandidate = ${correction_tip}" \
+    "ReviewedVerifierCorrectionParent = ${correction_parent}" \
+    "ReviewedVerifierCorrectionTree = ${correction_tree}" \
+    'ReviewLevel = L3' \
+    'ReviewRoute = deep_reviewer' \
+    'ReviewEffort = xhigh' \
+    'ReviewMultiplicity = ONE' \
+    'ReviewVerdict = GO' \
+    'P0 = 0' \
+    'P1 = 0' \
+    'P2 = 0' \
+    'Ultra = NOT_RUN' \
+    'ActiveTaskCard = W1-I09' \
+    'TaskCardCount = 14' \
+    'ReadyTaskCardCount = 1' \
+    'I09ProductWriteSetCount = 27' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' \
+    'RemotePush = NOT_AUTHORIZED' \
+    '```' >> "${destination_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  awk '
+    /^I09_CANONICAL_CARD_BEGIN$/ { capture=1; next }
+    /^I09_CANONICAL_CARD_END$/ { capture=0; exit }
+    capture { print }
+  ' "${destination_root}/${w1_i09_runtime_repair_paths[0]}" > \
+    "${destination_root}/${w1_i09_card_path}"
+}
+
+validate_w1_i09_runtime_projection() {
+  local correction_tip="$1"
+  local projection="$2"
+  local parent actual_paths expected_paths path expected_root actual_file index=0
+  parent="$(single_parent_of "${projection}" \
+    "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:direct child")"
+  [[ "${parent}" == "${correction_tip}" ]] ||
+    fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:direct child"
+  require_no_git_rename_or_copy "${correction_tip}" "${projection}" \
+    "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:rename or copy"
+  actual_paths="$(git -C "${repo_root}" diff --name-only \
+    "${correction_tip}..${projection}" | LC_ALL=C sort)"
+  expected_paths="$(printf '%s\n' "${w1_i09_runtime_projection_paths[@]}" |
+    LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:exact paths"
+  register_temporary_directory expected_root cognitura-i09-runtime-projection
+  for path in "${w1_i09_runtime_projection_paths[@]}" \
+      "${w1_i09_runtime_repair_paths[0]}"; do
+    mkdir -p "${expected_root}/$(dirname "${path}")"
+    git -C "${repo_root}" show "${correction_tip}:${path}" > \
+      "${expected_root}/${path}" ||
+      fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:base:${path}"
+  done
+  append_w1_i09_runtime_projection_blocks \
+    "${expected_root}" "${correction_tip}"
+  for path in "${w1_i09_runtime_projection_paths[@]}"; do
+    [[ "$(git_tree_mode "${projection}" "${path}")" == 100644 ]] ||
+      fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:mode"
+    require_git_blob_without_nul "${projection}" "${path}" \
+      "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:NUL"
+    actual_file="${expected_root}/actual-${index}"
+    git -C "${repo_root}" show "${projection}:${path}" > "${actual_file}" ||
+      fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:content"
+    cmp -s "${expected_root}/${path}" "${actual_file}" ||
+      fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:content"
+    index=$((index + 1))
+  done
+  remove_temporary_directory "${expected_root}"
+}
+
+validate_post_w1_i09_runtime_projection_descendants() {
+  local projection="$1"
+  local head="$2"
+  local commit parent changed_paths path
+  [[ "${projection}" != "${head}" ]] || return 0
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+      "${projection}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:single parent")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      if is_w1_i08_descendant_path "${path}"; then
+        fail "I09_RUNTIME_REBASELINE_I08_DRIFT"
+      fi
+      is_w1_i09_runtime_product_path "${path}" ||
+        fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path:${path}"
+      [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+        fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:mode:${path}"
+      require_git_blob_without_nul "${commit}" "${path}" \
+        "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:NUL:${path}"
+      if [[ "${path}" == server/src/main/resources/application.yaml ]] &&
+          git -C "${repo_root}" show "${commit}:${path}" |
+            grep -Fq 'jdbc:postgresql://'; then
+        fail "I09_RUNTIME_REBASELINE_FORMAL_DATABASE_LOCATION"
+      fi
+    done <<< "${changed_paths}"
+  done
+  git -C "${repo_root}" diff --quiet "${projection}..${head}" -- \
+    "${w1_i09_runtime_projection_paths[@]}" ||
+    fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path:projection"
+}
+
+route_w1_i09_runtime_repair() {
+  local head="$1"
+  local repair_tip projection
+  repair_tip="$(validate_w1_i09_runtime_repair_chain "${head}")"
+  if [[ "${head}" == "${repair_tip}" ]]; then
+    printf '%s\n' \
+      "Wave1ImplementationTaskCardValidation = PASS" \
+      "TaskCardCount = 14" \
+      "TaskCardSetStatus = READY_FOR_EXECUTION" \
+      "ActiveTaskCard = W1-I09" \
+      "ReadyTaskCardCount = 1" \
+      "W1I07ClosureStatus = PASS" \
+      "W1I08ClosureStatus = PASS" \
+      "W1I09RuntimeRebaselineStatus = PENDING_PROJECTION" \
+      "FormalDatabaseWrite = NOT_AUTHORIZED" \
+      "RemotePush = NOT_AUTHORIZED"
+    return 0
+  fi
+  projection="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${repair_tip}..${head}" | awk 'NF { print; exit }')"
+  [[ -n "${projection}" ]] ||
+    fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:missing"
+  validate_w1_i09_runtime_projection "${repair_tip}" "${projection}"
+  validate_post_w1_i09_runtime_projection_descendants \
+    "${projection}" "${head}"
+  printf '%s\n' \
+    "Wave1ImplementationTaskCardValidation = PASS" \
+    "TaskCardCount = 14" \
+    "TaskCardSetStatus = READY_FOR_EXECUTION" \
+    "ActiveTaskCard = W1-I09" \
+    "ReadyTaskCardCount = 1" \
+    "W1I07ClosureStatus = PASS" \
+    "W1I08ClosureStatus = PASS" \
+    "W1I09RuntimeRebaselineStatus = PASS" \
+    "I09ProductWriteSetCount = 27" \
+    "FormalDatabaseWrite = NOT_AUTHORIZED" \
+    "RemotePush = NOT_AUTHORIZED"
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -5560,6 +5882,29 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
       i08_transition_head="$(git -C "${repo_root}" rev-parse --verify \
         "${transition_head}^{commit}" 2>/dev/null)" ||
         fail "I08_CLOSURE_GOVERNANCE_CHAIN_INVALID:HEAD"
+      if [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+          "${w1_i09_runtime_rejected_candidate_sha}..${i08_transition_base}" \
+          -- "${w1_i09_runtime_repair_paths[0]}" 2>/dev/null)" ]]; then
+        repair_tip="$(validate_w1_i09_runtime_repair_chain \
+          "${i08_transition_base}")"
+        [[ "${repair_tip}" == "${i08_transition_base}" ]] ||
+          fail "I09_RUNTIME_REBASELINE_PROJECTION_INVALID:explicit BASE"
+        validate_w1_i09_runtime_projection \
+          "${repair_tip}" "${i08_transition_head}"
+        printf '%s\n' \
+          "Wave1ImplementationTaskCardValidation = PASS" \
+          "TaskCardCount = 14" \
+          "TaskCardSetStatus = READY_FOR_EXECUTION" \
+          "ActiveTaskCard = W1-I09" \
+          "ReadyTaskCardCount = 1" \
+          "W1I07ClosureStatus = PASS" \
+          "W1I08ClosureStatus = PASS" \
+          "W1I09RuntimeRebaselineStatus = PASS" \
+          "I09ProductWriteSetCount = 27" \
+          "FormalDatabaseWrite = NOT_AUTHORIZED" \
+          "RemotePush = NOT_AUTHORIZED"
+        exit 0
+      fi
       i08_base_vector="$(git_tree_field "${i08_transition_base}" \
         "${w1_i07_card_path}" Status):$(git_tree_field \
         "${i08_transition_base}" "${w1_i08_card_path}" Status):$(git_tree_field \
@@ -5607,6 +5952,12 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
           "I08_CLOSURE_RECEIPT_PATHS_INVALID:governance tip")"
         validate_w1_i08_closure_receipt \
           "${i08_governance_tip}" "${i08_closure_receipt}"
+        if [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+            "${w1_i09_runtime_rejected_candidate_sha}..${current_repository_head}" \
+            -- "${w1_i09_runtime_repair_paths[0]}" 2>/dev/null)" ]]; then
+          route_w1_i09_runtime_repair "${current_repository_head}"
+          exit 0
+        fi
         if [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
             "${w1_i09_runtime_rebaseline_origin_sha}..${current_repository_head}" \
             -- "${w1_i09_runtime_rebaseline_paths[0]}" \
