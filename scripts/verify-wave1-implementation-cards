@@ -2982,36 +2982,6 @@ validate_w1_i06_entry_repair_and_descendants() {
             "W1-I06 copy-inference repair governance path must not contain NUL"
         done <<< "${changed_paths}"
         ;;
-      20|21)
-        parent="$(single_parent_of "${commit}" \
-          "W1-I06 fixed-candidate finding commit")"
-        if [[ "${commit_index}" -eq 20 ]]; then
-          [[ "${commit}" == "${w1_i06_finding_red_sha}" ]] ||
-            fail "W1-I06 finding RED commit identity mismatch"
-          expected_paths="server/src/test/java/io/cognitura/source/docx/image/ImageRelationshipProjectorTest.java"
-        else
-          [[ "${commit}" == "${w1_i06_reviewed_candidate_sha}" ]] ||
-            fail "W1-I06 reviewed candidate identity mismatch"
-          expected_paths="$(printf '%s\n' \
-            server/src/main/java/io/cognitura/source/docx/image/ImageRelationshipProjector.java \
-            server/src/main/java/io/cognitura/source/docx/image/ImmutableMediaRef.java | LC_ALL=C sort)"
-        fi
-        git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
-          fail "W1-I06 fixed-candidate finding commit must be nonempty"
-        require_no_git_rename_or_copy "${parent}" "${commit}" \
-          "W1-I06 fixed-candidate finding commit must not rename or copy paths"
-        changed_paths="$(git -C "${repo_root}" diff --name-only \
-          "${parent}..${commit}" | LC_ALL=C sort)"
-        [[ "${changed_paths}" == "${expected_paths}" ]] ||
-          fail "W1-I06 fixed-candidate finding paths mismatch"
-        while IFS= read -r path; do
-          [[ -n "${path}" ]] || continue
-          [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
-            fail "W1-I06 fixed-candidate finding path mode mismatch"
-          require_git_blob_without_nul "${commit}" "${path}" \
-            "W1-I06 fixed-candidate finding path must not contain NUL"
-        done <<< "${changed_paths}"
-        ;;
       22)
         parent="$(single_parent_of "${commit}" "W1-I06 closure RED commit")"
         [[ "${commit}" == "${w1_i06_closure_test_sha}" ]] ||
@@ -3247,6 +3217,37 @@ find_unique_w1_i06_closure_receipt() {
   printf '%s %s\n' "${receipt_parent}" "${receipt}"
 }
 
+validate_post_w1_i06_closure_verifier_correction() {
+  local receipt="$1"
+  local head="$2"
+  local commit parent changed_paths commit_count=0
+  [[ "${receipt}" != "${head}" ]] || return 0
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${receipt}..${head}"); do
+    commit_count=$((commit_count + 1))
+    [[ "${commit_count}" -eq 1 ]] ||
+      fail "post-I06-closure verifier correction must be exactly one commit"
+    parent="$(single_parent_of "${commit}" \
+      "post-I06-closure verifier correction")"
+    [[ "${parent}" == "${receipt}" ]] ||
+      fail "post-I06-closure verifier correction must directly follow the receipt"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "post-I06-closure verifier correction must be nonempty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "post-I06-closure verifier correction must not rename or copy paths"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "${changed_paths}" == scripts/verify-wave1-implementation-cards ]] ||
+      fail "post-I06-closure verifier correction must change only the verifier"
+    [[ "$(git_tree_mode "${commit}" "${changed_paths}")" == 100755 ]] ||
+      fail "post-I06-closure verifier correction path mode mismatch"
+    require_git_blob_without_nul "${commit}" "${changed_paths}" \
+      "post-I06-closure verifier correction path must not contain NUL"
+  done
+  [[ "${commit_count}" -eq 1 ]] ||
+    fail "post-I06-closure verifier correction must be exactly one commit"
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -3433,13 +3434,13 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
           set -- ${i06_closure_receipt_pair}
           i06_closure_receipt_parent="$1"
           i06_closure_receipt="$2"
-          [[ "${i06_closure_receipt}" == "${current_repository_head}" ]] ||
-            fail "I06 closure receipt must be the repository HEAD"
           validate_w1_i06_entry_repair_and_descendants \
             "${i05_closure_receipt}" "${i06_closure_receipt_parent}"
           validate_w1_i06_closure_receipt \
             "${i06_closure_receipt_parent}" "${i06_closure_receipt}"
-          git -C "${repo_root}" diff --quiet "${current_repository_head}" -- \
+          validate_post_w1_i06_closure_verifier_correction \
+            "${i06_closure_receipt}" "${current_repository_head}"
+          git -C "${repo_root}" diff --quiet "${i06_closure_receipt}" -- \
             "${w1_i06_closure_projection_paths[@]}" ||
             fail "working projection must match I06 closure receipt"
           printf '%s\n' \
