@@ -1,50 +1,119 @@
 package io.cognitura.source.application.processing;
 
+import io.cognitura.source.docx.image.ImageAnchor;
+import io.cognitura.source.docx.image.ImageRelationshipProjector;
+import io.cognitura.source.docx.table.TableBlockCandidate;
+import io.cognitura.source.docx.table.TableCellCandidate;
+import io.cognitura.source.docx.table.TableMergeProjection;
+import io.cognitura.source.docx.table.TableTextEvidence;
+import io.cognitura.source.docx.text.DocumentBlockCandidate;
+import io.cognitura.source.docx.text.ListSemantics;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
 
-public record CandidateBlockSet(
-        String sourceDocumentId,
-        String revisionId,
-        String attemptId,
-        ParseCompleteness parseCompleteness,
-        PartialAcceptanceStatus partialAcceptanceStatus,
-        List<Block> blocks,
-        BlockSetDigest omissionsDigest) {
+public final class CandidateBlockSet {
 
     public enum ParseCompleteness { COMPLETE, PARTIAL }
 
     public enum PartialAcceptanceStatus { NOT_APPLICABLE, PENDING }
 
-    public CandidateBlockSet {
-        sourceDocumentId = requireText(sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
-        revisionId = requireText(revisionId, "REVISION_ID_REQUIRED");
-        attemptId = requireText(attemptId, "ATTEMPT_ID_REQUIRED");
-        Objects.requireNonNull(parseCompleteness, "parseCompleteness");
-        Objects.requireNonNull(partialAcceptanceStatus, "partialAcceptanceStatus");
-        blocks = List.copyOf(Objects.requireNonNull(blocks, "blocks"));
-        Objects.requireNonNull(omissionsDigest, "omissionsDigest");
+    private final String sourceDocumentId;
+    private final String revisionId;
+    private final String attemptId;
+    private final ParseCompleteness parseCompleteness;
+    private final PartialAcceptanceStatus partialAcceptanceStatus;
+    private final List<Block> blocks;
+    private final List<Omission> omissions;
+    private final BlockSetDigest omissionsDigest;
+
+    public CandidateBlockSet(
+            String sourceDocumentId,
+            String revisionId,
+            String attemptId,
+            ParseCompleteness parseCompleteness,
+            PartialAcceptanceStatus partialAcceptanceStatus,
+            List<Block> blocks,
+            List<Omission> omissions) {
+        this.sourceDocumentId = requireText(sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
+        this.revisionId = requireText(revisionId, "REVISION_ID_REQUIRED");
+        this.attemptId = requireText(attemptId, "ATTEMPT_ID_REQUIRED");
+        this.parseCompleteness = Objects.requireNonNull(parseCompleteness, "parseCompleteness");
+        this.partialAcceptanceStatus = Objects.requireNonNull(
+                partialAcceptanceStatus, "partialAcceptanceStatus");
+        this.blocks = List.copyOf(Objects.requireNonNull(blocks, "blocks"));
+        this.omissions = Objects.requireNonNull(omissions, "omissions").stream()
+                .sorted(Comparator.comparing(Omission::sourcePart)
+                        .thenComparingInt(Omission::sourceElementIndex)
+                        .thenComparing(Omission::errorCode)
+                        .thenComparing(Omission::userVisibleDescription))
+                .toList();
+        this.omissionsDigest = BlockSetDigest.computeOmissions(this.omissions);
+        validateCompleteness();
+        validateBlocks();
+        validateImageBindings();
+    }
+
+    public String sourceDocumentId() { return sourceDocumentId; }
+
+    public String revisionId() { return revisionId; }
+
+    public String attemptId() { return attemptId; }
+
+    public ParseCompleteness parseCompleteness() { return parseCompleteness; }
+
+    public PartialAcceptanceStatus partialAcceptanceStatus() { return partialAcceptanceStatus; }
+
+    public List<Block> blocks() { return blocks; }
+
+    public List<Omission> omissions() { return omissions; }
+
+    public BlockSetDigest omissionsDigest() { return omissionsDigest; }
+
+    byte[] canonicalOmissionsBytes() {
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            try (DataOutputStream output = new DataOutputStream(bytes)) {
+                output.writeInt(omissions.size());
+                for (Omission omission : omissions) {
+                    byte[] canonical = omission.canonicalBytes();
+                    output.writeInt(canonical.length);
+                    output.write(canonical);
+                }
+            }
+            return bytes.toByteArray();
+        } catch (IOException error) {
+            throw new IllegalStateException("OMISSION_LIST_ENCODING_FAILED", error);
+        }
+    }
+
+    private void validateCompleteness() {
         if (parseCompleteness == ParseCompleteness.COMPLETE
                 && (partialAcceptanceStatus != PartialAcceptanceStatus.NOT_APPLICABLE
-                        || !omissionsDigest.equals(BlockSetDigest.emptyOmissions()))) {
+                        || !omissions.isEmpty())) {
             throw new IllegalArgumentException("COMPLETE_BLOCK_SET_MUST_HAVE_NO_OMISSIONS");
         }
         if (parseCompleteness == ParseCompleteness.PARTIAL
                 && (partialAcceptanceStatus != PartialAcceptanceStatus.PENDING
-                        || omissionsDigest.equals(BlockSetDigest.emptyOmissions()))) {
+                        || omissions.isEmpty())) {
             throw new IllegalArgumentException("PARTIAL_BLOCK_SET_REQUIRES_PENDING_OMISSIONS");
         }
+    }
+
+    private void validateBlocks() {
         if (blocks.isEmpty()) {
             throw new IllegalArgumentException("CANDIDATE_BLOCK_SET_MUST_NOT_BE_EMPTY");
         }
@@ -65,97 +134,342 @@ public record CandidateBlockSet(
         }
     }
 
-    public record Block(
-            String documentBlockId,
-            String sourceDocumentId,
-            String revisionId,
-            String attemptId,
-            String blockType,
-            int sourceOrder,
-            List<String> sectionPath,
-            Integer pageNumber,
-            String pageEvidence,
-            String sourceAnchor,
+    private void validateImageBindings() {
+        Map<String, Block> parents = new HashMap<>();
+        List<Block> imageBlocks = new ArrayList<>();
+        for (Block block : blocks) {
+            if (block.imageCandidate() == null) parents.put(block.documentBlockId(), block);
+            else imageBlocks.add(block);
+        }
+        Set<Block> consumedImages = new HashSet<>();
+        for (Block parent : parents.values()) {
+            List<Block> children = imageBlocks.stream()
+                    .filter(image -> parent.documentBlockId().equals(
+                            image.sourceAnchor().parentBlockId()))
+                    .toList();
+            if (parent.textCandidate() != null) {
+                requireParagraphImageBijection(parent, children);
+                consumedImages.addAll(children);
+            } else if (parent.tableCandidate() != null) {
+                requireTableImageBijection(parent, children);
+                consumedImages.addAll(children);
+            }
+        }
+        if (consumedImages.size() != imageBlocks.size()) {
+            throw new IllegalArgumentException("CANDIDATE_IMAGE_PARENT_BLOCK_MISSING");
+        }
+    }
+
+    private static void requireParagraphImageBijection(Block parent, List<Block> children) {
+        List<Integer> offsets = replacementCharacterOffsets(parent.textCandidate().text());
+        List<Block> ordered = children.stream()
+                .filter(child -> child.sourceAnchor().kind() == SourceAnchor.Kind.PARAGRAPH_INLINE)
+                .sorted(Comparator.comparingInt(child -> child.sourceAnchor().childOrdinal()))
+                .toList();
+        if (ordered.size() != children.size() || ordered.size() != offsets.size()) {
+            throw new IllegalArgumentException("CANDIDATE_PARAGRAPH_IMAGE_BINDING_INVALID");
+        }
+        for (int ordinal = 0; ordinal < offsets.size(); ordinal++) {
+            SourceAnchor anchor = ordered.get(ordinal).sourceAnchor();
+            if (anchor.childOrdinal() != ordinal || anchor.textOffset() != offsets.get(ordinal)) {
+                throw new IllegalArgumentException("CANDIDATE_PARAGRAPH_IMAGE_BINDING_INVALID");
+            }
+        }
+    }
+
+    private static void requireTableImageBijection(Block parent, List<Block> children) {
+        Map<String, List<Integer>> expectedByCell = new HashMap<>();
+        for (TableCellCandidate cell : parent.tableCandidate().cells()) {
+            List<Integer> offsets = replacementCharacterOffsets(cell.text());
+            if (!offsets.isEmpty()) {
+                expectedByCell.put(cell.rowIndex() + ":" + cell.columnIndex(), offsets);
+            }
+        }
+        Map<String, List<Block>> actualByCell = new HashMap<>();
+        for (Block child : children) {
+            SourceAnchor anchor = child.sourceAnchor();
+            if (anchor.kind() != SourceAnchor.Kind.TABLE_CELL_INLINE) {
+                throw new IllegalArgumentException("CANDIDATE_TABLE_IMAGE_BINDING_INVALID");
+            }
+            actualByCell.computeIfAbsent(anchor.rowIndex() + ":" + anchor.columnIndex(), ignored ->
+                    new ArrayList<>()).add(child);
+        }
+        if (!expectedByCell.keySet().equals(actualByCell.keySet())) {
+            throw new IllegalArgumentException("CANDIDATE_TABLE_IMAGE_BINDING_INVALID");
+        }
+        for (Map.Entry<String, List<Integer>> entry : expectedByCell.entrySet()) {
+            List<Block> actual = actualByCell.get(entry.getKey()).stream()
+                    .sorted(Comparator.comparingInt(child -> child.sourceAnchor().childOrdinal()))
+                    .toList();
+            if (actual.size() != entry.getValue().size()) {
+                throw new IllegalArgumentException("CANDIDATE_TABLE_IMAGE_BINDING_INVALID");
+            }
+            for (int ordinal = 0; ordinal < actual.size(); ordinal++) {
+                SourceAnchor anchor = actual.get(ordinal).sourceAnchor();
+                if (anchor.childOrdinal() != ordinal
+                        || anchor.textOffset() != entry.getValue().get(ordinal)) {
+                    throw new IllegalArgumentException("CANDIDATE_TABLE_IMAGE_BINDING_INVALID");
+                }
+            }
+        }
+    }
+
+    private static List<Integer> replacementCharacterOffsets(String text) {
+        List<Integer> offsets = new ArrayList<>();
+        int codePointOffset = 0;
+        for (int charOffset = 0; charOffset < text.length(); codePointOffset++) {
+            int codePoint = text.codePointAt(charOffset);
+            if (codePoint == 0xFFFC) offsets.add(codePointOffset);
+            charOffset += Character.charCount(codePoint);
+        }
+        return List.copyOf(offsets);
+    }
+
+    @Override
+    public boolean equals(Object candidate) {
+        if (this == candidate) return true;
+        if (!(candidate instanceof CandidateBlockSet other)) return false;
+        return sourceDocumentId.equals(other.sourceDocumentId)
+                && revisionId.equals(other.revisionId)
+                && attemptId.equals(other.attemptId)
+                && parseCompleteness == other.parseCompleteness
+                && partialAcceptanceStatus == other.partialAcceptanceStatus
+                && blocks.equals(other.blocks)
+                && omissions.equals(other.omissions);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sourceDocumentId, revisionId, attemptId, parseCompleteness,
+                partialAcceptanceStatus, blocks, omissions);
+    }
+
+    public record Omission(
             String sourcePart,
-            long sourceElementIndex,
-            String contentHash,
-            String canonicalPayload,
-            int inlineImagePlaceholderCount,
-            int inlineImageBindingCount) {
+            int sourceElementIndex,
+            String errorCode,
+            String userVisibleDescription) {
+        public Omission {
+            sourcePart = requireText(sourcePart, "OMISSION_SOURCE_PART_REQUIRED");
+            if (sourceElementIndex < 0) {
+                throw new IllegalArgumentException("OMISSION_SOURCE_ELEMENT_INDEX_INVALID");
+            }
+            errorCode = requireText(errorCode, "OMISSION_ERROR_CODE_REQUIRED");
+            userVisibleDescription = requireText(
+                    userVisibleDescription, "OMISSION_DESCRIPTION_REQUIRED");
+        }
 
-        private static final Pattern SHA_256 = Pattern.compile("[0-9a-f]{64}");
+        byte[] canonicalBytes() {
+            try {
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                try (DataOutputStream output = new DataOutputStream(bytes)) {
+                    writeText(output, sourcePart);
+                    output.writeInt(sourceElementIndex);
+                    writeText(output, errorCode);
+                    writeText(output, userVisibleDescription);
+                }
+                return bytes.toByteArray();
+            } catch (IOException error) {
+                throw new IllegalStateException("OMISSION_ENCODING_FAILED", error);
+            }
+        }
+    }
 
-        public Block {
-            documentBlockId = requireText(documentBlockId, "CANDIDATE_BLOCK_ID_REQUIRED");
-            sourceDocumentId = requireText(sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
-            revisionId = requireText(revisionId, "REVISION_ID_REQUIRED");
-            attemptId = requireText(attemptId, "ATTEMPT_ID_REQUIRED");
-            blockType = requireText(blockType, "CANDIDATE_BLOCK_TYPE_REQUIRED");
-            if (sourceOrder < 0 || sourceElementIndex < 0) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_SOURCE_POSITION_INVALID");
+    public record PageEvidence(int pageNumber, String layoutProfile, String evidence) {
+        public PageEvidence {
+            if (pageNumber <= 0) throw new IllegalArgumentException("PAGE_NUMBER_INVALID");
+            layoutProfile = requireText(layoutProfile, "PAGE_LAYOUT_PROFILE_REQUIRED");
+            evidence = requireText(evidence, "PAGE_EVIDENCE_REQUIRED");
+        }
+    }
+
+    public record SourceAnchor(
+            Kind kind,
+            String sourcePart,
+            int sourceElementIndex,
+            String parentBlockId,
+            Integer textOffset,
+            Integer childOrdinal,
+            Integer rowIndex,
+            Integer columnIndex) {
+
+        public enum Kind { TOP_LEVEL, PARAGRAPH_INLINE, TABLE_CELL_INLINE }
+
+        public SourceAnchor {
+            Objects.requireNonNull(kind, "kind");
+            sourcePart = requireText(sourcePart, "SOURCE_ANCHOR_PART_REQUIRED");
+            if (sourceElementIndex < 0) {
+                throw new IllegalArgumentException("SOURCE_ANCHOR_ELEMENT_INDEX_INVALID");
             }
-            sectionPath = List.copyOf(Objects.requireNonNull(sectionPath, "sectionPath"));
-            for (String section : sectionPath) {
-                requireText(section, "CANDIDATE_BLOCK_SECTION_PATH_INVALID");
-            }
-            if ((pageNumber == null) != (pageEvidence == null)) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_PAGE_EVIDENCE_MISMATCH");
-            }
-            if (pageNumber != null && pageNumber <= 0) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_PAGE_NUMBER_INVALID");
-            }
-            if (pageEvidence != null) {
-                pageEvidence = requireText(pageEvidence, "CANDIDATE_BLOCK_PAGE_EVIDENCE_INVALID");
-            }
-            sourceAnchor = requireText(sourceAnchor, "CANDIDATE_BLOCK_SOURCE_ANCHOR_REQUIRED");
-            sourcePart = requireText(sourcePart, "CANDIDATE_BLOCK_SOURCE_PART_REQUIRED");
-            if (sourcePart.startsWith("/") || sourcePart.contains("\\")
-                    || sourcePart.contains("../") || sourcePart.equals("..")) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_SOURCE_PART_INVALID");
-            }
-            contentHash = requireText(contentHash, "CANDIDATE_BLOCK_CONTENT_HASH_REQUIRED");
-            if (!SHA_256.matcher(contentHash).matches()) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_CONTENT_HASH_INVALID");
-            }
-            canonicalPayload = requireText(canonicalPayload, "CANDIDATE_BLOCK_CANONICAL_PAYLOAD_REQUIRED");
-            if (!Normalizer.isNormalized(canonicalPayload, Normalizer.Form.NFC)) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_CANONICAL_PAYLOAD_MUST_BE_NFC");
-            }
-            if (canonicalPayload.indexOf('\0') >= 0) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_CANONICAL_PAYLOAD_MUST_NOT_CONTAIN_NUL");
-            }
-            if (!contentHash.equals(sha256Hex(canonicalPayload.getBytes(StandardCharsets.UTF_8)))) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_CONTENT_HASH_MISMATCH");
-            }
-            if (inlineImagePlaceholderCount < 0 || inlineImageBindingCount < 0
-                    || inlineImagePlaceholderCount != inlineImageBindingCount) {
-                throw new IllegalArgumentException("CANDIDATE_BLOCK_IMAGE_BINDING_MUST_BE_BIJECTIVE");
+            if (kind == Kind.TOP_LEVEL) {
+                if (parentBlockId != null || textOffset != null || childOrdinal != null
+                        || rowIndex != null || columnIndex != null) {
+                    throw new IllegalArgumentException("TOP_LEVEL_SOURCE_ANCHOR_INVALID");
+                }
+            } else {
+                parentBlockId = requireText(parentBlockId, "IMAGE_PARENT_BLOCK_ID_REQUIRED");
+                if (textOffset == null || textOffset < 0
+                        || childOrdinal == null || childOrdinal < 0) {
+                    throw new IllegalArgumentException("IMAGE_SOURCE_ANCHOR_INVALID");
+                }
+                if (kind == Kind.PARAGRAPH_INLINE && (rowIndex != null || columnIndex != null)) {
+                    throw new IllegalArgumentException("PARAGRAPH_IMAGE_CELL_COORDINATES_FORBIDDEN");
+                }
+                if (kind == Kind.TABLE_CELL_INLINE
+                        && (rowIndex == null || rowIndex < 0
+                                || columnIndex == null || columnIndex < 0)) {
+                    throw new IllegalArgumentException("TABLE_IMAGE_CELL_COORDINATES_REQUIRED");
+                }
             }
         }
 
-        public static Block create(
+        static SourceAnchor topLevel(String sourcePart, int sourceElementIndex) {
+            return new SourceAnchor(Kind.TOP_LEVEL, sourcePart, sourceElementIndex,
+                    null, null, null, null, null);
+        }
+
+        static SourceAnchor image(
+                String sourcePart, int sourceElementIndex, ImageAnchor anchor) {
+            Kind kind = anchor.anchorKind() == ImageAnchor.AnchorKind.PARAGRAPH_INLINE
+                    ? Kind.PARAGRAPH_INLINE : Kind.TABLE_CELL_INLINE;
+            return new SourceAnchor(kind, sourcePart, sourceElementIndex,
+                    anchor.parentBlockId(), anchor.textOffset(), anchor.childOrdinal(),
+                    anchor.rowIndex(), anchor.columnIndex());
+        }
+    }
+
+    public static final class Block {
+
+        public enum BlockType { HEADING, PARAGRAPH, LIST, TABLE, IMAGE }
+
+        private final String documentBlockId;
+        private final String sourceDocumentId;
+        private final String revisionId;
+        private final String attemptId;
+        private final BlockType blockType;
+        private final int sourceOrder;
+        private final List<String> sectionPath;
+        private final PageEvidence pageEvidence;
+        private final SourceAnchor sourceAnchor;
+        private final byte[] canonicalPayload;
+        private final String contentHash;
+        private final DocumentBlockCandidate textCandidate;
+        private final TableBlockCandidate tableCandidate;
+        private final ImageRelationshipProjector.ProjectedImage imageCandidate;
+
+        private Block(
                 String documentBlockId,
                 String sourceDocumentId,
                 String revisionId,
                 String attemptId,
-                String blockType,
+                BlockType blockType,
                 int sourceOrder,
                 List<String> sectionPath,
-                Integer pageNumber,
-                String pageEvidence,
-                String sourceAnchor,
-                String sourcePart,
-                long sourceElementIndex,
-                String canonicalPayload,
-                int inlineImagePlaceholderCount,
-                int inlineImageBindingCount) {
-            String payload = requireText(canonicalPayload, "CANDIDATE_BLOCK_CANONICAL_PAYLOAD_REQUIRED");
-            return new Block(
-                    documentBlockId, sourceDocumentId, revisionId, attemptId, blockType,
-                    sourceOrder, sectionPath, pageNumber, pageEvidence, sourceAnchor, sourcePart,
-                    sourceElementIndex, sha256Hex(payload.getBytes(StandardCharsets.UTF_8)), payload,
-                    inlineImagePlaceholderCount, inlineImageBindingCount);
+                PageEvidence pageEvidence,
+                SourceAnchor sourceAnchor,
+                byte[] canonicalPayload,
+                DocumentBlockCandidate textCandidate,
+                TableBlockCandidate tableCandidate,
+                ImageRelationshipProjector.ProjectedImage imageCandidate) {
+            this.documentBlockId = requireText(documentBlockId, "CANDIDATE_BLOCK_ID_REQUIRED");
+            this.sourceDocumentId = requireText(sourceDocumentId, "SOURCE_DOCUMENT_ID_REQUIRED");
+            this.revisionId = requireText(revisionId, "REVISION_ID_REQUIRED");
+            this.attemptId = requireText(attemptId, "ATTEMPT_ID_REQUIRED");
+            this.blockType = Objects.requireNonNull(blockType, "blockType");
+            if (sourceOrder < 0) throw new IllegalArgumentException("SOURCE_ORDER_INVALID");
+            this.sourceOrder = sourceOrder;
+            this.sectionPath = List.copyOf(Objects.requireNonNull(sectionPath, "sectionPath"));
+            for (String section : this.sectionPath) {
+                requireText(section, "SECTION_PATH_HEADING_REQUIRED");
+            }
+            this.pageEvidence = pageEvidence;
+            this.sourceAnchor = Objects.requireNonNull(sourceAnchor, "sourceAnchor");
+            this.canonicalPayload = Objects.requireNonNull(canonicalPayload, "canonicalPayload").clone();
+            this.contentHash = sha256Hex(this.canonicalPayload);
+            this.textCandidate = textCandidate;
+            this.tableCandidate = tableCandidate;
+            this.imageCandidate = imageCandidate;
         }
+
+        public static Block fromText(
+                String documentBlockId,
+                String sourceDocumentId,
+                String revisionId,
+                String attemptId,
+                DocumentBlockCandidate candidate,
+                PageEvidence pageEvidence) {
+            Objects.requireNonNull(candidate, "candidate");
+            BlockType type = switch (candidate.blockType()) {
+                case HEADING -> BlockType.HEADING;
+                case PARAGRAPH -> BlockType.PARAGRAPH;
+                case LIST -> BlockType.LIST;
+            };
+            return new Block(documentBlockId, sourceDocumentId, revisionId, attemptId,
+                    type, candidate.sourceOrder(), candidate.sectionPath(), pageEvidence,
+                    SourceAnchor.topLevel(candidate.sourcePart(), candidate.sourceElementIndex()),
+                    encodeText(candidate), candidate, null, null);
+        }
+
+        public static Block fromTable(
+                String documentBlockId,
+                String sourceDocumentId,
+                String revisionId,
+                String attemptId,
+                List<String> sectionPath,
+                TableBlockCandidate candidate,
+                PageEvidence pageEvidence) {
+            Objects.requireNonNull(candidate, "candidate");
+            return new Block(documentBlockId, sourceDocumentId, revisionId, attemptId,
+                    BlockType.TABLE, candidate.sourceOrder(), sectionPath, pageEvidence,
+                    SourceAnchor.topLevel(candidate.sourcePart(), candidate.sourceElementIndex()),
+                    encodeTable(candidate), null, candidate, null);
+        }
+
+        public static Block fromImage(
+                String documentBlockId,
+                String sourceDocumentId,
+                String revisionId,
+                String attemptId,
+                List<String> sectionPath,
+                ImageRelationshipProjector.ProjectedImage candidate,
+                PageEvidence pageEvidence) {
+            Objects.requireNonNull(candidate, "candidate");
+            return new Block(documentBlockId, sourceDocumentId, revisionId, attemptId,
+                    BlockType.IMAGE, candidate.sourceOrder(), sectionPath, pageEvidence,
+                    SourceAnchor.image(
+                            candidate.sourcePart(), candidate.sourceElementIndex(), candidate.anchor()),
+                    encodeImage(candidate), null, null, candidate);
+        }
+
+        public String documentBlockId() { return documentBlockId; }
+
+        public String sourceDocumentId() { return sourceDocumentId; }
+
+        public String revisionId() { return revisionId; }
+
+        public String attemptId() { return attemptId; }
+
+        public BlockType blockType() { return blockType; }
+
+        public int sourceOrder() { return sourceOrder; }
+
+        public List<String> sectionPath() { return sectionPath; }
+
+        public PageEvidence pageEvidence() { return pageEvidence; }
+
+        public SourceAnchor sourceAnchor() { return sourceAnchor; }
+
+        public String sourcePart() { return sourceAnchor.sourcePart(); }
+
+        public int sourceElementIndex() { return sourceAnchor.sourceElementIndex(); }
+
+        public String contentHash() { return contentHash; }
+
+        DocumentBlockCandidate textCandidate() { return textCandidate; }
+
+        TableBlockCandidate tableCandidate() { return tableCandidate; }
+
+        ImageRelationshipProjector.ProjectedImage imageCandidate() { return imageCandidate; }
 
         public String documentBlockAlias() {
             try {
@@ -181,28 +495,158 @@ public record CandidateBlockSet(
                     writeText(output, documentBlockId);
                     writeText(output, sourceDocumentId);
                     writeText(output, revisionId);
-                    writeText(output, blockType);
+                    writeText(output, blockType.name());
                     output.writeInt(sourceOrder);
-                    output.writeInt(sectionPath.size());
-                    for (String section : sectionPath) writeText(output, section);
-                    output.writeBoolean(pageNumber != null);
-                    if (pageNumber != null) {
-                        output.writeInt(pageNumber);
-                        writeText(output, pageEvidence);
+                    writeTextList(output, sectionPath);
+                    output.writeBoolean(pageEvidence != null);
+                    if (pageEvidence != null) {
+                        output.writeInt(pageEvidence.pageNumber());
+                        writeText(output, pageEvidence.layoutProfile());
+                        writeText(output, pageEvidence.evidence());
                     }
-                    writeText(output, sourceAnchor);
-                    writeText(output, sourcePart);
-                    output.writeLong(sourceElementIndex);
+                    writeAnchor(output, sourceAnchor);
                     writeText(output, contentHash);
-                    writeText(output, canonicalPayload);
-                    output.writeInt(inlineImagePlaceholderCount);
-                    output.writeInt(inlineImageBindingCount);
+                    output.writeInt(canonicalPayload.length);
+                    output.write(canonicalPayload);
                 }
                 return bytes.toByteArray();
             } catch (IOException error) {
                 throw new IllegalStateException("CANDIDATE_BLOCK_ENCODING_FAILED", error);
             }
         }
+
+        @Override
+        public boolean equals(Object candidate) {
+            if (this == candidate) return true;
+            if (!(candidate instanceof Block other)) return false;
+            return attemptId.equals(other.attemptId)
+                    && Arrays.equals(canonicalBytes(), other.canonicalBytes());
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * attemptId.hashCode() + Arrays.hashCode(canonicalBytes());
+        }
+    }
+
+    private static byte[] encodeText(DocumentBlockCandidate candidate) {
+        return encode(output -> {
+            writeText(output, candidate.blockType().name());
+            output.writeInt(candidate.sourceOrder());
+            writeTextList(output, candidate.sectionPath());
+            writeText(output, candidate.sourcePart());
+            output.writeInt(candidate.sourceElementIndex());
+            writeText(output, candidate.text());
+            writeNullableInteger(output, candidate.headingLevel());
+            writeNullableText(output, candidate.styleName());
+            ListSemantics list = candidate.listSemantics();
+            output.writeBoolean(list != null);
+            if (list != null) {
+                writeText(output, list.listInstanceId());
+                output.writeInt(list.itemLevel());
+                output.writeInt(list.itemOrdinal());
+                writeNullableText(output, list.markerText());
+            }
+        });
+    }
+
+    private static byte[] encodeTable(TableBlockCandidate candidate) {
+        return encode(output -> {
+            output.writeInt(candidate.sourceOrder());
+            writeText(output, candidate.sourcePart());
+            output.writeInt(candidate.sourceElementIndex());
+            output.writeInt(candidate.rowCount());
+            output.writeInt(candidate.columnCount());
+            output.writeInt(candidate.cells().size());
+            for (TableCellCandidate cell : candidate.cells()) {
+                output.writeInt(cell.rowIndex());
+                output.writeInt(cell.columnIndex());
+                output.writeInt(cell.rowSpan());
+                output.writeInt(cell.columnSpan());
+                writeText(output, cell.text());
+                output.writeInt(cell.textEvidence().size());
+                for (TableTextEvidence evidence : cell.textEvidence()) {
+                    output.writeInt(evidence.paragraphIndex());
+                    writeText(output, evidence.text());
+                    output.writeInt(evidence.inlineImageOffsets().size());
+                    for (int offset : evidence.inlineImageOffsets()) output.writeInt(offset);
+                }
+            }
+            output.writeInt(candidate.merges().size());
+            for (TableMergeProjection merge : candidate.merges()) {
+                output.writeInt(merge.anchorRow());
+                output.writeInt(merge.anchorColumn());
+                output.writeInt(merge.rowSpan());
+                output.writeInt(merge.columnSpan());
+                output.writeInt(merge.coveredPositions().size());
+                for (TableMergeProjection.GridPosition position : merge.coveredPositions()) {
+                    output.writeInt(position.rowIndex());
+                    output.writeInt(position.columnIndex());
+                }
+            }
+        });
+    }
+
+    private static byte[] encodeImage(ImageRelationshipProjector.ProjectedImage candidate) {
+        return encode(output -> {
+            output.writeInt(candidate.sourceOrder());
+            writeText(output, candidate.sourcePart());
+            output.writeInt(candidate.sourceElementIndex());
+            writeAnchor(output, SourceAnchor.image(
+                    candidate.sourcePart(), candidate.sourceElementIndex(), candidate.anchor()));
+            writeText(output, candidate.relationshipId());
+            writeText(output, candidate.relationshipMode().name());
+            writeNullableText(output, candidate.externalTargetLiteralSha256() == null
+                    ? null : candidate.externalTargetLiteralSha256().value());
+            writeNullableText(output, candidate.mediaRef() == null
+                    ? null : candidate.mediaRef().value());
+            writeNullableText(output, candidate.mediaType());
+            output.writeBoolean(candidate.byteLength() != null);
+            if (candidate.byteLength() != null) output.writeLong(candidate.byteLength());
+            writeNullableText(output, candidate.contentSha256() == null
+                    ? null : candidate.contentSha256().value());
+            writeNullableText(output, candidate.securityDisclosure());
+            writeText(output, candidate.contentHash().value());
+        });
+    }
+
+    private static byte[] encode(IoWriter writer) {
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            try (DataOutputStream output = new DataOutputStream(bytes)) {
+                writer.write(output);
+            }
+            return bytes.toByteArray();
+        } catch (IOException error) {
+            throw new IllegalStateException("CANDIDATE_PAYLOAD_ENCODING_FAILED", error);
+        }
+    }
+
+    private static void writeAnchor(DataOutputStream output, SourceAnchor anchor) throws IOException {
+        writeText(output, anchor.kind().name());
+        writeText(output, anchor.sourcePart());
+        output.writeInt(anchor.sourceElementIndex());
+        writeNullableText(output, anchor.parentBlockId());
+        writeNullableInteger(output, anchor.textOffset());
+        writeNullableInteger(output, anchor.childOrdinal());
+        writeNullableInteger(output, anchor.rowIndex());
+        writeNullableInteger(output, anchor.columnIndex());
+    }
+
+    private static void writeTextList(DataOutputStream output, List<String> values) throws IOException {
+        output.writeInt(values.size());
+        for (String value : values) writeText(output, value);
+    }
+
+    private static void writeNullableInteger(DataOutputStream output, Integer value)
+            throws IOException {
+        output.writeBoolean(value != null);
+        if (value != null) output.writeInt(value);
+    }
+
+    private static void writeNullableText(DataOutputStream output, String value) throws IOException {
+        output.writeBoolean(value != null);
+        if (value != null) writeText(output, value);
     }
 
     private static void writeText(DataOutputStream output, String value) throws IOException {
@@ -223,4 +667,7 @@ public record CandidateBlockSet(
         if (value == null || value.isBlank()) throw new IllegalArgumentException(code);
         return value;
     }
+
+    @FunctionalInterface
+    private interface IoWriter { void write(DataOutputStream output) throws IOException; }
 }

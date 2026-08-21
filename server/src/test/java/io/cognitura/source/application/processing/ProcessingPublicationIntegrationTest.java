@@ -4,6 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.dockerjava.api.exception.NotFoundException;
+import io.cognitura.source.docx.image.ImageAnchor;
+import io.cognitura.source.docx.image.ImageRelationshipProjector;
+import io.cognitura.source.docx.security.DocxRelationshipClassifier;
+import io.cognitura.source.docx.table.TableBlockCandidate;
+import io.cognitura.source.docx.table.TableCellCandidate;
+import io.cognitura.source.docx.table.TableTextEvidence;
+import io.cognitura.source.docx.text.DocumentBlockCandidate;
+import io.cognitura.source.domain.SourceDomainException;
+import io.cognitura.source.domain.SourceHash;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -104,7 +113,7 @@ class ProcessingPublicationIntegrationTest {
                         List.of(
                                 block("block-a", 0, "PARAGRAPH", "first"),
                                 block("block-b", 2, "PARAGRAPH", "second")),
-                        BlockSetDigest.emptyOmissions()))
+                        List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("CANDIDATE_BLOCK_SOURCE_ORDER_MUST_BE_CONTINUOUS");
 
@@ -127,15 +136,88 @@ class ProcessingPublicationIntegrationTest {
                         CandidateBlockSet.ParseCompleteness.COMPLETE,
                         CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
                         List.of(foreignScope),
-                        BlockSetDigest.emptyOmissions()))
+                        List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("CANDIDATE_BLOCK_SCOPE_MISMATCH");
 
-        assertThatThrownBy(() -> block(
-                        "block-a", SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
-                        0, "IMAGE", "image", 1, 0))
+        CandidateBlockSet.Block parent = block(
+                "parent-a", 0, "PARAGRAPH", "before\uFFFCafter");
+        CandidateBlockSet.Block image = imageBlock("image-a", "parent-a", 1, 6, 0);
+        assertThat(new CandidateBlockSet(
+                        SOURCE_DOCUMENT_ID,
+                        "revision-a",
+                        "attempt-a",
+                        CandidateBlockSet.ParseCompleteness.COMPLETE,
+                        CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
+                        List.of(parent, image),
+                        List.of()).blocks())
+                .containsExactly(parent, image);
+        CandidateBlockSet.Block wrongImage = imageBlock("image-a", "parent-a", 1, 5, 0);
+        assertThatThrownBy(() -> new CandidateBlockSet(
+                        SOURCE_DOCUMENT_ID,
+                        "revision-a",
+                        "attempt-a",
+                        CandidateBlockSet.ParseCompleteness.COMPLETE,
+                        CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
+                        List.of(parent, wrongImage),
+                        List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("CANDIDATE_BLOCK_IMAGE_BINDING_MUST_BE_BIJECTIVE");
+                .hasMessage("CANDIDATE_PARAGRAPH_IMAGE_BINDING_INVALID");
+
+        CandidateBlockSet.Block tableParent = block(
+                "table-a", 0, "TABLE", "left￼right");
+        CandidateBlockSet.Block tableImage = tableImageBlock(
+                "image-table-a", "table-a", 1, 4, 0, 0, 0);
+        assertThat(new CandidateBlockSet(
+                        SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                        CandidateBlockSet.ParseCompleteness.COMPLETE,
+                        CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
+                        List.of(tableParent, tableImage), List.of()).blocks())
+                .containsExactly(tableParent, tableImage);
+        CandidateBlockSet.Block wrongCellImage = tableImageBlock(
+                "image-table-a", "table-a", 1, 4, 0, 0, 1);
+        assertThatThrownBy(() -> new CandidateBlockSet(
+                        SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                        CandidateBlockSet.ParseCompleteness.COMPLETE,
+                        CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
+                        List.of(tableParent, wrongCellImage), List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CANDIDATE_TABLE_IMAGE_BINDING_INVALID");
+
+        CandidateBlockSet.Omission later = new CandidateBlockSet.Omission(
+                "word/document.xml", 8, "UNSUPPORTED_DOCX_FLOW", "unsupported drawing");
+        CandidateBlockSet.Omission earlier = new CandidateBlockSet.Omission(
+                "word/document.xml", 3, "UNSUPPORTED_DOCX_FLOW", "unsupported field");
+        CandidateBlockSet partial = new CandidateBlockSet(
+                SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                CandidateBlockSet.ParseCompleteness.PARTIAL,
+                CandidateBlockSet.PartialAcceptanceStatus.PENDING,
+                List.of(block("block-a", 0, "PARAGRAPH", "first")),
+                List.of(later, earlier));
+        CandidateBlockSet reorderedPartial = new CandidateBlockSet(
+                SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                CandidateBlockSet.ParseCompleteness.PARTIAL,
+                CandidateBlockSet.PartialAcceptanceStatus.PENDING,
+                List.of(block("block-a", 0, "PARAGRAPH", "first")),
+                List.of(earlier, later));
+        assertThat(partial.omissions()).containsExactly(earlier, later);
+        assertThat(partial.omissionsDigest()).isEqualTo(reorderedPartial.omissionsDigest());
+        assertThatThrownBy(() -> new CandidateBlockSet(
+                        SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                        CandidateBlockSet.ParseCompleteness.COMPLETE,
+                        CandidateBlockSet.PartialAcceptanceStatus.NOT_APPLICABLE,
+                        List.of(block("block-a", 0, "PARAGRAPH", "first")),
+                        List.of(earlier)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("COMPLETE_BLOCK_SET_MUST_HAVE_NO_OMISSIONS");
+        assertThatThrownBy(() -> new CandidateBlockSet(
+                        SOURCE_DOCUMENT_ID, "revision-a", "attempt-a",
+                        CandidateBlockSet.ParseCompleteness.PARTIAL,
+                        CandidateBlockSet.PartialAcceptanceStatus.PENDING,
+                        List.of(block("block-a", 0, "PARAGRAPH", "first")),
+                        List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("PARTIAL_BLOCK_SET_REQUIRES_PENDING_OMISSIONS");
     }
 
     @Test
@@ -200,6 +282,35 @@ class ProcessingPublicationIntegrationTest {
                 .isEqualTo(ProcessingAttempt.Status.FAILED_RETRYABLE);
         assertThat(adapter.revisionStatus("revision-a")).isEqualTo("FAILED_RETRYABLE");
         assertThat(adapter.activeAttemptId("revision-a")).isNull();
+        assertThat(adapter.stageProjection("attempt-a"))
+                .isEqualTo(projectionString(ProcessingPublicationPort.GenerationStageRecord.failed(
+                        SOURCE_DOCUMENT_ID, CONTENT_SHA256, PARSER_PROFILE_VERSION,
+                        "revision-a", "attempt-a", 1,
+                        SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
+                        "LEASE_EXPIRED:observed active lease expired")));
+    }
+
+    @Test
+    void portRejectsLeaseCommandWithWrongExpectedStatus() {
+        ProcessingAttempt pending = service.beginInitial(
+                SOURCE_DOCUMENT_ID, "revision-a", "attempt-a", CONTENT_SHA256,
+                PARSER_PROFILE_VERSION, STARTED_AT, CLAIM_DEADLINE);
+
+        assertThat(adapter.claim(
+                        pending.fence(),
+                        AttemptLease.heartbeat(CLAIM_DEADLINE, RUNNING_LEASE),
+                        STARTED_AT.plusSeconds(1)))
+                .isEqualTo(ProcessingPublicationPort.Outcome.STALE_LEASE);
+        assertThat(adapter.attemptStatus("attempt-a")).isEqualTo(ProcessingAttempt.Status.PENDING);
+
+        service.claim(
+                pending.fence(), CLAIM_DEADLINE, RUNNING_LEASE, STARTED_AT.plusSeconds(2));
+        assertThat(adapter.heartbeat(
+                        pending.fence(),
+                        AttemptLease.claim(RUNNING_LEASE, RUNNING_LEASE.plusSeconds(60)),
+                        STARTED_AT.plusSeconds(3)))
+                .isEqualTo(ProcessingPublicationPort.Outcome.STALE_LEASE);
+        assertThat(adapter.attemptStatus("attempt-a")).isEqualTo(ProcessingAttempt.Status.RUNNING);
     }
 
     @Test
@@ -246,9 +357,10 @@ class ProcessingPublicationIntegrationTest {
                         .sorted()
                         .toList());
         assertThat(adapter.successStageRecordCount("revision-a")).isEqualTo(1);
-        assertThat(adapter.successStageProjection("revision-a"))
-                .isEqualTo("1|attempt-a|SOURCE_PARSING|NOT_APPLICABLE|NOT_APPLICABLE|"
-                        + "INTERMEDIATE|SUCCEEDED|0");
+        assertThat(adapter.stageProjection("attempt-a"))
+                .isEqualTo(projectionString(ProcessingPublicationPort.GenerationStageRecord.succeeded(
+                        SOURCE_DOCUMENT_ID, CONTENT_SHA256, PARSER_PROFILE_VERSION,
+                        "revision-a", "attempt-a", 1, digest)));
         assertThat(adapter.parseCompleteness("revision-a")).isEqualTo("COMPLETE");
         assertThat(adapter.revisionStatus("revision-a")).isEqualTo("PARSED");
         assertThat(adapter.attemptStatus("attempt-a"))
@@ -279,7 +391,7 @@ class ProcessingPublicationIntegrationTest {
                                 0, "PARAGRAPH", "first", 0, 0),
                         block("block-b", SOURCE_DOCUMENT_ID, "revision-b", "attempt-b",
                                 1, "TABLE", "second", 0, 0)),
-                BlockSetDigest.emptyOmissions());
+                List.of());
 
         assertThat(adapter.stage(attempt.fence(), foreign))
                 .isEqualTo(ProcessingPublicationPort.Outcome.BLOCK_SET_MISMATCH);
@@ -312,7 +424,7 @@ class ProcessingPublicationIntegrationTest {
                         pending.fence(),
                         new ProcessingPublicationPort.Failure(
                                 ProcessingAttempt.Status.FAILED_TERMINAL,
-                                "FORMAT_INVALID",
+                                SourceDomainException.Code.DOCX_FORMAT_INVALID,
                                 "deterministic invalid format",
                                 STARTED_AT.plusSeconds(1))))
                 .isEqualTo(ProcessingPublicationPort.Outcome.STALE_FENCE);
@@ -320,6 +432,40 @@ class ProcessingPublicationIntegrationTest {
                 .isEqualTo(ProcessingAttempt.Status.PENDING);
         assertThat(adapter.revisionStatus("revision-a")).isEqualTo("PARSING");
         assertThat(adapter.stageRecordCount("revision-a")).isZero();
+
+        assertThatThrownBy(() -> new ProcessingPublicationPort.Failure(
+                        ProcessingAttempt.Status.FAILED_RETRYABLE,
+                        SourceDomainException.Code.DOCX_FORMAT_INVALID,
+                        "wrong mapping",
+                        STARTED_AT.plusSeconds(1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("RETRYABLE_FAILURE_REQUIRES_PARSER_RETRYABLE_FAILURE");
+        assertThatThrownBy(() -> new ProcessingPublicationPort.Failure(
+                        ProcessingAttempt.Status.FAILED_TERMINAL,
+                        SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
+                        "wrong mapping",
+                        STARTED_AT.plusSeconds(1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("TERMINAL_FAILURE_REQUIRES_TERMINAL_FAILURE_CODE");
+    }
+
+    @Test
+    void terminalFailurePersistsCompleteFailedStageProjection() {
+        ProcessingAttempt attempt = beginAndClaim("revision-a", "attempt-a");
+        service.fail(
+                attempt.fence(),
+                ProcessingAttempt.Status.FAILED_TERMINAL,
+                SourceDomainException.Code.DOCX_FORMAT_INVALID,
+                "deterministic invalid format",
+                STARTED_AT.plusSeconds(40));
+
+        assertThat(adapter.stageProjection("attempt-a"))
+                .isEqualTo(projectionString(ProcessingPublicationPort.GenerationStageRecord.failed(
+                        SOURCE_DOCUMENT_ID, CONTENT_SHA256, PARSER_PROFILE_VERSION,
+                        "revision-a", "attempt-a", 1,
+                        SourceDomainException.Code.DOCX_FORMAT_INVALID,
+                        "deterministic invalid format")));
+        assertThat(adapter.revisionStatus("revision-a")).isEqualTo("FAILED_TERMINAL");
     }
 
     @Test
@@ -433,11 +579,15 @@ class ProcessingPublicationIntegrationTest {
         service.fail(
                 first.fence(),
                 ProcessingAttempt.Status.FAILED_RETRYABLE,
-                "TEMPORARY_READ_FAILURE",
+                SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
                 "transient source read",
                 STARTED_AT.plusSeconds(40));
-        assertThat(adapter.stageValidationResult("attempt-a"))
-                .isEqualTo("TEMPORARY_READ_FAILURE");
+        assertThat(adapter.stageProjection("attempt-a"))
+                .isEqualTo(projectionString(ProcessingPublicationPort.GenerationStageRecord.failed(
+                        SOURCE_DOCUMENT_ID, CONTENT_SHA256, PARSER_PROFILE_VERSION,
+                        "revision-a", "attempt-a", 1,
+                        SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
+                        "transient source read")));
 
         ProcessingAttempt second = service.retry(
                 SOURCE_DOCUMENT_ID,
@@ -466,7 +616,7 @@ class ProcessingPublicationIntegrationTest {
                                 0, "PARAGRAPH", "first", 0, 0),
                         block("block-b", SOURCE_DOCUMENT_ID, "revision-a", "attempt-b",
                                 1, "TABLE", "second", 0, 0)),
-                BlockSetDigest.emptyOmissions());
+                List.of());
         assertThat(BlockSetDigest.compute(secondBlocks))
                 .isEqualTo(BlockSetDigest.compute(blockSet("second")));
         service.stage(second.fence(), secondBlocks);
@@ -552,6 +702,30 @@ class ProcessingPublicationIntegrationTest {
                 .isEqualTo(outcome);
     }
 
+    private static String projectionString(
+            ProcessingPublicationPort.GenerationStageRecord projection) {
+        ProcessingPublicationPort.GenerationStageRecord.FailureProjection failure =
+                projection.failure();
+        return String.join("|",
+                projection.schemaVersion(), projection.runId(), projection.stage(),
+                projection.inputHash(), projection.promptVersion(), projection.model(),
+                projection.sourceBlockRefs().toString(), projection.outputKind().name(),
+                nullable(projection.outputSchemaId()),
+                projection.structuredOutput() == null
+                        ? "<null>" : projection.structuredOutput().canonicalJson(),
+                projection.outputHash() == null ? "<null>" : projection.outputHash().value(),
+                projection.validationResult().canonicalJson(), projection.generationStatus().name(),
+                Long.toString(projection.retryCount()), projection.retryScopeRefs().toString(),
+                failure == null ? "<null>" : failure.code().name(),
+                failure == null ? "<null>" : failure.message(),
+                failure == null ? "<null>" : Boolean.toString(failure.retryable()),
+                failure == null ? "<null>" : failure.failedScopeRefs().toString());
+    }
+
+    private static String nullable(String value) {
+        return value == null ? "<null>" : value;
+    }
+
     private static Connection connection() throws SQLException {
         return DriverManager.getConnection(
                 postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
@@ -567,7 +741,7 @@ class ProcessingPublicationIntegrationTest {
                 List.of(
                         block("block-a", 0, "PARAGRAPH", "first"),
                         block("block-b", 1, "TABLE", secondPayload)),
-                BlockSetDigest.emptyOmissions());
+                List.of());
     }
 
     private static CandidateBlockSet.Block block(
@@ -594,22 +768,124 @@ class ProcessingPublicationIntegrationTest {
             String payload,
             int placeholders,
             int imageBindings) {
-        return CandidateBlockSet.Block.create(
-                blockId,
-                sourceDocumentId,
-                revisionId,
-                attemptId,
-                blockType,
+        if (placeholders != 0 || imageBindings != 0) {
+            throw new IllegalArgumentException("TEST_HELPER_IMAGE_COUNTS_UNSUPPORTED");
+        }
+        if ("TABLE".equals(blockType)) {
+            List<Integer> offsets = replacementOffsets(payload);
+            TableTextEvidence evidence = new TableTextEvidence(0, payload, offsets);
+            TableCellCandidate cell = new TableCellCandidate(
+                    0, 0, 1, 1, payload, List.of(evidence));
+            TableBlockCandidate table = new TableBlockCandidate(
+                    sourceOrder,
+                    "word/document.xml",
+                    sourceOrder,
+                    1,
+                    1,
+                    List.of(cell),
+                    List.of());
+            return CandidateBlockSet.Block.fromTable(
+                    blockId, sourceDocumentId, revisionId, attemptId, List.of(), table, null);
+        }
+        DocumentBlockCandidate text = new DocumentBlockCandidate(
+                DocumentBlockCandidate.BlockType.valueOf(blockType),
                 sourceOrder,
                 List.of(),
-                null,
-                null,
-                "BODY_BLOCK:" + sourceOrder,
                 "word/document.xml",
                 sourceOrder,
                 payload,
-                placeholders,
-                imageBindings);
+                null,
+                null,
+                null);
+        return CandidateBlockSet.Block.fromText(
+                blockId, sourceDocumentId, revisionId, attemptId, text, null);
+    }
+
+    private static CandidateBlockSet.Block imageBlock(
+            String blockId,
+            String parentBlockId,
+            int sourceOrder,
+            int textOffset,
+            int childOrdinal) {
+        ImageRelationshipProjector.ProjectedImage image =
+                new ImageRelationshipProjector.ProjectedImage(
+                        sourceOrder,
+                        "word/document.xml",
+                        sourceOrder,
+                        new ImageAnchor(
+                                parentBlockId,
+                                ImageAnchor.AnchorKind.PARAGRAPH_INLINE,
+                                textOffset,
+                                childOrdinal,
+                                null,
+                                null),
+                        "rId-image-" + sourceOrder,
+                        DocxRelationshipClassifier.Mode.EXTERNAL,
+                        SourceHash.ofHex("b".repeat(64)),
+                        null,
+                        null,
+                        null,
+                        null,
+                        "external image preserved without dereference",
+                        SourceHash.ofHex("c".repeat(64)));
+        return CandidateBlockSet.Block.fromImage(
+                blockId,
+                SOURCE_DOCUMENT_ID,
+                "revision-a",
+                "attempt-a",
+                List.of(),
+                image,
+                null);
+    }
+
+    private static CandidateBlockSet.Block tableImageBlock(
+            String blockId,
+            String parentBlockId,
+            int sourceOrder,
+            int textOffset,
+            int childOrdinal,
+            int rowIndex,
+            int columnIndex) {
+        ImageRelationshipProjector.ProjectedImage image =
+                new ImageRelationshipProjector.ProjectedImage(
+                        sourceOrder,
+                        "word/document.xml",
+                        sourceOrder,
+                        new ImageAnchor(
+                                parentBlockId,
+                                ImageAnchor.AnchorKind.TABLE_CELL_INLINE,
+                                textOffset,
+                                childOrdinal,
+                                rowIndex,
+                                columnIndex),
+                        "rId-image-" + sourceOrder,
+                        DocxRelationshipClassifier.Mode.EXTERNAL,
+                        SourceHash.ofHex("b".repeat(64)),
+                        null,
+                        null,
+                        null,
+                        null,
+                        "external image preserved without dereference",
+                        SourceHash.ofHex("c".repeat(64)));
+        return CandidateBlockSet.Block.fromImage(
+                blockId,
+                SOURCE_DOCUMENT_ID,
+                "revision-a",
+                "attempt-a",
+                List.of(),
+                image,
+                null);
+    }
+
+    private static List<Integer> replacementOffsets(String text) {
+        List<Integer> offsets = new ArrayList<>();
+        int codePointOffset = 0;
+        for (int charOffset = 0; charOffset < text.length(); codePointOffset++) {
+            int codePoint = text.codePointAt(charOffset);
+            if (codePoint == 0xFFFC) offsets.add(codePointOffset);
+            charOffset += Character.charCount(codePoint);
+        }
+        return List.copyOf(offsets);
     }
 
     private static final class TestLocalJdbcProcessingPublicationPort
@@ -632,6 +908,10 @@ class ProcessingPublicationIntegrationTest {
                   failure_code text null,
                   failure_detail text null,
                   completed_at timestamptz null
+                  ,check (failure_code is null or failure_code in (
+                    'PARSER_RETRYABLE_FAILURE',
+                    'PARSER_TERMINAL_FAILURE',
+                    'DOCX_FORMAT_INVALID'))
                 );
                 create table i07_attempt (
                   attempt_id text primary key,
@@ -646,7 +926,11 @@ class ProcessingPublicationIntegrationTest {
                   failure_detail text null,
                   started_at timestamptz not null,
                   completed_at timestamptz null,
-                  unique (revision_id, generation)
+                  unique (revision_id, generation),
+                  check (failure_code is null or failure_code in (
+                    'PARSER_RETRYABLE_FAILURE',
+                    'PARSER_TERMINAL_FAILURE',
+                    'DOCX_FORMAT_INVALID'))
                 );
                 create table i07_staged_set (
                   attempt_id text primary key references i07_attempt(attempt_id),
@@ -655,7 +939,8 @@ class ProcessingPublicationIntegrationTest {
                   parse_completeness text not null,
                   partial_acceptance_status text not null,
                   block_set_digest char(64) not null,
-                  omissions_digest char(64) not null
+                  omissions_digest char(64) not null,
+                  omissions_canonical bytea not null
                 );
                 create table i07_staged_block (
                   attempt_id text not null references i07_attempt(attempt_id),
@@ -700,7 +985,23 @@ class ProcessingPublicationIntegrationTest {
                   validation_result text not null,
                   generation_status text not null,
                   retry_count bigint not null,
-                  created_at timestamptz not null
+                  retry_scope_refs text not null,
+                  failure_code text null,
+                  failure_detail text null,
+                  failure_retryable boolean null,
+                  failure_revision_scope text null,
+                  created_at timestamptz not null,
+                  check (input_hash ~ '^[0-9a-f]{64}$'),
+                  check (validation_result::jsonb is not null),
+                  check (structured_output is null or structured_output::jsonb is not null),
+                  check (generation_status in ('SUCCEEDED', 'FAILED')),
+                  check ((generation_status = 'SUCCEEDED'
+                          and failure_code is null and failure_detail is null
+                          and failure_retryable is null and failure_revision_scope is null)
+                      or (generation_status = 'FAILED'
+                          and failure_code is not null and failure_detail is not null
+                          and failure_retryable is not null
+                          and failure_revision_scope is not null))
                 );
                 create table i07_rejection_event (
                   rejection_event_id bigserial primary key,
@@ -882,19 +1183,24 @@ class ProcessingPublicationIntegrationTest {
 
         @Override
         public Outcome claim(AttemptFence fence, AttemptLease lease, Instant observedAt) {
-            return extendLease(fence, lease, observedAt, "PENDING", "RUNNING");
+            if (lease.expectedStatus() != ProcessingAttempt.Status.PENDING) {
+                return Outcome.STALE_LEASE;
+            }
+            return extendLease(fence, lease, observedAt, "RUNNING");
         }
 
         @Override
         public Outcome heartbeat(AttemptFence fence, AttemptLease lease, Instant observedAt) {
-            return extendLease(fence, lease, observedAt, "RUNNING", "RUNNING");
+            if (lease.expectedStatus() != ProcessingAttempt.Status.RUNNING) {
+                return Outcome.STALE_LEASE;
+            }
+            return extendLease(fence, lease, observedAt, "RUNNING");
         }
 
         private Outcome extendLease(
                 AttemptFence fence,
                 AttemptLease lease,
                 Instant observedAt,
-                String expectedStatus,
                 String targetStatus) {
             return transaction(connection -> {
                 if (!fenceMatches(connection, fence)) {
@@ -914,7 +1220,7 @@ class ProcessingPublicationIntegrationTest {
                     update.setString(5, fence.revisionId());
                     update.setLong(6, fence.generation());
                     update.setString(7, fence.fencingToken());
-                    update.setString(8, expectedStatus);
+                    update.setString(8, lease.expectedStatus().name());
                     setInstant(update, 9, lease.observedLeaseExpiresAt());
                     setInstant(update, 10, observedAt);
                     return update.executeUpdate() == 1 ? Outcome.APPLIED : Outcome.STALE_LEASE;
@@ -933,8 +1239,8 @@ class ProcessingPublicationIntegrationTest {
                 try (PreparedStatement updateAttempt = connection.prepareStatement("""
                                 update i07_attempt
                                 set attempt_status = 'FAILED_RETRYABLE', lease_expires_at = null,
-                                    failure_code = 'LEASE_EXPIRED',
-                                    failure_detail = 'observed active lease expired',
+                                    failure_code = 'PARSER_RETRYABLE_FAILURE',
+                                    failure_detail = 'LEASE_EXPIRED:observed active lease expired',
                                     completed_at = ?
                                 where attempt_id = ? and revision_id = ? and generation = ?
                                   and fencing_token = ? and attempt_status = ?
@@ -956,15 +1262,16 @@ class ProcessingPublicationIntegrationTest {
                         connection,
                         fence,
                         ProcessingAttempt.Status.FAILED_RETRYABLE,
-                        "LEASE_EXPIRED",
-                        "observed active lease expired",
+                        SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
+                        "LEASE_EXPIRED:observed active lease expired",
                         timedOutAt);
                 insertStageRecord(
                         connection,
                         fence,
                         "FAILED_RETRYABLE",
                         null,
-                        "LEASE_EXPIRED",
+                        SourceDomainException.Code.PARSER_RETRYABLE_FAILURE,
+                        "LEASE_EXPIRED:observed active lease expired",
                         timedOutAt);
                 return Outcome.APPLIED;
             });
@@ -990,8 +1297,8 @@ class ProcessingPublicationIntegrationTest {
                                 insert into i07_staged_set(
                                   attempt_id, source_document_id, revision_id,
                                   parse_completeness, partial_acceptance_status,
-                                  block_set_digest, omissions_digest)
-                                values (?, ?, ?, ?, ?, ?, ?)
+                                  block_set_digest, omissions_digest, omissions_canonical)
+                                values (?, ?, ?, ?, ?, ?, ?, ?)
                                 """);
                         PreparedStatement block = connection.prepareStatement("""
                                 insert into i07_staged_block(
@@ -1005,6 +1312,7 @@ class ProcessingPublicationIntegrationTest {
                     header.setString(5, blockSet.partialAcceptanceStatus().name());
                     header.setString(6, digest.value());
                     header.setString(7, blockSet.omissionsDigest().value());
+                    header.setBytes(8, blockSet.canonicalOmissionsBytes());
                     requireOne(header.executeUpdate(), "STAGED_SET_INSERT");
                     for (CandidateBlockSet.Block candidate : blockSet.blocks()) {
                         bindBlock(block, fence.attemptId(), candidate);
@@ -1059,7 +1367,8 @@ class ProcessingPublicationIntegrationTest {
                         fence,
                         "SUCCEEDED",
                         blockSetDigest.value(),
-                        "BLOCK_SET_VALIDATED",
+                        null,
+                        null,
                         completedAt);
                 if (failDuringPublish) {
                     try (Statement statement = connection.createStatement()) {
@@ -1122,7 +1431,7 @@ class ProcessingPublicationIntegrationTest {
                                         and attempt_status = 'RUNNING'))
                                 """)) {
                     updateAttempt.setString(1, failure.terminalStatus().name());
-                    updateAttempt.setString(2, failure.failureCode());
+                    updateAttempt.setString(2, failure.failureCode().name());
                     updateAttempt.setString(3, failure.failureDetail());
                     setInstant(updateAttempt, 4, failure.completedAt());
                     updateAttempt.setString(5, fence.attemptId());
@@ -1148,6 +1457,7 @@ class ProcessingPublicationIntegrationTest {
                         failure.terminalStatus().name(),
                         null,
                         failure.failureCode(),
+                        failure.failureDetail(),
                         failure.completedAt());
                 return Outcome.APPLIED;
             });
@@ -1239,21 +1549,21 @@ class ProcessingPublicationIntegrationTest {
             }
         }
 
-        String successStageProjection(String revisionId) {
+        String stageProjection(String attemptId) {
             return queryText("""
                             select schema_version || '|' || run_id || '|' || stage_name || '|' ||
-                                   prompt_version || '|' || model || '|' || output_kind || '|' ||
-                                   generation_status || '|' || retry_count::text
-                            from i07_stage_record
-                            where revision_id = ? and terminal_status = 'SUCCEEDED'
-                            """, revisionId)
-                    .orElse(null);
-        }
-
-        String stageValidationResult(String attemptId) {
-            return queryText(
-                            "select validation_result from i07_stage_record where attempt_id = ?",
-                            attemptId)
+                                   input_hash || '|' || prompt_version || '|' || model || '|' ||
+                                   source_block_refs || '|' || output_kind || '|' ||
+                                   coalesce(output_schema_id, '<null>') || '|' ||
+                                   coalesce(structured_output, '<null>') || '|' ||
+                                   coalesce(output_hash, '<null>') || '|' || validation_result || '|' ||
+                                   generation_status || '|' || retry_count::text || '|' ||
+                                   retry_scope_refs || '|' || coalesce(failure_code, '<null>') || '|' ||
+                                   coalesce(failure_detail, '<null>') || '|' ||
+                                   coalesce(failure_retryable::text, '<null>') || '|' ||
+                                   coalesce(failure_revision_scope, '<null>')
+                            from i07_stage_record where attempt_id = ?
+                            """, attemptId)
                     .orElse(null);
         }
 
@@ -1313,7 +1623,8 @@ class ProcessingPublicationIntegrationTest {
             String declaredDigest;
             try (PreparedStatement header = connection.prepareStatement("""
                             select source_document_id, revision_id, parse_completeness,
-                                   partial_acceptance_status, block_set_digest, omissions_digest
+                                   partial_acceptance_status, block_set_digest, omissions_digest,
+                                   omissions_canonical
                             from i07_staged_set where attempt_id = ?
                             """)) {
                 header.setString(1, attemptId);
@@ -1325,7 +1636,9 @@ class ProcessingPublicationIntegrationTest {
                             || !expected.revisionId().equals(result.getString(2))
                             || !expected.parseCompleteness().name().equals(result.getString(3))
                             || !expected.partialAcceptanceStatus().name().equals(result.getString(4))
-                            || !expected.omissionsDigest().value().equals(result.getString(6))) {
+                            || !expected.omissionsDigest().value().equals(result.getString(6))
+                            || !java.util.Arrays.equals(
+                                    expected.canonicalOmissionsBytes(), result.getBytes(7))) {
                         return null;
                     }
                     declaredDigest = result.getString(5);
@@ -1400,9 +1713,29 @@ class ProcessingPublicationIntegrationTest {
                 AttemptFence fence,
                 String status,
                 String digest,
-                String validationResult,
+                SourceDomainException.Code failureCode,
+                String failureDetail,
                 Instant createdAt)
                 throws SQLException {
+            StageFacts facts = loadStageFacts(connection, fence);
+            ProcessingPublicationPort.GenerationStageRecord projection = "SUCCEEDED".equals(status)
+                    ? ProcessingPublicationPort.GenerationStageRecord.succeeded(
+                            facts.sourceDocumentId(),
+                            facts.contentSha256(),
+                            facts.parserProfileVersion(),
+                            fence.revisionId(),
+                            fence.attemptId(),
+                            facts.attemptNumber(),
+                            new BlockSetDigest(digest))
+                    : ProcessingPublicationPort.GenerationStageRecord.failed(
+                            facts.sourceDocumentId(),
+                            facts.contentSha256(),
+                            facts.parserProfileVersion(),
+                            fence.revisionId(),
+                            fence.attemptId(),
+                            facts.attemptNumber(),
+                            failureCode,
+                            failureDetail);
             try (PreparedStatement insert = connection.prepareStatement("""
                             insert into i07_stage_record(
                               revision_id, attempt_id, terminal_status,
@@ -1410,30 +1743,65 @@ class ProcessingPublicationIntegrationTest {
                               input_hash, prompt_version, model, source_block_refs,
                               output_kind, output_schema_id, structured_output,
                               output_hash, validation_result, generation_status,
-                              retry_count, created_at)
-                            select revision.revision_id, attempt.attempt_id, ?, ?,
-                                   '1', attempt.attempt_id, 'SOURCE_PARSING',
-                                   revision.source_document_id || '|' ||
-                                     revision.content_sha256 || '|' ||
-                                     revision.parser_profile_version,
-                                   'NOT_APPLICABLE', 'NOT_APPLICABLE', '[]',
-                                   ?, null, ?, ?, ?, ?, attempt.attempt_number - 1, ?
+                              retry_count, retry_scope_refs, failure_code,
+                              failure_detail, failure_retryable,
+                              failure_revision_scope, created_at)
+                            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                    ?, ?, ?, ?)
+                            """)) {
+                insert.setString(1, fence.revisionId());
+                insert.setString(2, fence.attemptId());
+                insert.setString(3, status);
+                insert.setString(4, digest);
+                insert.setString(5, projection.schemaVersion());
+                insert.setString(6, projection.runId());
+                insert.setString(7, projection.stage());
+                insert.setString(8, projection.inputHash());
+                insert.setString(9, projection.promptVersion());
+                insert.setString(10, projection.model());
+                insert.setString(11, projection.sourceBlockRefs().toString());
+                insert.setString(12, projection.outputKind().name());
+                insert.setString(13, projection.outputSchemaId());
+                insert.setString(14, projection.structuredOutput() == null
+                        ? null : projection.structuredOutput().canonicalJson());
+                insert.setString(15, projection.outputHash() == null
+                        ? null : projection.outputHash().value());
+                insert.setString(16, projection.validationResult().canonicalJson());
+                insert.setString(17, projection.generationStatus().name());
+                insert.setLong(18, projection.retryCount());
+                insert.setString(19, projection.retryScopeRefs().toString());
+                insert.setString(20, projection.failure() == null
+                        ? null : projection.failure().code().name());
+                insert.setString(21, projection.failure() == null
+                        ? null : projection.failure().message());
+                if (projection.failure() == null) insert.setObject(22, null);
+                else insert.setBoolean(22, projection.failure().retryable());
+                insert.setString(23, projection.failure() == null
+                        ? null : projection.failure().failedScopeRefs().toString());
+                setInstant(insert, 24, createdAt);
+                requireOne(insert.executeUpdate(), "STAGE_RECORD_INSERT");
+            }
+        }
+
+        private static StageFacts loadStageFacts(Connection connection, AttemptFence fence)
+                throws SQLException {
+            try (PreparedStatement query = connection.prepareStatement("""
+                            select revision.source_document_id, revision.content_sha256,
+                                   revision.parser_profile_version, attempt.attempt_number
                             from i07_revision revision
                             join i07_attempt attempt on attempt.revision_id = revision.revision_id
                             where revision.revision_id = ? and attempt.attempt_id = ?
                             """)) {
-                boolean succeeded = "SUCCEEDED".equals(status);
-                insert.setString(1, status);
-                insert.setString(2, digest);
-                insert.setString(3, succeeded ? "INTERMEDIATE" : "NONE");
-                insert.setString(4, succeeded ? "block-set:" + digest : null);
-                insert.setString(5, digest);
-                insert.setString(6, validationResult);
-                insert.setString(7, status);
-                setInstant(insert, 8, createdAt);
-                insert.setString(9, fence.revisionId());
-                insert.setString(10, fence.attemptId());
-                requireOne(insert.executeUpdate(), "STAGE_RECORD_INSERT");
+                query.setString(1, fence.revisionId());
+                query.setString(2, fence.attemptId());
+                try (ResultSet result = query.executeQuery()) {
+                    if (!result.next()) throw new SQLException("STAGE_FACTS_REQUIRED");
+                    return new StageFacts(
+                            result.getString(1),
+                            result.getString(2),
+                            result.getString(3),
+                            result.getLong(4));
+                }
             }
         }
 
@@ -1441,7 +1809,7 @@ class ProcessingPublicationIntegrationTest {
                 Connection connection,
                 AttemptFence fence,
                 ProcessingAttempt.Status status,
-                String code,
+                SourceDomainException.Code code,
                 String detail,
                 Instant completedAt)
                 throws SQLException {
@@ -1453,7 +1821,7 @@ class ProcessingPublicationIntegrationTest {
                               and current_generation = ?
                             """)) {
                 update.setString(1, status.name());
-                update.setString(2, code);
+                update.setString(2, code.name());
                 update.setString(3, detail);
                 setInstant(update, 4, completedAt);
                 update.setString(5, fence.revisionId());
@@ -1677,6 +2045,12 @@ class ProcessingPublicationIntegrationTest {
                         && fence.generation() == currentGeneration;
             }
         }
+
+        private record StageFacts(
+                String sourceDocumentId,
+                String contentSha256,
+                String parserProfileVersion,
+                long attemptNumber) {}
 
         @FunctionalInterface
         private interface SqlTransaction<T> {

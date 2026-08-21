@@ -1,5 +1,6 @@
 package io.cognitura.source.application.processing;
 
+import io.cognitura.source.domain.SourceDomainException;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -123,7 +124,7 @@ public final class ProcessingPublicationService {
     public void fail(
             AttemptFence fence,
             ProcessingAttempt.Status terminalStatus,
-            String failureCode,
+            SourceDomainException.Code failureCode,
             String failureDetail,
             Instant completedAt) {
         requireApplied(port.fail(

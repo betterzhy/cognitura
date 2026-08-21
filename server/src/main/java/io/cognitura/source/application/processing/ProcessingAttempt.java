@@ -1,5 +1,6 @@
 package io.cognitura.source.application.processing;
 
+import io.cognitura.source.domain.SourceDomainException;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -12,7 +13,7 @@ public record ProcessingAttempt(
         Status status,
         Instant leaseExpiresAt,
         Instant heartbeatAt,
-        String failureCode,
+        SourceDomainException.Code failureCode,
         String failureDetail,
         Instant startedAt,
         Instant completedAt) {
@@ -73,7 +74,7 @@ public record ProcessingAttempt(
             Status status,
             Instant leaseExpiresAt,
             Instant heartbeatAt,
-            String failureCode,
+            SourceDomainException.Code failureCode,
             String failureDetail,
             Instant completedAt) {
         if (status == Status.PENDING || status == Status.RUNNING) {
@@ -96,7 +97,18 @@ public record ProcessingAttempt(
             }
             return;
         }
-        requireText(failureCode, "FAILED_ATTEMPT_CODE_REQUIRED");
+        Objects.requireNonNull(failureCode, "failureCode");
+        if (status == Status.FAILED_RETRYABLE
+                && failureCode != SourceDomainException.Code.PARSER_RETRYABLE_FAILURE) {
+            throw new IllegalArgumentException(
+                    "RETRYABLE_ATTEMPT_REQUIRES_PARSER_RETRYABLE_FAILURE");
+        }
+        if (status == Status.FAILED_TERMINAL
+                && failureCode != SourceDomainException.Code.PARSER_TERMINAL_FAILURE
+                && failureCode != SourceDomainException.Code.DOCX_FORMAT_INVALID) {
+            throw new IllegalArgumentException(
+                    "TERMINAL_ATTEMPT_REQUIRES_TERMINAL_FAILURE_CODE");
+        }
         requireText(failureDetail, "FAILED_ATTEMPT_DETAIL_REQUIRED");
     }
 

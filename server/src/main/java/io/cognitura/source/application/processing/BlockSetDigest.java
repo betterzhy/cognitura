@@ -7,24 +7,18 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
 public record BlockSetDigest(String value) {
 
     private static final Pattern SHA_256 = Pattern.compile("[0-9a-f]{64}");
-    private static final BlockSetDigest EMPTY_OMISSIONS =
-            sha256("[]".getBytes(StandardCharsets.UTF_8));
-
     public BlockSetDigest {
         Objects.requireNonNull(value, "value");
         if (!SHA_256.matcher(value).matches()) {
             throw new IllegalArgumentException("BLOCK_SET_DIGEST_MUST_BE_64_LOWERCASE_HEX");
         }
-    }
-
-    public static BlockSetDigest emptyOmissions() {
-        return EMPTY_OMISSIONS;
     }
 
     public static BlockSetDigest compute(CandidateBlockSet blockSet) {
@@ -47,6 +41,24 @@ public record BlockSetDigest(String value) {
             return sha256(bytes.toByteArray());
         } catch (IOException error) {
             throw new IllegalStateException("BLOCK_SET_CANONICAL_ENCODING_FAILED", error);
+        }
+    }
+
+    public static BlockSetDigest computeOmissions(List<CandidateBlockSet.Omission> omissions) {
+        Objects.requireNonNull(omissions, "omissions");
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            try (DataOutputStream output = new DataOutputStream(bytes)) {
+                output.writeInt(omissions.size());
+                for (CandidateBlockSet.Omission omission : omissions) {
+                    byte[] canonical = Objects.requireNonNull(omission, "omission").canonicalBytes();
+                    output.writeInt(canonical.length);
+                    output.write(canonical);
+                }
+            }
+            return sha256(bytes.toByteArray());
+        } catch (IOException error) {
+            throw new IllegalStateException("OMISSION_LIST_ENCODING_FAILED", error);
         }
     }
 
