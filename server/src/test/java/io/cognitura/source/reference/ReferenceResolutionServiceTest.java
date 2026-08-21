@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.cognitura.source.domain.SourceHash;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -126,6 +128,18 @@ class ReferenceResolutionServiceTest {
                 .isInstanceOf(ReferenceResolutionException.class)
                 .hasMessageContaining(missingAlias)
                 .hasMessageContaining("revision-a");
+
+        String unsafeAlias = "https://example.invalid/private/source";
+        String unsafeAliasDigest = SourceHash.sha256(
+                unsafeAlias.getBytes(StandardCharsets.UTF_8)).value();
+        assertThatThrownBy(() -> service.resolveBlockAlias(
+                        WORKSPACE, SOURCE, "revision-a", unsafeAlias, catalog))
+                .isInstanceOf(ReferenceResolutionException.class)
+                .hasMessageContaining(WORKSPACE)
+                .hasMessageContaining(SOURCE)
+                .hasMessageContaining("revision-a")
+                .hasMessageContaining(unsafeAliasDigest)
+                .hasMessageNotContaining(unsafeAlias);
     }
 
     @Test
@@ -160,6 +174,22 @@ class ReferenceResolutionServiceTest {
                 .hasMessageContaining(SOURCE)
                 .hasMessageContaining("revision-a")
                 .hasMessageContaining("block-b");
+
+        SourceScopedAlias forgedOriginal = SourceScopedAlias.registeredDocumentBlock(
+                "dbr:" + "f".repeat(64), original);
+        SourceScopedAlias forgedRetarget = SourceScopedAlias.registeredDocumentBlock(
+                forgedOriginal.value(), retarget);
+        String forwardCollision = exceptionMessage(() -> new ReferenceResolutionService.Catalog(
+                List.of(source(WORKSPACE, SOURCE)),
+                List.of(successful("revision-a", PROFILE_V1, original, retarget)),
+                List.of(forgedOriginal, forgedRetarget)));
+        String reverseCollision = exceptionMessage(() -> new ReferenceResolutionService.Catalog(
+                List.of(source(WORKSPACE, SOURCE)),
+                List.of(successful("revision-a", PROFILE_V1, original, retarget)),
+                List.of(forgedRetarget, forgedOriginal)));
+        assertThat(reverseCollision)
+                .isEqualTo(forwardCollision)
+                .contains(forgedOriginal.value(), "block-a", "block-b");
 
         assertThat(service.registerAlias(List.of(canonical), canonical)).isSameAs(canonical);
         SourceScopedAlias newAlias = SourceScopedAlias.documentBlock(retarget);
@@ -214,7 +244,10 @@ class ReferenceResolutionServiceTest {
                 .hasMessageContaining(WORKSPACE)
                 .hasMessageContaining(SOURCE)
                 .hasMessageContaining("docx-v2")
-                .hasMessageContaining("b".repeat(64));
+                .hasMessageContaining("b".repeat(64))
+                .hasMessageContaining("revision-success")
+                .hasMessageContaining("revision-retry")
+                .hasMessageContaining("revision-terminal");
     }
 
     @Test
@@ -237,7 +270,19 @@ class ReferenceResolutionServiceTest {
                 .hasMessageContaining(WORKSPACE)
                 .hasMessageContaining(SOURCE)
                 .hasMessageContaining("docx-v1")
-                .hasMessageContaining(CONTENT_HASH.value());
+                .hasMessageContaining(CONTENT_HASH.value())
+                .hasMessageContaining("revision-a")
+                .hasMessageContaining("revision-b");
+        ReferenceResolutionService.Catalog reverseCatalog = catalog(
+                List.of(source(WORKSPACE, SOURCE)),
+                List.of(
+                        successful("revision-b", PROFILE_V1, second),
+                        successful("revision-a", PROFILE_V1, first)),
+                List.of());
+        assertThat(exceptionMessage(() -> service.decideReparse(
+                        WORKSPACE, SOURCE, CONTENT_HASH, PROFILE_V1, reverseCatalog)))
+                .isEqualTo(exceptionMessage(() -> service.decideReparse(
+                        WORKSPACE, SOURCE, CONTENT_HASH, PROFILE_V1, catalog)));
     }
 
     @Test
@@ -271,6 +316,25 @@ class ReferenceResolutionServiceTest {
                 .hasMessageContaining("revision-a")
                 .hasMessageContaining("revision-b")
                 .hasMessageContaining("shared-block");
+        String forwardReuse = exceptionMessage(() -> catalog(
+                List.of(source(WORKSPACE, SOURCE)),
+                List.of(
+                        successful("revision-a", PROFILE_V1, oldBlock),
+                        successful(
+                                "revision-b",
+                                new ReparseProfile("docx-v2"),
+                                reusedBlock)),
+                List.of()));
+        String reverseReuse = exceptionMessage(() -> catalog(
+                List.of(source(WORKSPACE, SOURCE)),
+                List.of(
+                        successful(
+                                "revision-b",
+                                new ReparseProfile("docx-v2"),
+                                reusedBlock),
+                        successful("revision-a", PROFILE_V1, oldBlock)),
+                List.of()));
+        assertThat(reverseReuse).isEqualTo(forwardReuse);
 
         ReferenceResolutionService.Catalog catalog = catalog(
                 List.of(source(WORKSPACE, SOURCE)),
@@ -362,6 +426,24 @@ class ReferenceResolutionServiceTest {
                 .hasMessage("PROCESSING_REVISION_ID_INVALID");
     }
 
+    @Test
+    void referenceErrorsExposeNoPublicRawDetailEntryAndRejectUnsafeDetails() throws Exception {
+        assertThat(ReferenceResolutionException.class.getConstructors()).isEmpty();
+        var constructor = ReferenceResolutionException.class.getDeclaredConstructor(
+                ReferenceResolutionException.Code.class, String.class);
+        constructor.setAccessible(true);
+        for (String unsafe : List.of(
+                "/Users/private/source",
+                "lineage[sourceDocumentId=source-a]\nraw-secret",
+                "https://example.invalid/private",
+                "original document body")) {
+            assertThatThrownBy(() -> constructor.newInstance(
+                            ReferenceResolutionException.Code.REFERENCE_NOT_FOUND, unsafe))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .hasRootCauseMessage("REFERENCE_ERROR_DETAIL_UNSAFE");
+        }
+    }
+
     private static ReferenceResolutionService.Catalog catalog(
             List<ReferenceResolutionService.SourceDocumentSnapshot> sources,
             List<ReferenceResolutionService.RevisionSnapshot> revisions,
@@ -422,5 +504,17 @@ class ReferenceResolutionServiceTest {
                 .isInstanceOfSatisfying(
                         ReferenceResolutionException.class,
                         error -> assertThat(error.code()).isEqualTo(code));
+    }
+
+    private static String exceptionMessage(
+            org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {
+        try {
+            call.call();
+            throw new AssertionError("expected ReferenceResolutionException");
+        } catch (ReferenceResolutionException error) {
+            return error.getMessage();
+        } catch (Throwable error) {
+            throw new AssertionError("unexpected exception", error);
+        }
     }
 }
