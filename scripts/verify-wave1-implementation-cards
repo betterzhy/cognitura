@@ -469,9 +469,9 @@ w1_i05_fixed_review_repair_evidence_shas=(
 )
 w1_i05_closure_plan_path="docs/superpowers/plans/2026-08-21-cognitura-w1-i05-closure.md"
 w1_i05_reviewed_candidate_sha="b4132e988cd88dce74ae026a1b52a496188452fc"
-w1_i05_closure_repair_origin_sha="07f871061770e594f9793a0babdd2d979b3752cf"
-w1_i05_closure_plan_sha="11e5a2293f996728213f77ac85db88d5022bb2f6"
-w1_i05_closure_test_sha="e7aa5f58903e7d1af995dcf8b1310dbe87f998e5"
+w1_i05_closure_repair_origin_sha="133e4370c7f05effc1e1b23d41fd597414c49bd3"
+w1_i05_closure_plan_sha="946cdf575b8a00ebc0f6e46fab7300d2b6573fed"
+w1_i05_closure_test_sha="c8e850f17e580ead5ce8f4d6dc5a92fcbfc1cda9"
 w1_i05_closure_governance_paths=(
   "${w1_i05_closure_plan_path}"
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -2711,6 +2711,15 @@ if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
           exit 0
           ;;
         DONE:READY)
+          i05_base_receipt_pair="$(find_unique_w1_i05_closure_receipt \
+            "${transition_base}")"
+          set -- ${i05_base_receipt_pair}
+          i05_base_receipt_parent="$1"
+          i05_base_receipt="$2"
+          validate_w1_i05_closure_receipt \
+            "${i05_base_receipt_parent}" "${i05_base_receipt}"
+          validate_post_w1_i05_closure_descendants \
+            "${i05_base_receipt}" "${transition_base}"
           git -C "${repo_root}" merge-base --is-ancestor \
             "${transition_base}" "${transition_head}" ||
             fail "I05 post-closure transition HEAD must descend from BASE"
