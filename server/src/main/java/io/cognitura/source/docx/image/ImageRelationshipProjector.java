@@ -176,6 +176,8 @@ public final class ImageRelationshipProjector {
         }
         List<ProjectedImage> projected = new ArrayList<>();
         Set<Integer> consumedTables = new HashSet<>();
+        ParentResolutionTracker parentResolutions =
+                new ParentResolutionTracker(parentBlockIds);
         int sourceOrder = 0;
 
         for (Node node = body.getFirstChild(); node != null; node = node.getNextSibling()) {
@@ -190,7 +192,7 @@ public final class ImageRelationshipProjector {
                             safePackage,
                             contentTypes,
                             relationships,
-                            parentBlockIds,
+                            parentResolutions,
                             mediaSink,
                             elementIndexes.get(element),
                             sourceOrder,
@@ -209,7 +211,7 @@ public final class ImageRelationshipProjector {
                             safePackage,
                             contentTypes,
                             relationships,
-                            parentBlockIds,
+                            parentResolutions,
                             mediaSink,
                             table,
                             sourceOrder,
@@ -243,7 +245,7 @@ public final class ImageRelationshipProjector {
             SafeDocxPackage safePackage,
             ContentTypes contentTypes,
             Map<String, RelationshipMetadata> relationships,
-            ParentBlockIdResolver parentBlockIds,
+            ParentResolutionTracker parentResolutions,
             ImmutableMediaSink mediaSink,
             int parentElementIndex,
             int parentSourceOrder,
@@ -251,7 +253,7 @@ public final class ImageRelationshipProjector {
             List<ProjectedImage> projected) {
         for (int ordinal = 0; ordinal < paragraph.images().size(); ordinal++) {
             ImageOccurrence occurrence = paragraph.images().get(ordinal);
-            String parentBlockId = parentBlockIds.resolve(
+            String parentBlockId = parentResolutions.resolve(
                     MAIN_DOCUMENT_PART,
                     parentElementIndex,
                     ImageAnchor.AnchorKind.PARAGRAPH_INLINE,
@@ -279,7 +281,7 @@ public final class ImageRelationshipProjector {
             SafeDocxPackage safePackage,
             ContentTypes contentTypes,
             Map<String, RelationshipMetadata> relationships,
-            ParentBlockIdResolver parentBlockIds,
+            ParentResolutionTracker parentResolutions,
             ImmutableMediaSink mediaSink,
             TableBlockCandidate table,
             int tableSourceOrder,
@@ -315,7 +317,7 @@ public final class ImageRelationshipProjector {
                 throw new IllegalArgumentException("TABLE_IMAGE_ANCHOR_BIJECTION_INVALID");
             }
             ordinals.put(coordinate, ordinal + 1);
-            String parentBlockId = parentBlockIds.resolve(
+            String parentBlockId = parentResolutions.resolve(
                     MAIN_DOCUMENT_PART,
                     table.sourceElementIndex(),
                     ImageAnchor.AnchorKind.TABLE_CELL_INLINE,
@@ -875,6 +877,46 @@ public final class ImageRelationshipProjector {
             ImageOccurrence occurrence) {}
 
     private record CellCoordinate(int rowIndex, int columnIndex) {}
+
+    private static final class ParentResolutionTracker {
+        private final ParentBlockIdResolver resolver;
+        private final Map<ParentContainerKey, String> blockIdByContainer = new HashMap<>();
+        private final Map<String, ParentContainerKey> containerByBlockId = new HashMap<>();
+
+        private ParentResolutionTracker(ParentBlockIdResolver resolver) {
+            this.resolver = resolver;
+        }
+
+        private String resolve(
+                String sourcePart,
+                int sourceElementIndex,
+                ImageAnchor.AnchorKind anchorKind,
+                Integer rowIndex,
+                Integer columnIndex) {
+            String blockId = resolver.resolve(
+                    sourcePart, sourceElementIndex, anchorKind, rowIndex, columnIndex);
+            if (blockId == null || blockId.isBlank()) {
+                throw new IllegalArgumentException("IMAGE_PARENT_BLOCK_RESOLUTION_MISSING");
+            }
+            ParentContainerKey container =
+                    new ParentContainerKey(sourcePart, sourceElementIndex, anchorKind);
+            String existingBlockId = blockIdByContainer.putIfAbsent(container, blockId);
+            if (existingBlockId != null && !existingBlockId.equals(blockId)) {
+                throw new IllegalArgumentException(
+                        "IMAGE_PARENT_BLOCK_RESOLUTION_INCONSISTENT");
+            }
+            ParentContainerKey existingContainer = containerByBlockId.putIfAbsent(blockId, container);
+            if (existingContainer != null && !existingContainer.equals(container)) {
+                throw new IllegalArgumentException("IMAGE_PARENT_BLOCK_ID_DUPLICATE");
+            }
+            return blockId;
+        }
+    }
+
+    private record ParentContainerKey(
+            String sourcePart,
+            int sourceElementIndex,
+            ImageAnchor.AnchorKind anchorKind) {}
 
     private record ContentTypes(Map<String, String> defaults, Map<String, String> overrides) {
 
