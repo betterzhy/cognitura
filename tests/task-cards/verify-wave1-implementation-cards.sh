@@ -4192,6 +4192,9 @@ i07_closure_staging_count_sha="c0f273b72d4011bfa28a979d297514e70c6247f7"
 i07_closure_staging_test_sha="b5a3e97c12b3103da2921cfde08d97aca3eaa0d9"
 i07_closure_review_green_sha="d59f444ad2d874d8d9dc10c3ade332c8da4ba0ae"
 i07_closure_oracle_repair_sha="32523b87d516654f439abf0dd702cbd279e1ddfe"
+i07_closure_oracle_test_sha="28698e70bb0c0d2af674fd98c0964abe77c2e17c"
+i07_closure_oracle_source_repair_sha="1bbdcdefabea8102becceb9bd2a1706a09fd7f5c"
+i07_closure_oracle_source_count_sha="e387582ae380643d82cdd74a56d4490940608f21"
 i07_reviewed_candidate_sha="094f62546cf7a13435c5d61f2a7bede21b86f099"
 i07_reviewed_parent_sha="5433485e8f88f3846cbda722282223a3c8274b14"
 i07_reviewed_tree_sha="d82ece96e0e3dabdfef64a766179b711ea6d557f"
@@ -4227,6 +4230,9 @@ i07_governance_fixture_paths=(
   scripts/verify-wave1-implementation-cards
   docs/superpowers/specs/2026-08-22-cognitura-w1-i07-closure-governance-oracle-repair.md
   tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i07-closure-oracle-source-path-repair.md
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i07-oracle-source-chain-count-clarification.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
 i07_governance_fixture_sources=(
@@ -4246,6 +4252,9 @@ i07_governance_fixture_sources=(
   "${i07_closure_staging_test_sha}"
   "${i07_closure_review_green_sha}"
   "${i07_closure_oracle_repair_sha}"
+  "${i07_closure_oracle_test_sha}"
+  "${i07_closure_oracle_source_repair_sha}"
+  "${i07_closure_oracle_source_count_sha}"
   WORKTREE_TEST
   WORKTREE_VERIFIER
 )
@@ -4324,7 +4333,7 @@ materialize_w1_i07_governance_variant() {
           "${fixture_root}/${fixture_path}"
         ;;
       *)
-        source_path="${i07_governance_fixture_paths[${index}]}"
+        source_path="${fixture_path}"
         git -C "${repo_root}" show "${source_sha}:${source_path}" > \
           "${fixture_root}/${fixture_path}" ||
           fail "could not materialize I07 governance path: ${fixture_path}"
