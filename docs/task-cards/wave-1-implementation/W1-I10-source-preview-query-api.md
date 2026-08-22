@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I10
 CardKind = IMPLEMENTATION
-Status = READY
+Status = DONE
 Gate = W1-IG10 SourcePreviewQueryApi
 Risk = HIGH
 DependsOn = W1-I08,W1-I09

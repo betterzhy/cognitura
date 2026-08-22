@@ -7,7 +7,7 @@ FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
 TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I10
+ActiveTaskCard = W1-I11
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
@@ -20,7 +20,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
 Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、I03、I04、I05、I06 和 I07 已完成固定候选
-零发现深审并关闭；I08 和 I09 已关闭，I10 已释放为唯一 `READY` 卡。
+零发现深审并关闭；I08、I09 和 I10 已关闭，I11 已释放为唯一 `READY` 卡。
 
 ## 1. 实现卡
 
@@ -36,8 +36,8 @@ Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、
 | `W1-I07` | Attempt fencing/publication | `I02,I04,I05,I06` | `DONE` |
 | `W1-I08` | Stable reference/lineage | `I07` | `DONE` |
 | `W1-I09` | Upload/processing command API | `I07` | `DONE` |
-| `W1-I10` | Preview query API | `I08,I09` | `READY` |
-| `W1-I11` | Partial acceptance command | `I10` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I10` | Preview query API | `I08,I09` | `DONE` |
+| `W1-I11` | Partial acceptance command | `I10` | `READY` |
 | `W1-I12` | Desktop Web source preview | `I10,I11` | `BLOCKED_BY_DEPENDENCY` |
 | `W1-I13` | Fixed implementation review | `I00..I12` | `BLOCKED_BY_DEPENDENCY` |
 
@@ -372,6 +372,30 @@ P1 = 0
 P2 = 0
 Ultra = NOT_RUN
 I09ClosureReleasedTaskCard = W1-I10
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
+
+## 20. I10 关闭收据
+
+```text
+W1-I10 = DONE
+ReviewedCandidate = 9eb48f18b8c0ab3552a3f52cfe3a6f5e61db51ad
+ReviewedParent = f4b22f1d5be85e8c9847399fab5d4490056d4e1f
+ReviewedTree = a227ce11facc84b0be56d65f459a8d6005e16bb3
+ReviewedGovernanceCandidate = 14428d6ce4a9624d0205f12cf611591bb7092f22
+ReviewedGovernanceParent = f2c22d2ed5ee90e1447ef1609b7b7037bd052bad
+ReviewedGovernanceTree = 576e58ff89b05b006e529fb2abec35aa848b47f9
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+I10ClosureReleasedTaskCard = W1-I11
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```

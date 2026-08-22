@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I11
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W1-IG11 PartialAcceptanceCommandApi
 Risk = HIGH
 DependsOn = W1-I10
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = EXACT_REVISION_DIGEST_ACTOR_AND_IDEMPOTENCY_CONFIRMATION
 NegativeVerification = DIGEST_ACTOR_KEY_AND_REPEAT_CONFLICT_REJECTED
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
