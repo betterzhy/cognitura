@@ -7602,7 +7602,7 @@ make_i11_rebaseline_projection() {
     '本卡不修改 preview query 或 Web。' \
     '本卡只为 ACCEPTED 兼容修改既有 preview query；不修改 Web。'
   I11_VALIDATION_BLOCK="${validation_block}" perl -0777 -i.bak -pe \
-    's#(?<=```bash\n).*?(?=```\n\n## 6\.)#$ENV{I11_VALIDATION_BLOCK}."\n"#se' "${card}"
+    's~(?<=```bash\n).*?(?=```\n\n## 6\.)~$ENV{I11_VALIDATION_BLOCK}."\n"~se' "${card}"
   rm "${card}.bak"
   replace_i10_closure_projection_text "${card}" \
     '完整 digest/actor/idempotency tuple、不可逆性、相同重放和冲突拒绝全部通过；无 query、\nParser、migration 或 Web 改动。' \
