@@ -5197,6 +5197,7 @@ i08_closure_origin_sha="4890c8ec6af72e57e696845e8fc06a5552aafd45"
 i08_closure_spec_sha="ce3545b699a9a38d63ace8de18a117ed322a3054"
 i08_rejected_governance_sha="6dfc075be803277c695b729001997345c512c34d"
 i08_repair_spec_sha="a5d3954f7f1f2e3cf1b4b887a23ed2b7cf399ec9"
+i08_repair_test_sha="ad2f6224f75caf2b439b3c46bcfb9cd4da6b7357"
 i08_reviewed_parent_sha="c06ea6ed7efcb2ef04c085e3976d42814af0b3ea"
 i08_reviewed_tree_sha="7db68e968432b8b7218a63aba9ea06d6a93a5782"
 i08_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i08-closure-design.md"
@@ -5238,7 +5239,8 @@ materialize_i08_closure_governance() {
   fi
   git -C "${fixture_root}" commit -qm "docs: define W1-I08 closure finding repair"
 
-  cp -p "${repo_root}/${i08_test_path}" "${fixture_root}/${i08_test_path}"
+  git -C "${repo_root}" show \
+    "${i08_repair_test_sha}:${i08_test_path}" > "${fixture_root}/${i08_test_path}"
   chmod 755 "${fixture_root}/${i08_test_path}"
   git -C "${fixture_root}" add "${i08_test_path}"
   git -C "${fixture_root}" commit -qm "test: define W1-I08 closure contract"
