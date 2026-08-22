@@ -139,6 +139,19 @@ set_field() {
   rm "${file}.bak"
 }
 
+set_first_field() {
+  local file="$1"
+  local field="$2"
+  local value="$3"
+  FIRST_FIELD="${field}" FIRST_VALUE="${value}" perl -i.bak -pe '
+    if (!$done && /^\Q$ENV{FIRST_FIELD}\E = /) {
+      $_ = "$ENV{FIRST_FIELD} = $ENV{FIRST_VALUE}\n";
+      $done = 1;
+    }
+  ' "${file}"
+  rm "${file}.bak"
+}
+
 field_value() {
   local file="$1"
   local field="$2"
@@ -6191,6 +6204,14 @@ if [[ "${w1_i09_runtime_rebaseline_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+i09_fixed_runtime_candidate_sha="eab57ecc86b675b4b725d6d9506338282dbae9a7"
+
+new_i09_fixed_runtime_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
+}
+
 materialize_i09_substituted_product_candidate() {
   local fixture_root="$1"
   local mutation="${2:-IDENTITY_ONLY}"
@@ -6226,14 +6247,16 @@ run_w1_i09_product_copy_inference_contract() {
     c934ff7a10a30ed58584d2e5eb0654d2161add70)"
   assert_contains "${status}" $'C051\tserver/src/main/java/io/cognitura/source/persistence/SourceDocumentMapper.java\tserver/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java'
   assert_contains "${status}" $'C077\tserver/src/test/resources/db/source-persistence-fixture.sql\tserver/src/test/resources/db/source-command-runtime-fixture.sql'
-  output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
+  fixture_root="${test_tmp_root}/w1-i09-copy-fixed-candidate"
+  new_i09_fixed_runtime_fixture "${fixture_root}"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
     fail "fixed I09 inferred-copy repair was rejected: ${output}"
   assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
   positive_cases=$((positive_cases + 1))
 
   fixture_root="${test_tmp_root}/w1-i09-copy-legal-descendant"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
   printf '%s\n' '// legal post-repair I09 product descendant' >> \
     "${fixture_root}/server/src/main/java/io/cognitura/source/application/command/SourceCommandService.java"
   git -C "${fixture_root}" add \
@@ -6246,7 +6269,7 @@ run_w1_i09_product_copy_inference_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-copy-extra"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
   cp "${fixture_root}/server/src/main/java/io/cognitura/source/persistence/SourceCommandMapper.java" \
     "${fixture_root}/server/src/main/java/io/cognitura/source/persistence/UnexpectedCopy.java"
   git -C "${fixture_root}" add \
@@ -6258,7 +6281,7 @@ run_w1_i09_product_copy_inference_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-copy-rename"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
   git -C "${fixture_root}" mv \
     server/src/main/java/io/cognitura/source/application/command/SourceCommandException.java \
     server/src/main/java/io/cognitura/source/application/command/RenamedSourceCommandException.java
@@ -6269,7 +6292,7 @@ run_w1_i09_product_copy_inference_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-copy-outside"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
   printf '%s\n' 'forbidden post-repair drift' >> "${fixture_root}/README.md"
   git -C "${fixture_root}" add README.md
   git -C "${fixture_root}" commit -qm "test: exceed I09 product WriteSet after copy repair"
@@ -6315,7 +6338,7 @@ run_w1_i09_product_copy_inference_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-copy-verifier-reentry"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
   printf '%s\n' '# forbidden verifier reentry after fixed repair' >> \
     "${fixture_root}/scripts/verify-wave1-implementation-cards"
   git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
@@ -6384,7 +6407,9 @@ run_w1_i09_canonical_bridge_contract() {
   local fixture_root output
   local positive_cases=0 negative_cases=0
 
-  output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
+  fixture_root="${test_tmp_root}/w1-i09-canonical-fixed-candidate"
+  new_i09_fixed_runtime_fixture "${fixture_root}"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
     fail "fixed I09 canonical bridge was rejected: ${output}"
   assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
   positive_cases=$((positive_cases + 1))
@@ -6447,7 +6472,7 @@ run_w1_i09_canonical_bridge_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-governance-reentry"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
   printf '%s\n' '# forbidden governance reentry' >> \
     "${fixture_root}/scripts/verify-wave1-implementation-cards"
   git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
@@ -6458,7 +6483,7 @@ run_w1_i09_canonical_bridge_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-canonical-bridge-outside"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
   printf '%s\n' 'forbidden bridge successor' >> "${fixture_root}/README.md"
   git -C "${fixture_root}" add README.md
   git -C "${fixture_root}" commit -qm "test: exceed bridge product WriteSet"
@@ -6568,7 +6593,9 @@ run_w1_i09_v2_compatibility_contract() {
   projection="$(find_fixed_i09_v2_compatibility_projection)"
   projection_parent="$(git -C "${repo_root}" rev-parse "${projection}^")"
 
-  output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
+  fixture_root="${test_tmp_root}/w1-i09-v2-fixed-candidate"
+  new_i09_fixed_runtime_fixture "${fixture_root}"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
     fail "fixed I09 V2 compatibility was rejected: ${output}"
   assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
   positive_cases=$((positive_cases + 1))
@@ -6634,7 +6661,7 @@ run_w1_i09_v2_compatibility_contract() {
 
   fixture_root="${test_tmp_root}/w1-i09-v2-compatibility-governance-reentry"
   git clone --shared -q "${repo_root}" "${fixture_root}"
-  git -C "${fixture_root}" checkout -q --detach HEAD
+  git -C "${fixture_root}" checkout -q --detach "${i09_fixed_runtime_candidate_sha}"
   printf '%s\n' '# forbidden V2 governance reentry' >> \
     "${fixture_root}/scripts/verify-wave1-implementation-cards"
   git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
@@ -6746,7 +6773,9 @@ run_w1_i09_final_review_finding_contract() {
     'I09_V2_FIXTURE_PIN_INVALID:verifier identity'
   negative_cases=$((negative_cases + 1))
 
-  output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
+  fixture_root="${test_tmp_root}/w1-i09-final-review-current-fixed-candidate"
+  new_i09_fixed_runtime_fixture "${fixture_root}"
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
     fail "current I09 final review finding closure was rejected: ${output}"
   assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
   positive_cases=$((positive_cases + 1))
@@ -6769,8 +6798,11 @@ fi
 i09_closure_origin_sha="eab57ecc86b675b4b725d6d9506338282dbae9a7"
 i09_closure_reviewed_parent_sha="bbd4c1c2b30af1efa03aea11c97b1b1a21b183cd"
 i09_closure_reviewed_tree_sha="c16a5da8605949d29cd09e316a8be5434ab7f8f4"
-i09_closure_spec_sha="d0af5c6"
+i09_closure_spec_sha="f0d04a6b798818d44785c7b593c8a767476e5e36"
+i09_closure_original_test_sha="6d5c531e0fb4999e0b1ac26eba5a5dc5acb3d345"
+i09_closure_repair_spec_sha="1e5b7a9892e3fe10e905ad8bb867aa071ef582c8"
 i09_closure_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i09-closure-design.md"
+i09_closure_repair_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i09-closure-test-finding-repair.md"
 i09_closure_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
 i09_closure_verifier_path="scripts/verify-wave1-implementation-cards"
 i09_closure_i09_card_path="docs/task-cards/wave-1-implementation/W1-I09-upload-processing-command-api.md"
@@ -6809,11 +6841,24 @@ materialize_i09_closure_governance() {
   fi
   git -C "${fixture_root}" commit -qm "docs: define W1-I09 closure"
 
-  cp -p "${repo_root}/${i09_closure_test_path}" \
+  git -C "${repo_root}" show \
+    "${i09_closure_original_test_sha}:${i09_closure_test_path}" > \
     "${fixture_root}/${i09_closure_test_path}"
   chmod 755 "${fixture_root}/${i09_closure_test_path}"
   git -C "${fixture_root}" add "${i09_closure_test_path}"
   git -C "${fixture_root}" commit -qm "test: require W1-I09 closure"
+
+  git -C "${repo_root}" show \
+    "${i09_closure_repair_spec_sha}:${i09_closure_repair_spec_path}" > \
+    "${fixture_root}/${i09_closure_repair_spec_path}"
+  git -C "${fixture_root}" add "${i09_closure_repair_spec_path}"
+  git -C "${fixture_root}" commit -qm "docs: preserve I09 closure receipt history"
+
+  cp -p "${repo_root}/${i09_closure_test_path}" \
+    "${fixture_root}/${i09_closure_test_path}"
+  chmod 755 "${fixture_root}/${i09_closure_test_path}"
+  git -C "${fixture_root}" add "${i09_closure_test_path}"
+  git -C "${fixture_root}" commit -qm "test: preserve I09 closure receipt history"
 
   cp -p "${repo_root}/${i09_closure_verifier_path}" \
     "${fixture_root}/${i09_closure_verifier_path}"
@@ -6879,28 +6924,28 @@ append_i09_closure_receipt() {
 make_i09_closure_projection() {
   local fixture_root="$1"
   local governance_tip="$2"
-  set_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I10
-  set_field "${fixture_root}/README.md" ActiveImplementationTaskCard W1-I10
-  set_field "${fixture_root}/docs/design/wave-1/README.md" \
+  set_first_field "${fixture_root}/AGENTS.md" ActiveImplementationTaskCard W1-I10
+  set_first_field "${fixture_root}/README.md" ActiveImplementationTaskCard W1-I10
+  set_first_field "${fixture_root}/docs/design/wave-1/README.md" \
     ActiveImplementationGovernanceTaskCard W1-I10
-  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" ActiveTaskCard W1-I10
-  set_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
+  set_first_field "${fixture_root}/docs/engineering/cognitura-design-index.md" ActiveTaskCard W1-I10
+  set_first_field "${fixture_root}/docs/engineering/cognitura-design-index.md" \
     ActiveImplementationTaskCard W1-I10
-  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
+  set_first_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-plan.md" \
     ActiveImplementationGovernanceTaskCard W1-I10
-  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+  set_first_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
     ImplementationTaskCardPlanStatus I09_DONE_I10_READY
-  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
+  set_first_field "${fixture_root}/docs/engineering/cognitura-wave-1-design-acceptance.md" \
     ActiveImplementationGovernanceTaskCard W1-I10
-  set_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
+  set_first_field "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
     ActiveTaskCard W1-I10
   set_table_status "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
     W1-I09 READY DONE
   set_table_status "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md" \
     W1-I10 BLOCKED_BY_DEPENDENCY READY
-  set_field "${fixture_root}/docs/task-cards/wave-1/README.md" \
+  set_first_field "${fixture_root}/docs/task-cards/wave-1/README.md" \
     ActiveImplementationGovernanceTaskCard W1-I10
-  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
+  set_first_field "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
     ActiveTaskCard W1-I10
   set_table_status "${fixture_root}/docs/task-cards/wave-1-implementation/README.md" \
     W1-I09 READY DONE
