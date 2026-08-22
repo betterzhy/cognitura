@@ -7557,21 +7557,113 @@ materialize_i11_rebaseline_governance() {
   git -C "${fixture_root}" add "${i11_rebaseline_plan_path}"
   git -C "${fixture_root}" commit -qm "docs: plan W1-I11 persistence rebaseline"
 
-  cp -p "${repo_root}/${i11_rebaseline_test_path}" \
+  git -C "${repo_root}" show \
+    "8b5299332971aa85d3ed6563d0327c89136f05da:${i11_rebaseline_test_path}" > \
     "${fixture_root}/${i11_rebaseline_test_path}"
   chmod 755 "${fixture_root}/${i11_rebaseline_test_path}"
   git -C "${fixture_root}" add "${i11_rebaseline_test_path}"
   git -C "${fixture_root}" commit -qm "test: require W1-I11 persistence rebaseline"
 
-  cp -p "${repo_root}/${i11_rebaseline_verifier_path}" \
+  git -C "${repo_root}" show \
+    "f19e9b841802c3f69f95818eed2e013a65d54352:${i11_rebaseline_verifier_path}" > \
     "${fixture_root}/${i11_rebaseline_verifier_path}"
   chmod 755 "${fixture_root}/${i11_rebaseline_verifier_path}"
-  if git -C "${fixture_root}" diff --quiet -- "${i11_rebaseline_verifier_path}"; then
-    printf '%s\n' '# pending W1-I11 persistence rebaseline verifier' >> \
-      "${fixture_root}/${i11_rebaseline_verifier_path}"
-  fi
   git -C "${fixture_root}" add "${i11_rebaseline_verifier_path}"
   git -C "${fixture_root}" commit -qm "build: verify W1-I11 persistence rebaseline"
+}
+
+commit_i11_rebaseline_fixed_blob() {
+  local fixture_root="$1" sha="$2" path="$3" message="$4" mode="$5"
+  mkdir -p "${fixture_root}/$(dirname "${path}")"
+  git -C "${repo_root}" show "${sha}:${path}" > "${fixture_root}/${path}"
+  chmod "${mode}" "${fixture_root}/${path}"
+  git -C "${fixture_root}" add "${path}"
+  git -C "${fixture_root}" commit -qm "${message}"
+}
+
+materialize_i11_rebaseline_governance_variant() {
+  local fixture_root="$1" variant="$2"
+  local spec_sha="55e0665c0b63d8082b269f3f891252dfc6f5f8f6"
+  local plan_sha="a7788d805d7d38fcbbb2d585cafa2c394300db7c"
+  local test_sha="8b5299332971aa85d3ed6563d0327c89136f05da"
+  local verifier_sha="f19e9b841802c3f69f95818eed2e013a65d54352"
+  if [[ "${variant}" == wrong-origin ]]; then
+    git -C "${fixture_root}" checkout -q --detach "${i11_rebaseline_origin_sha}^"
+  fi
+  case "${variant}" in
+    wrong-order)
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${plan_sha}" \
+        "${i11_rebaseline_plan_path}" "docs: plan W1-I11 persistence rebaseline" 644
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${spec_sha}" \
+        "${i11_rebaseline_spec_path}" "docs: design W1-I11 persistence rebaseline" 644
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+        "${i11_rebaseline_test_path}" "test: require W1-I11 persistence rebaseline" 755
+      ;;
+    rename)
+      mkdir -p "${fixture_root}/$(dirname "${i11_rebaseline_spec_path}")"
+      git -C "${fixture_root}" mv README.md "${i11_rebaseline_spec_path}"
+      git -C "${fixture_root}" commit -qm "test: rename I11 authority"
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${plan_sha}" \
+        "${i11_rebaseline_plan_path}" "docs: plan W1-I11 persistence rebaseline" 644
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+        "${i11_rebaseline_test_path}" "test: require W1-I11 persistence rebaseline" 755
+      ;;
+    copy)
+      mkdir -p "${fixture_root}/$(dirname "${i11_rebaseline_spec_path}")"
+      cp -p "${fixture_root}/README.md" "${fixture_root}/${i11_rebaseline_spec_path}"
+      git -C "${fixture_root}" add "${i11_rebaseline_spec_path}"
+      git -C "${fixture_root}" commit -qm "test: copy I11 authority"
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${plan_sha}" \
+        "${i11_rebaseline_plan_path}" "docs: plan W1-I11 persistence rebaseline" 644
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+        "${i11_rebaseline_test_path}" "test: require W1-I11 persistence rebaseline" 755
+      ;;
+    NUL)
+      mkdir -p "${fixture_root}/$(dirname "${i11_rebaseline_spec_path}")"
+      printf 'invalid\0authority\n' > "${fixture_root}/${i11_rebaseline_spec_path}"
+      git -C "${fixture_root}" add "${i11_rebaseline_spec_path}"
+      git -C "${fixture_root}" commit -qm "test: add NUL I11 authority"
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${plan_sha}" \
+        "${i11_rebaseline_plan_path}" "docs: plan W1-I11 persistence rebaseline" 644
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+        "${i11_rebaseline_test_path}" "test: require W1-I11 persistence rebaseline" 755
+      ;;
+    merge)
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${spec_sha}" \
+        "${i11_rebaseline_spec_path}" "docs: design W1-I11 persistence rebaseline" 644
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${plan_sha}" \
+        "${i11_rebaseline_plan_path}" "docs: plan W1-I11 persistence rebaseline" 644
+      ;;
+    *)
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${spec_sha}" \
+        "${i11_rebaseline_spec_path}" "docs: design W1-I11 persistence rebaseline" 644
+      commit_i11_rebaseline_fixed_blob "${fixture_root}" "${plan_sha}" \
+        "${i11_rebaseline_plan_path}" "docs: plan W1-I11 persistence rebaseline" 644
+      if [[ "${variant}" == empty ]]; then
+        git -C "${fixture_root}" commit --allow-empty -qm \
+          "test: empty I11 persistence evidence"
+      else
+        commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+          "${i11_rebaseline_test_path}" "test: require W1-I11 persistence rebaseline" 755
+      fi
+      if [[ "${variant}" == wrong-count ]]; then
+        printf '%s\n' 'extra governance commit' >> \
+          "${fixture_root}/${i11_rebaseline_plan_path}"
+        git -C "${fixture_root}" add "${i11_rebaseline_plan_path}"
+        git -C "${fixture_root}" commit -qm "test: add fifth I11 governance step"
+      fi
+      ;;
+  esac
+  if [[ "${variant}" == merge ]]; then
+    git -C "${fixture_root}" switch -q -c i11-main
+    git -C "${fixture_root}" switch -q -c i11-side
+    commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+      "${i11_rebaseline_test_path}" "test: side I11 evidence" 755
+    git -C "${fixture_root}" switch -q i11-main
+    git -C "${fixture_root}" merge -q --no-ff i11-side -m "test: merge I11 evidence"
+  fi
+  commit_i11_rebaseline_fixed_blob "${fixture_root}" "${verifier_sha}" \
+    "${i11_rebaseline_verifier_path}" "build: verify W1-I11 persistence rebaseline" 755
 }
 
 make_i11_rebaseline_projection() {
@@ -7721,8 +7813,77 @@ run_w1_i11_persistence_rebaseline_contract() {
     'I11_PERSISTENCE_REBASELINE_DESCENDANT_OUTSIDE_WRITE_SET'
   negative_cases=$((negative_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-wrong-origin"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance_variant "${fixture_root}" wrong-origin
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:origin'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-wrong-count"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance_variant "${fixture_root}" wrong-count
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:exact governance commits'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-wrong-order"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance_variant "${fixture_root}" wrong-order
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-merge"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance_variant "${fixture_root}" merge
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:single parent'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-empty"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance_variant "${fixture_root}" empty
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:empty'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-rename"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance_variant "${fixture_root}" rename
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:rename or copy'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-copy"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance_variant "${fixture_root}" copy
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:rename or copy'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-nul"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance_variant "${fixture_root}" NUL
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:NUL'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-obsolete-write-set"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}"
+  make_i11_rebaseline_projection "${fixture_root}"
+  git -C "${fixture_root}" show \
+    "HEAD:${i11_rebaseline_card_path}" > "${fixture_root}/${i11_rebaseline_card_path}"
+  set_field "${fixture_root}/${i11_rebaseline_card_path}" ProductionFileLimit 9
+  git -C "${fixture_root}" add "${i11_rebaseline_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: retain obsolete I11 WriteSet"
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH'
+  negative_cases=$((negative_cases + 1))
+
   [[ "${positive_cases}" -eq 2 ]] || fail "I11 rebaseline positive count mismatch"
-  [[ "${negative_cases}" -eq 6 ]] || fail "I11 rebaseline negative count mismatch"
+  [[ "${negative_cases}" -eq 15 ]] || fail "I11 rebaseline negative count mismatch"
   printf '%s\n' \
     'W1I11PersistenceRebaselineContractTests = PASS' \
     "W1I11PersistenceRebaselinePositiveCases = ${positive_cases}" \
