@@ -2,13 +2,20 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { SourcePreviewPage } from "./api";
+import { getPreview, SourceApiError, type SourcePreviewPage } from "./api";
 import { SourcePreview } from "./SourcePreview";
 
 const digestA = "a".repeat(64);
 const digestB = "b".repeat(64);
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+function json(body: unknown) {
+  return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+}
 
 function partialPreview(): SourcePreviewPage {
   return {
@@ -125,6 +132,9 @@ describe("SourcePreview", () => {
     expect(screen.getByText("word/document.xml · #2")).toBeVisible();
     expect(screen.queryByText("block-paragraph")).toBeNull();
     expect(screen.queryByText(digestA)).toBeNull();
+    expect(screen.getByText("处理修订 revision-a")).toBeVisible();
+    expect(screen.getByText("来源顺序 0")).toBeVisible();
+    expect(screen.getAllByText("页码未提供")).toHaveLength(3);
   });
 
   it("requests the next exact cursor without reordering the current page", async () => {
@@ -140,5 +150,15 @@ describe("SourcePreview", () => {
 
     await user.click(screen.getByRole("button", { name: "继续加载来源内容" }));
     expect(onLoadMore).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["unknown block type", { ...partialPreview(), items: [{ ...partialPreview().items[0], blockType: "UNKNOWN" }] }],
+    ["malformed table payload", { ...partialPreview(), items: [{ ...partialPreview().items[0], blockType: "TABLE", payload: { rows: null } }] }],
+  ])("rejects %s instead of silently omitting source content", async (_name, response) => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(json(response)));
+    await expect(getPreview("source-a", "revision-a")).rejects.toEqual(
+      expect.objectContaining<Partial<SourceApiError>>({ code: "MALFORMED_RESPONSE" }),
+    );
   });
 });

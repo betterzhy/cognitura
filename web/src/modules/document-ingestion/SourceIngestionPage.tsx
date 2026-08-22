@@ -155,6 +155,7 @@ export function SourceIngestionPage({ workspaceId, parserProfileVersion }: Sourc
             revision={revision}
             busy={busy}
             onStart={beginProcessing}
+            onRetry={beginProcessing}
             onRefresh={() => refreshStatus()}
           />
           {error ? <p className="cka-page-error" role="alert">{error}</p> : null}
@@ -166,6 +167,7 @@ export function SourceIngestionPage({ workspaceId, parserProfileVersion }: Sourc
               <SourcePreview preview={preview} loadingMore={loadingMore} onLoadMore={loadMore} />
               <PartialAcceptancePanel
                 preview={preview}
+                status={revision?.partialAcceptanceStatus ?? null}
                 result={acceptance}
                 busy={busy}
                 error={acceptanceError}

@@ -1,4 +1,4 @@
-import type { SourcePreviewItem, SourcePreviewPage } from "./api";
+import { SourceApiError, type SourcePreviewItem, type SourcePreviewPage } from "./api";
 
 interface SourcePreviewProps {
   preview: SourcePreviewPage;
@@ -46,6 +46,8 @@ function renderPayload(item: SourcePreviewItem) {
           </figcaption>
         </figure>
       );
+    default:
+      throw new SourceApiError("MALFORMED_RESPONSE", false, "服务返回了无法识别的数据。");
   }
 }
 
@@ -56,6 +58,7 @@ export function SourcePreview({ preview, loadingMore, onLoadMore }: SourcePrevie
         <div>
           <span className="cka-preview__kicker">来源连续预览</span>
           <h2 id="source-preview-title">{preview.originalFileName}</h2>
+          <p className="cka-preview__revision">处理修订 {preview.sourceProcessingRevisionId}</p>
         </div>
         <span className={`cka-preview__completeness ${preview.incomplete ? "is-partial" : ""}`}>
           {preview.incomplete ? "部分可用" : "结构完整"}
@@ -83,6 +86,12 @@ export function SourcePreview({ preview, loadingMore, onLoadMore }: SourcePrevie
             data-source-order={item.sourceOrder}
             data-affected-by-omission={String(item.affectedByOmission)}
           >
+            <div className="cka-source-block__trace">
+              <span>{item.blockType}</span>
+              <span>来源顺序 {item.sourceOrder}</span>
+              <span>{item.sectionPath.length ? item.sectionPath.join(" / ") : "文档根级"}</span>
+              <span>{item.pageNumber === null ? "页码未提供" : `第 ${item.pageNumber} 页`}</span>
+            </div>
             {item.affectedByOmission ? <span className="cka-source-block__flag">受缺失内容影响</span> : null}
             {renderPayload(item)}
           </section>

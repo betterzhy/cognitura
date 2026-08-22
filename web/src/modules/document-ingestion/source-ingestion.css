@@ -142,6 +142,7 @@
 .cka-preview { padding: 0; }
 .cka-preview__header { padding: 30px 36px 24px; border-bottom: 1px solid var(--border-subtle); }
 .cka-preview__header h2 { margin: 5px 0 0; font-size: 24px; line-height: 32px; letter-spacing: -.02em; }
+.cka-preview__revision { margin: 3px 0 0; color: var(--text-muted); font-size: var(--type-caption-size); }
 .cka-preview__completeness { padding: 6px 10px; border-radius: var(--radius-pill); color: var(--color-success); background: var(--color-success-soft); font-size: var(--type-caption-size); font-weight: 600; }
 .cka-preview__completeness.is-partial { color: #8c570e; background: var(--color-warning-soft); }
 
@@ -154,6 +155,8 @@
 
 .cka-preview__reading-surface { max-width: var(--reading-column-width); margin: 0 auto; padding: 44px 44px 24px; }
 .cka-source-block { position: relative; color: var(--text-primary); }
+.cka-source-block__trace { margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 5px 12px; color: var(--text-subtle); font-size: 10px; line-height: 16px; }
+.cka-source-block__trace span:first-child { color: var(--color-primary); font-weight: 700; letter-spacing: .04em; }
 .cka-source-block + .cka-source-block { margin-top: var(--space-5); }
 .cka-source-block h2, .cka-source-block h3, .cka-source-block h4 { margin: 34px 0 12px; letter-spacing: -.022em; }
 .cka-source-block h2 { font-size: 27px; line-height: 35px; }.cka-source-block h3 { font-size: 22px; line-height: 30px; }.cka-source-block h4 { font-size: 18px; line-height: 26px; }

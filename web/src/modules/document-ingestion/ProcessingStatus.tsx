@@ -6,12 +6,15 @@ interface ProcessingStatusProps {
   revision: RevisionStatus | null;
   busy: boolean;
   onStart: () => void;
+  onRetry: () => void;
   onRefresh: () => void;
 }
 
-function label(revision: RevisionStatus | null) {
-  if (!revision) return "来源已登记，等待处理";
-  switch (revision.sourceIngestionDisplayStatus) {
+function label(upload: UploadResult, revision: RevisionStatus | null) {
+  const status = revision?.sourceIngestionDisplayStatus ?? upload.sourceIngestionDisplayStatus;
+  switch (status) {
+    case "VALIDATING":
+      return "来源正在校验";
     case "PREVIEW_READY":
       return "预览已就绪";
     case "RETRYABLE_FAILURE":
@@ -29,17 +32,21 @@ export function ProcessingStatus({
   revision,
   busy,
   onStart,
+  onRetry,
   onRefresh,
 }: ProcessingStatusProps) {
   if (!upload) return null;
-  const ready = revision?.sourceIngestionDisplayStatus === "PREVIEW_READY";
-  const running = processing && !ready;
+  const status = revision?.sourceIngestionDisplayStatus ?? upload.sourceIngestionDisplayStatus;
+  const ready = status === "PREVIEW_READY";
+  const retryable = status === "RETRYABLE_FAILURE";
+  const terminal = status === "TERMINAL_FAILURE";
+  const running = processing && !ready && !retryable && !terminal;
   return (
     <section className="cka-process" aria-live="polite">
       <div className="cka-process__header">
         <div>
           <span className={`cka-status-dot ${ready ? "is-ready" : ""}`} aria-hidden="true" />
-          <strong>{label(revision)}</strong>
+          <strong>{label(upload, revision)}</strong>
         </div>
         <span className="cka-process__badge">{ready ? "可核验" : "已安全登记"}</span>
       </div>
@@ -50,7 +57,11 @@ export function ProcessingStatus({
       </ol>
       {!processing ? (
         <button className="cka-button cka-button--primary" onClick={onStart} disabled={busy}>
-          {busy ? "正在启动…" : "开始处理"}
+          {busy ? "正在检查…" : status === "VALIDATING" ? "检查并开始处理" : "开始处理"}
+        </button>
+      ) : retryable ? (
+        <button className="cka-button cka-button--primary" onClick={onRetry} disabled={busy}>
+          {busy ? "正在重试…" : "重新开始处理"}
         </button>
       ) : running ? (
         <button className="cka-button cka-button--secondary" onClick={onRefresh} disabled={busy}>
