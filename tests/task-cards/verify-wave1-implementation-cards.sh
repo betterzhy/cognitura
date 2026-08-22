@@ -7905,8 +7905,11 @@ run_w1_i11_persistence_rebaseline_contract() {
 }
 
 i11_migration_count_origin_sha="35393f6e73a0e2299d92c64c783b152b4190ca59"
-i11_migration_count_spec_sha="eaaa00b5b25976e629653894e9e3ca49ea5c6493"
+i11_migration_count_spec_sha="eaaa00b97c79e8ffb7c087a45dd6af394ef09057"
+i11_migration_count_faulty_test_sha="f26190513813ebfc45b16ea515affb9d89f7823b"
+i11_migration_count_correction_spec_sha="589e2e47d8300da4df6272538f1f709ad2e33959"
 i11_migration_count_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i11-migration-count-regression-rebaseline.md"
+i11_migration_count_correction_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i11-migration-count-test-evidence-correction.md"
 i11_migration_count_card_path="docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md"
 i11_migration_count_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
 i11_migration_count_verifier_path="scripts/verify-wave1-implementation-cards"
@@ -7927,7 +7930,7 @@ new_i11_migration_count_fixture() {
 i11_migration_count_test_sha() {
   git -C "${repo_root}" rev-list --first-parent --reverse \
     "${i11_migration_count_spec_sha}..HEAD" -- "${i11_migration_count_test_path}" |
-    sed -n '1p'
+    tail -n 1
 }
 
 materialize_i11_migration_count_governance() {
@@ -7942,8 +7945,13 @@ materialize_i11_migration_count_governance() {
     git -C "${fixture_root}" commit --amend -qm \
       "docs: drift I11 migration count regression"
   fi
-  commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+  commit_i11_rebaseline_fixed_blob "${fixture_root}" "${i11_migration_count_faulty_test_sha}" \
     "${i11_migration_count_test_path}" "test: require I11 migration count rebaseline" 755
+  commit_i11_rebaseline_fixed_blob "${fixture_root}" "${i11_migration_count_correction_spec_sha}" \
+    "${i11_migration_count_correction_spec_path}" \
+    "docs: correct I11 migration test evidence" 644
+  commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+    "${i11_migration_count_test_path}" "test: correct I11 migration count evidence" 755
   cp "${repo_root}/${i11_migration_count_verifier_path}" \
     "${fixture_root}/${i11_migration_count_verifier_path}"
   chmod 755 "${fixture_root}/${i11_migration_count_verifier_path}"
