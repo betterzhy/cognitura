@@ -10192,15 +10192,40 @@ validate_post_w1_i12_closure_descendants() {
 }
 
 require_w1_i12_safe_authorization_fields() {
-  local head="$1" path key content values
+  local head="$1" receipt="$2" path key content receipt_content values receipt_values
   for path in "${w1_i13_product_paths[@]}"; do
     content="$(git -C "${repo_root}" show "${head}:${path}" 2>/dev/null || true)"
     [[ -n "${content}" ]] || continue
+    receipt_content="$(git -C "${repo_root}" show \
+      "${receipt}:${path}" 2>/dev/null || true)"
     for key in FormalDatabaseWrite RemotePush DeploymentAndRelease; do
       values="$(printf '%s\n' "${content}" | sed -n "s/^${key} = //p")"
+      receipt_values="$(printf '%s\n' "${receipt_content}" | \
+        sed -n "s/^${key} = //p")"
+      if [[ -n "${receipt_values}" && "${values}" != "${receipt_values}" ]]; then
+        fail "I12_CLOSURE_AUTHORIZATION_INVALID:${path}:${key}"
+      fi
       [[ -n "${values}" ]] || continue
       [[ -z "$(printf '%s\n' "${values}" | grep -Fvx NOT_AUTHORIZED || true)" ]] ||
         fail "I12_CLOSURE_AUTHORIZATION_INVALID:${path}:${key}"
+    done
+  done
+}
+
+require_w1_i12_frozen_ready_projection_fields() {
+  local head="$1" receipt="$2" path key values receipt_values
+  for path in "${w1_i13_product_paths[@]}"; do
+    for key in Wave1ImplementationTaskCardSet TaskCardSetStatus \
+        ActiveImplementationTaskCard ActiveTaskCard \
+        ActiveImplementationGovernanceTaskCard ActiveTaskCardStatus \
+        ReadyTaskCardCount; do
+      values="$(git -C "${repo_root}" show "${head}:${path}" 2>/dev/null | \
+        sed -n "s/^${key} = //p" || true)"
+      receipt_values="$(git -C "${repo_root}" show \
+        "${receipt}:${path}" 2>/dev/null | \
+        sed -n "s/^${key} = //p" || true)"
+      [[ "${values}" == "${receipt_values}" ]] ||
+        fail "I12_CLOSURE_I13_STATE_INVALID:${path}:${key}"
     done
   done
 }
@@ -10212,7 +10237,8 @@ require_w1_i12_i13_ready_state() {
   local i13_card="docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md"
   local plan_path="docs/engineering/cognitura-wave-1-implementation-plan.md"
   local index_content ready_rows task_id receipt_row head_row
-  require_w1_i12_safe_authorization_fields "${head}"
+  require_w1_i12_safe_authorization_fields "${head}" "${receipt}"
+  require_w1_i12_frozen_ready_projection_fields "${head}" "${receipt}"
   [[ "$(git_tree_field "${head}" "${i12_card}" Status)" == DONE &&
      "$(git_tree_field "${head}" "${i13_card}" Status)" == READY &&
      "$(git_tree_field "${head}" "${i13_card}" BusinessImplementationAuthorization)" == USER_AUTHORIZED &&
