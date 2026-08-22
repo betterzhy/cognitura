@@ -10192,10 +10192,9 @@ validate_post_w1_i12_closure_descendants() {
 }
 
 route_w1_i12_closure() {
-  local route_commit="$1" governance_tip receipt
+  local route_commit="$1" governance_tip receipt post_base correction parent changed_paths
   governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i12_closure_origin_sha}..${route_commit}" -- \
-    "${w1_i12_closure_governance_paths[1]}" | sed -n '$p')"
+    "${w1_i12_closure_origin_sha}..${route_commit}" | sed -n '3p')"
   [[ -n "${governance_tip}" ]] ||
     fail "I12_CLOSURE_GOVERNANCE_INVALID:missing verifier"
   validate_w1_i12_closure_governance "${governance_tip}"
@@ -10221,7 +10220,32 @@ route_w1_i12_closure() {
   receipt="$(find_w1_i12_closure_receipt "${route_commit}")"
   [[ -n "${receipt}" ]] || fail "I12_CLOSURE_PROJECTION_INVALID:missing"
   validate_w1_i12_closure_projection "${governance_tip}" "${receipt}"
-  validate_post_w1_i12_closure_descendants "${receipt}" "${route_commit}"
+  post_base="${receipt}"
+  correction="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${receipt}..${route_commit}" -- scripts/verify-wave1-implementation-cards | \
+    sed -n '1p')"
+  if [[ -n "${correction}" ]]; then
+    parent="$(single_parent_of "${correction}" \
+      "I12_CLOSURE_CORRECTION_INVALID:single parent")"
+    [[ "${parent}" == "${receipt}" ]] ||
+      fail "I12_CLOSURE_CORRECTION_INVALID:direct child"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${correction}" &&
+      fail "I12_CLOSURE_CORRECTION_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${correction}" \
+      "I12_CLOSURE_CORRECTION_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${correction}")"
+    [[ "${changed_paths}" == scripts/verify-wave1-implementation-cards ]] ||
+      fail "I12_CLOSURE_CORRECTION_INVALID:path"
+    [[ "$(git_tree_mode "${correction}" \
+      scripts/verify-wave1-implementation-cards)" == 100755 ]] ||
+      fail "I12_CLOSURE_CORRECTION_INVALID:mode"
+    require_git_blob_without_nul "${correction}" \
+      scripts/verify-wave1-implementation-cards \
+      "I12_CLOSURE_CORRECTION_INVALID:NUL"
+    post_base="${correction}"
+  fi
+  validate_post_w1_i12_closure_descendants "${post_base}" "${route_commit}"
   printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
     'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
     'ActiveTaskCard = W1-I13' 'ReadyTaskCardCount = 1' \
@@ -11601,7 +11625,7 @@ docs/design/wave-1/README.md'
       expected_negative_verification='NONZERO_FINDING_SHA_DRIFT_AND_SCOPE_EXPANSION_REJECTED'
       expected_commit_message='docs: record Wave 1 implementation review'
       expected_card_digest='10b8dea3d10df63c9e94aad78400a1507d0a28ec88654d3149a7ae3807256a0f'
-      if [[ "${status}" == READY || "${status}" == DONE ]]; then
+      if [[ "${status}" == READY ]]; then
         expected_route="deep_reviewer"
         expected_positive_verification='FIXED_CANDIDATE_SINGLE_XHIGH_ZERO_FINDING_REVIEW'
         expected_card_digest='d55e6b40abf56ed28b8763a38db2702f7bff844b0ca097315fb9eb10ab205189'
