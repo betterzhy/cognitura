@@ -38,6 +38,7 @@ w1_i09_final_review_finding_contract_only=0
 w1_i09_closure_contract_only=0
 w1_i10_closure_contract_only=0
 w1_i11_persistence_rebaseline_contract_only=0
+w1_i11_migration_count_rebaseline_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -97,6 +98,9 @@ case "${1:-}" in
     ;;
   --w1-i11-persistence-rebaseline-contract-only)
     w1_i11_persistence_rebaseline_contract_only=1
+    ;;
+  --w1-i11-migration-count-rebaseline-contract-only)
+    w1_i11_migration_count_rebaseline_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -7900,6 +7904,182 @@ run_w1_i11_persistence_rebaseline_contract() {
     "W1I11PersistenceRebaselineNegativeCases = ${negative_cases}"
 }
 
+i11_migration_count_origin_sha="35393f6e73a0e2299d92c64c783b152b4190ca59"
+i11_migration_count_spec_sha="eaaa00b5b25976e629653894e9e3ca49ea5c6493"
+i11_migration_count_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i11-migration-count-regression-rebaseline.md"
+i11_migration_count_card_path="docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md"
+i11_migration_count_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
+i11_migration_count_verifier_path="scripts/verify-wave1-implementation-cards"
+i11_migration_count_added_paths=(
+  server/src/test/java/io/cognitura/source/application/command/SourceUploadCommandIntegrationTest.java
+  server/src/test/java/io/cognitura/source/persistence/JdbcProcessingPublicationPortIntegrationTest.java
+  server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+)
+
+new_i11_migration_count_fixture() {
+  local fixture_root="$1" origin="${2:-${i11_migration_count_origin_sha}}"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${origin}"
+  git -C "${fixture_root}" config user.name "Cognitura Contract Test"
+  git -C "${fixture_root}" config user.email "contract-test@cognitura.invalid"
+}
+
+i11_migration_count_test_sha() {
+  git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${i11_migration_count_spec_sha}..HEAD" -- "${i11_migration_count_test_path}" |
+    sed -n '1p'
+}
+
+materialize_i11_migration_count_governance() {
+  local fixture_root="$1" drift="${2:-none}" test_sha
+  test_sha="$(i11_migration_count_test_sha)"
+  [[ -n "${test_sha}" ]] || fail "I11 migration-count test evidence is unavailable"
+  commit_i11_rebaseline_fixed_blob "${fixture_root}" "${i11_migration_count_spec_sha}" \
+    "${i11_migration_count_spec_path}" "docs: admit I11 migration count regression" 644
+  if [[ "${drift}" == spec ]]; then
+    printf '%s\n' 'drift' >> "${fixture_root}/${i11_migration_count_spec_path}"
+    git -C "${fixture_root}" add "${i11_migration_count_spec_path}"
+    git -C "${fixture_root}" commit --amend -qm \
+      "docs: drift I11 migration count regression"
+  fi
+  commit_i11_rebaseline_fixed_blob "${fixture_root}" "${test_sha}" \
+    "${i11_migration_count_test_path}" "test: require I11 migration count rebaseline" 755
+  cp "${repo_root}/${i11_migration_count_verifier_path}" \
+    "${fixture_root}/${i11_migration_count_verifier_path}"
+  chmod 755 "${fixture_root}/${i11_migration_count_verifier_path}"
+  git -C "${fixture_root}" add "${i11_migration_count_verifier_path}"
+  git -C "${fixture_root}" commit -qm "build: verify I11 migration count rebaseline"
+}
+
+make_i11_migration_count_projection() {
+  local fixture_root="$1" count="${2:-3}" card lines
+  card="${fixture_root}/${i11_migration_count_card_path}"
+  lines="$(printf '%s\n' "${i11_migration_count_added_paths[@]:0:${count}}" |
+    sed 's/^/WriteSet = /')"
+  I11_MIGRATION_LINES="${lines}" perl -i.bak -pe '
+    if (!$done && /^ForbiddenWriteSet = /) {
+      print $ENV{I11_MIGRATION_LINES}."\n";
+      $done = 1;
+    }
+  ' "${card}"
+  rm "${card}.bak"
+}
+
+commit_i11_migration_count_projection() {
+  local fixture_root="$1"
+  make_i11_migration_count_projection "${fixture_root}"
+  git -C "${fixture_root}" add "${i11_migration_count_card_path}"
+  git -C "${fixture_root}" commit -qm "docs: admit I11 migration regression tests"
+}
+
+run_i11_migration_count_fixture_verifier() {
+  local fixture_root="$1"
+  "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+expect_i11_migration_count_failure() {
+  local fixture_root="$1" expected="$2" output
+  if output="$(run_i11_migration_count_fixture_verifier "${fixture_root}" 2>&1)"; then
+    fail "invalid I11 migration-count rebaseline unexpectedly passed: ${expected}"
+  fi
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i11_migration_count_rebaseline_contract() {
+  local fixture_root output positive_cases=0 negative_cases=0 path
+
+  fixture_root="${test_tmp_root}/w1-i11-migration-pending"
+  new_i11_migration_count_fixture "${fixture_root}"
+  materialize_i11_migration_count_governance "${fixture_root}"
+  output="$(run_i11_migration_count_fixture_verifier "${fixture_root}")" ||
+    fail "legal I11 migration-count governance was rejected: ${output}"
+  assert_contains "${output}" 'W1I11MigrationCountRebaselineStatus = PENDING'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-migration-product"
+  new_i11_migration_count_fixture "${fixture_root}"
+  materialize_i11_migration_count_governance "${fixture_root}"
+  commit_i11_migration_count_projection "${fixture_root}"
+  path="${i11_migration_count_added_paths[0]}"
+  perl -i.bak -pe 's/migrationsExecuted\)\.isEqualTo\(2\)/migrationsExecuted).isEqualTo(3)/' \
+    "${fixture_root}/${path}"
+  rm "${fixture_root}/${path}.bak"
+  git -C "${fixture_root}" add "${path}"
+  git -C "${fixture_root}" commit -qm "test: align I11 migration count"
+  output="$(run_i11_migration_count_fixture_verifier "${fixture_root}")" ||
+    fail "legal I11 migration-count descendant was rejected: ${output}"
+  assert_contains "${output}" 'W1I11MigrationCountRebaselineStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-migration-spec-drift"
+  new_i11_migration_count_fixture "${fixture_root}"
+  materialize_i11_migration_count_governance "${fixture_root}" spec
+  expect_i11_migration_count_failure "${fixture_root}" \
+    'I11_MIGRATION_COUNT_REBASELINE_INVALID:evidence'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-migration-wrong-origin"
+  new_i11_migration_count_fixture "${fixture_root}" "${i11_migration_count_origin_sha}^"
+  materialize_i11_migration_count_governance "${fixture_root}"
+  expect_i11_migration_count_failure "${fixture_root}" \
+    'I11_MIGRATION_COUNT_REBASELINE_INVALID:origin'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-migration-missing-projection"
+  new_i11_migration_count_fixture "${fixture_root}"
+  materialize_i11_migration_count_governance "${fixture_root}"
+  make_i11_migration_count_projection "${fixture_root}" 2
+  git -C "${fixture_root}" add "${i11_migration_count_card_path}"
+  git -C "${fixture_root}" commit -qm "test: omit I11 migration regression path"
+  expect_i11_migration_count_failure "${fixture_root}" \
+    'I11_MIGRATION_COUNT_PROJECTION_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-migration-extra-projection"
+  new_i11_migration_count_fixture "${fixture_root}"
+  materialize_i11_migration_count_governance "${fixture_root}"
+  make_i11_migration_count_projection "${fixture_root}"
+  printf '%s\n' 'outside projection' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add "${i11_migration_count_card_path}" README.md
+  git -C "${fixture_root}" commit -qm "test: exceed I11 migration projection"
+  expect_i11_migration_count_failure "${fixture_root}" \
+    'I11_MIGRATION_COUNT_PROJECTION_INVALID:exact path'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-migration-wrong-count"
+  new_i11_migration_count_fixture "${fixture_root}"
+  materialize_i11_migration_count_governance "${fixture_root}"
+  commit_i11_migration_count_projection "${fixture_root}"
+  path="${i11_migration_count_added_paths[1]}"
+  perl -i.bak -pe 's/migrationsExecuted\)\.isEqualTo\(2\)/migrationsExecuted).isEqualTo(4)/' \
+    "${fixture_root}/${path}"
+  rm "${fixture_root}/${path}.bak"
+  git -C "${fixture_root}" add "${path}"
+  git -C "${fixture_root}" commit -qm "test: drift I11 migration count"
+  expect_i11_migration_count_failure "${fixture_root}" \
+    'I11_MIGRATION_COUNT_DESCENDANT_INVALID:content'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-migration-post-outside"
+  new_i11_migration_count_fixture "${fixture_root}"
+  materialize_i11_migration_count_governance "${fixture_root}"
+  commit_i11_migration_count_projection "${fixture_root}"
+  printf '%s\n' 'outside exact16' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: exceed I11 exact16"
+  expect_i11_migration_count_failure "${fixture_root}" \
+    'I11_MIGRATION_COUNT_DESCENDANT_OUTSIDE_WRITE_SET'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] || fail "I11 migration positive count mismatch"
+  [[ "${negative_cases}" -eq 6 ]] || fail "I11 migration negative count mismatch"
+  printf '%s\n' \
+    'W1I11MigrationCountRebaselineContractTests = PASS' \
+    "W1I11MigrationCountRebaselinePositiveCases = ${positive_cases}" \
+    "W1I11MigrationCountRebaselineNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i10_closure_contract_only}" == "1" ]]; then
   run_w1_i10_closure_contract
   exit 0
@@ -7907,6 +8087,11 @@ fi
 
 if [[ "${w1_i11_persistence_rebaseline_contract_only}" == "1" ]]; then
   run_w1_i11_persistence_rebaseline_contract
+  exit 0
+fi
+
+if [[ "${w1_i11_migration_count_rebaseline_contract_only}" == "1" ]]; then
+  run_w1_i11_migration_count_rebaseline_contract
   exit 0
 fi
 
@@ -7933,6 +8118,7 @@ run_w1_i09_final_review_finding_contract
 run_w1_i09_closure_contract
 run_w1_i10_closure_contract
 run_w1_i11_persistence_rebaseline_contract
+run_w1_i11_migration_count_rebaseline_contract
 
 validation_output="$(
   "${verifier}" \
