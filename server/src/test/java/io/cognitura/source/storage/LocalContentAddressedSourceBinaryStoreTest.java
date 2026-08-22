@@ -9,12 +9,17 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -114,6 +119,44 @@ class LocalContentAddressedSourceBinaryStoreTest {
     }
 
     @Test
+    void concurrentDigestPublicationHasExactlyOneNonReplacingWinner() throws Exception {
+        int writers = 8;
+        byte[] content = deterministicBytes(262_151);
+        SourceHash hash = SourceHash.sha256(content);
+        LocalContentAddressedSourceBinaryStore store = store(512_000);
+        CountDownLatch ready = new CountDownLatch(writers);
+        CountDownLatch start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(writers);
+        List<Future<SourceBinaryStore.StoredBinary>> futures = new ArrayList<>();
+        try {
+            for (int index = 0; index < writers; index++) {
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("TEST_START_TIMEOUT");
+                    }
+                    return store.store(
+                            new ByteArrayInputStream(content), content.length, hash, DOCX);
+                }));
+            }
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            List<SourceBinaryStore.StoredBinary> results = new ArrayList<>();
+            for (Future<SourceBinaryStore.StoredBinary> future : futures) {
+                results.add(future.get(10, TimeUnit.SECONDS));
+            }
+            assertThat(results.stream().filter(result -> !result.reused()).count()).isEqualTo(1);
+            assertThat(results.stream().filter(SourceBinaryStore.StoredBinary::reused).count())
+                    .isEqualTo(writers - 1L);
+            assertThat(Files.readAllBytes(target(hash))).containsExactly(content);
+            assertNoTemporaryFiles();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     void rejectsUntrustedLocationsAndSymbolicLinkRootsOrSegments() throws Exception {
         LocalContentAddressedSourceBinaryStore store = store(64_000);
         for (String location : Set.of("../secret", "file:/tmp/secret", "sha256:../secret",
@@ -150,12 +193,11 @@ class LocalContentAddressedSourceBinaryStoreTest {
     }
 
     @Test
-    void atomicMoveFailureFailsClosedAndCleansTemporaryFile() throws Exception {
+    void atomicNoReplaceFailureFailsClosedAndCleansTemporaryFile() throws Exception {
         LocalContentAddressedSourceBinaryStore store = new LocalContentAddressedSourceBinaryStore(
                 temporaryDirectory.resolve("cas"), 64_000, Set.of(DOCX),
                 (source, target) -> {
-                    throw new AtomicMoveNotSupportedException(
-                            source.toString(), target.toString(), "test");
+                    throw new UnsupportedOperationException("test");
                 });
         byte[] content = deterministicBytes(4_096);
 
@@ -163,7 +205,7 @@ class LocalContentAddressedSourceBinaryStoreTest {
                         new ByteArrayInputStream(content), content.length,
                         SourceHash.sha256(content), DOCX))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("SOURCE_BINARY_ATOMIC_MOVE_REQUIRED")
+                .hasMessage("SOURCE_BINARY_ATOMIC_NO_REPLACE_REQUIRED")
                 .hasMessageNotContaining(temporaryDirectory.toString());
         assertNoTemporaryFiles();
         assertThat(Files.walk(temporaryDirectory)

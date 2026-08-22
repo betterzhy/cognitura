@@ -5,12 +5,10 @@ import io.cognitura.source.domain.SourceHash;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -26,24 +24,25 @@ public final class LocalContentAddressedSourceBinaryStore implements SourceBinar
     private final Path root;
     private final long maxBytes;
     private final Set<String> supportedMediaTypes;
-    private final AtomicMover atomicMover;
+    private final NoReplacePublisher noReplacePublisher;
 
     public LocalContentAddressedSourceBinaryStore(
             Path root,
             long maxBytes,
             Set<String> supportedMediaTypes) {
         this(root, maxBytes, supportedMediaTypes,
-                (source, target) -> Files.move(source, target, StandardCopyOption.ATOMIC_MOVE));
+                (source, target) -> Files.createLink(target, source));
     }
 
     LocalContentAddressedSourceBinaryStore(
             Path root,
             long maxBytes,
             Set<String> supportedMediaTypes,
-            AtomicMover atomicMover) {
+            NoReplacePublisher noReplacePublisher) {
         Objects.requireNonNull(root, "root");
         Objects.requireNonNull(supportedMediaTypes, "supportedMediaTypes");
-        this.atomicMover = Objects.requireNonNull(atomicMover, "atomicMover");
+        this.noReplacePublisher = Objects.requireNonNull(
+                noReplacePublisher, "noReplacePublisher");
         if (maxBytes <= 0) {
             throw new IllegalArgumentException("SOURCE_BINARY_LIMIT_INVALID");
         }
@@ -96,7 +95,8 @@ public final class LocalContentAddressedSourceBinaryStore implements SourceBinar
                         streamed.contentSha256(), streamed.byteLength(), mediaType, location, true);
             }
             try {
-                atomicMover.move(temporary, target);
+                noReplacePublisher.publish(temporary, target);
+                Files.delete(temporary);
                 temporary = null;
                 return new StoredBinary(
                         streamed.contentSha256(), streamed.byteLength(), mediaType, location, false);
@@ -104,8 +104,8 @@ public final class LocalContentAddressedSourceBinaryStore implements SourceBinar
                 verifyExisting(target, streamed.contentSha256(), streamed.byteLength());
                 return new StoredBinary(
                         streamed.contentSha256(), streamed.byteLength(), mediaType, location, true);
-            } catch (AtomicMoveNotSupportedException unsupported) {
-                throw new IllegalStateException("SOURCE_BINARY_ATOMIC_MOVE_REQUIRED");
+            } catch (UnsupportedOperationException unsupported) {
+                throw new IllegalStateException("SOURCE_BINARY_ATOMIC_NO_REPLACE_REQUIRED");
             }
         } catch (IllegalArgumentException | IllegalStateException error) {
             throw error;
@@ -267,8 +267,8 @@ public final class LocalContentAddressedSourceBinaryStore implements SourceBinar
     }
 
     @FunctionalInterface
-    interface AtomicMover {
-        void move(Path source, Path target) throws IOException;
+    interface NoReplacePublisher {
+        void publish(Path source, Path target) throws IOException;
     }
 
     private record StreamedBinary(SourceHash contentSha256, long byteLength) {
