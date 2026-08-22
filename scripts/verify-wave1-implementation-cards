@@ -994,6 +994,9 @@ w1_i11_closure_test_sha="34b6a2ab9c7520bd2196ff435ad564bfe59af1df"
 w1_i11_closure_repair_origin_sha="82ea237577aa7f42913c3f51c8715c2c732be796"
 w1_i11_closure_repair_spec_sha="78787f684b52c108e53839a8e9ab3abbf1e7d0d8"
 w1_i11_closure_repair_test_sha="256afd3bb45344e82f03fecb5012aac50de4f7e9"
+w1_i11_post_closure_pin_origin_sha="33922db113024338d742aa1fc2d7ef43e3701b99"
+w1_i11_post_closure_pin_spec_sha="e6d568dda23338949cebee3c91abc48883720cfb"
+w1_i11_post_closure_pin_test_sha="eeec5cad82b35a9e827ccdca9fb79a26dc88c82c"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -1256,6 +1259,15 @@ w1_i11_closure_repair_paths=(
 w1_i11_closure_repair_evidence_shas=(
   "${w1_i11_closure_repair_spec_sha}"
   "${w1_i11_closure_repair_test_sha}"
+)
+w1_i11_post_closure_pin_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i11-post-closure-fixture-pin.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i11_post_closure_pin_evidence_shas=(
+  "${w1_i11_post_closure_pin_spec_sha}"
+  "${w1_i11_post_closure_pin_test_sha}"
 )
 w1_i11_closure_projection_paths=(
   AGENTS.md
@@ -9600,11 +9612,90 @@ validate_post_w1_i11_closure_descendants() {
   done
 }
 
+find_w1_i11_closure_receipt() {
+  local head="$1" commit parent parent_status status found=""
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i11_closure_origin_sha}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I11_CLOSURE_RECEIPT_PATHS_INVALID:history")"
+    parent_status="$(git_tree_field "${parent}" \
+      docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md Status)"
+    status="$(git_tree_field "${commit}" \
+      docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md Status)"
+    if [[ "${parent_status}:${status}" == READY:DONE ]]; then
+      [[ -z "${found}" ]] || fail "I11_CLOSURE_RECEIPT_PATHS_INVALID:duplicate"
+      found="${commit}"
+    fi
+  done
+  printf '%s\n' "${found}"
+}
+
+validate_w1_i11_post_closure_fixture_pin() {
+  local tip="$1" commits=() commit parent previous changed_paths index
+  local expected_path expected_mode evidence_sha actual_blob expected_blob
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i11_post_closure_pin_origin_sha}" "${tip}" 2>/dev/null ||
+    fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:origin"
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i11_post_closure_pin_origin_sha}..${tip}")
+  [[ "${#commits[@]}" -eq 3 ]] ||
+    fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:exact three commits"
+  previous="${w1_i11_post_closure_pin_origin_sha}"
+  for index in "${!commits[@]}"; do
+    commit="${commits[${index}]}"
+    expected_path="${w1_i11_post_closure_pin_paths[${index}]}"
+    parent="$(single_parent_of "${commit}" \
+      "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] ||
+      fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] ||
+      fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:path"
+    case "${expected_path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+      *) expected_mode=100644 ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:NUL"
+    if [[ "${index}" -lt 2 ]]; then
+      evidence_sha="${w1_i11_post_closure_pin_evidence_shas[${index}]}"
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${expected_path}" 2>/dev/null)" ||
+        fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:evidence"
+      expected_blob="$(git -C "${repo_root}" rev-parse \
+        "${evidence_sha}:${expected_path}" 2>/dev/null)" ||
+        fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:evidence"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:evidence"
+    fi
+    previous="${commit}"
+  done
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i11_post_closure_pin_origin_sha}..${tip}" -- \
+    "${w1_i11_migration_count_product_paths[@]}" \
+    "${w1_i11_closure_projection_paths[@]}" ||
+    fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:frozen bytes"
+}
+
 route_w1_i11_closure() {
-  local route_commit="$1" governance_tip receipt path
-  governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${w1_i11_closure_origin_sha}..${route_commit}" -- \
-    scripts/verify-wave1-implementation-cards | sed -n '$p')"
+  local route_commit="$1" governance_tip receipt path post_base pin_tip
+  receipt="$(find_w1_i11_closure_receipt "${route_commit}")"
+  if [[ -n "${receipt}" ]]; then
+    governance_tip="$(single_parent_of "${receipt}" \
+      "I11_CLOSURE_RECEIPT_PATHS_INVALID:governance parent")"
+  else
+    governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+      "${w1_i11_closure_origin_sha}..${route_commit}" -- \
+      scripts/verify-wave1-implementation-cards | sed -n '$p')"
+  fi
   [[ -n "${governance_tip}" ]] ||
     fail "I11_CLOSURE_GOVERNANCE_CHAIN_INVALID:missing verifier"
   validate_w1_i11_closure_governance_chain "${governance_tip}"
@@ -9631,11 +9722,20 @@ route_w1_i11_closure() {
       'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
     return 0
   fi
-  receipt="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${governance_tip}..${route_commit}" | sed -n '1p')"
   [[ -n "${receipt}" ]] || fail "I11_CLOSURE_RECEIPT_PATHS_INVALID:missing"
   validate_w1_i11_closure_receipt "${governance_tip}" "${receipt}"
-  validate_post_w1_i11_closure_descendants "${receipt}" "${route_commit}"
+  post_base="${receipt}"
+  if [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+      "${receipt}..${route_commit}" -- "${w1_i11_post_closure_pin_paths[0]}" \
+      2>/dev/null)" ]]; then
+    pin_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+      "${receipt}..${route_commit}" -- scripts/verify-wave1-implementation-cards |
+      sed -n '$p')"
+    [[ -n "${pin_tip}" ]] || fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:missing verifier"
+    validate_w1_i11_post_closure_fixture_pin "${pin_tip}"
+    post_base="${pin_tip}"
+  fi
+  validate_post_w1_i11_closure_descendants "${post_base}" "${route_commit}"
   for path in "${w1_i11_closure_projection_paths[@]}"; do
     git -C "${repo_root}" diff --quiet "${receipt}" -- "${path}" ||
       fail "I11_CLOSURE_WORKTREE_MISMATCH:${path}"
@@ -9646,6 +9746,7 @@ route_w1_i11_closure() {
     'W1I11PersistenceRebaselineStatus = PASS' \
     'W1I11MigrationCountRebaselineStatus = PASS' \
     'W1I11ClosureStatus = PASS' \
+    'W1I11PostClosureFixturePinStatus = PASS' \
     'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
 }
 
