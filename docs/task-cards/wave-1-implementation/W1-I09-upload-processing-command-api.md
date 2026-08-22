@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I09
 CardKind = IMPLEMENTATION
-Status = READY
+Status = DONE
 Gate = W1-IG9 UploadProcessingCommandApi
 Risk = HIGH
 DependsOn = W1-I07
