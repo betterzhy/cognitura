@@ -10191,8 +10191,37 @@ validate_post_w1_i12_closure_descendants() {
   done
 }
 
+require_w1_i12_i13_ready_state() {
+  local head="$1" index_path="docs/task-cards/wave-1-implementation/README.md"
+  local i12_card="docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md"
+  local i13_card="docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md"
+  local index_content ready_rows
+  [[ "$(git_tree_field "${head}" "${i12_card}" Status)" == DONE &&
+     "$(git_tree_field "${head}" "${i13_card}" Status)" == READY &&
+     "$(git_tree_field "${head}" "${i13_card}" BusinessImplementationAuthorization)" == USER_AUTHORIZED &&
+     "$(git_tree_field "${head}" "${i13_card}" ReviewRoute)" == deep_reviewer &&
+     "$(git_tree_field "${head}" "${i13_card}" FixedCommitReviewGate)" == NEW_DEEP_REVIEWER_XHIGH_ZERO_FINDING_REQUIRED &&
+     "$(git_tree_field "${head}" "${index_path}" ActiveTaskCard)" == W1-I13 &&
+     "$(git_tree_field "${head}" "${index_path}" TaskCardSetStatus)" == READY_FOR_EXECUTION &&
+     "$(git_tree_field "${head}" "${index_path}" ReadyTaskCardCount)" == 1 &&
+     "$(git_tree_field "${head}" "${index_path}" FormalDatabaseWrite)" == NOT_AUTHORIZED &&
+     "$(git_tree_field "${head}" "${index_path}" RemotePush)" == NOT_AUTHORIZED ]] ||
+    fail "I12_CLOSURE_I13_STATE_INVALID"
+  index_content="$(git -C "${repo_root}" show "${head}:${index_path}")" ||
+    fail "I12_CLOSURE_I13_STATE_INVALID"
+  ready_rows="$(printf '%s\n' "${index_content}" | grep -c '| `READY` |' || true)"
+  [[ "${ready_rows}" -eq 1 ]] || fail "I12_CLOSURE_I13_STATE_INVALID"
+  printf '%s\n' "${index_content}" | grep -Fqx \
+    '| `W1-I12` | [Desktop Web 预览](W1-I12-desktop-web-source-preview.md) | `DONE` | `W1-I10,W1-I11` | `W1-IG12` | `MEDIUM` |' ||
+    fail "I12_CLOSURE_I13_STATE_INVALID"
+  printf '%s\n' "${index_content}" | grep -Fqx \
+    '| `W1-I13` | [固定实现复核](W1-I13-fixed-implementation-review.md) | `READY` | `W1-I00..W1-I12` | `W1-IG13` | `HIGH` |' ||
+    fail "I12_CLOSURE_I13_STATE_INVALID"
+}
+
 route_w1_i12_closure() {
   local route_commit="$1" governance_tip receipt post_base correction parent changed_paths
+  local finding_correction expected_paths path
   governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i12_closure_origin_sha}..${route_commit}" | sed -n '3p')"
   [[ -n "${governance_tip}" ]] ||
@@ -10245,7 +10274,36 @@ route_w1_i12_closure() {
       "I12_CLOSURE_CORRECTION_INVALID:NUL"
     post_base="${correction}"
   fi
+  finding_correction="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${post_base}..${route_commit}" -- \
+    tests/task-cards/verify-wave1-implementation-cards.sh | sed -n '1p')"
+  if [[ -n "${finding_correction}" ]]; then
+    parent="$(single_parent_of "${finding_correction}" \
+      "I12_CLOSURE_FINDING_CORRECTION_INVALID:single parent")"
+    [[ "${parent}" == "${post_base}" ]] ||
+      fail "I12_CLOSURE_FINDING_CORRECTION_INVALID:direct child"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${finding_correction}" &&
+      fail "I12_CLOSURE_FINDING_CORRECTION_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${finding_correction}" \
+      "I12_CLOSURE_FINDING_CORRECTION_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${finding_correction}" | LC_ALL=C sort)"
+    expected_paths="$(printf '%s\n' \
+      scripts/verify-wave1-implementation-cards \
+      tests/task-cards/verify-wave1-implementation-cards.sh | LC_ALL=C sort)"
+    [[ "${changed_paths}" == "${expected_paths}" ]] ||
+      fail "I12_CLOSURE_FINDING_CORRECTION_INVALID:path"
+    for path in scripts/verify-wave1-implementation-cards \
+        tests/task-cards/verify-wave1-implementation-cards.sh; do
+      [[ "$(git_tree_mode "${finding_correction}" "${path}")" == 100755 ]] ||
+        fail "I12_CLOSURE_FINDING_CORRECTION_INVALID:mode"
+      require_git_blob_without_nul "${finding_correction}" "${path}" \
+        "I12_CLOSURE_FINDING_CORRECTION_INVALID:NUL"
+    done
+    post_base="${finding_correction}"
+  fi
   validate_post_w1_i12_closure_descendants "${post_base}" "${route_commit}"
+  require_w1_i12_i13_ready_state "${route_commit}"
   printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
     'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
     'ActiveTaskCard = W1-I13' 'ReadyTaskCardCount = 1' \
@@ -11792,7 +11850,11 @@ git status --short'
     grep -Fq '暂存清单必须与本卡 WriteSet 双向精确一致；目录级 `git add` 禁止。' ||
     fail "${task_id}: missing staged WriteSet verification"
   if [[ "${task_id}" == "W1-I13" ]]; then
-    expected_fixed_review_gate='FixedCommitReviewGate = NEW_DEEP_REVIEWER_THEN_NEW_ULTRA_GATEKEEPER_ZERO_FINDING_REQUIRED'
+    if [[ "${status}" == READY ]]; then
+      expected_fixed_review_gate='FixedCommitReviewGate = NEW_DEEP_REVIEWER_XHIGH_ZERO_FINDING_REQUIRED'
+    else
+      expected_fixed_review_gate='FixedCommitReviewGate = NEW_DEEP_REVIEWER_THEN_NEW_ULTRA_GATEKEEPER_ZERO_FINDING_REQUIRED'
+    fi
   else
     expected_fixed_review_gate='FixedCommitReviewGate = NEW_DEEP_REVIEWER_ZERO_FINDING_BEFORE_SUCCESSOR_RELEASE'
   fi
