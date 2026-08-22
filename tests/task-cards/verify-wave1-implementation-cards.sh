@@ -34,6 +34,7 @@ w1_i09_runtime_rebaseline_contract_only=0
 w1_i09_product_copy_inference_contract_only=0
 w1_i09_canonical_bridge_contract_only=0
 w1_i09_v2_compatibility_contract_only=0
+w1_i09_final_review_finding_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -81,6 +82,9 @@ case "${1:-}" in
     ;;
   --w1-i09-v2-compatibility-contract-only)
     w1_i09_v2_compatibility_contract_only=1
+    ;;
+  --w1-i09-final-review-finding-contract-only)
+    w1_i09_final_review_finding_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -6687,6 +6691,77 @@ if [[ "${w1_i09_v2_compatibility_contract_only}" == "1" ]]; then
   exit 0
 fi
 
+run_w1_i09_final_review_finding_contract() {
+  local fixture_root output
+  local positive_cases=0 negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i09-final-review-fixed"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    f0fa4aaee25b66d0e916683e2ed938dac5305c85
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "fixed rejected I09 candidate is not replayable: ${output}"
+  assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-final-review-i08-substituted-verifier"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    3730eb5c71862f51659bd68e4066c392815d5cef
+  git -C "${repo_root}" show \
+    160fc8a0ab347c3a35a566e0d615a1ad70af7f24:scripts/verify-wave1-implementation-cards > \
+    "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  printf '%s\n' '# substituted I08 fixture pin verifier' >> \
+    "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  chmod 755 "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
+  git -C "${fixture_root}" commit -qm "test: substitute I08 fixture pin verifier"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_I08_FIXTURE_PIN_INVALID:verifier identity'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i09-final-review-v2-substituted-verifier"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    160fc8a0ab347c3a35a566e0d615a1ad70af7f24
+  git -C "${repo_root}" show \
+    665fbdb7929441afd0b81635e2ea5855ee86272f:scripts/verify-wave1-implementation-cards > \
+    "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  printf '%s\n' '# substituted V2 fixture pin verifier' >> \
+    "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  chmod 755 "${fixture_root}/scripts/verify-wave1-implementation-cards"
+  git -C "${fixture_root}" add scripts/verify-wave1-implementation-cards
+  git -C "${fixture_root}" commit -qm "test: substitute V2 fixture pin verifier"
+  git -C "${repo_root}" show \
+    f0fa4aaee25b66d0e916683e2ed938dac5305c85:tests/task-cards/verify-wave1-implementation-cards.sh > \
+    "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
+  chmod 755 "${fixture_root}/tests/task-cards/verify-wave1-implementation-cards.sh"
+  git -C "${fixture_root}" add tests/task-cards/verify-wave1-implementation-cards.sh
+  git -C "${fixture_root}" commit -qm "test: retain fixed V2 fixture evidence"
+  expect_i09_runtime_rebaseline_failure "${fixture_root}" \
+    'I09_V2_FIXTURE_PIN_INVALID:verifier identity'
+  negative_cases=$((negative_cases + 1))
+
+  output="$(run_i09_runtime_rebaseline_fixture_verifier "${repo_root}")" ||
+    fail "current I09 final review finding closure was rejected: ${output}"
+  assert_contains "${output}" 'W1I09RuntimeRebaselineStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] ||
+    fail "I09 final review finding positive count mismatch"
+  [[ "${negative_cases}" -eq 2 ]] ||
+    fail "I09 final review finding negative count mismatch"
+  printf '%s\n' \
+    'W1I09FinalReviewFindingContractTests = PASS' \
+    "W1I09FinalReviewFindingPositiveCases = ${positive_cases}" \
+    "W1I09FinalReviewFindingNegativeCases = ${negative_cases}"
+}
+
+if [[ "${w1_i09_final_review_finding_contract_only}" == "1" ]]; then
+  run_w1_i09_final_review_finding_contract
+  exit 0
+fi
+
 if [[ "${terra_first_routing_contract_only}" == "1" ]]; then
   run_terra_first_routing_contract
   exit 0
@@ -6706,6 +6781,7 @@ run_w1_i09_runtime_rebaseline_repair_contract
 run_w1_i09_product_copy_inference_contract
 run_w1_i09_canonical_bridge_contract
 run_w1_i09_v2_compatibility_contract
+run_w1_i09_final_review_finding_contract
 
 validation_output="$(
   "${verifier}" \
