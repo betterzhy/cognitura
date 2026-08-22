@@ -963,6 +963,15 @@ w1_i10_closure_repair_test_sha="f2c22d2ed5ee90e1447ef1609b7b7037bd052bad"
 w1_i10_post_fixture_pin_origin_sha="1a7c0e6d690419c7e21a39d20f652e9817d08ab5"
 w1_i10_post_fixture_pin_spec_sha="c2dc74a5921f84c71ffec996d8dbef00dd81a8bb"
 w1_i10_post_fixture_pin_test_sha="49f5a711e859f1947b80d0d999ceac37c92989ba"
+w1_i11_persistence_rebaseline_origin_sha="b99f20feaa47f36aeb49e05a070bfb3c73615ac0"
+w1_i11_persistence_rebaseline_spec_sha="55e0665c0b63d8082b269f3f891252dfc6f5f8f6"
+w1_i11_persistence_rebaseline_plan_sha="a7788d805d7d38fcbbb2d585cafa2c394300db7c"
+w1_i11_persistence_rebaseline_test_sha="9d69d49f5a9ea830f81354a646a5e715e4668da7"
+w1_i11_persistence_rebaseline_repair_spec_sha="b37f9eb8cc60b3f9ab3e28548a895ee8e852a3e5"
+w1_i11_persistence_rebaseline_repair_test_sha="a6bf632cb884b1537db18ab55183466f877cacbf"
+w1_i11_persistence_rebaseline_narrative_spec_sha="bf92d50b3e4fa6b4e96cecd40e2206f2d7ac7edf"
+w1_i11_persistence_rebaseline_narrative_test_sha="8b5299332971aa85d3ed6563d0327c89136f05da"
+w1_i11_card_path="docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -1107,6 +1116,55 @@ w1_i10_post_fixture_pin_paths=(
 w1_i10_post_fixture_pin_evidence_shas=(
   "${w1_i10_post_fixture_pin_spec_sha}"
   "${w1_i10_post_fixture_pin_test_sha}"
+)
+w1_i11_persistence_rebaseline_governance_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i11-persistence-rebaseline-design.md
+  docs/superpowers/plans/2026-08-22-cognitura-w1-i11-persistence-rebaseline.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i11_persistence_rebaseline_evidence_shas=(
+  "${w1_i11_persistence_rebaseline_spec_sha}"
+  "${w1_i11_persistence_rebaseline_plan_sha}"
+  "${w1_i11_persistence_rebaseline_narrative_test_sha}"
+)
+w1_i11_persistence_rebaseline_actual_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i11-persistence-rebaseline-design.md
+  docs/superpowers/plans/2026-08-22-cognitura-w1-i11-persistence-rebaseline.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i11-rebaseline-test-regex-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i11-rebaseline-card-narrative-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i11_persistence_rebaseline_actual_evidence_shas=(
+  "${w1_i11_persistence_rebaseline_spec_sha}"
+  "${w1_i11_persistence_rebaseline_plan_sha}"
+  "${w1_i11_persistence_rebaseline_test_sha}"
+  "${w1_i11_persistence_rebaseline_repair_spec_sha}"
+  "${w1_i11_persistence_rebaseline_repair_test_sha}"
+  "${w1_i11_persistence_rebaseline_narrative_spec_sha}"
+  "${w1_i11_persistence_rebaseline_narrative_test_sha}"
+)
+w1_i11_persistence_rebaseline_projection_paths=(
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md
+)
+w1_i11_persistence_rebaseline_product_paths=(
+  server/src/main/resources/db/migration/V3__add_partial_acceptance_facts.sql
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceController.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceRequest.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceCommand.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceService.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptancePort.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceResponse.java
+  server/src/main/java/io/cognitura/source/persistence/JdbcPartialAcceptancePort.java
+  server/src/main/java/io/cognitura/source/runtime/SourceCommandRuntimeConfiguration.java
+  server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java
+  server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceControllerTest.java
+  server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceServiceTest.java
+  server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java
 )
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
@@ -8310,6 +8368,237 @@ route_w1_i10_post_fixture_pin() {
     'W1I10PostFixturePinStatus = PASS' 'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
 }
 
+validate_w1_i11_persistence_rebaseline_governance() {
+  local tip="$1" commits=() commit parent previous changed_paths index
+  local expected_path expected_mode evidence_sha actual_blob expected_blob
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i11_persistence_rebaseline_origin_sha}" "${tip}" 2>/dev/null ||
+    fail "I11_PERSISTENCE_REBASELINE_INVALID:origin"
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i11_persistence_rebaseline_origin_sha}..${tip}")
+  case "${#commits[@]}" in
+    4|8) ;;
+    *) fail "I11_PERSISTENCE_REBASELINE_INVALID:exact governance commits" ;;
+  esac
+  previous="${w1_i11_persistence_rebaseline_origin_sha}"
+  for index in "${!commits[@]}"; do
+    commit="${commits[${index}]}"
+    if [[ "${#commits[@]}" -eq 4 ]]; then
+      expected_path="${w1_i11_persistence_rebaseline_governance_paths[${index}]}"
+    else
+      expected_path="${w1_i11_persistence_rebaseline_actual_paths[${index}]}"
+    fi
+    parent="$(single_parent_of "${commit}" "I11_PERSISTENCE_REBASELINE_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] ||
+      fail "I11_PERSISTENCE_REBASELINE_INVALID:order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I11_PERSISTENCE_REBASELINE_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I11_PERSISTENCE_REBASELINE_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] ||
+      fail "I11_PERSISTENCE_REBASELINE_INVALID:path"
+    case "${expected_path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+      *) expected_mode=100644 ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "I11_PERSISTENCE_REBASELINE_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "I11_PERSISTENCE_REBASELINE_INVALID:NUL"
+    if [[ ( "${#commits[@]}" -eq 4 && "${index}" -lt 3 ) ||
+          ( "${#commits[@]}" -eq 8 && "${index}" -lt 7 ) ]]; then
+      if [[ "${#commits[@]}" -eq 4 ]]; then
+        evidence_sha="${w1_i11_persistence_rebaseline_evidence_shas[${index}]}"
+      else
+        evidence_sha="${w1_i11_persistence_rebaseline_actual_evidence_shas[${index}]}"
+      fi
+      actual_blob="$(git -C "${repo_root}" rev-parse "${commit}:${expected_path}" 2>/dev/null)" ||
+        fail "I11_PERSISTENCE_REBASELINE_INVALID:evidence"
+      expected_blob="$(git -C "${repo_root}" rev-parse "${evidence_sha}:${expected_path}" 2>/dev/null)" ||
+        fail "I11_PERSISTENCE_REBASELINE_INVALID:evidence"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I11_PERSISTENCE_REBASELINE_INVALID:evidence"
+    fi
+    previous="${commit}"
+  done
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i11_persistence_rebaseline_origin_sha}..${tip}" -- \
+    "${w1_i10_product_paths[@]}" "${w1_i10_closure_projection_paths[@]}" ||
+    fail "I11_PERSISTENCE_REBASELINE_INVALID:frozen predecessor"
+}
+
+is_w1_i11_rebaseline_product_path() {
+  local requested="$1" allowed
+  for allowed in "${w1_i11_persistence_rebaseline_product_paths[@]}"; do
+    [[ "${requested}" == "${allowed}" ]] && return 0
+  done
+  return 1
+}
+
+write_expected_w1_i11_rebaseline_file() {
+  local governance_tip="$1" path="$2" output_file="$3"
+  local write_set forbidden_set validation_block
+  git -C "${repo_root}" show "${governance_tip}:${path}" > "${output_file}" 2>/dev/null ||
+    fail "I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH:base:${path}"
+  case "${path}" in
+    docs/task-cards/wave-1-implementation/README.md)
+      perl -i.bak -pe \
+        'if (/^ImplementationGovernanceReviewVerdict = /) { $_ .= "I11PersistenceRebaseline = PASS\n" }' \
+        "${output_file}"
+      rm -f "${output_file}.bak"
+      replace_w1_i10_closure_expected_text "${output_file}" \
+        '完成零发现深审并关闭；I02、I03、I04、I05、I06、I07、I08、I09 和 I10 已关闭，I11 已释放为唯一 `READY` 卡。' \
+        '完成零发现深审并关闭；I02、I03、I04、I05、I06、I07、I08、I09 和 I10 已关闭，I11 已完成持久化重基线并保持唯一 `READY` 卡。' "${path}"
+      ;;
+    docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md)
+      replace_w1_i10_closure_expected_first_field "${output_file}" \
+        PrimaryBoundary SOURCE_PARTIAL_ACCEPTANCE_COMMAND "${path}"
+      replace_w1_i10_closure_expected_first_field "${output_file}" \
+        ProductionFileLimit 10 "${path}"
+      replace_w1_i10_closure_expected_first_field "${output_file}" \
+        ProductionWriteSetException APPROVED_I11_PERSISTENCE_REBASELINE "${path}"
+      write_set="$(printf '%s\n' "${w1_i11_persistence_rebaseline_product_paths[@]}" | sed 's/^/WriteSet = /')"
+      forbidden_set="$(printf '%s\n' \
+        'ForbiddenWriteSet = server/src/main/java/io/cognitura/source/docx/**' \
+        'ForbiddenWriteSet = web/**,raw/**,.idea/**' \
+        'ForbiddenWriteSet = FORMAL_DATABASE_CONNECTION_OR_WRITE')"
+      validation_block="$(printf '%s\n' \
+        './mvnw -f server/pom.xml -Dtest='\''io.cognitura.source.api.acceptance.*Test,io.cognitura.source.api.query.SourcePreviewControllerTest'\'' test' \
+        'scripts/verify-wave1-implementation' \
+        'git diff --check' \
+        'git status --short')"
+      I11_WRITE_SET="${write_set}" perl -0777 -i.bak -pe \
+        's/(?:^WriteSet = .*\n)+/$ENV{I11_WRITE_SET}."\n"/mge' "${output_file}"
+      rm -f "${output_file}.bak"
+      I11_FORBIDDEN_SET="${forbidden_set}" perl -0777 -i.bak -pe \
+        's/(?:^ForbiddenWriteSet = .*\n)+/$ENV{I11_FORBIDDEN_SET}."\n"/mge' "${output_file}"
+      rm -f "${output_file}.bak"
+      replace_w1_i10_closure_expected_text "${output_file}" \
+        '本卡不修改 preview query 或 Web。' \
+        '本卡只为 ACCEPTED 兼容修改既有 preview query；不修改 Web。' "${path}"
+      I11_VALIDATION_BLOCK="${validation_block}" perl -0777 -i.bak -pe \
+        's~(?<=```bash\n).*?(?=```\n\n## 6\.)~$ENV{I11_VALIDATION_BLOCK}."\n"~se' "${output_file}"
+      rm -f "${output_file}.bak"
+      replace_w1_i10_closure_expected_text "${output_file}" \
+        '完整 digest/actor/idempotency tuple、不可逆性、相同重放和冲突拒绝全部通过；无 query、' \
+        '完整 digest/actor/idempotency tuple、不可逆性、相同重放、并发 CAS 和冲突拒绝全部通过；' "${path}"
+      replace_w1_i10_closure_expected_text "${output_file}" \
+        'Parser、migration 或 Web 改动。' \
+        '证据来自隔离 PostgreSQL 18.4，且无 Web、Parser 或正式数据库改动。' "${path}"
+      ;;
+    *) fail "I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH:unknown:${path}" ;;
+  esac
+}
+
+validate_w1_i11_persistence_rebaseline_projection() {
+  local governance_tip="$1" projection="$2" parent expected_paths actual_paths
+  local path expected_root actual_file index=0
+  parent="$(single_parent_of "${projection}" \
+    "I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:single parent")"
+  [[ "${parent}" == "${governance_tip}" ]] ||
+    fail "I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:direct child"
+  require_no_git_rename_or_copy "${parent}" "${projection}" \
+    "I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:rename or copy"
+  expected_paths="$(printf '%s\n' "${w1_i11_persistence_rebaseline_projection_paths[@]}" | LC_ALL=C sort)"
+  actual_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${projection}" | LC_ALL=C sort)"
+  [[ "${actual_paths}" == "${expected_paths}" ]] ||
+    fail "I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:exact paths"
+  for path in "${w1_i11_persistence_rebaseline_projection_paths[@]}"; do
+    [[ "$(git_tree_mode "${projection}" "${path}")" == 100644 ]] ||
+      fail "I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:mode:${path}"
+    require_git_blob_without_nul "${projection}" "${path}" \
+      "I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:NUL:${path}"
+  done
+  [[ "$(git_tree_field "${projection}" "${w1_i11_card_path}" Status)" == READY &&
+     "$(git_tree_field "${projection}" "${w1_i11_card_path}" BusinessImplementationAuthorization)" == USER_AUTHORIZED &&
+     "$(git_tree_field "${projection}" "${w1_i11_card_path}" FormalDatabaseGate)" == NOT_APPLICABLE &&
+     "$(git_tree_field "${projection}" "${w1_i11_card_path}" RemotePush)" == NOT_AUTHORIZED &&
+     "$(git_tree_field "${projection}" "${w1_i11_card_path}" ProductionFileLimit)" == 10 ]] ||
+    fail "I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH:state"
+  register_temporary_directory expected_root cognitura-i11-rebaseline-projection
+  for path in "${w1_i11_persistence_rebaseline_projection_paths[@]}"; do
+    mkdir -p "${expected_root}/$(dirname "${path}")"
+    write_expected_w1_i11_rebaseline_file "${governance_tip}" "${path}" "${expected_root}/${path}"
+    actual_file="${expected_root}/actual-${index}"
+    git -C "${repo_root}" show "${projection}:${path}" > "${actual_file}" ||
+      fail "I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH:actual:${path}"
+    cmp -s "${expected_root}/${path}" "${actual_file}" ||
+      fail "I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH:content:${path}"
+    index=$((index + 1))
+  done
+  remove_temporary_directory "${expected_root}"
+}
+
+validate_post_w1_i11_persistence_rebaseline_descendants() {
+  local projection="$1" head="$2" commit parent changed_paths path
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${projection}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I11_PERSISTENCE_REBASELINE_DESCENDANT_INVALID:single parent")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I11_PERSISTENCE_REBASELINE_DESCENDANT_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I11_PERSISTENCE_REBASELINE_DESCENDANT_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      is_w1_i11_rebaseline_product_path "${path}" ||
+        fail "I11_PERSISTENCE_REBASELINE_DESCENDANT_OUTSIDE_WRITE_SET:${path}"
+      [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+        fail "I11_PERSISTENCE_REBASELINE_DESCENDANT_INVALID:mode:${path}"
+      require_git_blob_without_nul "${commit}" "${path}" \
+        "I11_PERSISTENCE_REBASELINE_DESCENDANT_INVALID:NUL:${path}"
+    done <<< "${changed_paths}"
+  done
+}
+
+route_w1_i11_persistence_rebaseline() {
+  local route_commit="$1" governance_tip projection path
+  [[ -z "${transition_base}" ]] ||
+    fail "I11_PERSISTENCE_REBASELINE_INVALID:explicit transition unsupported"
+  governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i11_persistence_rebaseline_origin_sha}..${route_commit}" -- \
+    scripts/verify-wave1-implementation-cards | sed -n '1p')"
+  [[ -n "${governance_tip}" ]] ||
+    fail "I11_PERSISTENCE_REBASELINE_INVALID:missing governance tip"
+  validate_w1_i11_persistence_rebaseline_governance "${governance_tip}"
+  if [[ "${route_commit}" == "${governance_tip}" ]]; then
+    for path in "${w1_i11_persistence_rebaseline_actual_paths[@]}" \
+        "${w1_i10_product_paths[@]}" "${w1_i10_closure_projection_paths[@]}"; do
+      git -C "${repo_root}" diff --quiet "${route_commit}" -- "${path}" ||
+        fail "I11_PERSISTENCE_REBASELINE_WORKTREE_MISMATCH:${path}"
+    done
+    printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+      'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+      'ActiveTaskCard = W1-I11' 'ReadyTaskCardCount = 1' \
+      'W1I09RuntimeRebaselineStatus = PASS' 'W1I09ClosureStatus = PASS' \
+      'W1I10ClosureStatus = PASS' 'W1I10PostFixturePinStatus = PASS' \
+      'W1I11PersistenceRebaselineStatus = PENDING' \
+      'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+    return 0
+  fi
+  projection="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${governance_tip}..${route_commit}" | sed -n '1p')"
+  [[ -n "${projection}" ]] ||
+    fail "I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:missing"
+  validate_w1_i11_persistence_rebaseline_projection "${governance_tip}" "${projection}"
+  validate_post_w1_i11_persistence_rebaseline_descendants "${projection}" "${route_commit}"
+  for path in "${w1_i11_persistence_rebaseline_projection_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet "${projection}" -- "${path}" ||
+      fail "I11_PERSISTENCE_REBASELINE_WORKTREE_MISMATCH:${path}"
+  done
+  printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+    'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+    'ActiveTaskCard = W1-I11' 'ReadyTaskCardCount = 1' \
+    'W1I09RuntimeRebaselineStatus = PASS' 'W1I09ClosureStatus = PASS' \
+    'W1I10ClosureStatus = PASS' 'W1I10PostFixturePinStatus = PASS' \
+    'W1I11PersistenceRebaselineStatus = PASS' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -8361,6 +8650,17 @@ index_file="${cards_dir}/README.md"
 current_repository_head="$(git -C "${repo_root}" rev-parse --verify HEAD^{commit} 2>/dev/null)" ||
   fail "repository HEAD must resolve to a commit"
 if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
+  i11_rebaseline_route_commit="${current_repository_head}"
+  [[ -n "${transition_base}" ]] && i11_rebaseline_route_commit="${transition_base}"
+  if [[ "${i11_rebaseline_route_commit}" != "${w1_i11_persistence_rebaseline_origin_sha}" ]] &&
+      git -C "${repo_root}" merge-base --is-ancestor \
+        "${w1_i11_persistence_rebaseline_origin_sha}" "${i11_rebaseline_route_commit}" 2>/dev/null &&
+      [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+        "${w1_i11_persistence_rebaseline_origin_sha}..${i11_rebaseline_route_commit}" -- \
+        "${w1_i11_persistence_rebaseline_governance_paths[0]}" 2>/dev/null)" ]]; then
+    route_w1_i11_persistence_rebaseline "${i11_rebaseline_route_commit}"
+    exit 0
+  fi
   i10_post_fixture_pin_route_commit="${current_repository_head}"
   [[ -n "${transition_base}" ]] && i10_post_fixture_pin_route_commit="${transition_base}"
   if [[ "${i10_post_fixture_pin_route_commit}" != "${w1_i10_post_fixture_pin_origin_sha}" ]] &&
