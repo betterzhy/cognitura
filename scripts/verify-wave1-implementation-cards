@@ -1290,9 +1290,10 @@ w1_i12_revision_status_finding_origin_sha="99e027d6158c3dbacccee0f258cf5b4308f50
 w1_i12_revision_status_finding_spec_sha="79a6cc99e25379665a769223e2c1b0a64b1d2335"
 w1_i12_revision_status_finding_test_sha="b7665fa1c3776a45e59fe70c64e0fd1cac979612"
 w1_i12_closure_origin_sha="a25e791afaf5b6cc7dff0be4e304d4ec6dfe2bfc"
-w1_i12_closure_parent_sha="cabe75670dc8ca1072447cfe1a8f2e3372c90fcb"
-w1_i12_closure_tree_sha="eb0b7934643ac4e5f1fa819b24458d709ca2d89d"
+w1_i12_closure_parent_sha="cabe75647b1a7f5dfe799db054e6725bda872892"
+w1_i12_closure_tree_sha="eb0b793a42a316cc4715e7ff6c3b18a6ffd7e1d1"
 w1_i12_closure_test_sha="6a6d4818c58a98c7d2e255851e5140d0e9de654c"
+w1_i12_closure_faulty_verifier_sha="af11c92ec4b00841ae9159f77edbf13be22b4d1d"
 w1_i12_revision_status_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i12-revision-status-entry.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -1346,7 +1347,7 @@ w1_i12_closure_projection_blob_shas=(
   "07d89906fc4cfc63e40e95e43c57fd581a135ce2"
   "e6f79626b99b193fc433690cbdd0d3ab6750ba62"
   "3614858c7f8e586c457f0dae06370f250fec4523"
-  "a5b86b724db8d8d8fba1abbee74d3ea08eb7d7e1"
+  "a02df07df3c9161f6dab2b2e30437b08c8251e20"
   "05811428aa1088014aa083df816a41733f5374ad"
   "58952f4e41e72690daa6d6bdb0f107e726a22779"
   "64f1597dc7cb132215aa9cabd31699feaad8509c"
@@ -10045,12 +10046,18 @@ validate_w1_i12_closure_governance() {
     [[ -n "${commit}" ]] && commits+=("${commit}")
   done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i12_closure_origin_sha}..${tip}")
-  [[ "${#commits[@]}" -eq 2 ]] ||
-    fail "I12_CLOSURE_GOVERNANCE_INVALID:exact two commits"
+  [[ "${#commits[@]}" -eq 3 ]] ||
+    fail "I12_CLOSURE_GOVERNANCE_INVALID:exact three commits"
   previous="${w1_i12_closure_origin_sha}"
   for index in "${!commits[@]}"; do
     commit="${commits[${index}]}"
-    expected_path="${w1_i12_closure_governance_paths[${index}]}"
+    if [[ "${index}" -lt 2 ]]; then
+      expected_path="${w1_i12_closure_governance_paths[${index}]}"
+    else
+      expected_path="$(printf '%s\n' \
+        tests/task-cards/verify-wave1-implementation-cards.sh \
+        scripts/verify-wave1-implementation-cards | LC_ALL=C sort)"
+    fi
     parent="$(single_parent_of "${commit}" \
       "I12_CLOSURE_GOVERNANCE_INVALID:single parent")"
     [[ "${parent}" == "${previous}" ]] ||
@@ -10060,19 +10067,35 @@ validate_w1_i12_closure_governance() {
     require_no_git_rename_or_copy "${parent}" "${commit}" \
       "I12_CLOSURE_GOVERNANCE_INVALID:rename or copy"
     changed_paths="$(git -C "${repo_root}" diff --name-only \
-      "${parent}..${commit}")"
+      "${parent}..${commit}" | LC_ALL=C sort)"
     [[ "${changed_paths}" == "${expected_path}" ]] ||
       fail "I12_CLOSURE_GOVERNANCE_INVALID:path"
-    expected_mode=100755
-    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
-      fail "I12_CLOSURE_GOVERNANCE_INVALID:mode"
-    require_git_blob_without_nul "${commit}" "${expected_path}" \
-      "I12_CLOSURE_GOVERNANCE_INVALID:NUL"
-    if [[ "${index}" -eq 0 ]]; then
+    if [[ "${index}" -lt 2 ]]; then
+      expected_mode=100755
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+        fail "I12_CLOSURE_GOVERNANCE_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I12_CLOSURE_GOVERNANCE_INVALID:NUL"
+    else
+      for expected_path in \
+          scripts/verify-wave1-implementation-cards \
+          tests/task-cards/verify-wave1-implementation-cards.sh; do
+        [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+          fail "I12_CLOSURE_GOVERNANCE_INVALID:mode"
+        require_git_blob_without_nul "${commit}" "${expected_path}" \
+          "I12_CLOSURE_GOVERNANCE_INVALID:NUL"
+      done
+    fi
+    if [[ "${index}" -lt 2 ]]; then
       actual_blob="$(git -C "${repo_root}" rev-parse \
         "${commit}:${expected_path}")"
-      expected_blob="$(git -C "${repo_root}" rev-parse \
-        "${w1_i12_closure_test_sha}:${expected_path}")"
+      if [[ "${index}" -eq 0 ]]; then
+        expected_blob="$(git -C "${repo_root}" rev-parse \
+          "${w1_i12_closure_test_sha}:${expected_path}")"
+      else
+        expected_blob="$(git -C "${repo_root}" rev-parse \
+          "${w1_i12_closure_faulty_verifier_sha}:${expected_path}")"
+      fi
       [[ "${actual_blob}" == "${expected_blob}" ]] ||
         fail "I12_CLOSURE_GOVERNANCE_INVALID:evidence"
     fi
@@ -10172,7 +10195,7 @@ route_w1_i12_closure() {
   local route_commit="$1" governance_tip receipt
   governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i12_closure_origin_sha}..${route_commit}" -- \
-    "${w1_i12_closure_governance_paths[1]}" | sed -n '1p')"
+    "${w1_i12_closure_governance_paths[1]}" | sed -n '$p')"
   [[ -n "${governance_tip}" ]] ||
     fail "I12_CLOSURE_GOVERNANCE_INVALID:missing verifier"
   validate_w1_i12_closure_governance "${governance_tip}"

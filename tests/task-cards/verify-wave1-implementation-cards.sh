@@ -8664,7 +8664,7 @@ new_i12_closure_fixture() {
 }
 
 materialize_i12_closure_governance() {
-  local fixture_root="$1" test_sha
+  local fixture_root="$1" test_sha faulty_verifier_sha
   test_sha="$(read_i12_closure_verifier_constant w1_i12_closure_test_sha)"
   git -C "${repo_root}" show "${test_sha}:${i12_closure_test_path}" > \
     "${fixture_root}/${i12_closure_test_path}"
@@ -8672,11 +8672,24 @@ materialize_i12_closure_governance() {
   git -C "${fixture_root}" add "${i12_closure_test_path}"
   git -C "${fixture_root}" commit -qm "test: require W1-I12 closure"
 
-  cp -p "${repo_root}/${i12_closure_verifier_path}" \
+  faulty_verifier_sha="$(read_i12_closure_verifier_constant \
+    w1_i12_closure_faulty_verifier_sha)"
+  git -C "${repo_root}" show \
+    "${faulty_verifier_sha}:${i12_closure_verifier_path}" > \
     "${fixture_root}/${i12_closure_verifier_path}"
   chmod 755 "${fixture_root}/${i12_closure_verifier_path}"
   git -C "${fixture_root}" add "${i12_closure_verifier_path}"
   git -C "${fixture_root}" commit -qm "build: verify W1-I12 closure"
+
+  cp -p "${repo_root}/${i12_closure_test_path}" \
+    "${fixture_root}/${i12_closure_test_path}"
+  chmod 755 "${fixture_root}/${i12_closure_test_path}"
+  cp -p "${repo_root}/${i12_closure_verifier_path}" \
+    "${fixture_root}/${i12_closure_verifier_path}"
+  chmod 755 "${fixture_root}/${i12_closure_verifier_path}"
+  git -C "${fixture_root}" add \
+    "${i12_closure_test_path}" "${i12_closure_verifier_path}"
+  git -C "${fixture_root}" commit -qm "build: correct W1-I12 closure identity"
 }
 
 materialize_i12_closure_projection() {
