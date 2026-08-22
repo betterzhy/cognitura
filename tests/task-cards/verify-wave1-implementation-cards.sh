@@ -8430,12 +8430,24 @@ w1_i12_revision_status_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1
 w1_i12_revision_status_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
 w1_i12_revision_status_verifier_path="scripts/verify-wave1-implementation-cards"
 w1_i12_revision_status_card_path="docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md"
+w1_i12_revision_status_finding_origin_sha="99e027d"
+w1_i12_revision_status_finding_spec_sha="79a6cc9"
+w1_i12_revision_status_finding_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i12-entry-route-tip-finding.md"
 
 w1_i12_revision_status_source_sha() {
   local path="$1" sha
   sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i12_revision_status_origin_sha}..HEAD" -- "${path}" | sed -n '1p')"
   [[ -n "${sha}" ]] || fail "I12 revision status source commit missing: ${path}"
+  printf '%s\n' "${sha}"
+}
+
+w1_i12_revision_status_correction_source_sha() {
+  local path="$1" sha
+  sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i12_revision_status_finding_origin_sha}..HEAD" -- "${path}" |
+    sed -n '1p')"
+  [[ -n "${sha}" ]] || fail "I12 revision status correction source missing: ${path}"
   printf '%s\n' "${sha}"
 }
 
@@ -8479,6 +8491,25 @@ materialize_w1_i12_revision_status_entry() {
   commit_w1_i12_revision_status_path "${fixture_root}" "${card_sha}" \
     "${w1_i12_revision_status_card_path}" \
     "docs: admit I12 revision status endpoint"
+  materialize_w1_i12_revision_status_correction "${fixture_root}"
+}
+
+materialize_w1_i12_revision_status_correction() {
+  local fixture_root="$1" test_sha verifier_sha
+  test_sha="$(w1_i12_revision_status_correction_source_sha \
+    "${w1_i12_revision_status_test_path}")"
+  verifier_sha="$(w1_i12_revision_status_correction_source_sha \
+    "${w1_i12_revision_status_verifier_path}")"
+  commit_w1_i12_revision_status_path "${fixture_root}" \
+    "${w1_i12_revision_status_finding_spec_sha}" \
+    "${w1_i12_revision_status_finding_spec_path}" \
+    "docs: close I12 entry route tip finding"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${test_sha}" \
+    "${w1_i12_revision_status_test_path}" \
+    "test: cover I12 entry route tip finding"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${verifier_sha}" \
+    "${w1_i12_revision_status_verifier_path}" \
+    "build: fix I12 entry route tip"
 }
 
 run_w1_i12_revision_status_verifier() {
@@ -8538,6 +8569,7 @@ run_w1_i12_revision_status_entry_contract() {
     "${w1_i12_revision_status_verifier_path}" "build: verify I12 status entry"
   commit_w1_i12_revision_status_path "${fixture_root}" "${card_sha}" \
     "${w1_i12_revision_status_card_path}" "docs: admit I12 status endpoint"
+  materialize_w1_i12_revision_status_correction "${fixture_root}"
   expect_w1_i12_revision_status_failure "${fixture_root}" \
     'I12_REVISION_STATUS_ENTRY_INVALID:evidence'
   negative_cases=$((negative_cases + 1))
@@ -8553,6 +8585,7 @@ run_w1_i12_revision_status_entry_contract() {
     "${w1_i12_revision_status_verifier_path}" "build: verify I12 status entry"
   commit_w1_i12_revision_status_path "${fixture_root}" "${card_sha}" \
     "${w1_i12_revision_status_card_path}" "docs: admit I12 status endpoint"
+  materialize_w1_i12_revision_status_correction "${fixture_root}"
   expect_w1_i12_revision_status_failure "${fixture_root}" \
     'I12_REVISION_STATUS_ENTRY_INVALID:path'
   negative_cases=$((negative_cases + 1))
@@ -8573,6 +8606,7 @@ run_w1_i12_revision_status_entry_contract() {
   rm "${fixture_root}/${w1_i12_revision_status_card_path}.bak"
   git -C "${fixture_root}" add -- "${w1_i12_revision_status_card_path}"
   git -C "${fixture_root}" commit --amend -qm "docs: drift I12 status card"
+  materialize_w1_i12_revision_status_correction "${fixture_root}"
   expect_w1_i12_revision_status_failure "${fixture_root}" \
     'I12_REVISION_STATUS_ENTRY_INVALID:card'
   negative_cases=$((negative_cases + 1))
