@@ -41,6 +41,7 @@ w1_i11_persistence_rebaseline_contract_only=0
 w1_i11_migration_count_rebaseline_contract_only=0
 w1_i11_closure_contract_only=0
 w1_i12_revision_status_entry_contract_only=0
+w1_i12_closure_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -109,6 +110,9 @@ case "${1:-}" in
     ;;
   --w1-i12-revision-status-entry-contract-only)
     w1_i12_revision_status_entry_contract_only=1
+    ;;
+  --w1-i12-closure-contract-only)
+    w1_i12_closure_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -8628,6 +8632,203 @@ run_w1_i12_revision_status_entry_contract() {
     "W1I12RevisionStatusEntryNegativeCases = ${negative_cases}"
 }
 
+i12_closure_origin_sha="a25e791afaf5b6cc7dff0be4e304d4ec6dfe2bfc"
+i12_closure_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
+i12_closure_verifier_path="scripts/verify-wave1-implementation-cards"
+i12_closure_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md
+  docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md
+)
+
+read_i12_closure_verifier_constant() {
+  local name="$1" value
+  value="$(sed -n "s/^${name}=\"\([0-9a-f][0-9a-f]*\)\"$/\1/p" "${verifier}")"
+  [[ "${value}" =~ ^[0-9a-f]{40}$ ]] ||
+    fail "I12 closure verifier constant unavailable: ${name}"
+  printf '%s\n' "${value}"
+}
+
+new_i12_closure_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${i12_closure_origin_sha}"
+}
+
+materialize_i12_closure_governance() {
+  local fixture_root="$1" test_sha
+  test_sha="$(read_i12_closure_verifier_constant w1_i12_closure_test_sha)"
+  git -C "${repo_root}" show "${test_sha}:${i12_closure_test_path}" > \
+    "${fixture_root}/${i12_closure_test_path}"
+  chmod 755 "${fixture_root}/${i12_closure_test_path}"
+  git -C "${fixture_root}" add "${i12_closure_test_path}"
+  git -C "${fixture_root}" commit -qm "test: require W1-I12 closure"
+
+  cp -p "${repo_root}/${i12_closure_verifier_path}" \
+    "${fixture_root}/${i12_closure_verifier_path}"
+  chmod 755 "${fixture_root}/${i12_closure_verifier_path}"
+  git -C "${fixture_root}" add "${i12_closure_verifier_path}"
+  git -C "${fixture_root}" commit -qm "build: verify W1-I12 closure"
+}
+
+materialize_i12_closure_projection() {
+  local fixture_root="$1" shas=() path index
+  while IFS= read -r path; do
+    [[ -n "${path}" ]] && shas+=("${path}")
+  done < <(sed -n '/^w1_i12_closure_projection_blob_shas=(/,/^)/ {
+    s/^[[:space:]]*"\([0-9a-f][0-9a-f]*\)"[[:space:]]*$/\1/p
+  }' "${verifier}")
+  [[ "${#shas[@]}" -eq "${#i12_closure_projection_paths[@]}" ]] ||
+    fail "I12 closure projection manifest unavailable"
+  for index in "${!i12_closure_projection_paths[@]}"; do
+    path="${i12_closure_projection_paths[${index}]}"
+    git -C "${repo_root}" cat-file blob "${shas[${index}]}" > \
+      "${fixture_root}/${path}"
+  done
+  git -C "${fixture_root}" add "${i12_closure_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "docs: close W1-I12 and release W1-I13"
+}
+
+run_i12_closure_fixture_verifier() {
+  local fixture_root="$1"
+  shift
+  "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation" "$@"
+}
+
+expect_i12_closure_failure() {
+  local fixture_root="$1" expected="$2" output
+  shift 2
+  if output="$(run_i12_closure_fixture_verifier "${fixture_root}" "$@" 2>&1)"; then
+    fail "invalid I12 closure unexpectedly passed: ${expected}"
+  fi
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i12_closure_contract() {
+  local fixture_root governance_tip closure_sha output
+  local positive_cases=0 negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i12-closure-positive"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  materialize_i12_closure_projection "${fixture_root}"
+  closure_sha="$(git -C "${fixture_root}" rev-parse HEAD)"
+  output="$(run_i12_closure_fixture_verifier "${fixture_root}" \
+    --transition-base "${governance_tip}" --transition-head "${closure_sha}")" ||
+    fail "legal explicit I12 closure was rejected: ${output}"
+  assert_contains "${output}" 'W1I12ClosureStatus = PASS'
+  assert_contains "${output}" 'ActiveTaskCard = W1-I13'
+  positive_cases=$((positive_cases + 1))
+  output="$(run_i12_closure_fixture_verifier "${fixture_root}")" ||
+    fail "legal static I12 closure was rejected: ${output}"
+  assert_contains "${output}" 'ReadyTaskCardCount = 1'
+  positive_cases=$((positive_cases + 1))
+  printf '%s\n' 'I13 legal review descendant' >> \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-acceptance.md"
+  git -C "${fixture_root}" add \
+    docs/engineering/cognitura-wave-1-implementation-acceptance.md
+  git -C "${fixture_root}" commit -qm "docs: prepare W1-I13 review"
+  output="$(run_i12_closure_fixture_verifier "${fixture_root}")" ||
+    fail "legal I13 descendant was rejected: ${output}"
+  assert_contains "${output}" 'W1I12ClosureStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-closure-wrong-receipt"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  materialize_i12_closure_projection "${fixture_root}"
+  sed -i.bak 's/^ReviewedCandidate = .*/ReviewedCandidate = bad/' \
+    "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md"
+  rm "${fixture_root}/docs/engineering/cognitura-wave-1-implementation-plan.md.bak"
+  git -C "${fixture_root}" add \
+    docs/engineering/cognitura-wave-1-implementation-plan.md
+  git -C "${fixture_root}" commit --amend -qm "test: drift I12 receipt"
+  expect_i12_closure_failure "${fixture_root}" 'I12_CLOSURE_PROJECTION_INVALID:blob' \
+    --transition-base "${governance_tip}" --transition-head HEAD
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-closure-stale-limit"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  materialize_i12_closure_projection "${fixture_root}"
+  sed -i.bak 's/生产文件恰不超过 10（含正式 revision-status 例外）/生产文件恰不超过 8/' \
+    "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md"
+  rm "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md.bak"
+  git -C "${fixture_root}" add \
+    docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md
+  git -C "${fixture_root}" commit --amend -qm "test: retain stale I12 limit"
+  expect_i12_closure_failure "${fixture_root}" 'I12_CLOSURE_PROJECTION_INVALID:blob' \
+    --transition-base "${governance_tip}" --transition-head HEAD
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-closure-i13-authorization"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  materialize_i12_closure_projection "${fixture_root}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md" \
+    BusinessImplementationAuthorization REQUIRED_BEFORE_READY
+  git -C "${fixture_root}" add \
+    docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md
+  git -C "${fixture_root}" commit --amend -qm "test: withhold I13 authorization"
+  expect_i12_closure_failure "${fixture_root}" 'I12_CLOSURE_PROJECTION_INVALID:blob' \
+    --transition-base "${governance_tip}" --transition-head HEAD
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-closure-extra-path"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
+  materialize_i12_closure_projection "${fixture_root}"
+  printf '%s\n' 'I12 closure extra path' >> \
+    "${fixture_root}/docs/task-cards/README.md"
+  git -C "${fixture_root}" add docs/task-cards/README.md
+  git -C "${fixture_root}" commit --amend -qm "test: exceed I12 closure projection"
+  expect_i12_closure_failure "${fixture_root}" 'I12_CLOSURE_PROJECTION_INVALID:paths' \
+    --transition-base "${governance_tip}" --transition-head HEAD
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-closure-product-drift"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  printf '%s\n' '// forbidden I12 product drift' >> \
+    "${fixture_root}/web/src/modules/document-ingestion/api.ts"
+  git -C "${fixture_root}" add web/src/modules/document-ingestion/api.ts
+  git -C "${fixture_root}" commit --amend -qm "build: drift I12 product during closure"
+  expect_i12_closure_failure "${fixture_root}" 'I12_CLOSURE_GOVERNANCE_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-closure-post-write-set"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  materialize_i12_closure_projection "${fixture_root}"
+  printf '%s\n' 'post I12 closure drift' >> \
+    "${fixture_root}/docs/task-cards/wave-1/README.md"
+  git -C "${fixture_root}" add docs/task-cards/wave-1/README.md
+  git -C "${fixture_root}" commit -qm "test: exceed I13 WriteSet"
+  expect_i12_closure_failure "${fixture_root}" \
+    'I12_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 3 ]] || fail "I12 closure positive count mismatch"
+  [[ "${negative_cases}" -eq 6 ]] || fail "I12 closure negative count mismatch"
+  printf '%s\n' 'W1I12ClosureContractTests = PASS' \
+    "W1I12ClosurePositiveCases = ${positive_cases}" \
+    "W1I12ClosureNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i10_closure_contract_only}" == "1" ]]; then
   run_w1_i10_closure_contract
   exit 0
@@ -8650,6 +8851,11 @@ fi
 
 if [[ "${w1_i12_revision_status_entry_contract_only}" == "1" ]]; then
   run_w1_i12_revision_status_entry_contract
+  exit 0
+fi
+
+if [[ "${w1_i12_closure_contract_only}" == "1" ]]; then
+  run_w1_i12_closure_contract
   exit 0
 fi
 
@@ -8679,6 +8885,7 @@ run_w1_i11_persistence_rebaseline_contract
 run_w1_i11_migration_count_rebaseline_contract
 run_w1_i11_closure_contract
 run_w1_i12_revision_status_entry_contract
+run_w1_i12_closure_contract
 
 validation_output="$(
   "${verifier}" \
