@@ -161,4 +161,40 @@ describe("SourcePreview", () => {
       expect.objectContaining<Partial<SourceApiError>>({ code: "MALFORMED_RESPONSE" }),
     );
   });
+
+  it("preserves a formally valid empty table cell", async () => {
+    const response = {
+      ...partialPreview(),
+      items: [{
+        ...partialPreview().items[0],
+        blockType: "TABLE",
+        payload: {
+          rows: [{
+            rowIndex: 0,
+            cells: [{ columnIndex: 0, rowSpan: 1, columnSpan: 1, text: "" }],
+          }],
+        },
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(json(response)));
+
+    await expect(getPreview("source-a", "revision-a")).resolves.toMatchObject({
+      items: [{ payload: { rows: [{ cells: [{ text: "" }] }] } }],
+    });
+  });
+
+  it("preserves a formally valid empty paragraph", async () => {
+    const response = {
+      ...partialPreview(),
+      items: [{
+        ...partialPreview().items[1],
+        payload: { text: "", styleName: "Normal" },
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(json(response)));
+
+    await expect(getPreview("source-a", "revision-a")).resolves.toMatchObject({
+      items: [{ payload: { text: "" } }],
+    });
+  });
 });

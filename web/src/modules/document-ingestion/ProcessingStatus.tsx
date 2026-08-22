@@ -55,7 +55,7 @@ export function ProcessingStatus({
         <li className={processing ? "is-complete" : "is-current"}><span>2</span>解析结构</li>
         <li className={ready ? "is-complete" : processing ? "is-current" : ""}><span>3</span>核验预览</li>
       </ol>
-      {!processing ? (
+      {terminal ? null : !processing ? (
         <button className="cka-button cka-button--primary" onClick={onStart} disabled={busy}>
           {busy ? "正在检查…" : status === "VALIDATING" ? "检查并开始处理" : "开始处理"}
         </button>

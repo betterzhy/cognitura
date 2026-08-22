@@ -131,6 +131,11 @@ function textValue(value: unknown): string {
   return value;
 }
 
+function contentTextValue(value: unknown): string {
+  if (typeof value !== "string") throw new SourceApiError("MALFORMED_RESPONSE", false, "服务返回了无法识别的数据。");
+  return value;
+}
+
 function nullableText(value: unknown): string | null {
   return value === null ? null : textValue(value);
 }
@@ -185,11 +190,11 @@ function decodePayload(blockType: SourcePreviewItem["blockType"], value: unknown
   }
   if (blockType === "PARAGRAPH") {
     const payload = exact(value, ["text", "styleName"]);
-    return { text: textValue(payload.text), styleName: nullableText(payload.styleName) };
+    return { text: contentTextValue(payload.text), styleName: nullableText(payload.styleName) };
   }
   if (blockType === "LIST") {
     const payload = exact(value, ["listInstanceId", "itemLevel", "itemOrdinal", "markerText", "text"]);
-    return { listInstanceId: textValue(payload.listInstanceId), itemLevel: numberValue(payload.itemLevel), itemOrdinal: numberValue(payload.itemOrdinal), markerText: nullableText(payload.markerText), text: textValue(payload.text) };
+    return { listInstanceId: textValue(payload.listInstanceId), itemLevel: numberValue(payload.itemLevel), itemOrdinal: numberValue(payload.itemOrdinal), markerText: nullableText(payload.markerText), text: contentTextValue(payload.text) };
   }
   if (blockType === "TABLE") {
     const payload = exact(value, ["rows"]);
@@ -202,7 +207,7 @@ function decodePayload(blockType: SourcePreviewItem["blockType"], value: unknown
         const rowSpan = numberValue(cell.rowSpan);
         const columnSpan = numberValue(cell.columnSpan);
         if (rowSpan < 1 || columnSpan < 1) throw new SourceApiError("MALFORMED_RESPONSE", false, "服务返回了无法识别的数据。");
-        return { columnIndex: numberValue(cell.columnIndex), rowSpan, columnSpan, text: textValue(cell.text) };
+        return { columnIndex: numberValue(cell.columnIndex), rowSpan, columnSpan, text: contentTextValue(cell.text) };
       }) };
     }) };
   }

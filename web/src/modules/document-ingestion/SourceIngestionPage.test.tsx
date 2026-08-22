@@ -300,5 +300,13 @@ describe("ProcessingStatus", () => {
     rerender(<ProcessingStatus upload={uploadResponse} processing={processingResponse} revision={terminal} busy={false} {...actions} />);
     expect(screen.getByText("当前来源无法继续处理")).toBeVisible();
     expect(screen.queryByRole("button")).toBeNull();
+
+    const terminalUpload = {
+      ...uploadResponse,
+      sourceIngestionDisplayStatus: "TERMINAL_FAILURE" as const,
+    };
+    rerender(<ProcessingStatus upload={terminalUpload} processing={null} revision={null} busy={false} {...actions} />);
+    expect(screen.getByText("当前来源无法继续处理")).toBeVisible();
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });
