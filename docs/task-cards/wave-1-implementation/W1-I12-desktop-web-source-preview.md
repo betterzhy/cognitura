@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I12
 CardKind = IMPLEMENTATION
-Status = BLOCKED_BY_DEPENDENCY
+Status = READY
 Gate = W1-IG12 DesktopWebSourcePreview
 Risk = MEDIUM
 DependsOn = W1-I10,W1-I11
@@ -12,7 +12,7 @@ ProductionFileLimit = 8
 ProductionWriteSetException = NONE
 PositiveVerification = DESKTOP_UPLOAD_STATUS_PREVIEW_AND_PARTIAL_ACCEPTANCE_FLOW
 NegativeVerification = SECOND_FACT_MOBILE_EQUIVALENCE_AND_CROSS_MODULE_WRITE_REJECTED
-BusinessImplementationAuthorization = REQUIRED_BEFORE_READY
+BusinessImplementationAuthorization = USER_AUTHORIZED
 FormalDatabaseGate = NOT_APPLICABLE
 RemotePush = NOT_AUTHORIZED
 ReviewRoute = deep_reviewer
