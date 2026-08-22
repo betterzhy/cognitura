@@ -977,6 +977,9 @@ w1_i11_rebaseline_review_repair_test_sha="cced7e2cbd372163aee4617b5bfba9c7ec0e2e
 w1_i11_obsolete_oracle_repair_origin_sha="eb77596e7e78ee64d8f39c92b87b5af9519cd16f"
 w1_i11_obsolete_oracle_repair_spec_sha="1734171f0c90c95dd7a753219e397bbf2f183778"
 w1_i11_obsolete_oracle_repair_test_sha="5761fe4d0503a65e4ebad53cf55cb6a9e06dc82a"
+w1_i11_obsolete_isolation_repair_origin_sha="9f0ae38fa79b46ad7bcf0d26c3baf3dfdb1aa01d"
+w1_i11_obsolete_isolation_repair_spec_sha="d2cefa58a6be060ebd6bd73ea52c76a57c37481d"
+w1_i11_obsolete_isolation_repair_test_sha="c5421064dfa7af15b17f71dfe3afc70bbef03c7d"
 w1_i11_card_path="docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
@@ -1189,6 +1192,15 @@ w1_i11_obsolete_oracle_repair_paths=(
 w1_i11_obsolete_oracle_repair_evidence_shas=(
   "${w1_i11_obsolete_oracle_repair_spec_sha}"
   "${w1_i11_obsolete_oracle_repair_test_sha}"
+)
+w1_i11_obsolete_isolation_repair_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i11-obsolete-write-set-isolation-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i11_obsolete_isolation_repair_evidence_shas=(
+  "${w1_i11_obsolete_isolation_repair_spec_sha}"
+  "${w1_i11_obsolete_isolation_repair_test_sha}"
 )
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
@@ -8827,6 +8839,111 @@ route_w1_i11_obsolete_oracle_repair() {
     'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
 }
 
+validate_w1_i11_obsolete_isolation_repair() {
+  local tip="$1" commits=() commit parent previous changed_paths index
+  local expected_path expected_mode evidence_sha actual_blob expected_blob
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i11_obsolete_isolation_repair_origin_sha}" "${tip}" 2>/dev/null ||
+    fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:origin"
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i11_obsolete_isolation_repair_origin_sha}..${tip}")
+  [[ "${#commits[@]}" -eq 3 ]] ||
+    fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:exact three commits"
+  previous="${w1_i11_obsolete_isolation_repair_origin_sha}"
+  for index in "${!commits[@]}"; do
+    commit="${commits[${index}]}"
+    expected_path="${w1_i11_obsolete_isolation_repair_paths[${index}]}"
+    parent="$(single_parent_of "${commit}" \
+      "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] ||
+      fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] ||
+      fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:path"
+    case "${expected_path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+      *) expected_mode=100644 ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:NUL"
+    if [[ "${index}" -lt 2 ]]; then
+      evidence_sha="${w1_i11_obsolete_isolation_repair_evidence_shas[${index}]}"
+      actual_blob="$(git -C "${repo_root}" rev-parse "${commit}:${expected_path}" 2>/dev/null)" ||
+        fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:evidence"
+      expected_blob="$(git -C "${repo_root}" rev-parse "${evidence_sha}:${expected_path}" 2>/dev/null)" ||
+        fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:evidence"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:evidence"
+    fi
+    previous="${commit}"
+  done
+  validate_w1_i11_obsolete_oracle_repair \
+    "${w1_i11_obsolete_isolation_repair_origin_sha}"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i11_obsolete_isolation_repair_origin_sha}..${tip}" -- \
+    "${w1_i10_product_paths[@]}" "${w1_i10_closure_projection_paths[@]}" \
+    "${w1_i11_persistence_rebaseline_projection_paths[@]}" ||
+    fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:frozen bytes"
+}
+
+route_w1_i11_obsolete_isolation_repair() {
+  local route_commit="$1" correction_tip projection path
+  [[ -z "${transition_base}" ]] ||
+    fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:explicit transition unsupported"
+  correction_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i11_obsolete_isolation_repair_origin_sha}..${route_commit}" -- \
+    scripts/verify-wave1-implementation-cards | sed -n '1p')"
+  [[ -n "${correction_tip}" ]] ||
+    fail "I11_OBSOLETE_ISOLATION_REPAIR_INVALID:missing correction tip"
+  validate_w1_i11_obsolete_isolation_repair "${correction_tip}"
+  if [[ "${route_commit}" == "${correction_tip}" ]]; then
+    for path in "${w1_i11_obsolete_isolation_repair_paths[@]}" \
+        "${w1_i11_persistence_rebaseline_projection_paths[@]}"; do
+      git -C "${repo_root}" diff --quiet "${route_commit}" -- "${path}" ||
+        fail "I11_OBSOLETE_ISOLATION_REPAIR_WORKTREE_MISMATCH:${path}"
+    done
+    printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+      'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+      'ActiveTaskCard = W1-I11' 'ReadyTaskCardCount = 1' \
+      'W1I09RuntimeRebaselineStatus = PASS' 'W1I09ClosureStatus = PASS' \
+      'W1I10ClosureStatus = PASS' 'W1I10PostFixturePinStatus = PASS' \
+      'W1I11PersistenceRebaselineStatus = PENDING' \
+      'W1I11PersistenceRebaselineReviewFindingStatus = PASS' \
+      'W1I11ObsoleteWriteSetOracleStatus = PASS' \
+      'W1I11ObsoleteWriteSetIsolationStatus = PASS' \
+      'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+    return 0
+  fi
+  projection="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${correction_tip}..${route_commit}" | sed -n '1p')"
+  [[ -n "${projection}" ]] ||
+    fail "I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:missing"
+  validate_w1_i11_persistence_rebaseline_projection "${correction_tip}" "${projection}"
+  validate_post_w1_i11_persistence_rebaseline_descendants "${projection}" "${route_commit}"
+  for path in "${w1_i11_persistence_rebaseline_projection_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet "${projection}" -- "${path}" ||
+      fail "I11_PERSISTENCE_REBASELINE_WORKTREE_MISMATCH:${path}"
+  done
+  printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+    'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+    'ActiveTaskCard = W1-I11' 'ReadyTaskCardCount = 1' \
+    'W1I09RuntimeRebaselineStatus = PASS' 'W1I09ClosureStatus = PASS' \
+    'W1I10ClosureStatus = PASS' 'W1I10PostFixturePinStatus = PASS' \
+    'W1I11PersistenceRebaselineStatus = PASS' \
+    'W1I11PersistenceRebaselineReviewFindingStatus = PASS' \
+    'W1I11ObsoleteWriteSetOracleStatus = PASS' \
+    'W1I11ObsoleteWriteSetIsolationStatus = PASS' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -8878,6 +8995,18 @@ index_file="${cards_dir}/README.md"
 current_repository_head="$(git -C "${repo_root}" rev-parse --verify HEAD^{commit} 2>/dev/null)" ||
   fail "repository HEAD must resolve to a commit"
 if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
+  i11_obsolete_isolation_route_commit="${current_repository_head}"
+  [[ -n "${transition_base}" ]] && i11_obsolete_isolation_route_commit="${transition_base}"
+  if [[ "${i11_obsolete_isolation_route_commit}" != "${w1_i11_obsolete_isolation_repair_origin_sha}" ]] &&
+      git -C "${repo_root}" merge-base --is-ancestor \
+        "${w1_i11_obsolete_isolation_repair_origin_sha}" \
+        "${i11_obsolete_isolation_route_commit}" 2>/dev/null &&
+      [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+        "${w1_i11_obsolete_isolation_repair_origin_sha}..${i11_obsolete_isolation_route_commit}" -- \
+        "${w1_i11_obsolete_isolation_repair_paths[0]}" 2>/dev/null)" ]]; then
+    route_w1_i11_obsolete_isolation_repair "${i11_obsolete_isolation_route_commit}"
+    exit 0
+  fi
   i11_obsolete_oracle_route_commit="${current_repository_head}"
   [[ -n "${transition_base}" ]] && i11_obsolete_oracle_route_commit="${transition_base}"
   if [[ "${i11_obsolete_oracle_route_commit}" != "${w1_i11_obsolete_oracle_repair_origin_sha}" ]] &&
