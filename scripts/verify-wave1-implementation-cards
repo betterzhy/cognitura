@@ -1289,6 +1289,10 @@ w1_i12_revision_status_test_sha="c149082be4a71dfa3397b4d3c6383847b315b9b7"
 w1_i12_revision_status_finding_origin_sha="99e027d6158c3dbacccee0f258cf5b4308f5029e"
 w1_i12_revision_status_finding_spec_sha="79a6cc99e25379665a769223e2c1b0a64b1d2335"
 w1_i12_revision_status_finding_test_sha="b7665fa1c3776a45e59fe70c64e0fd1cac979612"
+w1_i12_closure_origin_sha="a25e791afaf5b6cc7dff0be4e304d4ec6dfe2bfc"
+w1_i12_closure_parent_sha="cabe75670dc8ca1072447cfe1a8f2e3372c90fcb"
+w1_i12_closure_tree_sha="eb0b7934643ac4e5f1fa819b24458d709ca2d89d"
+w1_i12_closure_test_sha="6a6d4818c58a98c7d2e255851e5140d0e9de654c"
 w1_i12_revision_status_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i12-revision-status-entry.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -1317,6 +1321,46 @@ w1_i12_product_paths=(
   server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java
   server/src/main/java/io/cognitura/source/api/query/SourcePreviewController.java
   server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java
+)
+w1_i12_closure_governance_paths=(
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i12_closure_projection_paths=(
+  AGENTS.md
+  README.md
+  docs/design/wave-1/README.md
+  docs/engineering/cognitura-design-index.md
+  docs/engineering/cognitura-wave-1-design-plan.md
+  docs/engineering/cognitura-wave-1-design-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1/README.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md
+  docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md
+)
+w1_i12_closure_projection_blob_shas=(
+  "74b73fbf52973230605ce033e09da0c3778b7b59"
+  "75b0973d83684907753d92ca400734b071dc732c"
+  "c4129d970a25b78e3deb6652e568560e6e379a54"
+  "07d89906fc4cfc63e40e95e43c57fd581a135ce2"
+  "e6f79626b99b193fc433690cbdd0d3ab6750ba62"
+  "3614858c7f8e586c457f0dae06370f250fec4523"
+  "a5b86b724db8d8d8fba1abbee74d3ea08eb7d7e1"
+  "05811428aa1088014aa083df816a41733f5374ad"
+  "58952f4e41e72690daa6d6bdb0f107e726a22779"
+  "64f1597dc7cb132215aa9cabd31699feaad8509c"
+  "5e74f978b775227649f9beff59000a2e884c0d8c"
+)
+w1_i13_product_paths=(
+  docs/engineering/cognitura-wave-1-implementation-acceptance.md
+  docs/engineering/cognitura-wave-1-implementation-plan.md
+  docs/task-cards/wave-1-implementation/README.md
+  docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md
+  AGENTS.md
+  README.md
+  docs/engineering/cognitura-design-index.md
+  docs/design/wave-1/README.md
 )
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
@@ -9978,6 +10022,190 @@ route_w1_i11_closure() {
     'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
 }
 
+is_w1_i13_product_path() {
+  local requested="$1" allowed
+  for allowed in "${w1_i13_product_paths[@]}"; do
+    [[ "${requested}" == "${allowed}" ]] && return 0
+  done
+  return 1
+}
+
+validate_w1_i12_closure_governance() {
+  local tip="$1" commits=() commit parent previous changed_paths index
+  local expected_path expected_mode actual_blob expected_blob
+  [[ "$(single_parent_of "${w1_i12_closure_origin_sha}" \
+      "I12_CLOSURE_PRODUCT_IDENTITY_INVALID:parent")" == \
+      "${w1_i12_closure_parent_sha}" ]] ||
+    fail "I12_CLOSURE_PRODUCT_IDENTITY_INVALID:parent"
+  [[ "$(git -C "${repo_root}" rev-parse \
+      "${w1_i12_closure_origin_sha}^{tree}")" == \
+      "${w1_i12_closure_tree_sha}" ]] ||
+    fail "I12_CLOSURE_PRODUCT_IDENTITY_INVALID:tree"
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i12_closure_origin_sha}..${tip}")
+  [[ "${#commits[@]}" -eq 2 ]] ||
+    fail "I12_CLOSURE_GOVERNANCE_INVALID:exact two commits"
+  previous="${w1_i12_closure_origin_sha}"
+  for index in "${!commits[@]}"; do
+    commit="${commits[${index}]}"
+    expected_path="${w1_i12_closure_governance_paths[${index}]}"
+    parent="$(single_parent_of "${commit}" \
+      "I12_CLOSURE_GOVERNANCE_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] ||
+      fail "I12_CLOSURE_GOVERNANCE_INVALID:order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I12_CLOSURE_GOVERNANCE_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I12_CLOSURE_GOVERNANCE_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] ||
+      fail "I12_CLOSURE_GOVERNANCE_INVALID:path"
+    expected_mode=100755
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "I12_CLOSURE_GOVERNANCE_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "I12_CLOSURE_GOVERNANCE_INVALID:NUL"
+    if [[ "${index}" -eq 0 ]]; then
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${expected_path}")"
+      expected_blob="$(git -C "${repo_root}" rev-parse \
+        "${w1_i12_closure_test_sha}:${expected_path}")"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I12_CLOSURE_GOVERNANCE_INVALID:evidence"
+    fi
+    previous="${commit}"
+  done
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i12_closure_origin_sha}..${tip}" -- \
+    "${w1_i12_product_paths[@]}" || fail "I12_CLOSURE_PRODUCT_DRIFT"
+}
+
+find_w1_i12_closure_receipt() {
+  local head="$1" commit parent parent_status status found=""
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i12_closure_origin_sha}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I12_CLOSURE_PROJECTION_INVALID:history")"
+    parent_status="$(git_tree_field "${parent}" \
+      docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md Status)"
+    status="$(git_tree_field "${commit}" \
+      docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md Status)"
+    if [[ "${parent_status}:${status}" == READY:DONE ]]; then
+      [[ -z "${found}" ]] || fail "I12_CLOSURE_PROJECTION_INVALID:duplicate"
+      found="${commit}"
+    fi
+  done
+  printf '%s\n' "${found}"
+}
+
+validate_w1_i12_closure_projection() {
+  local governance_tip="$1" receipt="$2" parent changed_paths expected_paths
+  local path index actual_blob
+  parent="$(single_parent_of "${receipt}" \
+    "I12_CLOSURE_PROJECTION_INVALID:single parent")"
+  [[ "${parent}" == "${governance_tip}" ]] ||
+    fail "I12_CLOSURE_PROJECTION_INVALID:direct child"
+  git -C "${repo_root}" diff-tree --quiet "${parent}" "${receipt}" &&
+    fail "I12_CLOSURE_PROJECTION_INVALID:empty"
+  require_no_git_rename_or_copy "${parent}" "${receipt}" \
+    "I12_CLOSURE_PROJECTION_INVALID:rename or copy"
+  changed_paths="$(git -C "${repo_root}" diff --name-only \
+    "${parent}..${receipt}" | LC_ALL=C sort)"
+  expected_paths="$(printf '%s\n' "${w1_i12_closure_projection_paths[@]}" | \
+    LC_ALL=C sort)"
+  [[ "${changed_paths}" == "${expected_paths}" ]] ||
+    fail "I12_CLOSURE_PROJECTION_INVALID:paths"
+  for index in "${!w1_i12_closure_projection_paths[@]}"; do
+    path="${w1_i12_closure_projection_paths[${index}]}"
+    [[ "$(git_tree_mode "${receipt}" "${path}")" == 100644 ]] ||
+      fail "I12_CLOSURE_PROJECTION_INVALID:mode:${path}"
+    require_git_blob_without_nul "${receipt}" "${path}" \
+      "I12_CLOSURE_PROJECTION_INVALID:NUL:${path}"
+    actual_blob="$(git -C "${repo_root}" rev-parse "${receipt}:${path}")"
+    [[ "${actual_blob}" == \
+        "${w1_i12_closure_projection_blob_shas[${index}]}" ]] ||
+      fail "I12_CLOSURE_PROJECTION_INVALID:blob:${path}"
+  done
+  [[ "$(git_tree_field "${receipt}" \
+      docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md Status)" == DONE &&
+     "$(git_tree_field "${receipt}" \
+      docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md Status)" == READY &&
+     "$(git_tree_field "${receipt}" \
+      docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md BusinessImplementationAuthorization)" == USER_AUTHORIZED &&
+     "$(git_tree_field "${receipt}" \
+      docs/task-cards/wave-1-implementation/README.md ReadyTaskCardCount)" == 1 ]] ||
+    fail "I12_CLOSURE_STATE_VECTOR_INVALID"
+  [[ "$(git_tree_field "${receipt}" \
+      docs/task-cards/wave-1-implementation/README.md FormalDatabaseWrite)" == NOT_AUTHORIZED &&
+     "$(git_tree_field "${receipt}" \
+      docs/task-cards/wave-1-implementation/README.md RemotePush)" == NOT_AUTHORIZED ]] ||
+    fail "I12_CLOSURE_AUTHORIZATION_INVALID"
+}
+
+validate_post_w1_i12_closure_descendants() {
+  local receipt="$1" head="$2" commit parent changed_paths path
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${receipt}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I12_CLOSURE_DESCENDANT_INVALID:single parent")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I12_CLOSURE_DESCENDANT_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I12_CLOSURE_DESCENDANT_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      is_w1_i13_product_path "${path}" ||
+        fail "I12_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET:${path}"
+      [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+        fail "I12_CLOSURE_DESCENDANT_INVALID:mode:${path}"
+      require_git_blob_without_nul "${commit}" "${path}" \
+        "I12_CLOSURE_DESCENDANT_INVALID:NUL:${path}"
+    done <<< "${changed_paths}"
+  done
+}
+
+route_w1_i12_closure() {
+  local route_commit="$1" governance_tip receipt
+  governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i12_closure_origin_sha}..${route_commit}" -- \
+    "${w1_i12_closure_governance_paths[1]}" | sed -n '1p')"
+  [[ -n "${governance_tip}" ]] ||
+    fail "I12_CLOSURE_GOVERNANCE_INVALID:missing verifier"
+  validate_w1_i12_closure_governance "${governance_tip}"
+  if [[ -n "${transition_base}" ]]; then
+    [[ "${transition_base}" == "${governance_tip}" ]] ||
+      fail "I12_CLOSURE_TRANSITION_INVALID:base"
+    validate_w1_i12_closure_projection "${governance_tip}" "${transition_head}"
+    printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+      'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+      'ActiveTaskCard = W1-I13' 'ReadyTaskCardCount = 1' \
+      'W1I12ClosureStatus = PASS' \
+      'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+    return 0
+  fi
+  if [[ "${route_commit}" == "${governance_tip}" ]]; then
+    printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+      'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+      'ActiveTaskCard = W1-I12' 'ReadyTaskCardCount = 1' \
+      'W1I12ClosureStatus = PENDING' \
+      'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+    return 0
+  fi
+  receipt="$(find_w1_i12_closure_receipt "${route_commit}")"
+  [[ -n "${receipt}" ]] || fail "I12_CLOSURE_PROJECTION_INVALID:missing"
+  validate_w1_i12_closure_projection "${governance_tip}" "${receipt}"
+  validate_post_w1_i12_closure_descendants "${receipt}" "${route_commit}"
+  printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+    'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+    'ActiveTaskCard = W1-I13' 'ReadyTaskCardCount = 1' \
+    'W1I12ClosureStatus = PASS' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -10029,6 +10257,17 @@ index_file="${cards_dir}/README.md"
 current_repository_head="$(git -C "${repo_root}" rev-parse --verify HEAD^{commit} 2>/dev/null)" ||
   fail "repository HEAD must resolve to a commit"
 if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
+  i12_closure_route_commit="${current_repository_head}"
+  [[ -n "${transition_base}" ]] && i12_closure_route_commit="${transition_base}"
+  if [[ "${i12_closure_route_commit}" != "${w1_i12_closure_origin_sha}" ]] &&
+      git -C "${repo_root}" merge-base --is-ancestor \
+        "${w1_i12_closure_origin_sha}" "${i12_closure_route_commit}" 2>/dev/null &&
+      [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+        "${w1_i12_closure_origin_sha}..${i12_closure_route_commit}" -- \
+        "${w1_i12_closure_governance_paths[0]}" 2>/dev/null)" ]]; then
+    route_w1_i12_closure "${i12_closure_route_commit}"
+    exit 0
+  fi
   i11_closure_route_commit="${current_repository_head}"
   [[ -n "${transition_base}" ]] && i11_closure_route_commit="${transition_base}"
   if [[ "${i11_closure_route_commit}" != "${w1_i11_closure_origin_sha}" ]] &&
@@ -11339,6 +11578,11 @@ docs/design/wave-1/README.md'
       expected_negative_verification='NONZERO_FINDING_SHA_DRIFT_AND_SCOPE_EXPANSION_REJECTED'
       expected_commit_message='docs: record Wave 1 implementation review'
       expected_card_digest='10b8dea3d10df63c9e94aad78400a1507d0a28ec88654d3149a7ae3807256a0f'
+      if [[ "${status}" == READY || "${status}" == DONE ]]; then
+        expected_route="deep_reviewer"
+        expected_positive_verification='FIXED_CANDIDATE_SINGLE_XHIGH_ZERO_FINDING_REVIEW'
+        expected_card_digest='d55e6b40abf56ed28b8763a38db2702f7bff844b0ca097315fb9eb10ab205189'
+      fi
       ;;
   esac
 
