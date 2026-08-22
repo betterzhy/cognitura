@@ -7,9 +7,9 @@ Status = READY
 Gate = W1-IG11 PartialAcceptanceCommandApi
 Risk = HIGH
 DependsOn = W1-I10
-PrimaryBoundary = SOURCE_HTTP_COMMAND
-ProductionFileLimit = 8
-ProductionWriteSetException = NONE
+PrimaryBoundary = SOURCE_PARTIAL_ACCEPTANCE_COMMAND
+ProductionFileLimit = 10
+ProductionWriteSetException = APPROVED_I11_PERSISTENCE_REBASELINE
 PositiveVerification = EXACT_REVISION_DIGEST_ACTOR_AND_IDEMPOTENCY_CONFIRMATION
 NegativeVerification = DIGEST_ACTOR_KEY_AND_REPEAT_CONFLICT_REJECTED
 BusinessImplementationAuthorization = USER_AUTHORIZED
@@ -27,23 +27,27 @@ ReviewRoute = deep_reviewer
 
 - I10 已 DONE，可读取 exact-revision preview 与正式 incomplete 元数据。
 - actor/Workspace 来自可信上下文，不能由请求体覆盖。
-- 本卡不修改 preview query 或 Web。
+- 本卡只为 ACCEPTED 兼容修改既有 preview query；不修改 Web。
 
 ## 3. 写集
 
 ```text
+WriteSet = server/src/main/resources/db/migration/V3__add_partial_acceptance_facts.sql
 WriteSet = server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceController.java
 WriteSet = server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceRequest.java
 WriteSet = server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceCommand.java
 WriteSet = server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceService.java
 WriteSet = server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptancePort.java
 WriteSet = server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceResponse.java
+WriteSet = server/src/main/java/io/cognitura/source/persistence/JdbcPartialAcceptancePort.java
+WriteSet = server/src/main/java/io/cognitura/source/runtime/SourceCommandRuntimeConfiguration.java
+WriteSet = server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java
 WriteSet = server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceControllerTest.java
 WriteSet = server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceServiceTest.java
-ForbiddenWriteSet = server/src/main/java/io/cognitura/source/api/query/**
-ForbiddenWriteSet = server/src/main/resources/db/migration/**
+WriteSet = server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java
 ForbiddenWriteSet = server/src/main/java/io/cognitura/source/docx/**
 ForbiddenWriteSet = web/**,raw/**,.idea/**
+ForbiddenWriteSet = FORMAL_DATABASE_CONNECTION_OR_WRITE
 ```
 
 ## 4. 执行步骤
@@ -55,7 +59,7 @@ ForbiddenWriteSet = web/**,raw/**,.idea/**
 ## 5. 验证命令
 
 ```bash
-./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.acceptance.*Test' test
+./mvnw -f server/pom.xml -Dtest='io.cognitura.source.api.acceptance.*Test,io.cognitura.source.api.query.SourcePreviewControllerTest' test
 scripts/verify-wave1-implementation
 git diff --check
 git status --short
@@ -63,8 +67,8 @@ git status --short
 
 ## 6. Gate 与完成定义
 
-完整 digest/actor/idempotency tuple、不可逆性、相同重放和冲突拒绝全部通过；无 query、
-Parser、migration 或 Web 改动。
+完整 digest/actor/idempotency tuple、不可逆性、相同重放、并发 CAS 和冲突拒绝全部通过；
+证据来自隔离 PostgreSQL 18.4，且无 Web、Parser 或正式数据库改动。
 
 ## 7. 提交与审查
 

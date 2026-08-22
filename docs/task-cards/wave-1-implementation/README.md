@@ -17,11 +17,12 @@ FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ImplementationGovernanceReviewedCandidate = 0211679431de535dd4d89a08257b54d8f4e0da82
 ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
+I11PersistenceRebaseline = PASS
 ```
 
 本集合落实已批准的 Wave 1 来源接入实现切片规格。bootstrap 已创建书面卡集并完成
 治理卡 I00。I01 已对固定候选 `6796079de8c919055ddc6538234254b50630a491`
-完成零发现深审并关闭；I02、I03、I04、I05、I06、I07、I08、I09 和 I10 已关闭，I11 已释放为唯一 `READY` 卡。
+完成零发现深审并关闭；I02、I03、I04、I05、I06、I07、I08、I09 和 I10 已关闭，I11 已完成持久化重基线并保持唯一 `READY` 卡。
 
 ## 1. 任务卡清单
 
