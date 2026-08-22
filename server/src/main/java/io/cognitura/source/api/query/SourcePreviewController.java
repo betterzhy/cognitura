@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
         havingValue = "true")
 @RequestMapping(
         "/api/v1/source-documents/{sourceDocumentId}/processing-revisions/"
-                + "{sourceProcessingRevisionId}/blocks")
+                + "{sourceProcessingRevisionId}")
 public final class SourcePreviewController {
 
     private final SourcePreviewQuery query;
@@ -30,6 +30,14 @@ public final class SourcePreviewController {
     }
 
     @GetMapping
+    public SourcePreviewQuery.RevisionStatus status(
+            @PathVariable String sourceDocumentId,
+            @PathVariable String sourceProcessingRevisionId) {
+        TrustedRequestContext context = contexts.currentContext();
+        return query.status(context, sourceDocumentId, sourceProcessingRevisionId);
+    }
+
+    @GetMapping("/blocks")
     public SourcePreviewPage preview(
             @PathVariable String sourceDocumentId,
             @PathVariable String sourceProcessingRevisionId,

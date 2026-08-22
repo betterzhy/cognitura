@@ -16,6 +16,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -52,6 +53,51 @@ public final class SourcePreviewQuery {
     public SourcePreviewQuery(DataSource dataSource, SourcePreviewCursor cursor) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.cursor = Objects.requireNonNull(cursor, "cursor");
+    }
+
+    public RevisionStatus status(
+            TrustedRequestContext context,
+            String sourceDocumentId,
+            String sourceProcessingRevisionId) {
+        Objects.requireNonNull(context, "context");
+        Header resolvedHeader = null;
+        try (Connection connection = dataSource.getConnection()) {
+            Header header = loadHeader(
+                    connection, context.workspaceId(),
+                    sourceDocumentId, sourceProcessingRevisionId);
+            resolvedHeader = header;
+            boolean published = "PARSED".equals(header.revisionStatus())
+                    || "PREVIEW_READY".equals(header.revisionStatus());
+            List<SourcePreviewPage.Omission> omissions = List.of();
+            if (published) {
+                PublishedSet publishedSet = loadPublishedSet(connection, header);
+                omissions = decodeOmissions(publishedSet.omissionsCanonical());
+                validateHeaderFacts(header, publishedSet, omissions);
+            } else {
+                validateUnpublishedStatusFacts(header);
+            }
+            return new RevisionStatus(
+                    sourceDocumentId,
+                    sourceProcessingRevisionId,
+                    header.parserProfileVersion(),
+                    header.revisionStatus(),
+                    displayStatus(header.revisionStatus()),
+                    header.parseCompleteness(),
+                    omissions,
+                    header.publishedDigest(),
+                    header.omissionsDigest(),
+                    header.partialAcceptanceStatus(),
+                    header.failureCode(),
+                    header.failureDetail(),
+                    header.startedAt(),
+                    header.completedAt());
+        } catch (PreviewException error) {
+            throw error;
+        } catch (SQLException | IllegalArgumentException error) {
+            throw resolvedHeader == null
+                    ? PreviewException.notFound()
+                    : PreviewException.notReady(sourceDocumentId, sourceProcessingRevisionId);
+        }
     }
 
     public SourcePreviewPage preview(
@@ -168,10 +214,13 @@ public final class SourcePreviewQuery {
             String sourceDocumentId,
             String revisionId) throws SQLException {
         try (PreparedStatement query = connection.prepareStatement("""
-                select document.original_file_name, revision.revision_status,
+                select document.original_file_name, revision.parser_profile_version,
+                       revision.revision_status,
                        revision.published_digest, revision.omissions_digest,
                        revision.parse_completeness,
-                       revision.partial_acceptance_status
+                       revision.partial_acceptance_status,
+                       revision.failure_code, revision.failure_detail,
+                       revision.started_at, revision.completed_at
                 from source_document document
                 join source_processing_revision revision
                   on revision.source_document_id = document.source_document_id
@@ -187,7 +236,10 @@ public final class SourcePreviewQuery {
                 Header header = new Header(
                         sourceDocumentId, revisionId, result.getString(1), result.getString(2),
                         result.getString(3), result.getString(4), result.getString(5),
-                        result.getString(6));
+                        result.getString(6), result.getString(7), result.getString(8),
+                        result.getString(9), result.getTimestamp(10).toInstant(),
+                        result.getTimestamp(11) == null
+                                ? null : result.getTimestamp(11).toInstant());
                 if (result.next()) throw PreviewException.notReady(sourceDocumentId, revisionId);
                 return header;
             }
@@ -300,6 +352,42 @@ public final class SourcePreviewQuery {
                         || "ACCEPTED".equals(header.partialAcceptanceStatus()))
                 && !omissions.isEmpty();
         if (!complete && !partial) throw factsInvalid();
+        if (header.failureCode() != null
+                || header.failureDetail() != null
+                || header.completedAt() == null) {
+            throw factsInvalid();
+        }
+    }
+
+    private static void validateUnpublishedStatusFacts(Header header) {
+        if (header.publishedDigest() != null
+                || header.omissionsDigest() != null
+                || header.parseCompleteness() != null
+                || header.partialAcceptanceStatus() != null) {
+            throw factsInvalid();
+        }
+        boolean parsing = "PARSING".equals(header.revisionStatus())
+                && header.failureCode() == null
+                && header.failureDetail() == null
+                && header.completedAt() == null;
+        boolean failed = ("FAILED_RETRYABLE".equals(header.revisionStatus())
+                        || "FAILED_TERMINAL".equals(header.revisionStatus()))
+                && header.failureCode() != null
+                && !header.failureCode().isBlank()
+                && header.failureDetail() != null
+                && !header.failureDetail().isBlank()
+                && header.completedAt() != null;
+        if (!parsing && !failed) throw factsInvalid();
+    }
+
+    private static String displayStatus(String revisionStatus) {
+        return switch (revisionStatus) {
+            case "PARSING", "PARSED" -> "PARSING";
+            case "PREVIEW_READY" -> "PREVIEW_READY";
+            case "FAILED_RETRYABLE" -> "RETRYABLE_FAILURE";
+            case "FAILED_TERMINAL" -> "TERMINAL_FAILURE";
+            default -> throw factsInvalid();
+        };
     }
 
     private static int countBlocks(Connection connection, Header header) throws SQLException {
@@ -414,15 +502,40 @@ public final class SourcePreviewQuery {
         return new IllegalArgumentException("PREVIEW_FACTS_INVALID");
     }
 
+    public record RevisionStatus(
+            String sourceDocumentId,
+            String sourceProcessingRevisionId,
+            String parserProfileVersion,
+            String sourceProcessingRevisionStatus,
+            String sourceIngestionDisplayStatus,
+            String parseCompleteness,
+            List<SourcePreviewPage.Omission> omissions,
+            String publishedBlockSetDigest,
+            String omissionsDigest,
+            String partialAcceptanceStatus,
+            String failureCode,
+            String failureDetail,
+            Instant startedAt,
+            Instant completedAt) {
+        public RevisionStatus {
+            omissions = List.copyOf(Objects.requireNonNull(omissions, "omissions"));
+        }
+    }
+
     private record Header(
             String sourceDocumentId,
             String revisionId,
             String originalFileName,
+            String parserProfileVersion,
             String revisionStatus,
             String publishedDigest,
             String omissionsDigest,
             String parseCompleteness,
-            String partialAcceptanceStatus) {}
+            String partialAcceptanceStatus,
+            String failureCode,
+            String failureDetail,
+            Instant startedAt,
+            Instant completedAt) {}
 
     private record PublishedSet(
             String blockSetDigest,
