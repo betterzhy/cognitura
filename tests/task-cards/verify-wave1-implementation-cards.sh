@@ -37,6 +37,7 @@ w1_i09_v2_compatibility_contract_only=0
 w1_i09_final_review_finding_contract_only=0
 w1_i09_closure_contract_only=0
 w1_i10_closure_contract_only=0
+w1_i11_persistence_rebaseline_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -93,6 +94,9 @@ case "${1:-}" in
     ;;
   --w1-i10-closure-contract-only)
     w1_i10_closure_contract_only=1
+    ;;
+  --w1-i11-persistence-rebaseline-contract-only)
+    w1_i11_persistence_rebaseline_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -7496,8 +7500,239 @@ run_w1_i10_closure_contract() {
     "W1I10ClosureNegativeCases = ${negative_cases}"
 }
 
+i11_rebaseline_origin_sha="b99f20feaa47f36aeb49e05a070bfb3c73615ac0"
+i11_rebaseline_spec_sha="55e0665c0b63d8082b269f3f891252dfc6f5f8f6"
+i11_rebaseline_plan_sha="a7788d805d7d38fcbbb2d585cafa2c394300db7c"
+i11_rebaseline_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i11-persistence-rebaseline-design.md"
+i11_rebaseline_plan_path="docs/superpowers/plans/2026-08-22-cognitura-w1-i11-persistence-rebaseline.md"
+i11_rebaseline_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
+i11_rebaseline_verifier_path="scripts/verify-wave1-implementation-cards"
+i11_rebaseline_index_path="docs/task-cards/wave-1-implementation/README.md"
+i11_rebaseline_card_path="docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md"
+i11_rebaseline_projection_paths=(
+  "${i11_rebaseline_index_path}"
+  "${i11_rebaseline_card_path}"
+)
+i11_rebaseline_product_paths=(
+  server/src/main/resources/db/migration/V3__add_partial_acceptance_facts.sql
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceController.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceRequest.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceCommand.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceService.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptancePort.java
+  server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceResponse.java
+  server/src/main/java/io/cognitura/source/persistence/JdbcPartialAcceptancePort.java
+  server/src/main/java/io/cognitura/source/runtime/SourceCommandRuntimeConfiguration.java
+  server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java
+  server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceControllerTest.java
+  server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceServiceTest.java
+  server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java
+)
+
+new_i11_rebaseline_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach "${i11_rebaseline_origin_sha}"
+  git -C "${fixture_root}" config user.name "Cognitura Contract Test"
+  git -C "${fixture_root}" config user.email "contract-test@cognitura.invalid"
+}
+
+materialize_i11_rebaseline_governance() {
+  local fixture_root="$1" drift="${2:-none}"
+  mkdir -p "${fixture_root}/$(dirname "${i11_rebaseline_spec_path}")"
+  git -C "${repo_root}" show \
+    "${i11_rebaseline_spec_sha}:${i11_rebaseline_spec_path}" > \
+    "${fixture_root}/${i11_rebaseline_spec_path}"
+  [[ "${drift}" != spec ]] || printf '%s\n' 'drift' >> \
+    "${fixture_root}/${i11_rebaseline_spec_path}"
+  git -C "${fixture_root}" add "${i11_rebaseline_spec_path}"
+  git -C "${fixture_root}" commit -qm "docs: design W1-I11 persistence rebaseline"
+
+  mkdir -p "${fixture_root}/$(dirname "${i11_rebaseline_plan_path}")"
+  git -C "${repo_root}" show \
+    "${i11_rebaseline_plan_sha}:${i11_rebaseline_plan_path}" > \
+    "${fixture_root}/${i11_rebaseline_plan_path}"
+  [[ "${drift}" != plan ]] || printf '%s\n' 'drift' >> \
+    "${fixture_root}/${i11_rebaseline_plan_path}"
+  git -C "${fixture_root}" add "${i11_rebaseline_plan_path}"
+  git -C "${fixture_root}" commit -qm "docs: plan W1-I11 persistence rebaseline"
+
+  cp -p "${repo_root}/${i11_rebaseline_test_path}" \
+    "${fixture_root}/${i11_rebaseline_test_path}"
+  chmod 755 "${fixture_root}/${i11_rebaseline_test_path}"
+  git -C "${fixture_root}" add "${i11_rebaseline_test_path}"
+  git -C "${fixture_root}" commit -qm "test: require W1-I11 persistence rebaseline"
+
+  cp -p "${repo_root}/${i11_rebaseline_verifier_path}" \
+    "${fixture_root}/${i11_rebaseline_verifier_path}"
+  chmod 755 "${fixture_root}/${i11_rebaseline_verifier_path}"
+  if git -C "${fixture_root}" diff --quiet -- "${i11_rebaseline_verifier_path}"; then
+    printf '%s\n' '# pending W1-I11 persistence rebaseline verifier' >> \
+      "${fixture_root}/${i11_rebaseline_verifier_path}"
+  fi
+  git -C "${fixture_root}" add "${i11_rebaseline_verifier_path}"
+  git -C "${fixture_root}" commit -qm "build: verify W1-I11 persistence rebaseline"
+}
+
+make_i11_rebaseline_projection() {
+  local fixture_root="$1" card index write_set forbidden_set validation_block
+  card="${fixture_root}/${i11_rebaseline_card_path}"
+  index="${fixture_root}/${i11_rebaseline_index_path}"
+  write_set="$(printf '%s\n' "${i11_rebaseline_product_paths[@]}" | sed 's/^/WriteSet = /')"
+  forbidden_set="$(printf '%s\n' \
+    'ForbiddenWriteSet = server/src/main/java/io/cognitura/source/docx/**' \
+    'ForbiddenWriteSet = web/**,raw/**,.idea/**' \
+    'ForbiddenWriteSet = FORMAL_DATABASE_CONNECTION_OR_WRITE')"
+  validation_block="$(printf '%s\n' \
+    './mvnw -f server/pom.xml -Dtest='\''io.cognitura.source.api.acceptance.*Test,io.cognitura.source.api.query.SourcePreviewControllerTest'\'' test' \
+    'scripts/verify-wave1-implementation' \
+    'git diff --check' \
+    'git status --short')"
+
+  set_field "${card}" PrimaryBoundary SOURCE_PARTIAL_ACCEPTANCE_COMMAND
+  set_field "${card}" ProductionFileLimit 10
+  set_field "${card}" ProductionWriteSetException APPROVED_I11_PERSISTENCE_REBASELINE
+  I11_WRITE_SET="${write_set}" perl -0777 -i.bak -pe \
+    's/(?:^WriteSet = .*\n)+/$ENV{I11_WRITE_SET}."\n"/mge' "${card}"
+  rm "${card}.bak"
+  I11_FORBIDDEN_SET="${forbidden_set}" perl -0777 -i.bak -pe \
+    's/(?:^ForbiddenWriteSet = .*\n)+/$ENV{I11_FORBIDDEN_SET}."\n"/mge' "${card}"
+  rm "${card}.bak"
+  replace_i10_closure_projection_text "${card}" \
+    '本卡不修改 preview query 或 Web。' \
+    '本卡只为 ACCEPTED 兼容修改既有 preview query；不修改 Web。'
+  I11_VALIDATION_BLOCK="${validation_block}" perl -0777 -i.bak -pe \
+    's#(?<=```bash\n).*?(?=```\n\n## 6\.)#$ENV{I11_VALIDATION_BLOCK}."\n"#se' "${card}"
+  rm "${card}.bak"
+  replace_i10_closure_projection_text "${card}" \
+    '完整 digest/actor/idempotency tuple、不可逆性、相同重放和冲突拒绝全部通过；无 query、\nParser、migration 或 Web 改动。' \
+    '完整 digest/actor/idempotency tuple、不可逆性、相同重放、并发 CAS 和冲突拒绝全部通过；\n证据来自隔离 PostgreSQL 18.4，且无 Web、Parser 或正式数据库改动。'
+
+  perl -i.bak -pe \
+    'if (/^ImplementationGovernanceReviewVerdict = /) { $_ .= "I11PersistenceRebaseline = PASS\n" }' \
+    "${index}"
+  rm "${index}.bak"
+  replace_i10_closure_projection_text "${index}" \
+    '完成零发现深审并关闭；I02、I03、I04、I05、I06、I07、I08、I09 和 I10 已关闭，I11 已释放为唯一 `READY` 卡。' \
+    '完成零发现深审并关闭；I02、I03、I04、I05、I06、I07、I08、I09 和 I10 已关闭，I11 已完成持久化重基线并保持唯一 `READY` 卡。'
+}
+
+commit_i11_rebaseline_projection() {
+  local fixture_root="$1"
+  make_i11_rebaseline_projection "${fixture_root}"
+  git -C "${fixture_root}" add "${i11_rebaseline_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "docs: rebaseline W1-I11 persistence WriteSet"
+}
+
+run_i11_rebaseline_fixture_verifier() {
+  local fixture_root="$1"
+  "${verifier}" --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+expect_i11_rebaseline_failure() {
+  local fixture_root="$1" expected="$2" output
+  if output="$(run_i11_rebaseline_fixture_verifier "${fixture_root}" 2>&1)"; then
+    fail "invalid I11 persistence rebaseline unexpectedly passed: ${expected}"
+  fi
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i11_persistence_rebaseline_contract() {
+  local fixture_root output
+  local positive_cases=0 negative_cases=0
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-pending"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}"
+  output="$(run_i11_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I11 persistence governance was rejected: ${output}"
+  assert_contains "${output}" 'W1I11PersistenceRebaselineStatus = PENDING'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-projected"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}"
+  commit_i11_rebaseline_projection "${fixture_root}"
+  output="$(run_i11_rebaseline_fixture_verifier "${fixture_root}")" ||
+    fail "legal I11 persistence projection was rejected: ${output}"
+  assert_contains "${output}" 'W1I11PersistenceRebaselineStatus = PASS'
+  assert_contains "${output}" 'ActiveTaskCard = W1-I11'
+  positive_cases=$((positive_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-spec-drift"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}" spec
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:evidence'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-plan-drift"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}" plan
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_INVALID:evidence'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-auth-drift"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}"
+  make_i11_rebaseline_projection "${fixture_root}"
+  set_field "${fixture_root}/${i11_rebaseline_card_path}" FormalDatabaseGate PASS
+  git -C "${fixture_root}" add "${i11_rebaseline_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: drift I11 database boundary"
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-extra-projection"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}"
+  make_i11_rebaseline_projection "${fixture_root}"
+  printf '%s\n' 'forbidden projection path' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add "${i11_rebaseline_projection_paths[@]}" README.md
+  git -C "${fixture_root}" commit -qm "test: exceed I11 rebaseline projection"
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:exact paths'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-mode"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}"
+  make_i11_rebaseline_projection "${fixture_root}"
+  chmod 755 "${fixture_root}/${i11_rebaseline_card_path}"
+  git -C "${fixture_root}" add "${i11_rebaseline_projection_paths[@]}"
+  git -C "${fixture_root}" commit -qm "test: drift I11 projection mode"
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_PROJECTION_PATHS_INVALID:mode'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i11-rebaseline-post-outside"
+  new_i11_rebaseline_fixture "${fixture_root}"
+  materialize_i11_rebaseline_governance "${fixture_root}"
+  commit_i11_rebaseline_projection "${fixture_root}"
+  printf '%s\n' 'forbidden post rebaseline path' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add README.md
+  git -C "${fixture_root}" commit -qm "test: exceed I11 product WriteSet"
+  expect_i11_rebaseline_failure "${fixture_root}" \
+    'I11_PERSISTENCE_REBASELINE_DESCENDANT_OUTSIDE_WRITE_SET'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] || fail "I11 rebaseline positive count mismatch"
+  [[ "${negative_cases}" -eq 6 ]] || fail "I11 rebaseline negative count mismatch"
+  printf '%s\n' \
+    'W1I11PersistenceRebaselineContractTests = PASS' \
+    "W1I11PersistenceRebaselinePositiveCases = ${positive_cases}" \
+    "W1I11PersistenceRebaselineNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i10_closure_contract_only}" == "1" ]]; then
   run_w1_i10_closure_contract
+  exit 0
+fi
+
+if [[ "${w1_i11_persistence_rebaseline_contract_only}" == "1" ]]; then
+  run_w1_i11_persistence_rebaseline_contract
   exit 0
 fi
 
@@ -7523,6 +7758,7 @@ run_w1_i09_v2_compatibility_contract
 run_w1_i09_final_review_finding_contract
 run_w1_i09_closure_contract
 run_w1_i10_closure_contract
+run_w1_i11_persistence_rebaseline_contract
 
 validation_output="$(
   "${verifier}" \
