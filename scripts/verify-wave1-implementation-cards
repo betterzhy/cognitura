@@ -939,6 +939,8 @@ w1_i09_fixture_diagnostic_spec_sha="7030dd87403f496469e6a436ec9119ed57afdb07"
 w1_i09_focused_current_origin_sha="3b480adb23986b69b098cc0863c3dcae7824831f"
 w1_i09_focused_current_spec_sha="59276808f9864ea024160f890be712b0217b944e"
 w1_i09_focused_current_test_sha="6bfd693f420a0c1b046ec51c2b861acb542922d7"
+w1_i09_i08_fixture_pin_origin_sha="319c6b2ace258330c21036a5c86c56cf6431ecd2"
+w1_i09_i08_fixture_pin_test_sha="3730eb5c71862f51659bd68e4066c392815d5cef"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -987,6 +989,10 @@ w1_i09_fixture_diagnostic_paths=(
 )
 w1_i09_focused_current_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-focused-current-state-finding.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i09_i08_fixture_pin_paths=(
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
 )
@@ -6435,6 +6441,7 @@ validate_post_w1_i09_runtime_projection_descendants() {
   local v2_compatibility_steps=0 v2_compatibility_product_seen=0
   local post_product_fixture_steps=0 post_product_fixture_seen=0
   local fixture_diagnostic_steps=0 focused_current_steps=0
+  local i08_fixture_pin_state="BEFORE"
   local bridge_projection=""
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
@@ -6445,6 +6452,36 @@ validate_post_w1_i09_runtime_projection_descendants() {
       fail "I09_RUNTIME_REBASELINE_PRODUCT_INVALID:empty"
     changed_paths="$(git -C "${repo_root}" diff --name-only \
       "${parent}..${commit}")"
+
+    if [[ "${commit}" == "${w1_i09_i08_fixture_pin_test_sha}" ]]; then
+      [[ "${i08_fixture_pin_state}" == "BEFORE" && \
+         "${parent}" == "${w1_i09_i08_fixture_pin_origin_sha}" ]] ||
+        fail "I09_I08_FIXTURE_PIN_INVALID:order"
+      expected_path="${w1_i09_i08_fixture_pin_paths[0]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_I08_FIXTURE_PIN_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_I08_FIXTURE_PIN_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_I08_FIXTURE_PIN_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_I08_FIXTURE_PIN_INVALID:NUL"
+      i08_fixture_pin_state="TEST"
+      continue
+    fi
+    if [[ "${i08_fixture_pin_state}" == "TEST" ]]; then
+      expected_path="${w1_i09_i08_fixture_pin_paths[1]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_I08_FIXTURE_PIN_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_I08_FIXTURE_PIN_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_I08_FIXTURE_PIN_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_I08_FIXTURE_PIN_INVALID:NUL"
+      i08_fixture_pin_state="COMPLETE"
+      continue
+    fi
 
     if [[ "${commit}" == "${w1_i09_product_copy_repair_spec_sha}" ]]; then
       [[ "${copy_repair_state}" == "ORIGIN" && \
@@ -7124,6 +7161,8 @@ validate_post_w1_i09_runtime_projection_descendants() {
         fail "I09_FOCUSED_CURRENT_FINDING_INVALID:missing verifier"
       ;;
   esac
+  [[ "${i08_fixture_pin_state}" != "TEST" ]] ||
+    fail "I09_I08_FIXTURE_PIN_INVALID:missing verifier"
   if [[ -z "${bridge_projection}" ]]; then
     bridge_projection="${projection}"
   fi
