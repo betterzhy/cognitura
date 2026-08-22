@@ -8389,6 +8389,19 @@ run_w1_i11_closure_contract() {
     --transition-base "${governance_tip}" --transition-head HEAD
   negative_cases=$((negative_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i11-closure-product-byte-drift"
+  new_i11_closure_fixture "${fixture_root}"
+  materialize_i11_closure_governance "${fixture_root}"
+  printf '%s\n' '-- forbidden I11 product drift' >> \
+    "${fixture_root}/server/src/main/resources/db/migration/V3__add_partial_acceptance_facts.sql"
+  git -C "${fixture_root}" add \
+    server/src/main/resources/db/migration/V3__add_partial_acceptance_facts.sql
+  git -C "${fixture_root}" commit --amend -qm \
+    "build: drift I11 product during closure governance"
+  expect_i11_closure_failure "${fixture_root}" \
+    'I11_CLOSURE_GOVERNANCE_CHAIN_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
   fixture_root="${test_tmp_root}/w1-i11-closure-post-write-set"
   new_i11_closure_fixture "${fixture_root}"
   materialize_i11_closure_governance "${fixture_root}"
@@ -8402,7 +8415,7 @@ run_w1_i11_closure_contract() {
   negative_cases=$((negative_cases + 1))
 
   [[ "${positive_cases}" -eq 2 ]] || fail "I11 closure positive count mismatch"
-  [[ "${negative_cases}" -eq 8 ]] || fail "I11 closure negative count mismatch"
+  [[ "${negative_cases}" -eq 9 ]] || fail "I11 closure negative count mismatch"
   printf '%s\n' 'W1I11ClosureContractTests = PASS' \
     "W1I11ClosurePositiveCases = ${positive_cases}" \
     "W1I11ClosureNegativeCases = ${negative_cases}"
