@@ -5,7 +5,7 @@ CanonicalProjectName = Cognitura
 TaskCardSet = WAVE1_IMPLEMENTATION
 TaskCardIDs = W1-I00,W1-I01,W1-I02,W1-I03,W1-I04,W1-I05,W1-I06,W1-I07,W1-I08,W1-I09,W1-I10,W1-I11,W1-I12,W1-I13
 TaskCardCount = 14
-ActiveTaskCard = W1-I12
+ActiveTaskCard = W1-I13
 TaskCardSetStatus = READY_FOR_EXECUTION
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
@@ -22,7 +22,7 @@ I11PersistenceRebaseline = PASS
 
 本集合落实已批准的 Wave 1 来源接入实现切片规格。bootstrap 已创建书面卡集并完成
 治理卡 I00。I01 已对固定候选 `6796079de8c919055ddc6538234254b50630a491`
-完成零发现深审并关闭；I02、I03、I04、I05、I06、I07、I08、I09、I10 和 I11 已关闭，I12 已释放为唯一 `READY` 卡。
+完成零发现深审并关闭；I02、I03、I04、I05、I06、I07、I08、I09、I10、I11 和 I12 已关闭，I13 已释放为唯一 `READY` 卡。
 
 ## 1. 任务卡清单
 
@@ -40,8 +40,8 @@ I11PersistenceRebaseline = PASS
 | `W1-I09` | [上传与处理命令](W1-I09-upload-processing-command-api.md) | `DONE` | `W1-I07` | `W1-IG9` | `HIGH` |
 | `W1-I10` | [来源预览查询](W1-I10-source-preview-query-api.md) | `DONE` | `W1-I08,W1-I09` | `W1-IG10` | `HIGH` |
 | `W1-I11` | [Partial acceptance](W1-I11-partial-acceptance-command-api.md) | `DONE` | `W1-I10` | `W1-IG11` | `HIGH` |
-| `W1-I12` | [Desktop Web 预览](W1-I12-desktop-web-source-preview.md) | `READY` | `W1-I10,W1-I11` | `W1-IG12` | `MEDIUM` |
-| `W1-I13` | [固定实现复核](W1-I13-fixed-implementation-review.md) | `BLOCKED_BY_DEPENDENCY` | `W1-I00..W1-I12` | `W1-IG13` | `HIGH` |
+| `W1-I12` | [Desktop Web 预览](W1-I12-desktop-web-source-preview.md) | `DONE` | `W1-I10,W1-I11` | `W1-IG12` | `MEDIUM` |
+| `W1-I13` | [固定实现复核](W1-I13-fixed-implementation-review.md) | `READY` | `W1-I00..W1-I12` | `W1-IG13` | `HIGH` |
 
 ## 2. 依赖与授权
 

@@ -7,7 +7,7 @@ FormalDesignAuthority = docs/design/wave-1/README.md
 TaskCardAuthority = docs/task-cards/wave-1-implementation/README.md
 TaskCardCount = 14
 TaskCardSetStatus = READY_FOR_EXECUTION
-ActiveTaskCard = W1-I12
+ActiveTaskCard = W1-I13
 SuspendedTaskCard = NONE
 SuspendedCandidateSHA = NONE
 SuspendedCandidateMutation = NONE
@@ -20,7 +20,7 @@ ImplementationGovernanceReviewVerdict = GO_P0_0_P1_0_P2_0
 
 本文只投影已经批准的 Wave 1 来源接入设计和实现切片，不覆盖正式合同、总体设计或
 Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、I03、I04、I05、I06 和 I07 已完成固定候选
-零发现深审并关闭；I08、I09、I10 和 I11 已关闭，I12 已释放为唯一 `READY` 卡。
+零发现深审并关闭；I08、I09、I10、I11 和 I12 已关闭，I13 已释放为唯一 `READY` 卡。
 
 ## 1. 实现卡
 
@@ -38,8 +38,8 @@ Schema 基线。非业务治理卡 I00 和来源领域卡 I01 已关闭；I02、
 | `W1-I09` | Upload/processing command API | `I07` | `DONE` |
 | `W1-I10` | Preview query API | `I08,I09` | `DONE` |
 | `W1-I11` | Partial acceptance command | `I10` | `DONE` |
-| `W1-I12` | Desktop Web source preview | `I10,I11` | `READY` |
-| `W1-I13` | Fixed implementation review | `I00..I12` | `BLOCKED_BY_DEPENDENCY` |
+| `W1-I12` | Desktop Web source preview | `I10,I11` | `DONE` |
+| `W1-I13` | Fixed implementation review | `I00..I12` | `READY` |
 
 ## 2. 依赖图
 
@@ -420,6 +420,27 @@ P1 = 0
 P2 = 0
 Ultra = NOT_RUN
 I11ClosureReleasedTaskCard = W1-I12
+FormalDatabaseWrite = NOT_AUTHORIZED
+RemotePush = NOT_AUTHORIZED
+```
+
+## 22. I12 关闭收据
+
+```text
+W1-I12 = DONE
+ReviewedCandidate = a25e791afaf5b6cc7dff0be4e304d4ec6dfe2bfc
+ReviewedParent = cabe75647b1a7f5dfe799db054e6725bda872892
+ReviewedTree = eb0b793a42a316cc4715e7ff6c3b18a6ffd7e1d1
+ReviewLevel = L3
+ReviewRoute = deep_reviewer
+ReviewEffort = xhigh
+ReviewMultiplicity = ONE
+ReviewVerdict = GO
+P0 = 0
+P1 = 0
+P2 = 0
+Ultra = NOT_RUN
+I12ClosureReleasedTaskCard = W1-I13
 FormalDatabaseWrite = NOT_AUTHORIZED
 RemotePush = NOT_AUTHORIZED
 ```

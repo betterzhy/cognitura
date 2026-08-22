@@ -53,7 +53,7 @@ HighFidelityVisualValidation = PASS
 HighFidelityUsabilityValidation = PASS
 HighFidelityStateAcceptance = PASS
 ImplementationValidation = NOT_RUN
-ActiveImplementationTaskCard = W1-I12
+ActiveImplementationTaskCard = W1-I13
 VisualStyleBaselineExecutionStateAuthority = docs/task-cards/visual-style-baseline/execution-state.md
 VisualStyleBaselineTaskCardSet = GOVERNED_BY_EXECUTION_STATE
 VisualStyleBaselineImplementationEntry = GOVERNED_BY_EXECUTION_STATE
@@ -74,7 +74,7 @@ Wave 0 已完成 Repository、设计索引、专项契约覆盖、JSON Schema、
 实现切片书面规格均已获用户批准；14 张实现卡已经 bootstrap，非业务治理卡 I00
 已完成固定候选零发现深审并关闭。用户已授权现有卡集持续串行实施；`W1-I01`
 已对固定候选 `6796079de8c919055ddc6538234254b50630a491` 完成零发现深审并关闭，
-`W1-I02`、`W1-I07`、`W1-I08`、`W1-I09`、`W1-I10` 和 `W1-I11` 已完成固定候选零发现深审并关闭；`W1-I12` 已作为唯一 `READY` 卡释放。
+`W1-I02`、`W1-I07`、`W1-I08`、`W1-I09`、`W1-I10`、`W1-I11` 和 `W1-I12` 已完成固定候选零发现深审并关闭；`W1-I13` 已作为唯一 `READY` 卡释放。
 Visual Style Baseline 的唯一可变运行态由
 `docs/task-cards/visual-style-baseline/execution-state.md` 管理。
 
@@ -97,7 +97,7 @@ Visual Style Baseline 的唯一可变运行态由
 `62da1bc08a932bbfc76769a2add984dcec4160b7` 完成两个独立
 `gpt-5.6-sol/high` 零发现审查并关闭整体视觉与可用性阶段。其视觉晋级未授权业务
 实现、正式数据库写入或远程推送；后续 bootstrap 授权已完成并关闭非业务治理卡
-I00、I01、I02、I03、I04、I05、I06、I07、I08、I09、I10 和 I11 已关闭；I12 为唯一 `READY` 卡。
+I00、I01、I02、I03、I04、I05、I06、I07、I08、I09、I10、I11 和 I12 已关闭；I13 为唯一 `READY` 卡。
 开发入口仅由 `docs/engineering/cognitura-development-entry-prompt.md` 提供下一会话的
 书面任务卡规划提示。该提示现已用于建立独立的 `MDR-I00..MDR-I08` 书面卡集；
 卡片文本和自动串行治理规格现已获用户批准；唯一可变运行态由

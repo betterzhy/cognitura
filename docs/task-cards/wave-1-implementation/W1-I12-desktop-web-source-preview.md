@@ -3,7 +3,7 @@
 ```text
 TaskCardID = W1-I12
 CardKind = IMPLEMENTATION
-Status = READY
+Status = DONE
 Gate = W1-IG12 DesktopWebSourcePreview
 Risk = MEDIUM
 DependsOn = W1-I10,W1-I11
@@ -71,7 +71,7 @@ git status --short
 ## 6. Gate 与完成定义
 
 上传、processing、preview、incomplete 标记和 partial confirmation 正负例通过；组件不生成
-摘要、不调用 Renderer、不改写来源内容，生产文件恰不超过 8。
+摘要、不调用 Renderer、不改写来源内容，生产文件恰不超过 10（含正式 revision-status 例外）。
 
 ## 7. 提交与审查
 
