@@ -6805,6 +6805,7 @@ i09_closure_reviewed_tree_sha="c16a5da8605949d29cd09e316a8be5434ab7f8f4"
 i09_closure_spec_sha="f0d04a6b798818d44785c7b593c8a767476e5e36"
 i09_closure_original_test_sha="6d5c531e0fb4999e0b1ac26eba5a5dc5acb3d345"
 i09_closure_repair_spec_sha="1e5b7a9892e3fe10e905ad8bb867aa071ef582c8"
+i09_closure_repair_test_sha="cd6ef36bb20663c2b6465c43f2dbee01269e694c"
 i09_closure_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i09-closure-design.md"
 i09_closure_repair_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i09-closure-test-finding-repair.md"
 i09_closure_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
@@ -6858,7 +6859,8 @@ materialize_i09_closure_governance() {
   git -C "${fixture_root}" add "${i09_closure_repair_spec_path}"
   git -C "${fixture_root}" commit -qm "docs: preserve I09 closure receipt history"
 
-  cp -p "${repo_root}/${i09_closure_test_path}" \
+  git -C "${repo_root}" show \
+    "${i09_closure_repair_test_sha}:${i09_closure_test_path}" > \
     "${fixture_root}/${i09_closure_test_path}"
   chmod 755 "${fixture_root}/${i09_closure_test_path}"
   git -C "${fixture_root}" add "${i09_closure_test_path}"
@@ -7156,6 +7158,7 @@ i10_closure_reviewed_tree_sha="a227ce11facc84b0be56d65f459a8d6005e16bb3"
 i10_closure_spec_sha="261ac4d26c102c1cade7f2811e878652b601b108"
 i10_closure_red_test_sha="dd89a075491b11957c00ecb7adf3da2138a997f5"
 i10_closure_repair_spec_sha="054ecbbd9a4dd7a4d5fac3463c13312d5f166013"
+i10_closure_repair_test_sha="f2c22d2ed5ee90e1447ef1609b7b7037bd052bad"
 i10_closure_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i10-closure-design.md"
 i10_closure_repair_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i10-closure-test-repair.md"
 i10_closure_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
@@ -7205,7 +7208,8 @@ materialize_i10_closure_governance() {
   git -C "${fixture_root}" add "${i10_closure_repair_spec_path}"
   git -C "${fixture_root}" commit -qm "docs: repair W1-I10 closure test fixture"
 
-  cp -p "${repo_root}/${i10_closure_test_path}" \
+  git -C "${repo_root}" show \
+    "${i10_closure_repair_test_sha}:${i10_closure_test_path}" > \
     "${fixture_root}/${i10_closure_test_path}"
   chmod 755 "${fixture_root}/${i10_closure_test_path}"
   git -C "${fixture_root}" add "${i10_closure_test_path}"
