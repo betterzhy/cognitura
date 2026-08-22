@@ -7605,8 +7605,11 @@ make_i11_rebaseline_projection() {
     's~(?<=```bash\n).*?(?=```\n\n## 6\.)~$ENV{I11_VALIDATION_BLOCK}."\n"~se' "${card}"
   rm "${card}.bak"
   replace_i10_closure_projection_text "${card}" \
-    '完整 digest/actor/idempotency tuple、不可逆性、相同重放和冲突拒绝全部通过；无 query、\nParser、migration 或 Web 改动。' \
-    '完整 digest/actor/idempotency tuple、不可逆性、相同重放、并发 CAS 和冲突拒绝全部通过；\n证据来自隔离 PostgreSQL 18.4，且无 Web、Parser 或正式数据库改动。'
+    '完整 digest/actor/idempotency tuple、不可逆性、相同重放和冲突拒绝全部通过；无 query、' \
+    '完整 digest/actor/idempotency tuple、不可逆性、相同重放、并发 CAS 和冲突拒绝全部通过；'
+  replace_i10_closure_projection_text "${card}" \
+    'Parser、migration 或 Web 改动。' \
+    '证据来自隔离 PostgreSQL 18.4，且无 Web、Parser 或正式数据库改动。'
 
   perl -i.bak -pe \
     'if (/^ImplementationGovernanceReviewVerdict = /) { $_ .= "I11PersistenceRebaseline = PASS\n" }' \
