@@ -1282,7 +1282,16 @@ w1_i11_closure_projection_paths=(
   docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md
   docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md
 )
-w1_i12_product_paths=(
+w1_i12_revision_status_origin_sha="793790aa357ee56e5106893a7bcd0f6eefabd1f8"
+w1_i12_revision_status_spec_sha="a260be8665185646fb8b008eaebb6fdce35b6f3f"
+w1_i12_revision_status_test_sha="c149082be4a71dfa3397b4d3c6383847b315b9b7"
+w1_i12_revision_status_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i12-revision-status-entry.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+  docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md
+)
+w1_i12_original_product_paths=(
   web/src/modules/document-ingestion/SourceIngestionPage.tsx
   web/src/modules/document-ingestion/SourceUploadPanel.tsx
   web/src/modules/document-ingestion/ProcessingStatus.tsx
@@ -1293,6 +1302,12 @@ w1_i12_product_paths=(
   web/src/modules/document-ingestion/index.ts
   web/src/modules/document-ingestion/SourceIngestionPage.test.tsx
   web/src/modules/document-ingestion/SourcePreview.test.tsx
+)
+w1_i12_product_paths=(
+  "${w1_i12_original_product_paths[@]}"
+  server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java
+  server/src/main/java/io/cognitura/source/api/query/SourcePreviewController.java
+  server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java
 )
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
@@ -9589,8 +9604,114 @@ is_w1_i12_product_path() {
   return 1
 }
 
+is_w1_i12_original_product_path() {
+  local requested="$1" allowed
+  for allowed in "${w1_i12_original_product_paths[@]}"; do
+    [[ "${requested}" == "${allowed}" ]] && return 0
+  done
+  return 1
+}
+
+validate_w1_i12_revision_status_card() {
+  local commit="$1" card_path="${w1_i12_revision_status_paths[3]}"
+  local expected_root expected_card actual_card
+  expected_root="$(mktemp -d \
+    "${TMPDIR:-/tmp}/cognitura-i12-revision-status-card.XXXXXX")"
+  expected_card="${expected_root}/expected"
+  actual_card="${expected_root}/actual"
+  git -C "${repo_root}" show \
+    "${w1_i12_revision_status_origin_sha}:${card_path}" |
+    sed \
+      -e 's/^ProductionFileLimit = 8$/ProductionFileLimit = 10/' \
+      -e 's/^ProductionWriteSetException = NONE$/ProductionWriteSetException = FORMAL_REVISION_STATUS_ENDPOINT_COMPLETION/' \
+      -e 's#^ForbiddenWriteSet = server/\*\*,schemas/\*\*,raw/\*\*,\.idea/\*\*$#ForbiddenWriteSet = server/src/main/resources/db/migration/**,schemas/**,raw/**,.idea/**#' |
+    awk '
+      !inserted && /^WriteSet = / {
+        print "WriteSet = server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java"
+        print "WriteSet = server/src/main/java/io/cognitura/source/api/query/SourcePreviewController.java"
+        print "WriteSet = server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java"
+        inserted = 1
+      }
+      /^cd web && corepack pnpm test -- src\/modules\/document-ingestion$/ {
+        print "./mvnw -f server/pom.xml -Dtest=io.cognitura.source.api.query.SourcePreviewControllerTest test"
+      }
+      { print }
+    ' > "${expected_card}" ||
+    fail "I12_REVISION_STATUS_ENTRY_INVALID:card"
+  git -C "${repo_root}" show "${commit}:${card_path}" > "${actual_card}" ||
+    fail "I12_REVISION_STATUS_ENTRY_INVALID:card"
+  cmp -s "${expected_card}" "${actual_card}" ||
+    fail "I12_REVISION_STATUS_ENTRY_INVALID:card"
+  remove_temporary_directory "${expected_root}"
+}
+
+validate_w1_i12_revision_status_entry() {
+  local tip="$1" commits=() commit parent previous changed_paths index
+  local expected_path expected_mode actual_blob expected_blob
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i12_revision_status_origin_sha}" "${tip}" 2>/dev/null ||
+    fail "I12_REVISION_STATUS_ENTRY_INVALID:origin"
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i12_revision_status_origin_sha}..${tip}")
+  [[ "${#commits[@]}" -eq 4 ]] ||
+    fail "I12_REVISION_STATUS_ENTRY_INVALID:exact four commits"
+  previous="${w1_i12_revision_status_origin_sha}"
+  for index in "${!commits[@]}"; do
+    commit="${commits[${index}]}"
+    expected_path="${w1_i12_revision_status_paths[${index}]}"
+    parent="$(single_parent_of "${commit}" \
+      "I12_REVISION_STATUS_ENTRY_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] ||
+      fail "I12_REVISION_STATUS_ENTRY_INVALID:order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I12_REVISION_STATUS_ENTRY_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I12_REVISION_STATUS_ENTRY_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] ||
+      fail "I12_REVISION_STATUS_ENTRY_INVALID:path"
+    case "${expected_path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+      *) expected_mode=100644 ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "I12_REVISION_STATUS_ENTRY_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "I12_REVISION_STATUS_ENTRY_INVALID:NUL"
+    if [[ "${index}" -lt 2 ]]; then
+      if [[ "${index}" -eq 0 ]]; then
+        expected_blob="$(git -C "${repo_root}" rev-parse \
+          "${w1_i12_revision_status_spec_sha}:${expected_path}")"
+      else
+        expected_blob="$(git -C "${repo_root}" rev-parse \
+          "${w1_i12_revision_status_test_sha}:${expected_path}")"
+      fi
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${expected_path}")"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I12_REVISION_STATUS_ENTRY_INVALID:evidence"
+    fi
+    previous="${commit}"
+  done
+  validate_w1_i12_revision_status_card "${tip}"
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i12_revision_status_origin_sha}..${tip}" -- \
+    "${w1_i11_migration_count_product_paths[@]}" ||
+    fail "I12_REVISION_STATUS_ENTRY_INVALID:frozen bytes"
+  for expected_path in "${w1_i11_closure_projection_paths[@]}"; do
+    [[ "${expected_path}" == "${w1_i12_revision_status_paths[3]}" ]] && continue
+    git -C "${repo_root}" diff --quiet \
+      "${w1_i12_revision_status_origin_sha}..${tip}" -- "${expected_path}" ||
+      fail "I12_REVISION_STATUS_ENTRY_INVALID:frozen bytes"
+  done
+}
+
 validate_post_w1_i11_closure_descendants() {
-  local receipt="$1" head="$2" commit parent changed_paths path
+  local receipt="$1" head="$2" expanded="${3:-0}"
+  local commit parent changed_paths path
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${receipt}..${head}"); do
     parent="$(single_parent_of "${commit}" \
@@ -9602,8 +9723,13 @@ validate_post_w1_i11_closure_descendants() {
     changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
     while IFS= read -r path; do
       [[ -n "${path}" ]] || continue
-      is_w1_i12_product_path "${path}" ||
-        fail "I11_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET:${path}"
+      if [[ "${expanded}" == 1 ]]; then
+        is_w1_i12_product_path "${path}" ||
+          fail "I12_REVISION_STATUS_DESCENDANT_OUTSIDE_WRITE_SET:${path}"
+      else
+        is_w1_i12_original_product_path "${path}" ||
+          fail "I11_CLOSURE_DESCENDANT_OUTSIDE_WRITE_SET:${path}"
+      fi
       [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
         fail "I11_CLOSURE_DESCENDANT_INVALID:mode:${path}"
       require_git_blob_without_nul "${commit}" "${path}" \
@@ -9687,6 +9813,7 @@ validate_w1_i11_post_closure_fixture_pin() {
 
 route_w1_i11_closure() {
   local route_commit="$1" governance_tip receipt path post_base pin_tip
+  local entry_tip="" entry_status="NOT_RUN" expanded=0 projection_base
   receipt="$(find_w1_i11_closure_receipt "${route_commit}")"
   if [[ -n "${receipt}" ]]; then
     governance_tip="$(single_parent_of "${receipt}" \
@@ -9735,9 +9862,28 @@ route_w1_i11_closure() {
     validate_w1_i11_post_closure_fixture_pin "${pin_tip}"
     post_base="${pin_tip}"
   fi
-  validate_post_w1_i11_closure_descendants "${post_base}" "${route_commit}"
+  if [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+      "${post_base}..${route_commit}" -- "${w1_i12_revision_status_paths[0]}" \
+      2>/dev/null)" ]]; then
+    entry_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+      "${post_base}..${route_commit}" -- "${w1_i12_revision_status_paths[3]}" |
+      sed -n '1p')"
+    [[ -n "${entry_tip}" ]] ||
+      fail "I12_REVISION_STATUS_ENTRY_INVALID:missing card"
+    validate_w1_i12_revision_status_entry "${entry_tip}"
+    post_base="${entry_tip}"
+    entry_status="PASS"
+    expanded=1
+  fi
+  validate_post_w1_i11_closure_descendants \
+    "${post_base}" "${route_commit}" "${expanded}"
   for path in "${w1_i11_closure_projection_paths[@]}"; do
-    git -C "${repo_root}" diff --quiet "${receipt}" -- "${path}" ||
+    projection_base="${receipt}"
+    if [[ "${entry_status}" == PASS &&
+          "${path}" == "${w1_i12_revision_status_paths[3]}" ]]; then
+      projection_base="${entry_tip}"
+    fi
+    git -C "${repo_root}" diff --quiet "${projection_base}" -- "${path}" ||
       fail "I11_CLOSURE_WORKTREE_MISMATCH:${path}"
   done
   printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
@@ -9747,6 +9893,7 @@ route_w1_i11_closure() {
     'W1I11MigrationCountRebaselineStatus = PASS' \
     'W1I11ClosureStatus = PASS' \
     'W1I11PostClosureFixturePinStatus = PASS' \
+    "W1I12RevisionStatusEntryStatus = ${entry_status}" \
     'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
 }
 
@@ -11050,7 +11197,11 @@ web/**,raw/**,.idea/**'
       expected_boundary="WEB_DOCUMENT_INGESTION"
       expected_risk="MEDIUM"
       allowed_runtime_root="web/src/modules/document-ingestion/"
-      expected_write_set='web/src/modules/document-ingestion/SourceIngestionPage.tsx
+      if [[ "$(field_value "${file}" ProductionFileLimit)" == 10 ]]; then
+        expected_write_set='server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java
+server/src/main/java/io/cognitura/source/api/query/SourcePreviewController.java
+server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java
+web/src/modules/document-ingestion/SourceIngestionPage.tsx
 web/src/modules/document-ingestion/SourceUploadPanel.tsx
 web/src/modules/document-ingestion/ProcessingStatus.tsx
 web/src/modules/document-ingestion/SourcePreview.tsx
@@ -11060,15 +11211,32 @@ web/src/modules/document-ingestion/api.ts
 web/src/modules/document-ingestion/index.ts
 web/src/modules/document-ingestion/SourceIngestionPage.test.tsx
 web/src/modules/document-ingestion/SourcePreview.test.tsx'
-      expected_forbidden_write_set='web/src/modules/module-reading/**
+        expected_forbidden_write_set='web/src/modules/module-reading/**
+web/src/App.tsx
+server/src/main/resources/db/migration/**,schemas/**,raw/**,.idea/**
+SUMMARY_RENDERER_OR_SOURCE_FACT_REWRITE'
+        expected_card_digest="$(normalized_card_digest "${file}")"
+      else
+        expected_write_set='web/src/modules/document-ingestion/SourceIngestionPage.tsx
+web/src/modules/document-ingestion/SourceUploadPanel.tsx
+web/src/modules/document-ingestion/ProcessingStatus.tsx
+web/src/modules/document-ingestion/SourcePreview.tsx
+web/src/modules/document-ingestion/PartialAcceptancePanel.tsx
+web/src/modules/document-ingestion/source-ingestion.css
+web/src/modules/document-ingestion/api.ts
+web/src/modules/document-ingestion/index.ts
+web/src/modules/document-ingestion/SourceIngestionPage.test.tsx
+web/src/modules/document-ingestion/SourcePreview.test.tsx'
+        expected_forbidden_write_set='web/src/modules/module-reading/**
 web/src/App.tsx
 server/**,schemas/**,raw/**,.idea/**
 SUMMARY_RENDERER_OR_SOURCE_FACT_REWRITE'
+        expected_card_digest='ce5d8c8933ee226e9a020d6569dc806fa3f0df093e28fb49f0ef50a488f0216b'
+      fi
       expected_target_command='cd web && corepack pnpm test -- src/modules/document-ingestion'
       expected_positive_verification='DESKTOP_UPLOAD_STATUS_PREVIEW_AND_PARTIAL_ACCEPTANCE_FLOW'
       expected_negative_verification='SECOND_FACT_MOBILE_EQUIVALENCE_AND_CROSS_MODULE_WRITE_REJECTED'
       expected_commit_message='feat: add desktop source preview'
-      expected_card_digest='ce5d8c8933ee226e9a020d6569dc806fa3f0df093e28fb49f0ef50a488f0216b'
       ;;
     W1-I13)
       expected_gate="W1-IG13 FixedImplementationReview"
@@ -11194,12 +11362,22 @@ git diff --check
 git status --short'
       ;;
     W1-I12)
-      expected_validation_block="$(printf '%s\n' \
-        "${expected_target_command}" \
-        'cd web && corepack pnpm build' \
-        'scripts/verify-wave1-implementation' \
-        'git diff --check' \
-        'git status --short')"
+      if [[ "$(field_value "${file}" ProductionFileLimit)" == 10 ]]; then
+        expected_validation_block="$(printf '%s\n' \
+          './mvnw -f server/pom.xml -Dtest=io.cognitura.source.api.query.SourcePreviewControllerTest test' \
+          "${expected_target_command}" \
+          'cd web && corepack pnpm build' \
+          'scripts/verify-wave1-implementation' \
+          'git diff --check' \
+          'git status --short')"
+      else
+        expected_validation_block="$(printf '%s\n' \
+          "${expected_target_command}" \
+          'cd web && corepack pnpm build' \
+          'scripts/verify-wave1-implementation' \
+          'git diff --check' \
+          'git status --short')"
+      fi
       ;;
     W1-I13)
       expected_validation_block='scripts/verify-wave0
@@ -11256,9 +11434,16 @@ git status --short'
   production_limit="$(field_value "${file}" "ProductionFileLimit")"
   production_exception="$(field_value "${file}" "ProductionWriteSetException")"
   [[ "${production_limit}" =~ ^[0-9]+$ ]] || fail "ProductionFileLimit must be numeric for ${task_id}"
-  [[ "${production_limit}" -eq 8 ]] || fail "ProductionFileLimit must remain 8 for ${task_id}"
-  [[ "${production_exception}" == "NONE" ]] ||
-    fail "ProductionWriteSetException must remain NONE for ${task_id}"
+  if [[ "${task_id}" == W1-I12 && "${production_limit}" -eq 10 ]]; then
+    [[ "${production_exception}" == \
+        FORMAL_REVISION_STATUS_ENDPOINT_COMPLETION ]] ||
+      fail "ProductionWriteSetException mismatch for ${task_id}"
+  else
+    [[ "${production_limit}" -eq 8 ]] ||
+      fail "ProductionFileLimit must remain 8 for ${task_id}"
+    [[ "${production_exception}" == "NONE" ]] ||
+      fail "ProductionWriteSetException must remain NONE for ${task_id}"
+  fi
 
   production_count=0
   while IFS= read -r write_path; do
@@ -11275,6 +11460,12 @@ git status --short'
             esac
             ;;
           W1-I13) fail "WriteSet is outside ${task_id} PrimaryBoundary: ${write_path}" ;;
+          W1-I12)
+            case "${write_path}" in
+              web/src/modules/document-ingestion/*|server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java|server/src/main/java/io/cognitura/source/api/query/SourcePreviewController.java) ;;
+              *) fail "WriteSet is outside ${task_id} PrimaryBoundary: ${write_path}" ;;
+            esac
+            ;;
           *)
             case "${write_path}" in
               "${allowed_runtime_root}"*) ;;
