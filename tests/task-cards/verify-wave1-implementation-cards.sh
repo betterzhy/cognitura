@@ -40,6 +40,7 @@ w1_i10_closure_contract_only=0
 w1_i11_persistence_rebaseline_contract_only=0
 w1_i11_migration_count_rebaseline_contract_only=0
 w1_i11_closure_contract_only=0
+w1_i12_revision_status_entry_contract_only=0
 terra_first_routing_contract_only=0
 case "${1:-}" in
   "") ;;
@@ -105,6 +106,9 @@ case "${1:-}" in
     ;;
   --w1-i11-closure-contract-only)
     w1_i11_closure_contract_only=1
+    ;;
+  --w1-i12-revision-status-entry-contract-only)
+    w1_i12_revision_status_entry_contract_only=1
     ;;
   --terra-first-routing-contract-only)
     terra_first_routing_contract_only=1
@@ -8420,6 +8424,176 @@ run_w1_i11_closure_contract() {
     "W1I11ClosureNegativeCases = ${negative_cases}"
 }
 
+w1_i12_revision_status_origin_sha="793790aa357ee56e5106893a7bcd0f6eefabd1f8"
+w1_i12_revision_status_spec_sha="a260be8"
+w1_i12_revision_status_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i12-revision-status-entry.md"
+w1_i12_revision_status_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
+w1_i12_revision_status_verifier_path="scripts/verify-wave1-implementation-cards"
+w1_i12_revision_status_card_path="docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md"
+
+w1_i12_revision_status_source_sha() {
+  local path="$1" sha
+  sha="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i12_revision_status_origin_sha}..HEAD" -- "${path}" | sed -n '1p')"
+  [[ -n "${sha}" ]] || fail "I12 revision status source commit missing: ${path}"
+  printf '%s\n' "${sha}"
+}
+
+new_w1_i12_revision_status_fixture() {
+  local fixture_root="$1"
+  git clone --shared -q "${repo_root}" "${fixture_root}"
+  git -C "${fixture_root}" checkout -q --detach \
+    "${w1_i12_revision_status_origin_sha}"
+}
+
+commit_w1_i12_revision_status_path() {
+  local fixture_root="$1" source_sha="$2" path="$3" message="$4"
+  mkdir -p "${fixture_root}/$(dirname "${path}")"
+  git -C "${repo_root}" show "${source_sha}:${path}" > "${fixture_root}/${path}"
+  case "${path}" in
+    scripts/*|tests/*.sh|tests/*/*.sh) chmod 755 "${fixture_root}/${path}" ;;
+    *) chmod 644 "${fixture_root}/${path}" ;;
+  esac
+  git -C "${fixture_root}" add -- "${path}"
+  git -C "${fixture_root}" commit -qm "${message}"
+}
+
+materialize_w1_i12_revision_status_entry() {
+  local fixture_root="$1" test_sha verifier_sha card_sha
+  test_sha="$(w1_i12_revision_status_source_sha \
+    "${w1_i12_revision_status_test_path}")"
+  verifier_sha="$(w1_i12_revision_status_source_sha \
+    "${w1_i12_revision_status_verifier_path}")"
+  card_sha="$(w1_i12_revision_status_source_sha \
+    "${w1_i12_revision_status_card_path}")"
+  commit_w1_i12_revision_status_path "${fixture_root}" \
+    "${w1_i12_revision_status_spec_sha}" \
+    "${w1_i12_revision_status_spec_path}" \
+    "docs: define I12 revision status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${test_sha}" \
+    "${w1_i12_revision_status_test_path}" \
+    "test: require I12 revision status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${verifier_sha}" \
+    "${w1_i12_revision_status_verifier_path}" \
+    "build: verify I12 revision status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${card_sha}" \
+    "${w1_i12_revision_status_card_path}" \
+    "docs: admit I12 revision status endpoint"
+}
+
+run_w1_i12_revision_status_verifier() {
+  local fixture_root="$1"
+  "${fixture_root}/${w1_i12_revision_status_verifier_path}" \
+    --repo-root "${fixture_root}" \
+    --cards-dir "${fixture_root}/docs/task-cards/wave-1-implementation"
+}
+
+expect_w1_i12_revision_status_failure() {
+  local fixture_root="$1" expected="$2" output
+  output="$(run_w1_i12_revision_status_verifier "${fixture_root}" 2>&1)" &&
+    fail "I12 revision status invalid fixture was accepted: ${expected}"
+  assert_contains "${output}" "${expected}"
+}
+
+run_w1_i12_revision_status_entry_contract() {
+  local positive_cases=0 negative_cases=0 fixture_root output test_sha verifier_sha
+  local card_sha
+
+  fixture_root="${test_tmp_root}/w1-i12-revision-status-legal"
+  new_w1_i12_revision_status_fixture "${fixture_root}"
+  materialize_w1_i12_revision_status_entry "${fixture_root}"
+  output="$(run_w1_i12_revision_status_verifier "${fixture_root}")" ||
+    fail "legal I12 revision status entry was rejected"
+  assert_contains "${output}" 'W1I12RevisionStatusEntryStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  printf '%s\n' 'export const statusEntry = true;' > \
+    "${fixture_root}/web/src/modules/document-ingestion/api.ts"
+  git -C "${fixture_root}" add -- web/src/modules/document-ingestion/api.ts
+  git -C "${fixture_root}" commit -qm "test: add legal I12 descendant"
+  output="$(run_w1_i12_revision_status_verifier "${fixture_root}")" ||
+    fail "legal I12 product descendant was rejected"
+  assert_contains "${output}" 'W1I12RevisionStatusEntryStatus = PASS'
+  positive_cases=$((positive_cases + 1))
+
+  test_sha="$(w1_i12_revision_status_source_sha \
+    "${w1_i12_revision_status_test_path}")"
+  verifier_sha="$(w1_i12_revision_status_source_sha \
+    "${w1_i12_revision_status_verifier_path}")"
+  card_sha="$(w1_i12_revision_status_source_sha \
+    "${w1_i12_revision_status_card_path}")"
+
+  fixture_root="${test_tmp_root}/w1-i12-revision-status-evidence"
+  new_w1_i12_revision_status_fixture "${fixture_root}"
+  commit_w1_i12_revision_status_path "${fixture_root}" \
+    "${w1_i12_revision_status_spec_sha}" \
+    "${w1_i12_revision_status_spec_path}" "docs: drift I12 status evidence"
+  printf '%s\n' 'forbidden evidence drift' >> \
+    "${fixture_root}/${w1_i12_revision_status_spec_path}"
+  git -C "${fixture_root}" add -- "${w1_i12_revision_status_spec_path}"
+  git -C "${fixture_root}" commit --amend -qm "docs: drift I12 status evidence"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${test_sha}" \
+    "${w1_i12_revision_status_test_path}" "test: require I12 status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${verifier_sha}" \
+    "${w1_i12_revision_status_verifier_path}" "build: verify I12 status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${card_sha}" \
+    "${w1_i12_revision_status_card_path}" "docs: admit I12 status endpoint"
+  expect_w1_i12_revision_status_failure "${fixture_root}" \
+    'I12_REVISION_STATUS_ENTRY_INVALID:evidence'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-revision-status-order"
+  new_w1_i12_revision_status_fixture "${fixture_root}"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${test_sha}" \
+    "${w1_i12_revision_status_test_path}" "test: reorder I12 status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" \
+    "${w1_i12_revision_status_spec_sha}" \
+    "${w1_i12_revision_status_spec_path}" "docs: reorder I12 status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${verifier_sha}" \
+    "${w1_i12_revision_status_verifier_path}" "build: verify I12 status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${card_sha}" \
+    "${w1_i12_revision_status_card_path}" "docs: admit I12 status endpoint"
+  expect_w1_i12_revision_status_failure "${fixture_root}" \
+    'I12_REVISION_STATUS_ENTRY_INVALID:path'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-revision-status-card"
+  new_w1_i12_revision_status_fixture "${fixture_root}"
+  commit_w1_i12_revision_status_path "${fixture_root}" \
+    "${w1_i12_revision_status_spec_sha}" "${w1_i12_revision_status_spec_path}" \
+    "docs: define I12 status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${test_sha}" \
+    "${w1_i12_revision_status_test_path}" "test: require I12 status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${verifier_sha}" \
+    "${w1_i12_revision_status_verifier_path}" "build: verify I12 status entry"
+  commit_w1_i12_revision_status_path "${fixture_root}" "${card_sha}" \
+    "${w1_i12_revision_status_card_path}" "docs: drift I12 status card"
+  sed -i.bak 's/^ProductionFileLimit = 10$/ProductionFileLimit = 9/' \
+    "${fixture_root}/${w1_i12_revision_status_card_path}"
+  rm "${fixture_root}/${w1_i12_revision_status_card_path}.bak"
+  git -C "${fixture_root}" add -- "${w1_i12_revision_status_card_path}"
+  git -C "${fixture_root}" commit --amend -qm "docs: drift I12 status card"
+  expect_w1_i12_revision_status_failure "${fixture_root}" \
+    'I12_REVISION_STATUS_ENTRY_INVALID:card'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-revision-status-outside"
+  new_w1_i12_revision_status_fixture "${fixture_root}"
+  materialize_w1_i12_revision_status_entry "${fixture_root}"
+  printf '%s\n' 'forbidden I12 descendant' >> "${fixture_root}/README.md"
+  git -C "${fixture_root}" add -- README.md
+  git -C "${fixture_root}" commit -qm "test: exceed I12 status WriteSet"
+  expect_w1_i12_revision_status_failure "${fixture_root}" \
+    'I12_REVISION_STATUS_DESCENDANT_OUTSIDE_WRITE_SET'
+  negative_cases=$((negative_cases + 1))
+
+  [[ "${positive_cases}" -eq 2 ]] || fail "I12 status positive count mismatch"
+  [[ "${negative_cases}" -eq 4 ]] || fail "I12 status negative count mismatch"
+  printf '%s\n' 'W1I12RevisionStatusEntryContractTests = PASS' \
+    "W1I12RevisionStatusEntryPositiveCases = ${positive_cases}" \
+    "W1I12RevisionStatusEntryNegativeCases = ${negative_cases}"
+}
+
 if [[ "${w1_i10_closure_contract_only}" == "1" ]]; then
   run_w1_i10_closure_contract
   exit 0
@@ -8437,6 +8611,11 @@ fi
 
 if [[ "${w1_i11_closure_contract_only}" == "1" ]]; then
   run_w1_i11_closure_contract
+  exit 0
+fi
+
+if [[ "${w1_i12_revision_status_entry_contract_only}" == "1" ]]; then
+  run_w1_i12_revision_status_entry_contract
   exit 0
 fi
 
@@ -8465,6 +8644,7 @@ run_w1_i10_closure_contract
 run_w1_i11_persistence_rebaseline_contract
 run_w1_i11_migration_count_rebaseline_contract
 run_w1_i11_closure_contract
+run_w1_i12_revision_status_entry_contract
 
 validation_output="$(
   "${verifier}" \
