@@ -77,7 +77,7 @@ class SourcePersistenceIntegrationTest {
                 postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
         dataSource = configuredDataSource;
         flyway = Flyway.configure().dataSource(dataSource).load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
 
         Configuration configuration = new Configuration(new Environment(
                 "w1-i02-isolated-postgres", new JdbcTransactionFactory(), dataSource));

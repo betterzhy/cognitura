@@ -296,7 +296,8 @@ public final class SourcePreviewQuery {
                 && "NOT_APPLICABLE".equals(header.partialAcceptanceStatus())
                 && omissions.isEmpty();
         boolean partial = "PARTIAL".equals(header.parseCompleteness())
-                && "PENDING".equals(header.partialAcceptanceStatus())
+                && ("PENDING".equals(header.partialAcceptanceStatus())
+                        || "ACCEPTED".equals(header.partialAcceptanceStatus()))
                 && !omissions.isEmpty();
         if (!complete && !partial) throw factsInvalid();
     }

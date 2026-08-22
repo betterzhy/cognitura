@@ -93,7 +93,7 @@ class SourcePreviewControllerTest {
         dataSource = new DriverManagerDataSource(
                 postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
         assertThat(Flyway.configure().dataSource(dataSource).load().migrate().migrationsExecuted)
-                .isEqualTo(2);
+                .isEqualTo(3);
         System.out.println("W1I10PreviewContainerId = " + containerId);
         System.out.println("W1I10PreviewImage = " + POSTGRES_IMAGE);
         System.out.println("W1I10PreviewDatabaseName = " + postgres.getDatabaseName());
@@ -240,6 +240,31 @@ class SourcePreviewControllerTest {
                 .andExpect(jsonPath("$.omissions[0].errorCode").value("UNSUPPORTED_SAFE_OOXML"))
                 .andExpect(jsonPath("$.items[0].affectedByOmission").value(false))
                 .andExpect(jsonPath("$.items[1].affectedByOmission").value(true));
+    }
+
+    @Test
+    void acceptedPartialPreviewRemainsByteForByteReadable() throws Exception {
+        CandidateBlockSet blockSet = partialBlockSet("source-a", "revision-a", "attempt-a");
+        publish("workspace-a", "source-a", "revision-a", "profile-a", blockSet);
+        String before = mvc.perform(get(
+                        "/api/v1/source-documents/source-a/processing-revisions/revision-a/blocks"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        update("""
+                update source_processing_revision
+                set partial_acceptance_status = 'ACCEPTED',
+                    partial_accepted_at = ?, partial_accepted_by = ?,
+                    partial_acceptance_idempotency_key = ?
+                where source_processing_revision_id = ?
+                """, Instant.parse("2026-08-22T04:02:00Z"), "actor-a",
+                "accept-key-a", "revision-a");
+
+        String after = mvc.perform(get(
+                        "/api/v1/source-documents/source-a/processing-revisions/revision-a/blocks"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(after).isEqualTo(before);
     }
 
     @Test

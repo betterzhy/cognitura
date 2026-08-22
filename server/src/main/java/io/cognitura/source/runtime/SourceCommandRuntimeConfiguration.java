@@ -5,8 +5,11 @@ import io.cognitura.source.application.command.SourceCommandPersistencePort;
 import io.cognitura.source.application.command.SourceCommandService;
 import io.cognitura.source.application.command.TrustedRequestContext;
 import io.cognitura.source.application.command.TrustedRequestContextProvider;
+import io.cognitura.source.api.acceptance.PartialAcceptancePort;
+import io.cognitura.source.api.acceptance.PartialAcceptanceService;
 import io.cognitura.source.application.processing.ProcessingPublicationPort;
 import io.cognitura.source.application.processing.ProcessingPublicationService;
+import io.cognitura.source.persistence.JdbcPartialAcceptancePort;
 import io.cognitura.source.persistence.JdbcProcessingPublicationPort;
 import io.cognitura.source.persistence.SourceCommandMapper;
 import io.cognitura.source.persistence.SourceCommandPersistenceAdapter;
@@ -113,6 +116,17 @@ public class SourceCommandRuntimeConfiguration {
     ProcessingPublicationService processingPublicationService(
             ProcessingPublicationPort processingPublicationPort) {
         return new ProcessingPublicationService(processingPublicationPort);
+    }
+
+    @Bean
+    PartialAcceptancePort partialAcceptancePort(DataSource sourceCommandDataSource) {
+        return new JdbcPartialAcceptancePort(sourceCommandDataSource);
+    }
+
+    @Bean
+    PartialAcceptanceService partialAcceptanceService(
+            PartialAcceptancePort partialAcceptancePort) {
+        return new PartialAcceptanceService(partialAcceptancePort, Clock.systemUTC());
     }
 
     private static String required(Environment environment, String name) {

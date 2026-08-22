@@ -78,7 +78,7 @@ class JdbcProcessingPublicationPortIntegrationTest {
             assertThat(result.getString(2)).isEqualTo(postgres.getDatabaseName());
         }
         Flyway flyway = Flyway.configure().dataSource(dataSource).load();
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         System.out.println("W1I09ProcessingContainerId = " + containerId);
