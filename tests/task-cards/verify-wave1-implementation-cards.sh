@@ -7912,6 +7912,7 @@ i11_migration_count_origin_sha="35393f6e73a0e2299d92c64c783b152b4190ca59"
 i11_migration_count_spec_sha="eaaa00b97c79e8ffb7c087a45dd6af394ef09057"
 i11_migration_count_faulty_test_sha="f26190513813ebfc45b16ea515affb9d89f7823b"
 i11_migration_count_correction_spec_sha="589e2e47d8300da4df6272538f1f709ad2e33959"
+i11_migration_count_corrected_test_sha="d50964535dd928abdbe077198d4108e8982eba5d"
 i11_migration_count_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i11-migration-count-regression-rebaseline.md"
 i11_migration_count_correction_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i11-migration-count-test-evidence-correction.md"
 i11_migration_count_card_path="docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md"
@@ -7932,9 +7933,7 @@ new_i11_migration_count_fixture() {
 }
 
 i11_migration_count_test_sha() {
-  git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${i11_migration_count_spec_sha}..HEAD" -- "${i11_migration_count_test_path}" |
-    tail -n 1
+  printf '%s\n' "${i11_migration_count_corrected_test_sha}"
 }
 
 materialize_i11_migration_count_governance() {
