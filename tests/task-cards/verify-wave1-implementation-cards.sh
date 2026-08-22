@@ -6635,14 +6635,7 @@ run_w1_i09_v2_compatibility_contract() {
     'I09_RUNTIME_REBASELINE_PRODUCT_INVALID:path'
   negative_cases=$((negative_cases + 1))
 
-  fixture_verifier="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    abb3646ea6c244464b84fce46964d1d474d22dc0..HEAD | while IFS= read -r commit; do
-      parent="$(git -C "${repo_root}" rev-parse "${commit}^")"
-      if [[ "$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")" == \
-          'scripts/verify-wave1-implementation-cards' ]]; then
-        printf '%s\n' "${commit}"
-      fi
-    done | tail -n 1)"
+  fixture_verifier="848f151a1248594f063a3f9665f1fecc0b42558c"
   [[ -n "${fixture_verifier}" ]] || fail "I09 post-product fixture verifier is unavailable"
 
   fixture_root="${test_tmp_root}/w1-i09-post-product-fixture-legal"
