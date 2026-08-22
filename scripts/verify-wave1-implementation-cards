@@ -980,6 +980,11 @@ w1_i11_obsolete_oracle_repair_test_sha="5761fe4d0503a65e4ebad53cf55cb6a9e06dc82a
 w1_i11_obsolete_isolation_repair_origin_sha="9f0ae38fa79b46ad7bcf0d26c3baf3dfdb1aa01d"
 w1_i11_obsolete_isolation_repair_spec_sha="d2cefa58a6be060ebd6bd73ea52c76a57c37481d"
 w1_i11_obsolete_isolation_repair_test_sha="c5421064dfa7af15b17f71dfe3afc70bbef03c7d"
+w1_i11_migration_count_origin_sha="35393f6e73a0e2299d92c64c783b152b4190ca59"
+w1_i11_migration_count_spec_sha="eaaa00b97c79e8ffb7c087a45dd6af394ef09057"
+w1_i11_migration_count_faulty_test_sha="f26190513813ebfc45b16ea515affb9d89f7823b"
+w1_i11_migration_count_correction_spec_sha="589e2e47d8300da4df6272538f1f709ad2e33959"
+w1_i11_migration_count_corrected_test_sha="d50964535dd928abdbe077198d4108e8982eba5d"
 w1_i11_card_path="docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
@@ -1201,6 +1206,30 @@ w1_i11_obsolete_isolation_repair_paths=(
 w1_i11_obsolete_isolation_repair_evidence_shas=(
   "${w1_i11_obsolete_isolation_repair_spec_sha}"
   "${w1_i11_obsolete_isolation_repair_test_sha}"
+)
+w1_i11_migration_count_governance_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i11-migration-count-regression-rebaseline.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i11-migration-count-test-evidence-correction.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i11_migration_count_verifier_path="scripts/verify-wave1-implementation-cards"
+w1_i11_migration_count_evidence_shas=(
+  "${w1_i11_migration_count_spec_sha}"
+  "${w1_i11_migration_count_faulty_test_sha}"
+  "${w1_i11_migration_count_correction_spec_sha}"
+  "${w1_i11_migration_count_corrected_test_sha}"
+)
+w1_i11_migration_count_projection_path="docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md"
+w1_i11_migration_count_added_paths=(
+  server/src/test/java/io/cognitura/source/application/command/SourceUploadCommandIntegrationTest.java
+  server/src/test/java/io/cognitura/source/persistence/JdbcProcessingPublicationPortIntegrationTest.java
+  server/src/test/java/io/cognitura/source/persistence/SourcePersistenceIntegrationTest.java
+)
+w1_i11_migration_count_product_paths=(
+  "${w1_i11_persistence_rebaseline_product_paths[@]}"
+  "${w1_i11_migration_count_added_paths[@]}"
 )
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
@@ -8839,6 +8868,192 @@ route_w1_i11_obsolete_oracle_repair() {
     'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
 }
 
+validate_w1_i11_migration_count_governance() {
+  local tip="$1" commits=() commit parent previous changed_paths index
+  local expected_path expected_mode evidence_sha actual_blob expected_blob
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i11_migration_count_origin_sha}" "${tip}" 2>/dev/null ||
+    fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:origin"
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i11_migration_count_origin_sha}..${tip}")
+  [[ "${#commits[@]}" -eq 5 ]] ||
+    fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:exact five commits"
+  previous="${w1_i11_migration_count_origin_sha}"
+  for index in "${!commits[@]}"; do
+    commit="${commits[${index}]}"
+    expected_path="${w1_i11_migration_count_governance_paths[${index}]}"
+    parent="$(single_parent_of "${commit}" \
+      "I11_MIGRATION_COUNT_REBASELINE_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] ||
+      fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I11_MIGRATION_COUNT_REBASELINE_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] ||
+      fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:path"
+    case "${expected_path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+      *) expected_mode=100644 ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "I11_MIGRATION_COUNT_REBASELINE_INVALID:NUL"
+    if [[ "${index}" -lt 4 ]]; then
+      evidence_sha="${w1_i11_migration_count_evidence_shas[${index}]}"
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${expected_path}" 2>/dev/null)" ||
+        fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:evidence"
+      expected_blob="$(git -C "${repo_root}" rev-parse \
+        "${evidence_sha}:${expected_path}" 2>/dev/null)" ||
+        fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:evidence"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:evidence"
+    fi
+    previous="${commit}"
+  done
+}
+
+is_w1_i11_migration_count_product_path() {
+  local requested="$1" allowed
+  for allowed in "${w1_i11_migration_count_product_paths[@]}"; do
+    [[ "${requested}" == "${allowed}" ]] && return 0
+  done
+  return 1
+}
+
+write_expected_w1_i11_migration_count_card() {
+  local governance_tip="$1" output_file="$2" lines
+  git -C "${repo_root}" show \
+    "${governance_tip}:${w1_i11_migration_count_projection_path}" > \
+    "${output_file}" 2>/dev/null ||
+    fail "I11_MIGRATION_COUNT_PROJECTION_INVALID:base"
+  lines="$(printf '%s\n' "${w1_i11_migration_count_added_paths[@]}" |
+    sed 's/^/WriteSet = /')"
+  I11_MIGRATION_LINES="${lines}" perl -i.bak -pe '
+    if (!$done && /^ForbiddenWriteSet = /) {
+      print $ENV{I11_MIGRATION_LINES}."\n";
+      $done = 1;
+    }
+  ' "${output_file}" || fail "I11_MIGRATION_COUNT_PROJECTION_INVALID:materialize"
+  rm -f "${output_file}.bak"
+}
+
+validate_w1_i11_migration_count_projection() {
+  local governance_tip="$1" projection="$2" parent changed_paths expected_root actual
+  parent="$(single_parent_of "${projection}" \
+    "I11_MIGRATION_COUNT_PROJECTION_INVALID:single parent")"
+  [[ "${parent}" == "${governance_tip}" ]] ||
+    fail "I11_MIGRATION_COUNT_PROJECTION_INVALID:direct child"
+  require_no_git_rename_or_copy "${parent}" "${projection}" \
+    "I11_MIGRATION_COUNT_PROJECTION_INVALID:rename or copy"
+  changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${projection}")"
+  [[ "${changed_paths}" == "${w1_i11_migration_count_projection_path}" ]] ||
+    fail "I11_MIGRATION_COUNT_PROJECTION_INVALID:exact path"
+  [[ "$(git_tree_mode "${projection}" \
+      "${w1_i11_migration_count_projection_path}")" == 100644 ]] ||
+    fail "I11_MIGRATION_COUNT_PROJECTION_INVALID:mode"
+  require_git_blob_without_nul "${projection}" \
+    "${w1_i11_migration_count_projection_path}" \
+    "I11_MIGRATION_COUNT_PROJECTION_INVALID:NUL"
+  register_temporary_directory expected_root cognitura-i11-migration-projection
+  write_expected_w1_i11_migration_count_card "${governance_tip}" \
+    "${expected_root}/expected"
+  actual="${expected_root}/actual"
+  git -C "${repo_root}" show \
+    "${projection}:${w1_i11_migration_count_projection_path}" > "${actual}" ||
+    fail "I11_MIGRATION_COUNT_PROJECTION_INVALID:actual"
+  cmp -s "${expected_root}/expected" "${actual}" ||
+    fail "I11_MIGRATION_COUNT_PROJECTION_INVALID:content"
+  remove_temporary_directory "${expected_root}"
+}
+
+validate_w1_i11_migration_count_test_content() {
+  local projection="$1" head="$2" path="$3" root count
+  git -C "${repo_root}" diff --quiet "${projection}..${head}" -- "${path}" && return 0
+  register_temporary_directory root cognitura-i11-migration-test
+  git -C "${repo_root}" show "${projection}:${path}" > "${root}/expected" ||
+    fail "I11_MIGRATION_COUNT_DESCENDANT_INVALID:base:${path}"
+  count="$(grep -c 'migrationsExecuted).isEqualTo(2)' "${root}/expected" || true)"
+  [[ "${count}" -eq 1 ]] ||
+    fail "I11_MIGRATION_COUNT_DESCENDANT_INVALID:source:${path}"
+  perl -i.bak -pe \
+    's/migrationsExecuted\)\.isEqualTo\(2\)/migrationsExecuted).isEqualTo(3)/' \
+    "${root}/expected"
+  rm -f "${root}/expected.bak"
+  git -C "${repo_root}" show "${head}:${path}" > "${root}/actual" ||
+    fail "I11_MIGRATION_COUNT_DESCENDANT_INVALID:actual:${path}"
+  cmp -s "${root}/expected" "${root}/actual" ||
+    fail "I11_MIGRATION_COUNT_DESCENDANT_INVALID:content:${path}"
+  remove_temporary_directory "${root}"
+}
+
+validate_post_w1_i11_migration_count_descendants() {
+  local projection="$1" head="$2" commit parent changed_paths path
+  for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${projection}..${head}"); do
+    parent="$(single_parent_of "${commit}" \
+      "I11_MIGRATION_COUNT_DESCENDANT_INVALID:single parent")"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I11_MIGRATION_COUNT_DESCENDANT_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I11_MIGRATION_COUNT_DESCENDANT_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      is_w1_i11_migration_count_product_path "${path}" ||
+        fail "I11_MIGRATION_COUNT_DESCENDANT_OUTSIDE_WRITE_SET:${path}"
+      [[ "$(git_tree_mode "${commit}" "${path}")" == 100644 ]] ||
+        fail "I11_MIGRATION_COUNT_DESCENDANT_INVALID:mode:${path}"
+      require_git_blob_without_nul "${commit}" "${path}" \
+        "I11_MIGRATION_COUNT_DESCENDANT_INVALID:NUL:${path}"
+    done <<< "${changed_paths}"
+  done
+  for path in "${w1_i11_migration_count_added_paths[@]}"; do
+    validate_w1_i11_migration_count_test_content "${projection}" "${head}" "${path}"
+  done
+}
+
+route_w1_i11_migration_count_rebaseline() {
+  local route_commit="$1" governance_tip projection path
+  [[ -z "${transition_base}" ]] ||
+    fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:explicit transition unsupported"
+  governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i11_migration_count_origin_sha}..${route_commit}" -- \
+    "${w1_i11_migration_count_verifier_path}" | sed -n '1p')"
+  [[ -n "${governance_tip}" ]] ||
+    fail "I11_MIGRATION_COUNT_REBASELINE_INVALID:missing governance tip"
+  validate_w1_i11_migration_count_governance "${governance_tip}"
+  if [[ "${route_commit}" == "${governance_tip}" ]]; then
+    printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+      'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+      'ActiveTaskCard = W1-I11' 'ReadyTaskCardCount = 1' \
+      'W1I11PersistenceRebaselineStatus = PASS' \
+      'W1I11MigrationCountRebaselineStatus = PENDING' \
+      'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+    return 0
+  fi
+  projection="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${governance_tip}..${route_commit}" | sed -n '1p')"
+  [[ -n "${projection}" ]] ||
+    fail "I11_MIGRATION_COUNT_PROJECTION_INVALID:missing"
+  validate_w1_i11_migration_count_projection "${governance_tip}" "${projection}"
+  validate_post_w1_i11_migration_count_descendants "${projection}" "${route_commit}"
+  git -C "${repo_root}" diff --quiet "${projection}" -- \
+    "${w1_i11_migration_count_projection_path}" ||
+    fail "I11_MIGRATION_COUNT_WORKTREE_MISMATCH:card"
+  printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
+    'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
+    'ActiveTaskCard = W1-I11' 'ReadyTaskCardCount = 1' \
+    'W1I11PersistenceRebaselineStatus = PASS' \
+    'W1I11MigrationCountRebaselineStatus = PASS' \
+    'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+}
+
 validate_w1_i11_obsolete_isolation_repair() {
   local tip="$1" commits=() commit parent previous changed_paths index
   local expected_path expected_mode evidence_sha actual_blob expected_blob
@@ -8995,6 +9210,14 @@ index_file="${cards_dir}/README.md"
 current_repository_head="$(git -C "${repo_root}" rev-parse --verify HEAD^{commit} 2>/dev/null)" ||
   fail "repository HEAD must resolve to a commit"
 if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
+  i11_migration_count_route_commit="${current_repository_head}"
+  [[ -n "${transition_base}" ]] && i11_migration_count_route_commit="${transition_base}"
+  if [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+      "${i11_migration_count_route_commit}" -- \
+      "${w1_i11_migration_count_governance_paths[0]}" 2>/dev/null)" ]]; then
+    route_w1_i11_migration_count_rebaseline "${i11_migration_count_route_commit}"
+    exit 0
+  fi
   i11_obsolete_isolation_route_commit="${current_repository_head}"
   [[ -n "${transition_base}" ]] && i11_obsolete_isolation_route_commit="${transition_base}"
   if [[ "${i11_obsolete_isolation_route_commit}" != "${w1_i11_obsolete_isolation_repair_origin_sha}" ]] &&
