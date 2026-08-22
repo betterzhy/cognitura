@@ -8,8 +8,8 @@ Gate = W1-IG12 DesktopWebSourcePreview
 Risk = MEDIUM
 DependsOn = W1-I10,W1-I11
 PrimaryBoundary = WEB_DOCUMENT_INGESTION
-ProductionFileLimit = 8
-ProductionWriteSetException = NONE
+ProductionFileLimit = 10
+ProductionWriteSetException = FORMAL_REVISION_STATUS_ENDPOINT_COMPLETION
 PositiveVerification = DESKTOP_UPLOAD_STATUS_PREVIEW_AND_PARTIAL_ACCEPTANCE_FLOW
 NegativeVerification = SECOND_FACT_MOBILE_EQUIVALENCE_AND_CROSS_MODULE_WRITE_REJECTED
 BusinessImplementationAuthorization = USER_AUTHORIZED
@@ -32,6 +32,9 @@ ReviewRoute = deep_reviewer
 ## 3. 写集
 
 ```text
+WriteSet = server/src/main/java/io/cognitura/source/api/query/SourcePreviewQuery.java
+WriteSet = server/src/main/java/io/cognitura/source/api/query/SourcePreviewController.java
+WriteSet = server/src/test/java/io/cognitura/source/api/query/SourcePreviewControllerTest.java
 WriteSet = web/src/modules/document-ingestion/SourceIngestionPage.tsx
 WriteSet = web/src/modules/document-ingestion/SourceUploadPanel.tsx
 WriteSet = web/src/modules/document-ingestion/ProcessingStatus.tsx
@@ -44,7 +47,7 @@ WriteSet = web/src/modules/document-ingestion/SourceIngestionPage.test.tsx
 WriteSet = web/src/modules/document-ingestion/SourcePreview.test.tsx
 ForbiddenWriteSet = web/src/modules/module-reading/**
 ForbiddenWriteSet = web/src/App.tsx
-ForbiddenWriteSet = server/**,schemas/**,raw/**,.idea/**
+ForbiddenWriteSet = server/src/main/resources/db/migration/**,schemas/**,raw/**,.idea/**
 ForbiddenWriteSet = SUMMARY_RENDERER_OR_SOURCE_FACT_REWRITE
 ```
 
@@ -57,6 +60,7 @@ ForbiddenWriteSet = SUMMARY_RENDERER_OR_SOURCE_FACT_REWRITE
 ## 5. 验证命令
 
 ```bash
+./mvnw -f server/pom.xml -Dtest=io.cognitura.source.api.query.SourcePreviewControllerTest test
 cd web && corepack pnpm test -- src/modules/document-ingestion
 cd web && corepack pnpm build
 scripts/verify-wave1-implementation
