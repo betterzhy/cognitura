@@ -997,6 +997,7 @@ w1_i11_closure_repair_test_sha="256afd3bb45344e82f03fecb5012aac50de4f7e9"
 w1_i11_post_closure_pin_origin_sha="33922db113024338d742aa1fc2d7ef43e3701b99"
 w1_i11_post_closure_pin_spec_sha="e6d568dda23338949cebee3c91abc48883720cfb"
 w1_i11_post_closure_pin_test_sha="eeec5cad82b35a9e827ccdca9fb79a26dc88c82c"
+w1_i11_post_closure_pin_candidate_sha="793790aa357ee56e5106893a7bcd0f6eefabd1f8"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -1285,11 +1286,19 @@ w1_i11_closure_projection_paths=(
 w1_i12_revision_status_origin_sha="793790aa357ee56e5106893a7bcd0f6eefabd1f8"
 w1_i12_revision_status_spec_sha="a260be8665185646fb8b008eaebb6fdce35b6f3f"
 w1_i12_revision_status_test_sha="c149082be4a71dfa3397b4d3c6383847b315b9b7"
+w1_i12_revision_status_finding_origin_sha="99e027d6158c3dbacccee0f258cf5b4308f5029e"
+w1_i12_revision_status_finding_spec_sha="79a6cc99e25379665a769223e2c1b0a64b1d2335"
+w1_i12_revision_status_finding_test_sha="b7665fa1c3776a45e59fe70c64e0fd1cac979612"
 w1_i12_revision_status_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i12-revision-status-entry.md
   tests/task-cards/verify-wave1-implementation-cards.sh
   scripts/verify-wave1-implementation-cards
   docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md
+)
+w1_i12_revision_status_finding_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i12-entry-route-tip-finding.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
 )
 w1_i12_original_product_paths=(
   web/src/modules/document-ingestion/SourceIngestionPage.tsx
@@ -9709,6 +9718,66 @@ validate_w1_i12_revision_status_entry() {
   done
 }
 
+validate_w1_i12_revision_status_finding() {
+  local origin="$1" tip="$2" commits=() commit parent previous changed_paths index
+  local expected_path expected_mode actual_blob expected_blob frozen_path
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${origin}..${tip}")
+  [[ "${#commits[@]}" -eq 3 ]] ||
+    fail "I12_REVISION_STATUS_FINDING_INVALID:exact three commits"
+  previous="${origin}"
+  for index in "${!commits[@]}"; do
+    commit="${commits[${index}]}"
+    expected_path="${w1_i12_revision_status_finding_paths[${index}]}"
+    parent="$(single_parent_of "${commit}" \
+      "I12_REVISION_STATUS_FINDING_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] ||
+      fail "I12_REVISION_STATUS_FINDING_INVALID:order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" &&
+      fail "I12_REVISION_STATUS_FINDING_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" \
+      "I12_REVISION_STATUS_FINDING_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] ||
+      fail "I12_REVISION_STATUS_FINDING_INVALID:path"
+    case "${expected_path}" in
+      scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;;
+      *) expected_mode=100644 ;;
+    esac
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] ||
+      fail "I12_REVISION_STATUS_FINDING_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" \
+      "I12_REVISION_STATUS_FINDING_INVALID:NUL"
+    if [[ "${index}" -lt 2 ]]; then
+      if [[ "${index}" -eq 0 ]]; then
+        expected_blob="$(git -C "${repo_root}" rev-parse \
+          "${w1_i12_revision_status_finding_spec_sha}:${expected_path}")"
+      else
+        expected_blob="$(git -C "${repo_root}" rev-parse \
+          "${w1_i12_revision_status_finding_test_sha}:${expected_path}")"
+      fi
+      actual_blob="$(git -C "${repo_root}" rev-parse \
+        "${commit}:${expected_path}")"
+      [[ "${actual_blob}" == "${expected_blob}" ]] ||
+        fail "I12_REVISION_STATUS_FINDING_INVALID:evidence"
+    fi
+    previous="${commit}"
+  done
+  git -C "${repo_root}" diff --quiet \
+    "${origin}..${tip}" -- \
+    "${w1_i11_migration_count_product_paths[@]}" \
+    "${w1_i12_product_paths[@]}" ||
+    fail "I12_REVISION_STATUS_FINDING_INVALID:frozen product"
+  for frozen_path in "${w1_i11_closure_projection_paths[@]}"; do
+    git -C "${repo_root}" diff --quiet \
+      "${origin}..${tip}" -- "${frozen_path}" ||
+      fail "I12_REVISION_STATUS_FINDING_INVALID:frozen projection"
+  done
+}
+
 validate_post_w1_i11_closure_descendants() {
   local receipt="$1" head="$2" expanded="${3:-0}"
   local commit parent changed_paths path
@@ -9814,6 +9883,7 @@ validate_w1_i11_post_closure_fixture_pin() {
 route_w1_i11_closure() {
   local route_commit="$1" governance_tip receipt path post_base pin_tip
   local entry_tip="" entry_status="NOT_RUN" expanded=0 projection_base
+  local finding_tip=""
   receipt="$(find_w1_i11_closure_receipt "${route_commit}")"
   if [[ -n "${receipt}" ]]; then
     governance_tip="$(single_parent_of "${receipt}" \
@@ -9855,10 +9925,10 @@ route_w1_i11_closure() {
   if [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
       "${receipt}..${route_commit}" -- "${w1_i11_post_closure_pin_paths[0]}" \
       2>/dev/null)" ]]; then
-    pin_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-      "${receipt}..${route_commit}" -- scripts/verify-wave1-implementation-cards |
-      sed -n '$p')"
-    [[ -n "${pin_tip}" ]] || fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:missing verifier"
+    pin_tip="${w1_i11_post_closure_pin_candidate_sha}"
+    git -C "${repo_root}" merge-base --is-ancestor \
+      "${pin_tip}" "${route_commit}" 2>/dev/null ||
+      fail "I11_POST_CLOSURE_FIXTURE_PIN_INVALID:fixed candidate"
     validate_w1_i11_post_closure_fixture_pin "${pin_tip}"
     post_base="${pin_tip}"
   fi
@@ -9874,6 +9944,17 @@ route_w1_i11_closure() {
     post_base="${entry_tip}"
     entry_status="PASS"
     expanded=1
+    if [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+        "${entry_tip}..${route_commit}" -- \
+        "${w1_i12_revision_status_finding_paths[0]}" 2>/dev/null)" ]]; then
+      finding_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+        "${entry_tip}..${route_commit}" -- \
+        "${w1_i12_revision_status_finding_paths[2]}" | sed -n '1p')"
+      [[ -n "${finding_tip}" ]] ||
+        fail "I12_REVISION_STATUS_FINDING_INVALID:missing verifier"
+      validate_w1_i12_revision_status_finding "${entry_tip}" "${finding_tip}"
+      post_base="${finding_tip}"
+    fi
   fi
   validate_post_w1_i11_closure_descendants \
     "${post_base}" "${route_commit}" "${expanded}"
