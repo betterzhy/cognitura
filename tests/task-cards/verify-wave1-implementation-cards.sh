@@ -7734,7 +7734,7 @@ expect_i11_rebaseline_failure() {
 }
 
 run_w1_i11_persistence_rebaseline_contract() {
-  local fixture_root output
+  local fixture_root output old_card old_write_set old_forbidden_set
   local positive_cases=0 negative_cases=0
 
   fixture_root="${test_tmp_root}/w1-i11-rebaseline-pending"
@@ -7872,14 +7872,20 @@ run_w1_i11_persistence_rebaseline_contract() {
   fixture_root="${test_tmp_root}/w1-i11-rebaseline-obsolete-write-set"
   new_i11_rebaseline_fixture "${fixture_root}"
   materialize_i11_rebaseline_governance "${fixture_root}"
-  make_i11_rebaseline_projection "${fixture_root}"
+  old_card="${fixture_root}/.i11-origin-card"
   git -C "${fixture_root}" show \
-    "HEAD:${i11_rebaseline_card_path}" > "${fixture_root}/${i11_rebaseline_card_path}"
-  set_field "${fixture_root}/${i11_rebaseline_card_path}" \
-    PrimaryBoundary SOURCE_PARTIAL_ACCEPTANCE_COMMAND
-  set_field "${fixture_root}/${i11_rebaseline_card_path}" ProductionFileLimit 10
-  set_field "${fixture_root}/${i11_rebaseline_card_path}" \
-    ProductionWriteSetException APPROVED_I11_PERSISTENCE_REBASELINE
+    "HEAD:${i11_rebaseline_card_path}" > "${old_card}"
+  old_write_set="$(sed -n 's/^WriteSet = //p' "${old_card}" | sed 's/^/WriteSet = /')"
+  old_forbidden_set="$(sed -n 's/^ForbiddenWriteSet = //p' "${old_card}" | sed 's/^/ForbiddenWriteSet = /')"
+  make_i11_rebaseline_projection "${fixture_root}"
+  I11_WRITE_SET="${old_write_set}" perl -0777 -i.bak -pe \
+    's/(?:^WriteSet = .*\n)+/$ENV{I11_WRITE_SET}."\n"/mge' \
+    "${fixture_root}/${i11_rebaseline_card_path}"
+  rm "${fixture_root}/${i11_rebaseline_card_path}.bak"
+  I11_FORBIDDEN_SET="${old_forbidden_set}" perl -0777 -i.bak -pe \
+    's/(?:^ForbiddenWriteSet = .*\n)+/$ENV{I11_FORBIDDEN_SET}."\n"/mge' \
+    "${fixture_root}/${i11_rebaseline_card_path}"
+  rm "${fixture_root}/${i11_rebaseline_card_path}.bak" "${old_card}"
   git -C "${fixture_root}" add "${i11_rebaseline_projection_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: retain obsolete I11 WriteSet"
   expect_i11_rebaseline_failure "${fixture_root}" \
