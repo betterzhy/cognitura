@@ -163,6 +163,124 @@ class SourcePreviewControllerTest {
     }
 
     @Test
+    void readsTheExactCompleteRevisionStatusFromPostgres() throws Exception {
+        CandidateBlockSet blockSet = completeBlockSet("source-a", "revision-a", "attempt-a");
+        publish("workspace-a", "source-a", "revision-a", "profile-a", blockSet);
+
+        mvc.perform(get(
+                        "/api/v1/source-documents/source-a/processing-revisions/revision-a"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.*", hasSize(14)))
+                .andExpect(jsonPath("$.sourceDocumentId").value("source-a"))
+                .andExpect(jsonPath("$.sourceProcessingRevisionId").value("revision-a"))
+                .andExpect(jsonPath("$.parserProfileVersion").value("profile-a"))
+                .andExpect(jsonPath("$.sourceProcessingRevisionStatus").value("PREVIEW_READY"))
+                .andExpect(jsonPath("$.sourceIngestionDisplayStatus").value("PREVIEW_READY"))
+                .andExpect(jsonPath("$.parseCompleteness").value("COMPLETE"))
+                .andExpect(jsonPath("$.omissions", hasSize(0)))
+                .andExpect(jsonPath("$.publishedBlockSetDigest").value(
+                        BlockSetDigest.compute(blockSet).value()))
+                .andExpect(jsonPath("$.omissionsDigest").value(
+                        blockSet.omissionsDigest().value()))
+                .andExpect(jsonPath("$.partialAcceptanceStatus").value("NOT_APPLICABLE"))
+                .andExpect(jsonPath("$.failureCode").isEmpty())
+                .andExpect(jsonPath("$.failureDetail").isEmpty())
+                .andExpect(jsonPath("$.startedAt").value("2026-08-22T04:00:59Z"))
+                .andExpect(jsonPath("$.completedAt").value("2026-08-22T04:01:00Z"))
+                .andExpect(jsonPath("$.attemptId").doesNotExist())
+                .andExpect(jsonPath("$.fencingToken").doesNotExist())
+                .andExpect(jsonPath("$.leaseExpiresAt").doesNotExist())
+                .andExpect(jsonPath("$.binaryLocation").doesNotExist());
+    }
+
+    @Test
+    void exactPartialRevisionStatusCarriesThePublishedOmissions() throws Exception {
+        CandidateBlockSet blockSet = partialBlockSet("source-a", "revision-a", "attempt-a");
+        publish("workspace-a", "source-a", "revision-a", "profile-a", blockSet);
+
+        mvc.perform(get(
+                        "/api/v1/source-documents/source-a/processing-revisions/revision-a"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.parseCompleteness").value("PARTIAL"))
+                .andExpect(jsonPath("$.partialAcceptanceStatus").value("PENDING"))
+                .andExpect(jsonPath("$.omissions", hasSize(1)))
+                .andExpect(jsonPath("$.omissions[0].sourcePart").value("word/document.xml"))
+                .andExpect(jsonPath("$.omissions[0].sourceElementIndex").value(1))
+                .andExpect(jsonPath("$.omissions[0].errorCode")
+                        .value("UNSUPPORTED_SAFE_OOXML"));
+    }
+
+    @Test
+    void processingAndRetryableFailureStatusesDoNotInventPublishedFacts() throws Exception {
+        CandidateBlockSet blockSet = completeBlockSet("source-a", "revision-a", "attempt-a");
+        publish("workspace-a", "source-a", "revision-a", "profile-a", blockSet);
+        update("""
+                update source_processing_revision
+                set revision_status = 'PARSING', completed_at = null,
+                    published_digest = null, omissions_digest = null,
+                    parse_completeness = null, partial_acceptance_status = null
+                where source_processing_revision_id = ?
+                """, "revision-a");
+
+        mvc.perform(get(
+                        "/api/v1/source-documents/source-a/processing-revisions/revision-a"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceProcessingRevisionStatus").value("PARSING"))
+                .andExpect(jsonPath("$.sourceIngestionDisplayStatus").value("PARSING"))
+                .andExpect(jsonPath("$.parseCompleteness").isEmpty())
+                .andExpect(jsonPath("$.omissions", hasSize(0)))
+                .andExpect(jsonPath("$.publishedBlockSetDigest").isEmpty())
+                .andExpect(jsonPath("$.omissionsDigest").isEmpty())
+                .andExpect(jsonPath("$.partialAcceptanceStatus").isEmpty())
+                .andExpect(jsonPath("$.failureCode").isEmpty())
+                .andExpect(jsonPath("$.failureDetail").isEmpty())
+                .andExpect(jsonPath("$.completedAt").isEmpty());
+
+        update("""
+                update source_processing_revision
+                set revision_status = 'FAILED_RETRYABLE',
+                    failure_code = 'PARSER_RETRYABLE_FAILURE',
+                    failure_detail = 'The parser could not complete this revision.',
+                    completed_at = ?
+                where source_processing_revision_id = ?
+                """, Instant.parse("2026-08-22T04:02:00Z"), "revision-a");
+
+        mvc.perform(get(
+                        "/api/v1/source-documents/source-a/processing-revisions/revision-a"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceProcessingRevisionStatus")
+                        .value("FAILED_RETRYABLE"))
+                .andExpect(jsonPath("$.sourceIngestionDisplayStatus")
+                        .value("RETRYABLE_FAILURE"))
+                .andExpect(jsonPath("$.omissions", hasSize(0)))
+                .andExpect(jsonPath("$.failureCode").value("PARSER_RETRYABLE_FAILURE"))
+                .andExpect(jsonPath("$.failureDetail")
+                        .value("The parser could not complete this revision."))
+                .andExpect(jsonPath("$.completedAt").value("2026-08-22T04:02:00Z"));
+    }
+
+    @Test
+    void statusQueryHidesForeignWorkspaceExactlyLikeAMissingRevision() throws Exception {
+        CandidateBlockSet blockSet = completeBlockSet("source-a", "revision-a", "attempt-a");
+        publish("workspace-b", "source-a", "revision-a", "profile-a", blockSet);
+
+        String foreign = mvc.perform(get(
+                        "/api/v1/source-documents/source-a/processing-revisions/revision-a"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.*", hasSize(5)))
+                .andExpect(jsonPath("$.errorCode").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.sourceDocumentId").isEmpty())
+                .andExpect(jsonPath("$.sourceProcessingRevisionId").isEmpty())
+                .andReturn().getResponse().getContentAsString();
+        String missing = mvc.perform(get(
+                        "/api/v1/source-documents/missing/processing-revisions/missing"))
+                .andExpect(status().isNotFound())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(missing).isEqualTo(foreign);
+    }
+
+    @Test
     void registersTheProductionPreviewEndpointOnlyWhenExplicitlyEnabled() {
         ApplicationContextRunner runner = new ApplicationContextRunner()
                 .withBean(DataSource.class, () -> dataSource)
