@@ -7154,7 +7154,10 @@ i10_closure_origin_sha="9eb48f18b8c0ab3552a3f52cfe3a6f5e61db51ad"
 i10_closure_reviewed_parent_sha="f4b22f1d5be85e8c9847399fab5d4490056d4e1f"
 i10_closure_reviewed_tree_sha="a227ce11facc84b0be56d65f459a8d6005e16bb3"
 i10_closure_spec_sha="261ac4d26c102c1cade7f2811e878652b601b108"
+i10_closure_red_test_sha="dd89a075491b11957c00ecb7adf3da2138a997f5"
+i10_closure_repair_spec_sha="054ecbbd9a4dd7a4d5fac3463c13312d5f166013"
 i10_closure_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i10-closure-design.md"
+i10_closure_repair_spec_path="docs/superpowers/specs/2026-08-22-cognitura-w1-i10-closure-test-repair.md"
 i10_closure_test_path="tests/task-cards/verify-wave1-implementation-cards.sh"
 i10_closure_verifier_path="scripts/verify-wave1-implementation-cards"
 i10_closure_i10_card_path="docs/task-cards/wave-1-implementation/W1-I10-source-preview-query-api.md"
@@ -7188,11 +7191,25 @@ materialize_i10_closure_governance() {
   git -C "${fixture_root}" add "${i10_closure_spec_path}"
   git -C "${fixture_root}" commit -qm "docs: define W1-I10 closure"
 
-  cp -p "${repo_root}/${i10_closure_test_path}" \
+  git -C "${repo_root}" show \
+    "${i10_closure_red_test_sha}:${i10_closure_test_path}" > \
     "${fixture_root}/${i10_closure_test_path}"
   chmod 755 "${fixture_root}/${i10_closure_test_path}"
   git -C "${fixture_root}" add "${i10_closure_test_path}"
   git -C "${fixture_root}" commit -qm "test: require W1-I10 closure"
+
+  mkdir -p "${fixture_root}/$(dirname "${i10_closure_repair_spec_path}")"
+  git -C "${repo_root}" show \
+    "${i10_closure_repair_spec_sha}:${i10_closure_repair_spec_path}" > \
+    "${fixture_root}/${i10_closure_repair_spec_path}"
+  git -C "${fixture_root}" add "${i10_closure_repair_spec_path}"
+  git -C "${fixture_root}" commit -qm "docs: repair W1-I10 closure test fixture"
+
+  cp -p "${repo_root}/${i10_closure_test_path}" \
+    "${fixture_root}/${i10_closure_test_path}"
+  chmod 755 "${fixture_root}/${i10_closure_test_path}"
+  git -C "${fixture_root}" add "${i10_closure_test_path}"
+  git -C "${fixture_root}" commit -qm "test: repair W1-I10 closure fixture"
 
   cp -p "${repo_root}/${i10_closure_verifier_path}" \
     "${fixture_root}/${i10_closure_verifier_path}"
@@ -7432,7 +7449,7 @@ run_w1_i10_closure_contract() {
   governance_tip="$(git -C "${fixture_root}" rev-parse HEAD)"
   make_i10_closure_projection "${fixture_root}" "${governance_tip}"
   git -C "${fixture_root}" mv README.md README-I10.md
-  git -C "${fixture_root}" add "${i10_closure_projection_paths[@]}" README-I10.md
+  git -C "${fixture_root}" add -A
   git -C "${fixture_root}" commit -qm "test: rename I10 projection"
   expect_i10_closure_failure "${fixture_root}" 'I10_CLOSURE_RECEIPT_PATHS_INVALID:rename or copy' \
     --transition-base "${governance_tip}" --transition-head HEAD
