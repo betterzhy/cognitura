@@ -10191,11 +10191,28 @@ validate_post_w1_i12_closure_descendants() {
   done
 }
 
+require_w1_i12_safe_authorization_fields() {
+  local head="$1" path key content values
+  for path in "${w1_i13_product_paths[@]}"; do
+    content="$(git -C "${repo_root}" show "${head}:${path}" 2>/dev/null || true)"
+    [[ -n "${content}" ]] || continue
+    for key in FormalDatabaseWrite RemotePush DeploymentAndRelease; do
+      values="$(printf '%s\n' "${content}" | sed -n "s/^${key} = //p")"
+      [[ -n "${values}" ]] || continue
+      [[ -z "$(printf '%s\n' "${values}" | grep -Fvx NOT_AUTHORIZED || true)" ]] ||
+        fail "I12_CLOSURE_AUTHORIZATION_INVALID:${path}:${key}"
+    done
+  done
+}
+
 require_w1_i12_i13_ready_state() {
-  local head="$1" index_path="docs/task-cards/wave-1-implementation/README.md"
+  local head="$1" receipt="$2"
+  local index_path="docs/task-cards/wave-1-implementation/README.md"
   local i12_card="docs/task-cards/wave-1-implementation/W1-I12-desktop-web-source-preview.md"
   local i13_card="docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md"
-  local index_content ready_rows
+  local plan_path="docs/engineering/cognitura-wave-1-implementation-plan.md"
+  local index_content ready_rows task_id receipt_row head_row
+  require_w1_i12_safe_authorization_fields "${head}"
   [[ "$(git_tree_field "${head}" "${i12_card}" Status)" == DONE &&
      "$(git_tree_field "${head}" "${i13_card}" Status)" == READY &&
      "$(git_tree_field "${head}" "${i13_card}" BusinessImplementationAuthorization)" == USER_AUTHORIZED &&
@@ -10207,6 +10224,11 @@ require_w1_i12_i13_ready_state() {
      "$(git_tree_field "${head}" "${index_path}" FormalDatabaseWrite)" == NOT_AUTHORIZED &&
      "$(git_tree_field "${head}" "${index_path}" RemotePush)" == NOT_AUTHORIZED ]] ||
     fail "I12_CLOSURE_I13_STATE_INVALID"
+  [[ "$(git -C "${repo_root}" rev-parse "${head}:${index_path}")" == \
+      "${w1_i12_closure_projection_blob_shas[8]}" &&
+     "$(git -C "${repo_root}" rev-parse "${head}:${i13_card}")" == \
+      "${w1_i12_closure_projection_blob_shas[10]}" ]] ||
+    fail "I12_CLOSURE_I13_STATE_INVALID:frozen card or index"
   index_content="$(git -C "${repo_root}" show "${head}:${index_path}")" ||
     fail "I12_CLOSURE_I13_STATE_INVALID"
   ready_rows="$(printf '%s\n' "${index_content}" | grep -c '| `READY` |' || true)"
@@ -10217,11 +10239,20 @@ require_w1_i12_i13_ready_state() {
   printf '%s\n' "${index_content}" | grep -Fqx \
     '| `W1-I13` | [固定实现复核](W1-I13-fixed-implementation-review.md) | `READY` | `W1-I00..W1-I12` | `W1-IG13` | `HIGH` |' ||
     fail "I12_CLOSURE_I13_STATE_INVALID"
+  for task_id in W1-I00 W1-I01 W1-I02 W1-I03 W1-I04 W1-I05 W1-I06 \
+      W1-I07 W1-I08 W1-I09 W1-I10 W1-I11 W1-I12 W1-I13; do
+    receipt_row="$(git -C "${repo_root}" show "${receipt}:${plan_path}" | \
+      grep -F "| \`${task_id}\` |" || true)"
+    head_row="$(git -C "${repo_root}" show "${head}:${plan_path}" | \
+      grep -F "| \`${task_id}\` |" || true)"
+    [[ -n "${receipt_row}" && "${head_row}" == "${receipt_row}" ]] ||
+      fail "I12_CLOSURE_I13_STATE_INVALID:plan row:${task_id}"
+  done
 }
 
 route_w1_i12_closure() {
   local route_commit="$1" governance_tip receipt post_base correction parent changed_paths
-  local finding_correction expected_paths path
+  local finding_correction expected_paths path finding_count=0
   governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i12_closure_origin_sha}..${route_commit}" | sed -n '3p')"
   [[ -n "${governance_tip}" ]] ||
@@ -10274,10 +10305,14 @@ route_w1_i12_closure() {
       "I12_CLOSURE_CORRECTION_INVALID:NUL"
     post_base="${correction}"
   fi
-  finding_correction="$(git -C "${repo_root}" rev-list --first-parent --reverse \
-    "${post_base}..${route_commit}" -- \
-    tests/task-cards/verify-wave1-implementation-cards.sh | sed -n '1p')"
-  if [[ -n "${finding_correction}" ]]; then
+  while :; do
+    finding_correction="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+      "${post_base}..${route_commit}" -- \
+      tests/task-cards/verify-wave1-implementation-cards.sh | sed -n '1p')"
+    [[ -n "${finding_correction}" ]] || break
+    finding_count=$((finding_count + 1))
+    [[ "${finding_count}" -le 2 ]] ||
+      fail "I12_CLOSURE_FINDING_CORRECTION_INVALID:too many corrections"
     parent="$(single_parent_of "${finding_correction}" \
       "I12_CLOSURE_FINDING_CORRECTION_INVALID:single parent")"
     [[ "${parent}" == "${post_base}" ]] ||
@@ -10301,9 +10336,9 @@ route_w1_i12_closure() {
         "I12_CLOSURE_FINDING_CORRECTION_INVALID:NUL"
     done
     post_base="${finding_correction}"
-  fi
+  done
   validate_post_w1_i12_closure_descendants "${post_base}" "${route_commit}"
-  require_w1_i12_i13_ready_state "${route_commit}"
+  require_w1_i12_i13_ready_state "${route_commit}" "${receipt}"
   printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
     'TaskCardCount = 14' 'TaskCardSetStatus = READY_FOR_EXECUTION' \
     'ActiveTaskCard = W1-I13' 'ReadyTaskCardCount = 1' \

@@ -8847,8 +8847,32 @@ run_w1_i12_closure_contract() {
   expect_i12_closure_failure "${fixture_root}" 'I12_CLOSURE_I13_STATE_INVALID'
   negative_cases=$((negative_cases + 1))
 
+  fixture_root="${test_tmp_root}/w1-i12-closure-i13-push-drift"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  materialize_i12_closure_projection "${fixture_root}"
+  set_field "${fixture_root}/docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md" \
+    RemotePush AUTHORIZED
+  git -C "${fixture_root}" add \
+    docs/task-cards/wave-1-implementation/W1-I13-fixed-implementation-review.md
+  git -C "${fixture_root}" commit -qm "test: authorize I13 push"
+  expect_i12_closure_failure "${fixture_root}" 'I12_CLOSURE_AUTHORIZATION_INVALID'
+  negative_cases=$((negative_cases + 1))
+
+  fixture_root="${test_tmp_root}/w1-i12-closure-authority-db-drift"
+  new_i12_closure_fixture "${fixture_root}"
+  materialize_i12_closure_governance "${fixture_root}"
+  materialize_i12_closure_projection "${fixture_root}"
+  sed -i.bak 's/^FormalDatabaseWrite = NOT_AUTHORIZED$/FormalDatabaseWrite = AUTHORIZED/' \
+    "${fixture_root}/AGENTS.md"
+  rm "${fixture_root}/AGENTS.md.bak"
+  git -C "${fixture_root}" add AGENTS.md
+  git -C "${fixture_root}" commit -qm "test: authorize formal database write"
+  expect_i12_closure_failure "${fixture_root}" 'I12_CLOSURE_AUTHORIZATION_INVALID'
+  negative_cases=$((negative_cases + 1))
+
   [[ "${positive_cases}" -eq 3 ]] || fail "I12 closure positive count mismatch"
-  [[ "${negative_cases}" -eq 7 ]] || fail "I12 closure negative count mismatch"
+  [[ "${negative_cases}" -eq 9 ]] || fail "I12 closure negative count mismatch"
   printf '%s\n' 'W1I12ClosureContractTests = PASS' \
     "W1I12ClosurePositiveCases = ${positive_cases}" \
     "W1I12ClosureNegativeCases = ${negative_cases}"
