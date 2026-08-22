@@ -960,6 +960,9 @@ w1_i10_closure_spec_sha="261ac4d26c102c1cade7f2811e878652b601b108"
 w1_i10_closure_test_sha="dd89a075491b11957c00ecb7adf3da2138a997f5"
 w1_i10_closure_repair_spec_sha="054ecbbd9a4dd7a4d5fac3463c13312d5f166013"
 w1_i10_closure_repair_test_sha="f2c22d2ed5ee90e1447ef1609b7b7037bd052bad"
+w1_i10_post_fixture_pin_origin_sha="1a7c0e6d690419c7e21a39d20f652e9817d08ab5"
+w1_i10_post_fixture_pin_spec_sha="c2dc74a5921f84c71ffec996d8dbef00dd81a8bb"
+w1_i10_post_fixture_pin_test_sha="49f5a711e859f1947b80d0d999ceac37c92989ba"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -1095,6 +1098,15 @@ w1_i11_product_paths=(
   server/src/main/java/io/cognitura/source/api/acceptance/PartialAcceptanceResponse.java
   server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceControllerTest.java
   server/src/test/java/io/cognitura/source/api/acceptance/PartialAcceptanceServiceTest.java
+)
+w1_i10_post_fixture_pin_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i10-post-closure-fixture-pin.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
+)
+w1_i10_post_fixture_pin_evidence_shas=(
+  "${w1_i10_post_fixture_pin_spec_sha}"
+  "${w1_i10_post_fixture_pin_test_sha}"
 )
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
@@ -8241,6 +8253,63 @@ route_w1_i10_closure() {
   esac
 }
 
+validate_w1_i10_post_fixture_pin_chain() {
+  local tip="$1"
+  local commits=() commit parent previous changed_paths index expected_path expected_mode
+  local actual_blob expected_blob evidence_sha
+  git -C "${repo_root}" merge-base --is-ancestor \
+    "${w1_i10_post_fixture_pin_origin_sha}" "${tip}" 2>/dev/null ||
+    fail "I10_POST_FIXTURE_PIN_INVALID:origin"
+  while IFS= read -r commit; do
+    [[ -n "${commit}" ]] && commits+=("${commit}")
+  done < <(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i10_post_fixture_pin_origin_sha}..${tip}")
+  [[ "${#commits[@]}" -eq 3 ]] || fail "I10_POST_FIXTURE_PIN_INVALID:exact three commits"
+  previous="${w1_i10_post_fixture_pin_origin_sha}"
+  for index in "${!commits[@]}"; do
+    commit="${commits[${index}]}"
+    expected_path="${w1_i10_post_fixture_pin_paths[${index}]}"
+    parent="$(single_parent_of "${commit}" "I10_POST_FIXTURE_PIN_INVALID:single parent")"
+    [[ "${parent}" == "${previous}" ]] || fail "I10_POST_FIXTURE_PIN_INVALID:order"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${commit}" && fail "I10_POST_FIXTURE_PIN_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${commit}" "I10_POST_FIXTURE_PIN_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only "${parent}..${commit}")"
+    [[ "${changed_paths}" == "${expected_path}" ]] || fail "I10_POST_FIXTURE_PIN_INVALID:path"
+    case "${expected_path}" in scripts/*|tests/*.sh|tests/*/*.sh) expected_mode=100755 ;; *) expected_mode=100644 ;; esac
+    [[ "$(git_tree_mode "${commit}" "${expected_path}")" == "${expected_mode}" ]] || fail "I10_POST_FIXTURE_PIN_INVALID:mode"
+    require_git_blob_without_nul "${commit}" "${expected_path}" "I10_POST_FIXTURE_PIN_INVALID:NUL"
+    if [[ "${index}" -lt 2 ]]; then
+      evidence_sha="${w1_i10_post_fixture_pin_evidence_shas[${index}]}"
+      actual_blob="$(git -C "${repo_root}" rev-parse "${commit}:${expected_path}" 2>/dev/null)" || fail "I10_POST_FIXTURE_PIN_INVALID:evidence"
+      expected_blob="$(git -C "${repo_root}" rev-parse "${evidence_sha}:${expected_path}" 2>/dev/null)" || fail "I10_POST_FIXTURE_PIN_INVALID:evidence"
+      [[ "${actual_blob}" == "${expected_blob}" ]] || fail "I10_POST_FIXTURE_PIN_INVALID:evidence"
+    fi
+    previous="${commit}"
+  done
+  git -C "${repo_root}" diff --quiet \
+    "${w1_i10_post_fixture_pin_origin_sha}..${tip}" -- \
+    "${w1_i10_product_paths[@]}" "${w1_i10_closure_projection_paths[@]}" ||
+    fail "I10_POST_FIXTURE_PIN_INVALID:frozen bytes"
+}
+
+route_w1_i10_post_fixture_pin() {
+  local route_commit="$1" receipt governance_tip correction_tip
+  correction_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${w1_i10_post_fixture_pin_origin_sha}..${route_commit}" | sed -n '3p')"
+  [[ -n "${correction_tip}" ]] || fail "I10_POST_FIXTURE_PIN_INVALID:missing tip"
+  validate_w1_i10_post_fixture_pin_chain "${correction_tip}"
+  receipt="${w1_i10_post_fixture_pin_origin_sha}"
+  governance_tip="$(single_parent_of "${receipt}" "I10_POST_FIXTURE_PIN_INVALID:closure parent")"
+  [[ "${governance_tip}" == "14428d6ce4a9624d0205f12cf611591bb7092f22" ]] ||
+    fail "I10_POST_FIXTURE_PIN_INVALID:closure identity"
+  validate_w1_i10_closure_receipt "${governance_tip}" "${receipt}"
+  validate_post_w1_i10_closure_descendants "${correction_tip}" "${route_commit}"
+  printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' 'TaskCardCount = 14' \
+    'TaskCardSetStatus = READY_FOR_EXECUTION' 'ActiveTaskCard = W1-I11' 'ReadyTaskCardCount = 1' \
+    'W1I09RuntimeRebaselineStatus = PASS' 'W1I09ClosureStatus = PASS' 'W1I10ClosureStatus = PASS' \
+    'W1I10PostFixturePinStatus = PASS' 'FormalDatabaseWrite = NOT_AUTHORIZED' 'RemotePush = NOT_AUTHORIZED'
+}
+
 default_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 vsb_verifier="${default_repo_root}/scripts/verify-visual-style-baseline-cards"
 repo_root="${default_repo_root}"
@@ -8292,6 +8361,18 @@ index_file="${cards_dir}/README.md"
 current_repository_head="$(git -C "${repo_root}" rev-parse --verify HEAD^{commit} 2>/dev/null)" ||
   fail "repository HEAD must resolve to a commit"
 if [[ "${closure_cards_dir_is_canonical}" == 1 ]]; then
+  i10_post_fixture_pin_route_commit="${current_repository_head}"
+  [[ -n "${transition_base}" ]] && i10_post_fixture_pin_route_commit="${transition_base}"
+  if [[ "${i10_post_fixture_pin_route_commit}" != "${w1_i10_post_fixture_pin_origin_sha}" ]] &&
+      git -C "${repo_root}" merge-base --is-ancestor \
+        "${w1_i10_post_fixture_pin_origin_sha}" "${i10_post_fixture_pin_route_commit}" 2>/dev/null &&
+      [[ -n "$(git -C "${repo_root}" rev-list -n 1 \
+        "${w1_i10_post_fixture_pin_origin_sha}..${i10_post_fixture_pin_route_commit}" -- \
+        "${w1_i10_post_fixture_pin_paths[0]}" 2>/dev/null)" ]]; then
+    [[ -z "${transition_base}" ]] || fail "I10_POST_FIXTURE_PIN_INVALID:explicit transition unsupported"
+    route_w1_i10_post_fixture_pin "${i10_post_fixture_pin_route_commit}"
+    exit 0
+  fi
   i10_closure_route_commit="${current_repository_head}"
   [[ -n "${transition_base}" ]] && i10_closure_route_commit="${transition_base}"
   if [[ "${i10_closure_route_commit}" != "${w1_i10_closure_origin_sha}" ]] &&
