@@ -10278,7 +10278,7 @@ require_w1_i12_i13_ready_state() {
 
 route_w1_i12_closure() {
   local route_commit="$1" governance_tip receipt post_base correction parent changed_paths
-  local finding_correction expected_paths path finding_count=0
+  local finding_correction limit_correction expected_paths path finding_count=0
   governance_tip="$(git -C "${repo_root}" rev-list --first-parent --reverse \
     "${w1_i12_closure_origin_sha}..${route_commit}" | sed -n '3p')"
   [[ -n "${governance_tip}" ]] ||
@@ -10337,7 +10337,7 @@ route_w1_i12_closure() {
       tests/task-cards/verify-wave1-implementation-cards.sh | sed -n '1p')"
     [[ -n "${finding_correction}" ]] || break
     finding_count=$((finding_count + 1))
-    [[ "${finding_count}" -le 2 ]] ||
+    [[ "${finding_count}" -le 3 ]] ||
       fail "I12_CLOSURE_FINDING_CORRECTION_INVALID:too many corrections"
     parent="$(single_parent_of "${finding_correction}" \
       "I12_CLOSURE_FINDING_CORRECTION_INVALID:single parent")"
@@ -10363,6 +10363,32 @@ route_w1_i12_closure() {
     done
     post_base="${finding_correction}"
   done
+  limit_correction="$(git -C "${repo_root}" rev-list --first-parent --reverse \
+    "${post_base}..${route_commit}" -- \
+    scripts/verify-wave1-implementation-cards | sed -n '1p')"
+  if [[ -n "${limit_correction}" ]]; then
+    [[ "${finding_count}" -eq 3 ]] ||
+      fail "I12_CLOSURE_FINDING_LIMIT_CORRECTION_INVALID:position"
+    parent="$(single_parent_of "${limit_correction}" \
+      "I12_CLOSURE_FINDING_LIMIT_CORRECTION_INVALID:single parent")"
+    [[ "${parent}" == "${post_base}" ]] ||
+      fail "I12_CLOSURE_FINDING_LIMIT_CORRECTION_INVALID:direct child"
+    git -C "${repo_root}" diff-tree --quiet "${parent}" "${limit_correction}" &&
+      fail "I12_CLOSURE_FINDING_LIMIT_CORRECTION_INVALID:empty"
+    require_no_git_rename_or_copy "${parent}" "${limit_correction}" \
+      "I12_CLOSURE_FINDING_LIMIT_CORRECTION_INVALID:rename or copy"
+    changed_paths="$(git -C "${repo_root}" diff --name-only \
+      "${parent}..${limit_correction}")"
+    [[ "${changed_paths}" == scripts/verify-wave1-implementation-cards ]] ||
+      fail "I12_CLOSURE_FINDING_LIMIT_CORRECTION_INVALID:path"
+    [[ "$(git_tree_mode "${limit_correction}" \
+      scripts/verify-wave1-implementation-cards)" == 100755 ]] ||
+      fail "I12_CLOSURE_FINDING_LIMIT_CORRECTION_INVALID:mode"
+    require_git_blob_without_nul "${limit_correction}" \
+      scripts/verify-wave1-implementation-cards \
+      "I12_CLOSURE_FINDING_LIMIT_CORRECTION_INVALID:NUL"
+    post_base="${limit_correction}"
+  fi
   validate_post_w1_i12_closure_descendants "${post_base}" "${route_commit}"
   require_w1_i12_i13_ready_state "${route_commit}" "${receipt}"
   printf '%s\n' 'Wave1ImplementationTaskCardValidation = PASS' \
