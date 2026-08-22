@@ -36,11 +36,13 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -161,6 +163,27 @@ class SourcePreviewControllerTest {
     }
 
     @Test
+    void registersTheProductionPreviewEndpointOnlyWhenExplicitlyEnabled() {
+        ApplicationContextRunner runner = new ApplicationContextRunner()
+                .withBean(DataSource.class, () -> dataSource)
+                .withBean(TrustedRequestContextProvider.class, () -> () -> CONTEXT)
+                .withUserConfiguration(SourcePreviewQuery.class, SourcePreviewController.class);
+
+        runner.withPropertyValues(
+                        "cognitura.source-command.preview-enabled=true",
+                        "cognitura.source-command.preview-cursor-signing-key="
+                                + Base64.getEncoder().encodeToString(CURSOR_KEY))
+                .run(context -> {
+                    assertThat(context.getBeansOfType(SourcePreviewQuery.class)).hasSize(1);
+                    assertThat(context.getBeansOfType(SourcePreviewController.class)).hasSize(1);
+                });
+        runner.run(context -> {
+            assertThat(context.getBeansOfType(SourcePreviewQuery.class)).isEmpty();
+            assertThat(context.getBeansOfType(SourcePreviewController.class)).isEmpty();
+        });
+    }
+
+    @Test
     void rejectsCrossRevisionTamperedAndInvalidPagination() throws Exception {
         CandidateBlockSet first = completeBlockSet("source-a", "revision-a", "attempt-a");
         CandidateBlockSet second = completeBlockSet("source-a", "revision-b", "attempt-b");
@@ -175,7 +198,9 @@ class SourcePreviewControllerTest {
                         "/api/v1/source-documents/source-a/processing-revisions/revision-a/blocks")
                         .param("limit", "501"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errorCode").value("PAGINATION_INVALID"));
+                .andExpect(jsonPath("$.errorCode").value("PAGINATION_INVALID"))
+                .andExpect(jsonPath("$.sourceDocumentId").isEmpty())
+                .andExpect(jsonPath("$.sourceProcessingRevisionId").isEmpty());
     }
 
     @Test

@@ -38,7 +38,6 @@ public final class SourcePreviewQuery {
     private static final int MAXIMUM_LIMIT = 500;
     private static final int MAX_BLOCKS = 100_000;
     private static final int MAX_CANONICAL_BYTES = 16_777_216;
-    private static final long MAX_TOTAL_CANONICAL_BYTES = 268_435_456L;
     private static final String CURSOR_KEY_PROPERTY =
             "cognitura.source-command.preview-cursor-signing-key";
 
@@ -64,12 +63,14 @@ public final class SourcePreviewQuery {
         Objects.requireNonNull(context, "context");
         int limit = requestedLimit == null ? DEFAULT_LIMIT : requestedLimit;
         if (limit < 1 || limit > MAXIMUM_LIMIT) {
-            throw PreviewException.pagination(sourceDocumentId, sourceProcessingRevisionId);
+            throw PreviewException.pagination(null, null);
         }
+        Header resolvedHeader = null;
         try (Connection connection = dataSource.getConnection()) {
             Header header = loadHeader(
                     connection, context.workspaceId(),
                     sourceDocumentId, sourceProcessingRevisionId);
+            resolvedHeader = header;
             if (!"PREVIEW_READY".equals(header.revisionStatus())) {
                 throw PreviewException.notReady(sourceDocumentId, sourceProcessingRevisionId);
             }
@@ -77,7 +78,7 @@ public final class SourcePreviewQuery {
             List<SourcePreviewPage.Omission> omissions =
                     decodeOmissions(published.omissionsCanonical());
             validateHeaderFacts(header, published, omissions);
-            int blockCount = validateBlockSet(connection, header);
+            int blockCount = countBlocks(connection, header);
 
             int afterOrder = -1;
             if (after != null) {
@@ -113,16 +114,19 @@ public final class SourcePreviewQuery {
                             page.blocks().get(page.blocks().size() - 1).sourceOrder())
                     : null;
             boolean incomplete = "PARTIAL".equals(header.parseCompleteness());
-            return new SourcePreviewPage(
+            SourcePreviewPage response = new SourcePreviewPage(
                     sourceDocumentId, sourceProcessingRevisionId,
                     header.originalFileName(), header.parseCompleteness(),
                     header.publishedDigest(), header.omissionsDigest(), incomplete,
                     incomplete ? SourcePreviewPage.PARTIAL_WARNING : null,
                     omissions, items, nextCursor);
+            return response;
         } catch (PreviewException error) {
             throw error;
         } catch (SQLException | IllegalArgumentException error) {
-            throw PreviewException.notReady(sourceDocumentId, sourceProcessingRevisionId);
+            throw resolvedHeader == null
+                    ? PreviewException.notReady(null, null)
+                    : PreviewException.notReady(sourceDocumentId, sourceProcessingRevisionId);
         }
     }
 
@@ -297,8 +301,7 @@ public final class SourcePreviewQuery {
         if (!complete && !partial) throw factsInvalid();
     }
 
-    private static int validateBlockSet(Connection connection, Header header) throws SQLException {
-        int count;
+    private static int countBlocks(Connection connection, Header header) throws SQLException {
         try (PreparedStatement query = connection.prepareStatement("""
                 select count(*) from source_document_block
                 where source_processing_revision_id = ?
@@ -306,39 +309,11 @@ public final class SourcePreviewQuery {
             query.setString(1, header.revisionId());
             try (ResultSet result = query.executeQuery()) {
                 if (!result.next()) throw factsInvalid();
-                count = result.getInt(1);
+                int count = result.getInt(1);
                 if (result.next() || count < 1 || count > MAX_BLOCKS) throw factsInvalid();
+                return count;
             }
         }
-        MessageDigest digest = sha256Digest();
-        updateInt(digest, count);
-        long totalBytes = 0;
-        int actualCount = 0;
-        try (PreparedStatement query = connection.prepareStatement("""
-                select source_order, canonical_block from source_document_block
-                where source_processing_revision_id = ? order by source_order
-                """)) {
-            query.setString(1, header.revisionId());
-            try (ResultSet result = query.executeQuery()) {
-                while (result.next()) {
-                    byte[] canonical = result.getBytes(2);
-                    if (result.getInt(1) != actualCount || canonical == null
-                            || canonical.length == 0 || canonical.length > MAX_CANONICAL_BYTES) {
-                        throw factsInvalid();
-                    }
-                    totalBytes += canonical.length;
-                    if (totalBytes > MAX_TOTAL_CANONICAL_BYTES) throw factsInvalid();
-                    updateInt(digest, canonical.length);
-                    digest.update(canonical);
-                    actualCount++;
-                }
-            }
-        }
-        if (actualCount != count
-                || !header.publishedDigest().equals(HexFormat.of().formatHex(digest.digest()))) {
-            throw factsInvalid();
-        }
-        return count;
     }
 
     private static List<SourcePreviewPage.Omission> decodeOmissions(byte[] canonical) {
@@ -415,22 +390,11 @@ public final class SourcePreviewQuery {
     }
 
     private static String sha256(byte[] bytes) {
-        return HexFormat.of().formatHex(sha256Digest().digest(bytes));
-    }
-
-    private static MessageDigest sha256Digest() {
         try {
-            return MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException("SHA_256_ALGORITHM_UNAVAILABLE", error);
         }
-    }
-
-    private static void updateInt(MessageDigest digest, int value) {
-        digest.update((byte) (value >>> 24));
-        digest.update((byte) (value >>> 16));
-        digest.update((byte) (value >>> 8));
-        digest.update((byte) value);
     }
 
     private static byte[] cursorKey(Environment environment) {

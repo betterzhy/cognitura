@@ -3,7 +3,7 @@ package io.cognitura.source.api.query;
 import io.cognitura.source.application.command.TrustedRequestContext;
 import io.cognitura.source.application.command.TrustedRequestContextProvider;
 import java.util.Objects;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@ConditionalOnBean({SourcePreviewQuery.class, TrustedRequestContextProvider.class})
+@ConditionalOnProperty(
+        prefix = "cognitura.source-command",
+        name = "preview-enabled",
+        havingValue = "true")
 @RequestMapping(
         "/api/v1/source-documents/{sourceDocumentId}/processing-revisions/"
                 + "{sourceProcessingRevisionId}/blocks")
