@@ -943,6 +943,9 @@ w1_i09_i08_fixture_pin_origin_sha="319c6b2ace258330c21036a5c86c56cf6431ecd2"
 w1_i09_i08_fixture_pin_test_sha="3730eb5c71862f51659bd68e4066c392815d5cef"
 w1_i09_v2_fixture_pin_origin_sha="160fc8a0ab347c3a35a566e0d615a1ad70af7f24"
 w1_i09_v2_fixture_pin_test_blob="39f5027d14062b0967a80b5d5954cc710fb3a003"
+w1_i09_final_review_origin_sha="f0fa4aaee25b66d0e916683e2ed938dac5305c85"
+w1_i09_final_review_spec_sha="a232ac429c8c47bbff7e799ebce097c558bbac71"
+w1_i09_final_review_test_sha="56f7c66d4e9e4075629f6ed1f9f498c590dbce57"
 w1_i09_canonical_bridge_paths=(
   docs/superpowers/specs/2026-08-22-cognitura-w1-i09-canonical-bytes-bridge.md
   tests/task-cards/verify-wave1-implementation-cards.sh
@@ -1001,6 +1004,11 @@ w1_i09_i08_fixture_pin_paths=(
 w1_i09_v2_fixture_pin_paths=(
   scripts/verify-wave1-implementation-cards
   tests/task-cards/verify-wave1-implementation-cards.sh
+)
+w1_i09_final_review_paths=(
+  docs/superpowers/specs/2026-08-22-cognitura-w1-i09-final-review-finding-repair.md
+  tests/task-cards/verify-wave1-implementation-cards.sh
+  scripts/verify-wave1-implementation-cards
 )
 w1_i09_runtime_projection_paths=(
   docs/engineering/cognitura-technology-baseline.md
@@ -6449,6 +6457,7 @@ validate_post_w1_i09_runtime_projection_descendants() {
   local fixture_diagnostic_steps=0 focused_current_steps=0
   local i08_fixture_pin_state="BEFORE"
   local v2_fixture_pin_state="BEFORE" actual_blob
+  local final_review_state="BEFORE" final_review_verifier_steps=0
   local bridge_projection=""
   [[ "${projection}" != "${head}" ]] || return 0
   for commit in $(git -C "${repo_root}" rev-list --first-parent --reverse \
@@ -6460,8 +6469,62 @@ validate_post_w1_i09_runtime_projection_descendants() {
     changed_paths="$(git -C "${repo_root}" diff --name-only \
       "${parent}..${commit}")"
 
+    if [[ "${commit}" == "${w1_i09_final_review_spec_sha}" ]]; then
+      [[ "${final_review_state}" == "BEFORE" && \
+         "${parent}" == "${w1_i09_final_review_origin_sha}" ]] ||
+        fail "I09_FINAL_REVIEW_FINDING_INVALID:order"
+      expected_path="${w1_i09_final_review_paths[0]}"
+      expected_mode=100644
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_FINAL_REVIEW_FINDING_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_FINAL_REVIEW_FINDING_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == \
+          "${expected_mode}" ]] || fail "I09_FINAL_REVIEW_FINDING_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_FINAL_REVIEW_FINDING_INVALID:NUL"
+      final_review_state="SPEC"
+      continue
+    fi
+    if [[ "${commit}" == "${w1_i09_final_review_test_sha}" ]]; then
+      [[ "${final_review_state}" == "SPEC" && \
+         "${parent}" == "${w1_i09_final_review_spec_sha}" ]] ||
+        fail "I09_FINAL_REVIEW_FINDING_INVALID:order"
+      expected_path="${w1_i09_final_review_paths[1]}"
+      expected_mode=100755
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_FINAL_REVIEW_FINDING_INVALID:path"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_FINAL_REVIEW_FINDING_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == \
+          "${expected_mode}" ]] || fail "I09_FINAL_REVIEW_FINDING_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_FINAL_REVIEW_FINDING_INVALID:NUL"
+      final_review_state="TEST"
+      continue
+    fi
+    if [[ "${final_review_state}" == "TEST" ]]; then
+      expected_path="${w1_i09_final_review_paths[2]}"
+      [[ "${changed_paths}" == "${expected_path}" ]] ||
+        fail "I09_FINAL_REVIEW_FINDING_INVALID:missing verifier"
+      require_no_git_rename_or_copy "${parent}" "${commit}" \
+        "I09_FINAL_REVIEW_FINDING_INVALID:rename or copy"
+      [[ "$(git_tree_mode "${commit}" "${expected_path}")" == 100755 ]] ||
+        fail "I09_FINAL_REVIEW_FINDING_INVALID:mode"
+      require_git_blob_without_nul "${commit}" "${expected_path}" \
+        "I09_FINAL_REVIEW_FINDING_INVALID:NUL"
+      final_review_verifier_steps=1
+      final_review_state="VERIFIER"
+      continue
+    elif [[ "${final_review_state}" == "VERIFIER" ]]; then
+      final_review_state="COMPLETE"
+    fi
+
     if [[ "${v2_fixture_pin_state}" == "BEFORE" && \
           "${parent}" == "${w1_i09_v2_fixture_pin_origin_sha}" ]]; then
+      [[ "${commit}" == \
+          "665fbdb7929441afd0b81635e2ea5855ee86272f" ]] ||
+        fail "I09_V2_FIXTURE_PIN_INVALID:verifier identity"
       expected_path="${w1_i09_v2_fixture_pin_paths[0]}"
       [[ "${changed_paths}" == "${expected_path}" ]] ||
         fail "I09_V2_FIXTURE_PIN_INVALID:path"
@@ -6510,6 +6573,9 @@ validate_post_w1_i09_runtime_projection_descendants() {
       continue
     fi
     if [[ "${i08_fixture_pin_state}" == "TEST" ]]; then
+      [[ "${commit}" == \
+          "160fc8a0ab347c3a35a566e0d615a1ad70af7f24" ]] ||
+        fail "I09_I08_FIXTURE_PIN_INVALID:verifier identity"
       expected_path="${w1_i09_i08_fixture_pin_paths[1]}"
       [[ "${changed_paths}" == "${expected_path}" ]] ||
         fail "I09_I08_FIXTURE_PIN_INVALID:missing verifier"
@@ -7205,6 +7271,15 @@ validate_post_w1_i09_runtime_projection_descendants() {
     fail "I09_I08_FIXTURE_PIN_INVALID:missing verifier"
   [[ "${v2_fixture_pin_state}" != "VERIFIER" ]] ||
     fail "I09_V2_FIXTURE_PIN_INVALID:missing test"
+  case "${final_review_state}" in
+    SPEC|TEST)
+      fail "I09_FINAL_REVIEW_FINDING_INVALID:incomplete"
+      ;;
+    VERIFIER|COMPLETE)
+      [[ "${final_review_verifier_steps}" -eq 1 ]] ||
+        fail "I09_FINAL_REVIEW_FINDING_INVALID:missing verifier"
+      ;;
+  esac
   if [[ -z "${bridge_projection}" ]]; then
     bridge_projection="${projection}"
   fi
