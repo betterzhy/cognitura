@@ -7875,11 +7875,15 @@ run_w1_i11_persistence_rebaseline_contract() {
   make_i11_rebaseline_projection "${fixture_root}"
   git -C "${fixture_root}" show \
     "HEAD:${i11_rebaseline_card_path}" > "${fixture_root}/${i11_rebaseline_card_path}"
-  set_field "${fixture_root}/${i11_rebaseline_card_path}" ProductionFileLimit 9
+  set_field "${fixture_root}/${i11_rebaseline_card_path}" \
+    PrimaryBoundary SOURCE_PARTIAL_ACCEPTANCE_COMMAND
+  set_field "${fixture_root}/${i11_rebaseline_card_path}" ProductionFileLimit 10
+  set_field "${fixture_root}/${i11_rebaseline_card_path}" \
+    ProductionWriteSetException APPROVED_I11_PERSISTENCE_REBASELINE
   git -C "${fixture_root}" add "${i11_rebaseline_projection_paths[@]}"
   git -C "${fixture_root}" commit -qm "test: retain obsolete I11 WriteSet"
   expect_i11_rebaseline_failure "${fixture_root}" \
-    'I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH'
+    'I11_PERSISTENCE_REBASELINE_PROJECTION_MISMATCH:content:docs/task-cards/wave-1-implementation/W1-I11-partial-acceptance-command-api.md'
   negative_cases=$((negative_cases + 1))
 
   [[ "${positive_cases}" -eq 2 ]] || fail "I11 rebaseline positive count mismatch"
